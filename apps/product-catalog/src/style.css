@@ -76,6 +76,25 @@
   color-scheme: dark;
 }
 
+/* Dark mode texture overlay */
+[data-theme="dark"] body {
+  background-image:
+    repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 2px,
+      rgba(255, 255, 255, 0.03) 2px,
+      rgba(255, 255, 255, 0.03) 4px
+    ),
+    repeating-linear-gradient(
+      -45deg,
+      transparent,
+      transparent 2px,
+      rgba(255, 255, 255, 0.03) 2px,
+      rgba(255, 255, 255, 0.03) 4px
+    );
+}
+
 * {
   box-sizing: border-box;
 }
@@ -97,6 +116,23 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background-color: hsl(var(--color-surface));
+  background-image:
+    repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 2px,
+      rgba(0, 0, 0, 0.03) 2px,
+      rgba(0, 0, 0, 0.03) 4px
+    ),
+    repeating-linear-gradient(
+      -45deg,
+      transparent,
+      transparent 2px,
+      rgba(0, 0, 0, 0.03) 2px,
+      rgba(0, 0, 0, 0.03) 4px
+    );
+  background-size: 4px 4px;
+  background-attachment: fixed;
   color: hsl(var(--color-on-surface));
 }
 
@@ -152,18 +188,18 @@ h6 {
 
 /* Glassmorphism utilities */
 .glass {
-  background: rgba(255, 255, 255, 0.8);
+  background: hsl(var(--color-surface), 0.8);
   backdrop-filter: blur(var(--glass-blur));
   -webkit-backdrop-filter: blur(var(--glass-blur));
-  border: 2px solid #000000;
+  border: 2px solid hsl(var(--color-outline));
   box-shadow: var(--shadow-md);
 }
 
 .glass-dark {
-  background: rgba(0, 0, 0, 0.8);
+  background: hsl(var(--color-surface), 0.8);
   backdrop-filter: blur(var(--glass-blur));
   -webkit-backdrop-filter: blur(var(--glass-blur));
-  border: 2px solid #FFFFFF;
+  border: 2px solid hsl(var(--color-outline));
   box-shadow: var(--shadow-md);
 }
 
@@ -210,10 +246,10 @@ h6 {
 
 @keyframes glowPulse {
   0%, 100% {
-    box-shadow: 0 0 0 0 rgba(0, 0, 0, 0.5);
+    box-shadow: 0 0 0 0 hsl(var(--color-outline), 0.5);
   }
   50% {
-    box-shadow: 0 0 20px 10px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 0 20px 10px hsl(var(--color-outline), 0.2);
   }
 }
 
@@ -247,7 +283,7 @@ h6 {
 }
 
 .animate-shimmer {
-  background: linear-gradient(90deg, #fff 0%, #fff 20%, rgba(255, 255, 255, 0.2) 50%, #fff 80%, #fff 100%);
+  /* background: linear-gradient(90deg, #fff 0%, #fff 20%, rgba(255, 255, 255, 0.2) 50%, #fff 80%, #fff 100%); */
   background-size: 1000px 100%;
   animation: shimmer 2s infinite;
 }
@@ -288,11 +324,11 @@ h6 {
 
 /* Additional utility classes */
 .shadow-elevation {
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 20px 25px -5px hsl(var(--color-outline), 0.15);
 }
 
 .shadow-inner-subtle {
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+  box-shadow: inset 0 1px 3px hsl(var(--color-outline), 0.1);
 }
 
 /* Text utilities */
@@ -305,28 +341,16 @@ h6 {
 
 /* Focus states for accessibility */
 :focus-visible {
-  outline: 2px solid #000000;
+  outline: 2px solid hsl(var(--color-outline));
   outline-offset: 2px;
-}
-
-[data-theme="dark"] :focus-visible {
-  outline: 2px solid #FFFFFF;
 }
 
 button:focus-visible {
-  outline: 2px solid #000000;
+  outline: 2px solid hsl(var(--color-outline));
   outline-offset: 2px;
 }
 
-[data-theme="dark"] button:focus-visible {
-  outline: 2px solid #FFFFFF;
-}
-
 a:focus-visible {
-  outline: 2px solid #000000;
+  outline: 2px solid hsl(var(--color-outline));
   outline-offset: 4px;
-}
-
-[data-theme="dark"] a:focus-visible {
-  outline: 2px solid #FFFFFF;
 }
