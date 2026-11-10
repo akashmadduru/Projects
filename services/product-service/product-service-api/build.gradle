@@ -1,0 +1,37 @@
+// =============================================================================
+// product-service-api - the PUBLISHED CONTRACT of product-service (Phase 1E).
+//
+// Same shape and same rules as auth-service-api: this jar ends up on the
+// classpath of every service that talks to product-service, so it holds DTOs and
+// one Feign interface and nothing else - no entities, no Boot application, no
+// persistence, no security wiring.
+//
+// Every web/validation dependency is `compileOnly` on purpose - the annotations
+// are compiled in, but the consumer's own starter supplies them at runtime, so
+// this module never forces a web stack (or a Spring version) onto anyone.
+// =============================================================================
+plugins { id 'java-library' }
+
+dependencies {
+    api project(':libs:common-core')
+
+    // Bean-validation annotations. RUNTIME-retained, so a consumer that has a
+    // validator applies them and one that does not simply ignores them.
+    compileOnly libs.jakarta.validation.api
+
+    // ADDED IN PHASE 1E (the scaffold declared only feign-core): Spring Cloud
+    // OpenFeign's default contract reads Spring MVC annotations, not feign's own,
+    // so ProductClient is annotated @GetMapping/@PathVariable and needs
+    // spring-web on the compile classpath. auth-service-api declares exactly the
+    // same pair for exactly the same reason.
+    compileOnly libs.spring.web
+    compileOnly libs.feign.core
+
+    // Lombok for DTO generation - fine-grained control over getters, setters, builders
+    compileOnly libs.lombok
+    annotationProcessor libs.lombok
+
+    testImplementation libs.jakarta.validation.api
+    testImplementation libs.spring.web
+    testImplementation libs.assertj.core
+}

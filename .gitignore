@@ -1,0 +1,110 @@
+# =============================================================================
+# Build output
+# =============================================================================
+build/
+out/
+bin/
+target/
+!gradle/wrapper/gradle-wrapper.jar
+
+# =============================================================================
+# Gradle
+# =============================================================================
+.gradle/
+gradle-app.setting
+.gradletasknamecache
+
+# =============================================================================
+# SECRETS - never commit any of these
+# =============================================================================
+# Dev JWT signing keystore produced by infra/scripts/generate-keystore.sh.
+# A committed private key is a compromised private key.
+infra/secrets/
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.pem
+*.key
+!**/src/test/resources/**/*.p12
+
+# Environment / local overrides
+.env
+.env.*
+!.env.example
+**/application-local.yml
+**/application-local.yaml
+**/application-local.properties
+**/application-secrets.yml
+
+# =============================================================================
+# IDE - IntelliJ
+# =============================================================================
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# =============================================================================
+# IDE - Eclipse / VS Code
+# =============================================================================
+.classpath
+.project
+.settings/
+.factorypath
+.apt_generated/
+.vscode/
+!.vscode/extensions.json
+
+# =============================================================================
+# IDE - NetBeans
+# =============================================================================
+nbproject/private/
+nbbuild/
+dist/
+nbdist/
+.nb-gradle/
+
+# =============================================================================
+# OS
+# =============================================================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+desktop.ini
+
+# =============================================================================
+# Logs / temp
+# =============================================================================
+*.log
+logs/
+*.tmp
+*.bak
+*.swp
+*~
+
+# =============================================================================
+# JVM crash / profiling artifacts
+# =============================================================================
+hs_err_pid*
+replay_pid*
+*.hprof
+*.jfr
+
+# =============================================================================
+# Frontend (apps/admin-product-catalog - Phase 1F)
+# =============================================================================
+node_modules/
+dist-ssr/
+.vite/
+*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+coverage/
+.nyc_output/
+oracleJdk-27

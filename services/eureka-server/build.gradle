@@ -1,0 +1,27 @@
+// =============================================================================
+// eureka-server - the platform's service registry (Phase 1B).
+//
+// Deliberately the smallest possible Boot application: the registry holds no
+// business logic, no persistence and no public route. Every dependency added
+// here becomes a dependency of the component that every other service must be
+// able to reach, so the bar for adding one is high.
+//
+// NOTE: `spring-cloud-starter-netflix-eureka-server` transitively brings the
+// servlet web stack (Jersey + spring-boot-starter-web), so there is no explicit
+// starter-web declaration - adding one would only invite a version argument.
+// =============================================================================
+plugins {
+    id 'java-library'
+    alias(libs.plugins.spring.boot)
+}
+
+dependencies {
+    implementation libs.spring.cloud.starter.netflix.eureka.server
+    implementation libs.spring.boot.starter.actuator
+
+    testImplementation libs.assertj.core
+}
+
+// The registry is deployed as a container, never consumed as a library, so the
+// plain (non-executable) jar is pure build noise.
+tasks.named('jar') { enabled = false }

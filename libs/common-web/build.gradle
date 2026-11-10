@@ -1,0 +1,31 @@
+// common-web: the shared HTTP edge - RFC 9457 error translation, correlation-ID
+// propagation (inbound filter + outbound Feign interceptor).
+plugins { id 'java-library' }
+
+dependencies {
+    api project(':libs:common-core')
+
+    // `compileOnly` on purpose: consuming services bring their own web stack via
+    // spring-boot-starter-web. Declaring these as `api` would force a servlet
+    // stack onto every consumer and risk fighting their starter's versions.
+    compileOnly libs.spring.web
+    compileOnly libs.spring.webmvc
+    compileOnly libs.spring.context
+    compileOnly libs.jakarta.servlet.api
+    compileOnly libs.feign.core
+    compileOnly libs.spring.boot.autoconfigure
+    compileOnly libs.spring.boot
+
+    // Security advice compiles against these but they stay optional at runtime;
+    // the auto-configuration only registers it when security is actually present.
+    compileOnly libs.spring.security.core
+    compileOnly libs.spring.security.web
+
+    testImplementation libs.spring.web
+    testImplementation libs.spring.webmvc
+    testImplementation libs.jakarta.servlet.api
+    testImplementation libs.feign.core
+    testImplementation libs.spring.boot.autoconfigure
+    testImplementation libs.spring.security.core
+    testImplementation libs.spring.security.web
+}

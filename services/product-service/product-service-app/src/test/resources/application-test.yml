@@ -1,0 +1,53 @@
+# =============================================================================
+# Test profile.
+#
+# The datasource and product.jwt.jwks-uri are supplied by
+# AbstractProductIntegrationTest via @DynamicPropertySource (Testcontainers
+# Postgres + a stub JWKS server on an ephemeral port), so they are absent here on
+# purpose - a hardcoded value would silently win over the container's.
+# =============================================================================
+
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: none
+    open-in-view: false
+    properties:
+      hibernate:
+        default_schema: product
+  flyway:
+    enabled: true
+    schemas: product
+    default-schema: product
+  kafka:
+    # No broker in a unit/integration-test JVM. ProductEventPublisher's
+    # afterCommit() callback runs synchronously on the request thread (it must,
+    # to guarantee ordering with the commit it follows), and KafkaProducer.send()
+    # blocks for up to `max.block.ms` (default 60s!) fetching cluster metadata
+    # when nothing answers. This caps that at a few seconds so a write endpoint
+    # test fails fast instead of hanging - the send failure itself is swallowed
+    # by Kafka's own async callback, exactly as it would be against a genuinely
+    # unreachable broker in production (HLD S7: a Kafka outage must not turn a
+    # successful write into an HTTP error).
+    producer:
+      properties:
+        max.block.ms: 2000
+
+product:
+  jwt:
+    # MUST equal TestKeys.ISSUER / TestKeys.AUDIENCE. The wrong-issuer and
+    # wrong-audience rejection tests are only meaningful because the happy path
+    # matches these exactly.
+    issuer: https://auth.acme-ecommerce.internal
+    audience: ecommerce-platform
+
+eureka:
+  client:
+    # No registry in a unit-test JVM; leaving this on produces 60s of
+    # connection-refused retries and a much slower suite.
+    enabled: false
+
+logging:
+  level:
+    org.hibernate.SQL: INFO
+    com.acme.ecommerce.product: INFO

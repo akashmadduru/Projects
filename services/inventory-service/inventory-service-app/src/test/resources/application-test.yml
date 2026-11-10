@@ -1,0 +1,40 @@
+# =============================================================================
+# Test profile.
+#
+# The datasource and inventory.jwt.jwks-uri are supplied by
+# AbstractInventoryIntegrationTest via @DynamicPropertySource (Testcontainers
+# Postgres + a stub JWKS server on an ephemeral port), so they are absent here on
+# purpose - a hardcoded value would silently win over the container's.
+# =============================================================================
+
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: none
+    open-in-view: false
+    properties:
+      hibernate:
+        default_schema: inventory
+  flyway:
+    enabled: true
+    schemas: inventory
+    default-schema: inventory
+
+inventory:
+  jwt:
+    # MUST equal TestKeys.ISSUER / TestKeys.AUDIENCE. The wrong-audience
+    # rejection test is only meaningful because the happy path matches these
+    # exactly.
+    issuer: https://auth.acme-ecommerce.internal
+    audience: ecommerce-platform
+
+eureka:
+  client:
+    # No registry in a unit-test JVM; leaving this on produces 60s of
+    # connection-refused retries and a much slower suite.
+    enabled: false
+
+logging:
+  level:
+    org.hibernate.SQL: INFO
+    "[com.acme.ecommerce.inventory]": INFO

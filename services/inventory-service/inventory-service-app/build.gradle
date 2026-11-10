@@ -1,0 +1,89 @@
+// =============================================================================
+// inventory-service-app - the deployable stock-level service (Phase 2).
+//
+// BLOCKING MVC + VIRTUAL THREADS, NOT WEBFLUX, for the same reason
+// product-service is: every request here is one short, indexed, blocking query
+// behind an ordinary request/response contract. Virtual threads (Java 25,
+// `spring.threads.virtual.enabled=true`) give reactive-grade concurrency while
+// leaving the code as plain imperative Java that @Transactional, debuggers and
+// stack traces all understand. The gateway is reactive because it proxies;
+// this service is not a proxy.
+//
+// PHASE 3 ADDS THE KAFKA CONSUMER SIDE. Full CRUD on inventory.stock_levels,
+// its own database, its own gateway route landed standalone first; this pass
+// wires ProductEventListener to product.events so PRODUCT_CREATED/_DELETED
+// keep inventory.stock_levels eventually consistent with product.products -
+// see com.acme.ecommerce.inventory.event.ProductEventListener.
+// =============================================================================
+plugins {
+    id 'java-library'
+    alias(libs.plugins.spring.boot)
+}
+
+dependencies {
+    // `api` (not `implementation`): the DTOs on this service's controller
+    // signatures ARE the published contract.
+    api project(':services:inventory-service:inventory-service-api')
+
+    implementation project(':libs:common-web')
+    implementation project(':libs:common-security')
+
+    implementation libs.bundles.service.web
+    implementation libs.bundles.service.discovery.client
+    implementation libs.bundles.persistence.postgres
+    // Pure resource server: this service issues no tokens and holds no signing
+    // key. It validates the platform's tokens locally against auth-service's
+    // JWKS, exactly as product-service and the gateway do - the gateway is a
+    // filter, not the trust boundary.
+    implementation libs.bundles.resource.server
+    // The Kafka consumer: ProductEventListener consumes product.events to keep
+    // inventory.stock_levels eventually consistent with product.products. This
+    // service issues no tokens and holds no signing key here either - this is
+    // purely the messaging client.
+    implementation libs.spring.kafka
+    // See the alias's own comment in gradle/libs.versions.toml - without this,
+    // spring.kafka.* properties bind but no listener-container-factory bean is
+    // ever created.
+    implementation libs.spring.boot.kafka
+    // Not used by any code in this pass. It is on the classpath so that
+    // common-web's FeignPropagationConfiguration (which is @ConditionalOnClass
+    // feign.RequestInterceptor) registers the Authorization/X-Correlation-Id
+    // relay, and so a later outbound call is a @FeignClient interface rather
+    // than a build change.
+    implementation libs.spring.cloud.starter.openfeign
+
+    implementation libs.micrometer.registry.prometheus
+
+    // Getter/no-arg-constructor generation for the Inventory domain entity -
+    // compileOnly + annotationProcessor only, never on the runtime classpath.
+    // Its hand-rolled equals()/hashCode()/toString() and validating factory
+    // methods are deliberately left untouched (see the class's own comments),
+    // so Lombok is scoped to @Getter/@NoArgsConstructor.
+    compileOnly libs.lombok
+    annotationProcessor libs.lombok
+
+    // Generates META-INF/spring-configuration-metadata.json so `inventory.*`
+    // shows up with documentation in IDE completion.
+    //
+    // The BOM has to be re-imported here: the root build adds the platforms to
+    // the `api` configuration, and `annotationProcessor` does not extend it -
+    // so without this the processor resolves to a version-less coordinate and
+    // the build fails with "Could not find ...:spring-boot-configuration-processor:".
+    annotationProcessor platform(libs.spring.boot.bom)
+    annotationProcessor libs.spring.boot.configuration.processor
+
+    testImplementation libs.bundles.testing.unit
+    testImplementation libs.bundles.testing.containers
+    // ProductEventListenerIntegrationTest proves the listener's dispatch logic
+    // against a real broker rather than a mock, using Testcontainers' Kafka
+    // module (reserved for exactly this suite - see the alias's own comment).
+    testImplementation libs.testcontainers.kafka
+    testImplementation libs.spring.kafka.test
+    testImplementation libs.spring.security.test
+    testImplementation libs.spring.boot.webmvc.test
+    // Mints genuinely valid (and genuinely invalid) test tokens - see TestKeys.
+    testImplementation libs.nimbus.jose.jwt
+}
+
+// Deployed as a container image, never consumed as a library.
+tasks.named('jar') { enabled = false }

@@ -1,0 +1,80 @@
+// =============================================================================
+// auth-service-app - the deployable auth service (Phase 1C).
+//
+// BLOCKING MVC + VIRTUAL THREADS, NOT WEBFLUX. Every request this service
+// serves is a short burst of blocking I/O (one or two indexed queries, one
+// Argon2 hash) behind a straightforward request/response contract. Virtual
+// threads (Java 25, `spring.threads.virtual.enabled=true`) give the same
+// "thread per request without a thread-per-request cost" scaling that WebFlux
+// would, while leaving the code as ordinary imperative Java that stack traces,
+// debuggers and @Transactional all understand. The gateway is reactive because
+// it proxies; this service is not a proxy.
+//
+// NOTE: Argon2id is deliberately CPU-bound and NOT helped by virtual threads -
+// see `auth.password` in application.yml for the sizing consequence.
+// =============================================================================
+plugins {
+    id 'java-library'
+    alias(libs.plugins.spring.boot)
+}
+
+dependencies {
+    // `api` (not `implementation`): the DTOs on this service's controller
+    // signatures ARE the published contract, and a consumer of this module in a
+    // test context needs them transitively.
+    api project(':services:auth-service:auth-service-api')
+
+    implementation project(':libs:common-web')
+    implementation project(':libs:common-security')
+
+    implementation libs.bundles.service.web
+    implementation libs.bundles.service.discovery.client
+    implementation libs.bundles.persistence.postgres
+
+    // UserSessionCache's Redis client (Phase 2 - see docs/HLD-event-driven-inventory.md).
+    implementation libs.spring.boot.starter.data.redis
+
+    implementation libs.spring.boot.starter.security
+    // Resource server: /me and /validate authenticate the caller's own Bearer
+    // token. auth-service validates its own tokens exactly the way every other
+    // service does - locally, against its own JWKS - rather than taking a
+    // shortcut that would make its behaviour diverge from the fleet's.
+    implementation libs.spring.boot.starter.oauth2.resource.server
+    // Client: the Google OIDC login leg.
+    implementation libs.spring.boot.starter.oauth2.client
+    implementation libs.spring.security.oauth2.jose
+    implementation libs.nimbus.jose.jwt
+
+    // Argon2id password hashing. spring-security-crypto's Argon2PasswordEncoder
+    // delegates to BouncyCastle's implementation, which is why bcprov is a
+    // runtime requirement and not an optional extra.
+    implementation libs.spring.security.crypto
+    implementation libs.bouncycastle.bcprov
+
+    // Per-instance, in-memory throttle on the unauthenticated endpoints.
+    implementation libs.bucket4j.core
+
+    implementation libs.micrometer.registry.prometheus
+
+    // Lombok for configuration properties and DTO generation
+    compileOnly libs.lombok
+    annotationProcessor libs.lombok
+
+    // Generates META-INF/spring-configuration-metadata.json so `auth.*` shows up
+    // with documentation in IDE completion.
+    //
+    // The BOM has to be re-imported here: the root build adds the platforms to
+    // the `api` configuration, and `annotationProcessor` does not extend it - so
+    // without this the processor resolves to a version-less coordinate and the
+    // build fails with "Could not find ...:spring-boot-configuration-processor:".
+    annotationProcessor platform(libs.spring.boot.bom)
+    annotationProcessor libs.spring.boot.configuration.processor
+
+    testImplementation libs.bundles.testing.unit
+    testImplementation libs.bundles.testing.containers
+    testImplementation libs.spring.security.test
+    testImplementation libs.spring.boot.webmvc.test
+}
+
+// Deployed as a container image, never consumed as a library.
+tasks.named('jar') { enabled = false }

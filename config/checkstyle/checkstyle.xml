@@ -1,0 +1,100 @@
+<?xml version="1.0"?>
+<!DOCTYPE module PUBLIC
+        "-//Checkstyle//DTD Checkstyle Configuration 1.3//EN"
+        "https://checkstyle.org/dtds/configuration_1_3.dtd">
+<!--
+  Intentionally lean ruleset.
+
+  Spotless + google-java-format already owns everything about *formatting*
+  (indentation, wrapping, import order, whitespace). Duplicating those rules in
+  Checkstyle only produces contradictory failures. Checkstyle here enforces the
+  things a formatter cannot: structural and correctness-leaning conventions.
+-->
+<module name="Checker">
+    <property name="severity" value="error"/>
+    <property name="fileExtensions" value="java"/>
+
+    <!-- No tabs anywhere. -->
+    <module name="FileTabCharacter">
+        <property name="eachLine" value="true"/>
+    </module>
+
+    <module name="TreeWalker">
+
+        <!-- === Imports ================================================== -->
+        <module name="AvoidStarImport"/>
+        <module name="UnusedImports">
+            <property name="processJavadoc" value="true"/>
+        </module>
+        <module name="RedundantImport"/>
+        <!-- Nobody should be reaching into JDK internals. -->
+        <module name="IllegalImport">
+            <property name="illegalPkgs" value="sun, jdk.internal"/>
+        </module>
+
+        <!-- === Naming =================================================== -->
+        <module name="PackageName">
+            <property name="format" value="^[a-z]+(\.[a-z][a-z0-9]*)*$"/>
+        </module>
+        <module name="TypeName"/>
+        <module name="MethodName"/>
+        <!--
+          SCREAMING_SNAKE_CASE for constants, with an explicit exemption for the
+          conventional logger fields. `private static final Logger log` is the
+          near-universal idiom across the Spring ecosystem; forcing LOG/LOGGER
+          here would fight every code sample the team reads.
+        -->
+        <module name="ConstantName">
+            <property name="format"
+                      value="^([A-Z][A-Z0-9]*(_[A-Z0-9]+)*|log|logger)$"/>
+        </module>
+        <module name="LocalVariableName"/>
+        <module name="ParameterName"/>
+        <module name="MemberName"/>
+        <module name="StaticVariableName"/>
+
+        <!-- === Correctness-leaning ====================================== -->
+        <!-- Blocks must be braced; prevents the classic dangling-if bug. -->
+        <module name="NeedBraces"/>
+        <module name="EmptyBlock">
+            <property name="option" value="TEXT"/>
+            <property name="tokens" value="LITERAL_TRY, LITERAL_CATCH, LITERAL_FINALLY, LITERAL_IF, LITERAL_ELSE, LITERAL_FOR, LITERAL_WHILE, INSTANCE_INIT, STATIC_INIT"/>
+        </module>
+        <module name="EqualsHashCode"/>
+        <module name="SimplifyBooleanExpression"/>
+        <module name="SimplifyBooleanReturn"/>
+        <module name="StringLiteralEquality"/>
+        <module name="FallThrough"/>
+        <module name="DefaultComesLast"/>
+        <module name="OneStatementPerLine"/>
+        <module name="MultipleVariableDeclarations"/>
+        <module name="ModifierOrder"/>
+        <module name="UpperEll"/>
+        <module name="ArrayTypeStyle"/>
+        <module name="CovariantEquals"/>
+        <module name="NoFinalizer"/>
+
+        <!--
+          Constant/utility holders must not be instantiable.
+
+          Exemption: a Spring Boot entry-point class has nothing but
+          `public static void main`, so it looks like a utility class - but it is
+          also a @Configuration class that Spring CGLIB-proxies, which requires a
+          non-private constructor. Adding one to satisfy this rule would break
+          the application at startup, so the annotation is exempted instead.
+        -->
+        <module name="HideUtilityClassConstructor">
+            <property name="ignoreAnnotatedBy" value="SpringBootApplication"/>
+        </module>
+
+        <!-- === Size limits (a smell signal, not a straitjacket) ========== -->
+        <module name="MethodLength">
+            <property name="max" value="120"/>
+        </module>
+        <module name="ParameterNumber">
+            <property name="max" value="10"/>
+            <!-- Constructor injection legitimately takes many collaborators. -->
+            <property name="tokens" value="METHOD_DEF"/>
+        </module>
+    </module>
+</module>

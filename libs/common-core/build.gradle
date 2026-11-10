@@ -1,0 +1,11 @@
+// common-core: framework-agnostic building blocks shared by every service.
+//
+// DELIBERATE CONSTRAINT: this module must NOT depend on Spring Web (or any
+// servlet/MVC API). It is consumed by modules that are not web applications
+// (batch jobs, pure domain libraries), and keeping it web-free is what makes
+// that possible. Anything needing HttpServletRequest belongs in common-web.
+plugins { id 'java-library' }
+
+dependencies {
+    api libs.slf4j.api
+}

@@ -1,0 +1,307 @@
+# =============================================================================
+# product-service configuration.
+#
+# The unprofiled document is the DEV/DOCKER-COMPOSE configuration. The `prod`
+# document at the bottom records exactly which knobs must move for a real
+# environment - kept in the same file on purpose, so the dev/prod delta cannot be
+# missed by reading only one of them.
+#
+# NOTHING SECRET HAS A WORKING DEFAULT except the throwaway local database
+# password, which is the same value infra/postgres/init/01-schemas.sql creates on
+# a developer's machine and is never deployed anywhere.
+# =============================================================================
+
+spring:
+  application:
+    # THIS EXACT STRING IS A CONTRACT. Eureka uppercases it to PRODUCT-SERVICE,
+    # which is the service id the gateway's route table already targets
+    # (`lb://PRODUCT-SERVICE`, predicate Path=/api/products/**). Rename this and
+    # the route stops resolving SILENTLY - the gateway cannot tell an
+    # unregistered target from a down one, so the symptom is a 503 from
+    # /__fallback/product with nothing anywhere pointing at the cause.
+    name: product-service
+
+  # Blocking MVC on virtual threads. Every request here is one short, indexed
+  # query; virtual threads give reactive-grade concurrency without reactive-grade
+  # complexity. See ProductServiceApplication.
+  threads:
+    virtual:
+      enabled: true
+
+  datasource:
+    # Host port 5432 is the compose default; a developer whose machine already
+    # has a Postgres on it runs the stack with POSTGRES_PORT=15432 and overrides
+    # this variable to match.
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/product_db}
+    username: ${SPRING_DATASOURCE_USERNAME:product_service}
+    password: ${SPRING_DATASOURCE_PASSWORD:product_service_local_pwd}
+    hikari:
+      # SIZED FOR CONNECTIONS, NOT FOR THREADS. Virtual threads make it trivial
+      # to have thousands of requests in flight, but Postgres still forks one
+      # backend process per connection - a pool sized to match the thread count
+      # is how a service takes the database down. 10 comfortably saturates the
+      # single indexed query this service issues; requests queue for a
+      # connection, which is the correct back-pressure point.
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 3000
+      pool-name: product-hikari
+
+  jpa:
+    # Flyway owns the schema. `validate` would additionally re-derive the mapping
+    # at every startup and fail on differences (char(3) vs varchar) that are
+    # correct on both sides.
+    hibernate:
+      ddl-auto: none
+    # OFF. Open-session-in-view holds a database connection for the whole request
+    # including response serialisation, and hides lazy-loading bugs until the day
+    # a query moves outside the request.
+    open-in-view: false
+    properties:
+      hibernate:
+        default_schema: product
+        jdbc:
+          time_zone: UTC
+        # Fails loudly if anything lazy is touched after the session closes,
+        # instead of silently issuing a query.
+        enable_lazy_load_no_trans: false
+
+  flyway:
+    enabled: true
+    # Flyway creates the schema and puts its history table there.
+    schemas: product
+    default-schema: product
+    locations: classpath:db/migration
+    # Fail rather than "fix" a checksum mismatch: a changed migration means the
+    # code and the deployed schema disagree, and repairing quietly is how that
+    # ends up in production.
+    validate-on-migrate: true
+
+  data:
+    web:
+      pageable:
+        # THE CAP THAT MATTERS. Spring Data's own default is 2000, so without
+        # this a caller could ask for ?size=2000 and turn a paged read into a
+        # near-full-table scan - which, against the gateway's 1s productCb
+        # slow-call threshold, is a self-service way to trip the circuit for
+        # everyone else.
+        max-page-size: 100
+        default-page-size: 20
+
+  web:
+    # Never advertise the server implementation or render a stack trace. Moved
+    # here from server.error.* in Spring Boot 4 / Spring Framework 7.
+    error:
+      whitelabel:
+        enabled: false
+      include-stacktrace: never
+      include-message: never
+
+  # ProductEventPublisher's producer AND InventoryEventListener's consumer. NOT a
+  # hard startup dependency - a Kafka outage must not prevent this service from
+  # starting or serving reads/writes (HLD S7); the publish happens after commit,
+  # best-effort, and a send failure is logged, not thrown. See
+  # infra/docker-compose.yml: product-service does NOT `depends_on: kafka`.
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    # InventoryEventListener's consumer of inventory.events (Phase 3 slice, see
+    # docs/HLD-catalog-enrichment-and-saga.md S2/S5). Mirrors inventory-service's
+    # own consumer config for product.events, symmetrically.
+    consumer:
+      group-id: product-service
+      # A brand-new instance (empty consumer-group offset) replays the entire
+      # topic history rather than starting from "now" - same accepted prototype
+      # tradeoff as inventory-service's ProductEventListener.
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: com.acme.ecommerce.product.event
+        # This service never deserializes into inventory-service's producer-side
+        # type headers (`__TypeId__`) - it has no dependency on
+        # inventory-service-api and no reason to. Always resolving to this
+        # module's own InventoryEvent keeps that boundary honest.
+        spring.json.value.default.type: com.acme.ecommerce.product.event.InventoryEvent
+        spring.json.use.type.headers: false
+
+server:
+  port: ${SERVER_PORT:8082}
+  shutdown: graceful
+
+# -----------------------------------------------------------------------------
+# InventoryFeignClient's outbound HTTP call (Phase 3, docs/HLD-catalog-enrichment-and-saga.md
+# S7.3) - product-service's one, narrowly-approved synchronous call to inventory-service. Keyed
+# by the client's `name` (matches inventory-service's spring.application.name, same as
+# InventoryFeignClient's own @FeignClient annotation).
+#
+# SHORT ON PURPOSE. This is a same-network, short-indexed-query call the same class as the
+# gateway's own inventoryCb route (1s slow-call threshold) - a caller of
+# GET /api/products/catalog/products/{id} must not wait meaningfully longer for the advisory
+# inventory half than for the product half alone.
+# -----------------------------------------------------------------------------
+feign:
+  client:
+    config:
+      inventory-service:
+        connect-timeout: 1000
+        read-timeout: 1500
+
+# -----------------------------------------------------------------------------
+# aggregateCb - the circuit breaker around InventoryFeignClient (docs/adr/0003, Decision 2).
+#
+# A SEPARATE, NAMED INSTANCE from every other breaker in the platform (the gateway's productCb/
+# inventoryCb/authCb included): this one protects exactly CatalogAggregateService's one outbound
+# call, so nothing else can trip it and it cannot trip anything else. Same shape as the gateway's
+# per-route instances (docs/HLD-catalog-enrichment-and-saga.md S8) - this is the BLOCKING
+# resilience4j starter (spring-cloud-starter-circuitbreaker-resilience4j), not the gateway's
+# reactor variant, but the resilience4j.circuitbreaker.instances.* property shape is identical
+# either way.
+#
+# ignore-exceptions INCLUDES FeignException.NotFound DELIBERATELY: a product genuinely not yet
+# provisioned in inventory-service (the choreographed creation-saga's window,
+# docs/HLD-catalog-enrichment-and-saga.md S7.1) is expected, ordinary behaviour, not a signal
+# inventory-service is unhealthy - counting it as a circuit-breaker failure would let a burst of
+# perfectly normal 404s trip the breaker for every OTHER product's aggregate read too.
+# CatalogAggregateService's fallback still turns a 404 into inventory: null either way; this
+# setting only affects whether the breaker's failure-rate counter reacts to it.
+# -----------------------------------------------------------------------------
+resilience4j:
+  circuitbreaker:
+    instances:
+      aggregateCb:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 20
+        minimum-number-of-calls: 10
+        failure-rate-threshold: 50
+        slow-call-rate-threshold: 50
+        # Above the feign client's own 1.5s read-timeout, so a call that times out at the HTTP
+        # layer is recorded as a FAILED call, not double-counted as a separate SLOW call.
+        slow-call-duration-threshold: 1500ms
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 3
+        automatic-transition-from-open-to-half-open-enabled: true
+        register-health-indicator: true
+        ignore-exceptions:
+          - feign.FeignException$NotFound
+
+# -----------------------------------------------------------------------------
+# product-service's own settings. Every one is documented on
+# com.acme.ecommerce.product.config.ProductProperties.
+# -----------------------------------------------------------------------------
+product:
+  jwt:
+    # SAME ENV VARS AND SAME DEFAULTS AS auth-service's `auth.jwt.*` and the
+    # gateway's `gateway.jwt.*`. Any of the three drifting is a total outage for
+    # this service with a singularly unhelpful error ("invalid_token", on every
+    # request, with nothing in any log naming the cause).
+    issuer: ${AUTH_JWT_ISSUER:https://auth.acme-ecommerce.internal}
+    audience: ${AUTH_JWT_AUDIENCES:ecommerce-platform}
+    # Resolved through Eureka at FETCH time, so the keys come from whichever
+    # auth-service instance is currently registered rather than a host frozen in
+    # at startup.
+    jwks-service-id: ${PRODUCT_JWKS_SERVICE_ID:AUTH-SERVICE}
+    jwks-path: /.well-known/jwks.json
+    # Set this ONLY where there is no registry (tests, single-node deploys, or an
+    # incident in which discovery is the broken thing). A non-blank value bypasses
+    # discovery entirely.
+    jwks-uri: ${PRODUCT_JWKS_URI:}
+
+# -----------------------------------------------------------------------------
+# Service discovery.
+#
+# TIMING INVARIANT (documented in services/eureka-server/README.md):
+#   lease-expiration-duration-in-seconds >= 3 x lease-renewal-interval-in-seconds
+# A single dropped heartbeat must never be enough to evict a healthy instance.
+# 10s renewal / 30s expiration satisfies it exactly.
+# -----------------------------------------------------------------------------
+eureka:
+  client:
+    enabled: ${EUREKA_CLIENT_ENABLED:true}
+    service-url:
+      defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:http://localhost:8761/eureka/}
+    registry-fetch-interval-seconds: 5
+    healthcheck:
+      # Without this, Eureka reports the instance UP as long as the process is
+      # alive - including while the database is unreachable and every request is
+      # failing. With it, the actuator health status drives registration status,
+      # so the gateway stops routing to an instance that cannot serve.
+      enabled: true
+  instance:
+    # Containers have no resolvable hostname on the compose network from a
+    # caller's point of view; the IP always works.
+    prefer-ip-address: true
+    lease-renewal-interval-in-seconds: 10
+    lease-expiration-duration-in-seconds: 30
+
+management:
+  endpoints:
+    web:
+      exposure:
+        # health/info for orchestration, prometheus for scraping. Nothing else:
+        # /env and /configprops would expose the datasource URL and every
+        # product.* setting.
+        include: health,info,prometheus
+  endpoint:
+    health:
+      show-details: when-authorized
+      probes:
+        enabled: true
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
+    # aggregateCb's health indicator is informative but must NOT make this service report DOWN:
+    # an open breaker on the aggregate-read's inventory half is this service correctly degrading
+    # per HLD S7.3, not an outage of product-service itself. Matches the gateway's identical
+    # override for its own circuit breakers, and the same reasoning.
+    circuitbreakers:
+      enabled: false
+  metrics:
+    tags:
+      application: product-service
+
+logging:
+  level:
+    root: INFO
+    com.acme.ecommerce.product: INFO
+    # These are the loggers that would print request headers (including
+    # Authorization) and SQL parameters at DEBUG. Pinned at INFO so that turning
+    # on root DEBUG to chase an unrelated bug does not dump credentials into the
+    # log.
+    org.springframework.web: INFO
+    org.springframework.security: INFO
+    org.hibernate.SQL: INFO
+    org.hibernate.orm.jdbc.bind: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%X{correlationId:-}] %logger{36} - %msg%n"
+
+---
+# =============================================================================
+# PROFILE: prod
+#
+# Not exercised in Phase 1 (dev-only). Recorded here so the production intent
+# lives next to the dev values it overrides.
+# =============================================================================
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+  datasource:
+    # No working default in production. A service that starts with a committed
+    # database password is a service that will eventually be deployed with one.
+    password: ${SPRING_DATASOURCE_PASSWORD}
+
+logging:
+  level:
+    root: WARN
+    com.acme.ecommerce.product: INFO
+
+management:
+  endpoint:
+    health:
+      show-details: never

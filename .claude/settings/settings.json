@@ -1,0 +1,143 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "workspace": {
+    "name": "polymath-enterprise-workspace",
+    "description": "Elite multi-agent Claude Code workspace for enterprise Vue 3 / TypeScript / Pinia / TailwindCSS frontends and Python / FastAPI / SQLAlchemy / microservices backends.",
+    "orchestratorAgent": "agents/orchestrator/polymath.md"
+  },
+  "model": {
+    "default": "haiku",
+    "options": ["haiku", "sonnet"],
+    "promptOnEveryCommand": true,
+    "promptSource": "prompts/model-selection.md",
+    "autoRecommend": {
+      "sonnet": [
+        "repository > medium size",
+        "architecture changes",
+        "major refactoring",
+        "feature planning",
+        "debugging across modules",
+        "HLD generation",
+        "LLD generation",
+        "documentation generation spanning multiple files"
+      ],
+      "haiku": [
+        "documentation updates",
+        "markdown generation",
+        "formatting",
+        "simple fixes",
+        "file searching",
+        "code explanations",
+        "TODO generation"
+      ]
+    }
+  },
+  "tokenBudget": {
+    "default": "medium",
+    "options": ["medium", "high"],
+    "promptOnEveryCommand": true,
+    "promptSource": "prompts/token-budget.md",
+    "autoRecommendHigh": [
+      "explicit architecture / system-wide / cross-service / end-to-end request",
+      "model recommendation already resolved to sonnet",
+      "repository has more than one deployable unit"
+    ]
+  },
+  "agents": {
+    "directory": "agents",
+    "categories": [
+      "orchestrator",
+      "planning",
+      "implementation",
+      "optimization",
+      "documentation",
+      "architecture",
+      "diagrams",
+      "testing",
+      "frontend",
+      "backend",
+      "aws",
+      "review",
+      "debug"
+    ]
+  },
+  "commands": {
+    "directory": "commands"
+  },
+  "sharedPrompts": {
+    "directory": "prompts",
+    "alwaysLoad": [
+      "prompts/elite-knowledge-base.md",
+      "prompts/coding-standards.md",
+      "prompts/output-format.md"
+    ]
+  },
+  "templates": {
+    "directory": "templates"
+  },
+  "outputContract": {
+    "source": "prompts/output-format.md",
+    "requiredSections": [
+      "Summary",
+      "Files Changed",
+      "Reasoning",
+      "Architecture Decisions",
+      "Risks",
+      "Technical Debt",
+      "Future Improvements",
+      "Performance Notes",
+      "Security Notes",
+      "Testing",
+      "Documentation",
+      "Checklist"
+    ]
+  },
+  "rules": {
+    "preserveArchitecture": true,
+    "minimizeRegressions": true,
+    "preferCompositionApi": true,
+    "requireStrongTypeScript": true,
+    "followVueStyleGuide": true,
+    "followSOLID": true,
+    "followCleanArchitecture": true,
+    "followDomainDrivenDesignWhereApplicable": true,
+    "followCleanCode": true,
+    "enterpriseNamingConventions": true,
+    "favorReadabilityOverCleverness": true,
+    "alwaysExplainTradeoffs": true,
+    "alwaysIdentifyTechnicalDebt": true,
+    "alwaysRecommendFutureImprovements": true,
+    "alwaysValidateBeforeCompletion": true,
+    "neverRewriteWorkingCodeUnnecessarily": true
+  },
+  "permissions": {
+    "allow": [
+      "Read(**)",
+      "Grep(**)",
+      "Glob(**)",
+      "Edit(**)",
+      "Write(**)",
+      "Bash(git *)",
+      "Bash(npm *)",
+      "Bash(pnpm *)",
+      "Bash(yarn *)",
+      "Bash(pytest *)",
+      "Bash(python *)",
+      "Bash(alembic *)",
+      "Bash(docker *)",
+      "Bash(kubectl *)"
+    ],
+    "deny": [
+      "Bash(rm -rf /*)",
+      "Bash(git push --force*)",
+      "Bash(*DROP TABLE*)"
+    ],
+    "requireConfirmationFor": [
+      "destructive database migrations",
+      "force-push",
+      "deleting a service or bounded context",
+      "IAM policy changes",
+      "cost-impacting infrastructure changes"
+    ]
+  }
+}

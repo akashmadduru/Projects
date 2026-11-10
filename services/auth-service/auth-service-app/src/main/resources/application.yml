@@ -1,0 +1,277 @@
+# =============================================================================
+# auth-service configuration.
+#
+# The unprofiled document is the DEV/DOCKER-COMPOSE configuration. The `prod`
+# document at the bottom records exactly which knobs must move for a real
+# environment - kept in the same file on purpose, so the dev/prod delta cannot be
+# missed by reading only one of them.
+#
+# NOTHING SECRET HAS A WORKING DEFAULT. The database password, the keystore
+# password and the Google credentials are all `${VAR}` with either no default or
+# an empty one. A committed default for any of them is a credential that will
+# eventually be deployed.
+# =============================================================================
+
+spring:
+  application:
+    name: auth-service
+
+  # Blocking MVC on virtual threads. Every request here is short, blocking I/O
+  # (indexed queries + one Argon2 hash); virtual threads give reactive-grade
+  # concurrency without reactive-grade complexity. See AuthServiceApplication.
+  threads:
+    virtual:
+      enabled: true
+
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/auth_db}
+    username: ${SPRING_DATASOURCE_USERNAME:auth_service}
+    password: ${SPRING_DATASOURCE_PASSWORD:auth_service_local_pwd}
+    hikari:
+      # SIZED FOR CONNECTIONS, NOT FOR THREADS. Virtual threads make it trivial
+      # to have 10 000 requests in flight, but Postgres still forks one backend
+      # process per connection - a pool sized to match the thread count is how a
+      # service takes the database down. 10 connections comfortably saturates the
+      # handful of short indexed queries this service issues; requests queue for a
+      # connection, which is the correct back-pressure point.
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 3000
+      pool-name: auth-hikari
+
+  jpa:
+    # Flyway owns the schema. `validate` is tempting, but Hibernate cannot
+    # validate the `citext` and `inet` column types this schema uses and would
+    # fail startup on a schema that is perfectly correct.
+    hibernate:
+      ddl-auto: none
+    # OFF. Open-session-in-view holds a database connection for the entire
+    # request including response serialisation, and it hides lazy-loading bugs
+    # until the day a query moves outside the request. Every path that needs
+    # roles asks for them explicitly with @EntityGraph.
+    open-in-view: false
+    properties:
+      hibernate:
+        default_schema: auth
+        jdbc:
+          batch_size: 20
+          time_zone: UTC
+        # Fails the build-time contract that nothing lazy is touched after the
+        # session closes, instead of silently issuing a query.
+        enable_lazy_load_no_trans: false
+
+  flyway:
+    enabled: true
+    # Flyway creates the schema and puts its history table there.
+    schemas: auth
+    default-schema: auth
+    locations: classpath:db/migration
+    # Fail rather than "fix" a checksum mismatch: a changed migration means the
+    # code and the deployed schema disagree, and repairing quietly is how that
+    # ends up in production.
+    validate-on-migrate: true
+
+  # UserSessionCache's connection (Phase 2 - see docs/HLD-event-driven-inventory.md).
+  # Backing service only, NOT a startup dependency: see infra/docker-compose.yml's
+  # auth-service block for why there is no `depends_on: redis` there - the cache
+  # write fails open (UserSessionCache#put), so a Redis outage must never block
+  # this service from starting or serving logins.
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+  # Deliberately NOT using spring.security.oauth2.client.registration.google.*.
+  # Boot builds that registration eagerly and asserts a non-empty client id, so
+  # an unset GOOGLE_CLIENT_ID would stop the application from starting at all
+  # rather than simply disabling the Google leg. See GoogleOAuth2ClientConfig.
+
+  web:
+    # Never advertise the server implementation and version. Moved here from
+    # server.error.* in Spring Boot 4 / Spring Framework 7.
+    error:
+      whitelabel:
+        enabled: false
+      include-stacktrace: never
+      include-message: never
+
+server:
+  port: ${SERVER_PORT:8081}
+  shutdown: graceful
+
+# -----------------------------------------------------------------------------
+# auth-service's own settings. Every one of these is documented on
+# com.acme.ecommerce.auth.config.AuthProperties.
+# -----------------------------------------------------------------------------
+auth:
+  jwt:
+    issuer: ${AUTH_JWT_ISSUER:https://auth.acme-ecommerce.internal}
+    # THE GATEWAY AND EVERY RESOURCE SERVER MUST EXPECT THIS EXACT AUDIENCE.
+    # A mismatch produces "invalid_token" with no useful detail, on every request.
+    audiences: ${AUTH_JWT_AUDIENCES:ecommerce-platform}
+    access-token-ttl: 10m
+    # Produced by infra/scripts/generate-keystore.sh and MOUNTED. Never generated
+    # at startup - see JwtKeyProvider.
+    keystore-path: ${PLATFORM_JWT_KEYSTORE_PATH:infra/secrets/jwt-keystore.p12}
+    keystore-password: ${PLATFORM_JWT_KEYSTORE_PASSWORD:}
+    # Keystore alias (or RFC 7638 thumbprint) of the SIGNING key. May be blank
+    # while the keystore holds exactly one key; must be explicit during a
+    # rotation, when it holds two.
+    active-kid: ${PLATFORM_JWT_KEYSTORE_ALIAS:}
+
+  refresh:
+    ttl: 14d
+    family-max-lifetime: 30d
+    rotation-grace-window: 10s
+
+  cookie:
+    name: refresh_token
+    path: /api/auth
+    # FALSE ONLY BECAUSE LOCAL DEV IS PLAIN HTTP. The prod document below sets it
+    # back to true; shipping `secure: false` is shipping a credential that travels
+    # in clear text.
+    secure: ${AUTH_COOKIE_SECURE:false}
+    same-site: Lax
+
+  registration:
+    # OFF. This is an internal admin console - accounts are provisioned, not
+    # signed up for. Turn on deliberately and temporarily.
+    enabled: ${AUTH_REGISTRATION_ENABLED:false}
+
+  lockout:
+    max-failed-attempts: 5
+    base-duration: 1m
+    max-duration: 15m
+
+  rate-limit:
+    enabled: true
+    login-capacity: 10
+    refresh-capacity: 60
+    window: 1m
+    # FALSE unless this service is unreachable except through a proxy that
+    # OVERWRITES X-Forwarded-For. Trusting it on a directly-reachable service
+    # lets any client choose its own apparent source address.
+    trust-forwarded-for: ${AUTH_TRUST_FORWARDED_FOR:false}
+    max-tracked-clients: 50000
+
+  oauth2:
+    # REQUIRED for /oauth2/authorization/google to exist. Both blank (the
+    # default) disables the Google leg entirely; everything else in the service -
+    # password login, refresh rotation, JWKS - works normally without them.
+    #
+    # To enable: create an OAuth 2.0 Client ID (type "Web application") in the
+    # Google Cloud console, add
+    #   http://localhost:8081/login/oauth2/code/google
+    # as an Authorised redirect URI, and export:
+    #   GOOGLE_CLIENT_ID=...  GOOGLE_CLIENT_SECRET=...
+    client-id: ${GOOGLE_CLIENT_ID:}
+    client-secret: ${GOOGLE_CLIENT_SECRET:}
+    # EXACT-MATCH ALLOWLIST for the post-login redirect. Not a prefix match.
+    allowed-redirect-uris: ${AUTH_ALLOWED_REDIRECT_URIS:http://localhost:5173/auth/callback}
+    default-redirect-uri: ${AUTH_DEFAULT_REDIRECT_URI:http://localhost:5173/auth/callback}
+    # Blank => derived from the JWT signing key, which every replica already
+    # shares. Set explicitly only if the keystore is not shared.
+    state-cookie-secret: ${AUTH_STATE_COOKIE_SECRET:}
+
+  housekeeping:
+    enabled: true
+    retention: 30d
+    interval: 1h
+
+# -----------------------------------------------------------------------------
+# Service discovery.
+#
+# TIMING INVARIANT (documented in services/eureka-server/README.md):
+#   lease-expiration-duration-in-seconds >= 3 x lease-renewal-interval-in-seconds
+# A single dropped heartbeat must never be enough to evict a healthy instance.
+# 10s renewal / 30s expiration satisfies it exactly.
+# -----------------------------------------------------------------------------
+eureka:
+  client:
+    enabled: ${EUREKA_CLIENT_ENABLED:true}
+    service-url:
+      defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:http://localhost:8761/eureka/}
+    registry-fetch-interval-seconds: 5
+    healthcheck:
+      # Without this, Eureka reports the instance UP as long as the process is
+      # alive - including while the database is unreachable and every request is
+      # failing. With it, the actuator health status drives registration status.
+      enabled: true
+  instance:
+    # Containers have no resolvable hostname on the compose network from a
+    # caller's point of view; the IP always works.
+    prefer-ip-address: true
+    lease-renewal-interval-in-seconds: 10
+    lease-expiration-duration-in-seconds: 30
+
+management:
+  endpoints:
+    web:
+      exposure:
+        # health/info for orchestration, prometheus for scraping. Nothing else:
+        # /env and /configprops on an identity service would expose the datasource
+        # URL and every auth.* setting.
+        include: health,info,prometheus
+  endpoint:
+    health:
+      show-details: when-authorized
+      probes:
+        enabled: true
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
+  metrics:
+    tags:
+      application: auth-service
+
+logging:
+  level:
+    root: INFO
+    "[com.acme.ecommerce.auth]": INFO
+    # These two are the ones that would print request headers (including
+    # Authorization) and SQL parameters (including password hashes) at DEBUG.
+    # Pinned at INFO so that turning on root DEBUG to chase an unrelated bug does
+    # not dump credentials into the log.
+    "[org.springframework.web]": INFO
+    "[org.springframework.security]": INFO
+    "[org.hibernate.SQL]": INFO
+    "[org.hibernate.orm.jdbc.bind]": INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%X{correlationId:-}] %logger{36} - %msg%n"
+
+---
+# =============================================================================
+# PROFILE: prod
+#
+# Not exercised in Phase 1 (dev-only). Recorded here so the production intent
+# lives next to the dev values it overrides.
+# =============================================================================
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+auth:
+  cookie:
+    # THE flag. A refresh token without Secure travels in clear text on the first
+    # plain-HTTP request the browser makes to the domain.
+    secure: true
+  registration:
+    enabled: false
+  rate-limit:
+    # Only correct because in production this service sits behind the gateway,
+    # which overwrites X-Forwarded-For. If that ever stops being true, this must
+    # go back to false or the throttle becomes decorative.
+    trust-forwarded-for: true
+
+logging:
+  level:
+    root: WARN
+    "[com.acme.ecommerce.auth]": INFO
+
+management:
+  endpoint:
+    health:
+      show-details: never

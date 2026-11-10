@@ -1,0 +1,19 @@
+// common-security: shared resource-server wiring (JWT -> authorities mapping,
+// JWKS decoder construction, role constants).
+plugins { id 'java-library' }
+
+dependencies {
+    api project(':libs:common-core')
+
+    compileOnly libs.spring.security.core
+    compileOnly libs.spring.security.config
+    compileOnly libs.spring.security.web
+    compileOnly libs.spring.security.oauth2.jose
+    compileOnly libs.spring.security.oauth2.resource.server
+    compileOnly libs.spring.context
+
+    testImplementation libs.spring.security.core
+    testImplementation libs.spring.security.oauth2.jose
+    testImplementation libs.spring.security.oauth2.resource.server
+    testImplementation libs.nimbus.jose.jwt
+}

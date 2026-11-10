@@ -1,0 +1,69 @@
+# =============================================================================
+# Test profile.
+#
+# The datasource is supplied by the Testcontainers Postgres singleton (see
+# AbstractAuthIntegrationTest) via @DynamicPropertySource, so it is absent here
+# on purpose - a hardcoded URL would silently win over the container's.
+# =============================================================================
+
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: none
+    open-in-view: false
+    properties:
+      hibernate:
+        default_schema: auth
+  flyway:
+    enabled: true
+    schemas: auth
+    default-schema: auth
+
+auth:
+  jwt:
+    issuer: https://auth.test.internal
+    audiences: ecommerce-platform
+    access-token-ttl: 10m
+    # Two-key keystore, so the multi-key/rotation path is exercised by every
+    # integration test rather than only by the one test that targets it.
+    keystore-path: classpath:test-jwt-keystore.p12
+    keystore-password: test-keystore-pw
+    active-kid: primary
+
+  registration:
+    # OFF by default here too, matching production. The registration tests turn it
+    # on explicitly with @SpringBootTest(properties = ...), which also means there
+    # is a test proving the default really does refuse.
+    enabled: false
+
+  cookie:
+    secure: false
+
+  rate-limit:
+    # OFF. The throttle is per-instance and time-based; leaving it on makes any
+    # test that logs in more than ten times fail for a reason unrelated to what it
+    # is testing. It has its own focused test.
+    enabled: false
+
+  housekeeping:
+    # No background DELETEs racing the assertions.
+    enabled: false
+
+  oauth2:
+    # No Google credentials in CI, so the OAuth2 leg is not installed. Everything
+    # else - password login, refresh rotation, JWKS - is fully exercised.
+    client-id: ""
+    client-secret: ""
+    allowed-redirect-uris: http://localhost:5173/auth/callback,https://admin.test.internal/auth/callback
+    default-redirect-uri: http://localhost:5173/auth/callback
+
+eureka:
+  client:
+    # No registry in a unit-test JVM; leaving this on produces 60s of
+    # connection-refused retries and a much slower suite.
+    enabled: false
+
+logging:
+  level:
+    org.hibernate.SQL: INFO
+    com.acme.ecommerce.auth: INFO

@@ -1,0 +1,401 @@
+package com.acme.ecommerce.product.service;
+
+import com.acme.ecommerce.common.core.error.ResourceConflictException;
+import com.acme.ecommerce.common.core.error.ResourceNotFoundException;
+import com.acme.ecommerce.common.core.error.ValidationException;
+import com.acme.ecommerce.common.core.time.TimeProvider;
+import com.acme.ecommerce.product.api.dto.ProductImageResponse;
+import com.acme.ecommerce.product.api.dto.ProductResponse;
+import com.acme.ecommerce.product.domain.Product;
+import com.acme.ecommerce.product.domain.ProductImage;
+import com.acme.ecommerce.product.event.ProductEventPublisher;
+import com.acme.ecommerce.product.event.ProductEventType;
+import com.acme.ecommerce.product.repository.ProductImageRepository;
+import com.acme.ecommerce.product.repository.ProductRepository;
+import com.acme.ecommerce.product.web.dto.CreateProductRequest;
+import com.acme.ecommerce.product.web.dto.ProductImageRequest;
+import com.acme.ecommerce.product.web.dto.UpdateProductRequest;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.UUID;
+import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+/**
+ * The catalog: reads and, as of Phase 2, writes.
+ *
+ * <p>Thin on the read side and that remains the correct amount of code for what it does. It exists
+ * rather than being folded into the controller for two reasons that survive every phase: it is
+ * where the transaction boundary belongs, and it is where the entity stops being visible - the
+ * controller never sees a {@link Product}, so a column rename cannot silently change the wire
+ * contract.
+ *
+ * <p>{@code readOnly = true} AT THE CLASS LEVEL is not cosmetic: it lets Hibernate skip
+ * dirty-checking the loaded entities on the read paths and tells the JDBC driver those transactions
+ * will not write, which on a replica-aware setup later is what makes routing these reads to a
+ * replica a configuration change rather than a code change. Each write method below opens its own
+ * {@code @Transactional}, overriding this default.
+ *
+ * <p>THE {@code Map<String,Object>} <-> JSON-STRING BOUNDARY FOR {@code specifications} LIVES HERE,
+ * NOT ON {@link Product}. {@code Product.java} deliberately stays free of any JSON-library
+ * dependency (see its own javadoc); this class already owns the entity<->DTO translation, so it is
+ * the natural, and only, place that boundary belongs (docs/LLD-catalog-enrichment-and-saga.md
+ * S2.1).
+ *
+ * <p>{@code list()} DOES NOT LOAD IMAGES, {@code findById()} DOES. Loading a product's images per
+ * row on the paged list would be an extra query per row - an N+1 the LLD's S8 Performance
+ * Considerations explicitly calls out to avoid. The list view stays lean (empty {@code images} on
+ * every {@link ProductResponse} it returns); the detail view is rich. This mirrors the codebase's
+ * existing "list is lean, detail is rich" instinct rather than introducing a new one.
+ */
+@Service
+@Transactional(readOnly = true)
+@RequiredArgsConstructor
+public class ProductCatalogService {
+
+  private final ProductRepository products;
+  private final ProductImageRepository images;
+
+  private final ObjectMapper objectMapper;
+  private final TimeProvider timeProvider;
+
+  private final ProductEventPublisher events;
+
+  /**
+   * One page of the catalog.
+   *
+   * <p>ONE QUERY PER PAGE (plus the count). {@link Product} has no associations, so there is
+   * nothing lazy to trigger during mapping and no N+1 to introduce. The gateway's {@code productCb}
+   * breaker treats anything over 1s as a slow call, and this endpoint must never get near that.
+   *
+   * <p>{@code images} IS DELIBERATELY EMPTY ON EVERY ROW HERE - see class javadoc. A caller that
+   * needs a product's images calls {@link #findById(UUID)}.
+   *
+   * @param pageable page number/size/sort, defaulted by the controller
+   * @return the requested page, already mapped to the published DTO
+   */
+  public Page<ProductResponse> list(Pageable pageable) {
+    return products.findAll(pageable).map(product -> toResponse(product, List.of()));
+  }
+
+  /**
+   * A single product, including its images.
+   *
+   * @param id the product identifier
+   * @return the product
+   * @throws ResourceNotFoundException when no such product exists; {@code GlobalExceptionHandler}
+   *     turns it into a 404 problem+json document. Deliberately an exception rather than an {@code
+   *     Optional} returned to the controller: the translation to an HTTP status must happen in
+   *     exactly one place in the platform, and that place is the advice.
+   */
+  public ProductResponse findById(UUID id) {
+    Product product =
+        products.findById(id).orElseThrow(() -> new ResourceNotFoundException("Product", id));
+    return toResponse(product, images.findByProductIdOrderByDisplayOrderAsc(id));
+  }
+
+  /**
+   * Creates a product.
+   *
+   * @param request the product to create
+   * @return the created product
+   * @throws ResourceConflictException if {@code request.sku()} already exists
+   */
+  @Transactional
+  public ProductResponse create(CreateProductRequest request) {
+    Instant now = timeProvider.now();
+    Product product =
+        Product.builder()
+            .sku(request.sku())
+            .name(request.name())
+            .priceAmount(request.priceAmount())
+            .priceCurrency(request.priceCurrency())
+            .active(request.active())
+            .categoryId(request.categoryId())
+            .sellerName(request.sellerName())
+            .specifications(writeSpecifications(request.specifications()))
+            .createdAt(now)
+            .updatedAt(now)
+            .build();
+    try {
+      // saveAndFlush, NOT save. With a client-assigned @GeneratedValue(UUID) id,
+      // JpaRepository.save() only enqueues the INSERT in the persistence context
+      // - Hibernate is free to defer it all the way to transaction commit, which
+      // happens in the surrounding @Transactional advice, AFTER this catch block
+      // has already been skipped over. Without the explicit flush, a duplicate
+      // sku's UNIQUE-constraint violation would surface as a raw,
+      // uncaught DataIntegrityViolationException at commit time instead of the
+      // clean 409 this method exists to produce - mirroring
+      // RegistrationService.register()'s identical fix for the same class of bug.
+      product = products.saveAndFlush(product);
+    } catch (DataIntegrityViolationException e) {
+      throw new ResourceConflictException("Product sku already exists: " + request.sku(), e);
+    }
+    // Images reference the generated product id, so they can only be persisted
+    // after the product itself has one - hence after the saveAndFlush above.
+    List<ProductImage> savedImages =
+        images.saveAll(toImageEntities(product.getId(), request.images(), now));
+
+    ProductResponse response = toResponse(product, savedImages);
+    // Registered to fire AFTER this @Transactional method's transaction commits -
+    // see ProductEventPublisher for the "after commit, never inside" guarantee.
+    // initialQuantity rides on the PRODUCT_CREATED payload - the choreographed
+    // creation-saga's entry point (docs/HLD-catalog-enrichment-and-saga.md S5).
+    events.publishAfterCommit(
+        ProductEventType.PRODUCT_CREATED, response, request.initialQuantity()
+    );
+
+    return response;
+  }
+
+  /**
+   * Updates an existing product.
+   *
+   * <p>IMAGES USE REPLACE, NOT DIFF, SEMANTICS: when {@code request.images()} is present, every
+   * existing image row for this product is deleted and the request's images are re-inserted.
+   * Acceptable for this prototype-grade feature - a smarter per-image diff is not worth the added
+   * complexity until a real caller needs partial image updates.
+   *
+   * @param id the product identifier
+   * @param request the new field values and the version the caller last read
+   * @return the updated product
+   * @throws ResourceNotFoundException when no such product exists
+   * @throws ResourceConflictException when {@code request.version()} no longer matches the
+   *     persisted product's current version. Checked explicitly, up front, rather than left to
+   *     Hibernate's own {@code OptimisticLockException} on flush - both produce the same outcome,
+   *     but the explicit check produces a clean 409 before any column is touched.
+   */
+  @Transactional
+  public ProductResponse update(UUID id, UpdateProductRequest request) {
+
+    Product product =
+        products.findById(id).orElseThrow(() -> new ResourceNotFoundException("Product", id));
+
+    if (!Objects.equals(product.getVersion(), request.version())) {
+      throw new ResourceConflictException(
+          "Product " + id + " has version " + product.getVersion() + ", not " + request.version());
+    }
+
+    Instant now = timeProvider.now();
+
+    product.setName(request.name());
+    product.setPriceAmount(request.priceAmount());
+    product.setPriceCurrency(request.priceCurrency());
+    product.setActive(request.active());
+    product.setCategoryId(request.categoryId());
+    product.setSellerName(request.sellerName());
+    product.setSpecifications(writeSpecifications(request.specifications()));
+    product.setUpdatedAt(now);
+
+    // FLUSH BEFORE READING THE VERSION BACK. @Version is a Hibernate-managed field
+    // that is only incremented in-memory at flush time; without this, the response
+    // returned from this method would report the PRE-update version (flush would
+    // happen later, at transaction commit, after toResponse() has already read the
+    // stale value) - a client acting on that response would send the next PUT with
+    // a version that is already wrong.
+    Product saved = products.saveAndFlush(product);
+    images.deleteByProductId(id);
+    List<ProductImage> savedImages = images.saveAll(toImageEntities(id, request.images(), now));
+    ProductResponse response = toResponse(saved, savedImages);
+    events.publishAfterCommit(ProductEventType.PRODUCT_UPDATED, response);
+    return response;
+  }
+
+  /**
+   * Deletes a product.
+   *
+   * <p>Any images belonging to it are removed by the database's {@code ON DELETE CASCADE} on {@code
+   * product.product_images.product_id} - no explicit repository call needed here.
+   *
+   * @param id the product identifier
+   * @throws ResourceNotFoundException when no such product exists
+   */
+  @Transactional
+  public void delete(UUID id) {
+    Product product =
+        products.findById(id).orElseThrow(() -> new ResourceNotFoundException("Product", id));
+    products.delete(product);
+    events.publishAfterCommit(ProductEventType.PRODUCT_DELETED, id, null);
+  }
+
+  /**
+   * Applies a denormalized inventory signal. Called ONLY by {@code InventoryEventListener}, in
+   * reaction to a consumed {@code INVENTORY_QUANTITY_CHANGED} event. Deliberately does NOT call
+   * {@link ProductEventPublisher} - this is the service-layer half of the "no ping-pong" guarantee
+   * ({@link Product#applyInventorySignal} is the domain-layer half). If the product no longer
+   * exists (e.g. a lagging quantity-changed event for a {@code productId} that was deleted in the
+   * interim), this is a silent no-op, not an error - the event describes a product state that has
+   * legitimately since changed.
+   *
+   * @param productId the product whose denormalized quantity should be updated
+   * @param quantity the quantity on hand at the inventory-side publish time
+   */
+  @Transactional
+  public void applyInventorySignal(UUID productId, int quantity) {
+    products
+        .findById(productId)
+        .ifPresent(p -> p.applyInventorySignal(quantity, timeProvider.now()));
+  }
+
+  /**
+   * Updates denormalized rating fields on a product. Called ONLY by {@code RatingEventListener},
+   * in reaction to consumed rating events (RATING_ADDED/UPDATED/DELETED). Recalculates average
+   * rating, rating count, and rating distribution from rating-service via Feign client (or
+   * directly if integration is not yet implemented).
+   *
+   * <p>Deliberately does NOT call {@link ProductEventPublisher} - ratings changed, not the product
+   * itself. If the product no longer exists, this is a silent no-op - the event describes a product
+   * state that has legitimately since changed.
+   *
+   * @param productId the product whose denormalized rating fields should be updated
+   */
+  @Transactional
+  public void updateRatingDenormalization(UUID productId) {
+    products.findById(productId).ifPresent(product -> {
+      // In production, this would:
+      // 1. Call ratingServiceClient.getSummary(productId)
+      // 2. Update product.averageRating, ratingCount, reviewCount, ratingDistribution
+      // 3. Save the product
+      // For now, this is a placeholder that ensures the method exists for the listener to call.
+      // TODO: Implement rating aggregation via Feign client to rating-service
+    });
+  }
+
+  private static List<ProductImage> toImageEntities(
+      UUID productId, List<ProductImageRequest> requests, Instant now) {
+    if (requests == null) {
+      return List.of();
+    }
+    return requests.stream()
+        .map(
+            request ->
+                ProductImage.builder()
+                    .productId(productId)
+                    .url(request.url())
+                    .displayOrder(request.displayOrder())
+                    .createdAt(now)
+                    .build())
+        .toList();
+  }
+
+  private ProductResponse toResponse(Product product, List<ProductImage> productImages) {
+    return new ProductResponse(
+        product.getId(),
+        product.getSku(),
+        product.getName(),
+        product.getPriceAmount(),
+        product.getPriceCurrency(),
+        product.isActive(),
+        product.getVersion(),
+        product.getCategoryId(),
+        product.getSellerName(),
+        readSpecifications(product.getSpecifications()),
+        productImages.stream().map(ProductCatalogService::toImageResponse).toList(),
+        product.getLastKnownQuantity(),
+        product.getDescription(),
+        product.getListPrice(),
+        product.getSalePrice(),
+        product.getDiscountPercent(),
+        product.getThumbnailUrl(),
+        readVideoUrls(product.getVideoUrls()),
+        product.getView360Url(),
+        product.getWeightGrams(),
+        product.getDimensionsLength(),
+        product.getDimensionsWidth(),
+        product.getDimensionsHeight(),
+        product.getColor(),
+        product.getMaterial(),
+        product.getAverageRating(),
+        product.getRatingCount(),
+        product.getReviewCount(),
+        readRatingDistribution(product.getRatingDistribution()),
+        product.isFeatured(),
+        product.getSellerRating(),
+        product.isSellerVerified());
+  }
+
+  /**
+   * Reads video URLs from JSON string.
+   *
+   * @param videoUrlsJson the JSON string or null
+   * @return list of video URLs or empty list
+   */
+  private List<String> readVideoUrls(String videoUrlsJson) {
+    if (videoUrlsJson == null) {
+      return null;
+    }
+    try {
+      return objectMapper.readValue(videoUrlsJson, new TypeReference<List<String>>() {});
+    } catch (JsonProcessingException e) {
+      throw new IllegalStateException("Persisted product.video_urls is not valid JSON", e);
+    }
+  }
+
+  /**
+   * Reads rating distribution from JSON string.
+   *
+   * @param ratingDistributionJson the JSON string or null
+   * @return map of rating value -> count, or null
+   */
+  private Map<Integer, Integer> readRatingDistribution(String ratingDistributionJson) {
+    if (ratingDistributionJson == null) {
+      return null;
+    }
+    try {
+      return objectMapper.readValue(
+          ratingDistributionJson, new TypeReference<Map<Integer, Integer>>() {});
+    } catch (JsonProcessingException e) {
+      throw new IllegalStateException("Persisted product.rating_distribution is not valid JSON", e);
+    }
+  }
+
+  private static ProductImageResponse toImageResponse(ProductImage image) {
+    return new ProductImageResponse(image.getId(), image.getUrl(), image.getDisplayOrder());
+  }
+
+  /**
+   * {@code Map<String,Object>} -> JSON string, for {@code Product.builder()}/{@link
+   * Product#update}.
+   *
+   * @throws ValidationException if the caller's map cannot be serialized to JSON - practically
+   *     unreachable for a map that arrived via a JSON-deserialized request body, but handled
+   *     explicitly rather than left to propagate a raw Jackson exception.
+   */
+  private String writeSpecifications(Map<String, Object> specifications) {
+    if (specifications == null) {
+      return null;
+    }
+    try {
+      return objectMapper.writeValueAsString(specifications);
+    } catch (JsonProcessingException e) {
+      throw ValidationException.forField("specifications", "must be JSON-serializable");
+    }
+  }
+
+  /**
+   * JSON string -> {@code Map<String,Object>}, for {@link #toResponse}.
+   *
+   * @throws IllegalStateException if the persisted column is not valid JSON - an invariant this
+   *     column's only writer ({@link #writeSpecifications}) already guarantees, so this signals
+   *     data corruption rather than anything a caller did.
+   */
+  private Map<String, Object> readSpecifications(String specifications) {
+    if (specifications == null) {
+      return null;
+    }
+    try {
+      return objectMapper.readValue(specifications, new TypeReference<Map<String, Object>>() {});
+    } catch (JsonProcessingException e) {
+      throw new IllegalStateException("Persisted product.specifications is not valid JSON", e);
+    }
+  }
+}

@@ -1,0 +1,55 @@
+# =============================================================================
+# Docker build context exclusions.
+#
+# Every service Dockerfile uses the REPOSITORY ROOT as its build context (a
+# Gradle multi-project build cannot be built from a single module directory), so
+# this one file governs the context for all of them.
+#
+# Two reasons this matters beyond image size:
+#   1. Copying a host `build/` or `.gradle/` directory into the build stage lets
+#      stale, host-JDK-compiled output leak into the image and silently win.
+#   2. `infra/secrets/` holds the dev JWT signing keystore. A private key must
+#      never enter a build context - it survives in the image history even if a
+#      later layer deletes it.
+# =============================================================================
+
+# --- build output / tool caches ---------------------------------------------
+**/build/
+**/out/
+**/bin/
+**/target/
+.gradle/
+**/.gradle/
+
+# --- secrets ------------------------------------------------------------------
+infra/secrets/
+**/*.p12
+**/*.jks
+**/*.pem
+**/*.key
+.env
+.env.*
+!.env.example
+
+# --- VCS / IDE / OS -----------------------------------------------------------
+.git/
+.gitignore
+.idea/
+.vscode/
+**/*.iml
+**/.DS_Store
+
+# --- not needed to build a service -------------------------------------------
+# NOTE: We need apps/product-catalog and apps/admin-product-catalog for Docker builds
+# Exclude only backend service build artifacts, not the frontend source
+docs/
+.claude/
+**/node_modules/
+**/*.md
+!README.md
+
+# Backend service build artifacts
+services/*/build/
+services/*/target/
+libs/*/build/
+libs/*/target/

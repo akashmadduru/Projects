@@ -1,0 +1,424 @@
+# =============================================================================
+# gateway configuration - the platform's single public edge.
+#
+# The unprofiled document is the DEV/DOCKER-COMPOSE configuration. The `prod`
+# document at the bottom records exactly which knobs must move for a real
+# environment, kept in the same file so the dev/prod delta cannot be missed by
+# reading only one of them.
+#
+# THE ROUTE TABLE BELOW AND THE authorizeExchange RULES IN SecurityConfig ARE
+# TWO HALVES OF ONE STATEMENT: a route says where a request goes, the rules say
+# who may send it. RouteAuthorizationContractTest asserts them against each
+# other, because when they drift nothing breaks loudly - a route simply stops
+# being protected.
+# =============================================================================
+
+spring:
+  application:
+    name: gateway
+
+  main:
+    # Explicit. A stray servlet-stack class on the classpath (transitively, from
+    # something innocuous) would otherwise make Boot start Tomcat instead of
+    # Netty, and Spring Cloud Gateway's filters would silently never engage.
+    web-application-type: reactive
+
+  web:
+    # Never advertise the server implementation, and never render a stack
+    # trace. Moved here from server.error.* in Spring Boot 4 / Spring
+    # Framework 7; applies to WebFlux the same as MVC.
+    error:
+      whitelabel:
+        enabled: false
+      include-stacktrace: never
+      include-message: never
+
+  cloud:
+    loadbalancer:
+      # Client-side load balancing over the Eureka registry. Retries are OFF at
+      # the edge on purpose: the gateway does not know whether a request is
+      # idempotent, and silently re-sending a POST /api/auth/register because the
+      # first attempt timed out is how a user ends up with two accounts. Retry is
+      # the caller's decision, informed by the 503 the circuit breaker returns.
+      retry:
+        enabled: false
+
+    gateway:
+      server:
+        webflux:
+          discovery:
+            locator:
+              # MUST STAY FALSE. The auto-locator publishes EVERY service
+              # registered in Eureka at the public edge, under /<SERVICE-ID>/**.
+              # That includes eureka-server itself and every internal-only
+              # service Phase 1E+ adds - each one exposed the moment it
+              # registers, with no route definition, no circuit breaker and no
+              # deliberate authorization rule. The explicit table below is the
+              # allow-list.
+              enabled: false
+
+          httpclient:
+            # Applies to every route unless a route's `metadata` overrides it.
+            # 2s to establish a TCP connection to something on the same network
+            # is already generous; anything slower is a dead host, not a busy one.
+            connect-timeout: 2000
+            # Whole-response deadline. Deliberately SHORTER than the circuit
+            # breaker's time limiter, so a slow downstream is recorded as a slow
+            # call (feeding the slow-call rate) rather than swallowed by the
+            # breaker's own timeout.
+            response-timeout: 5s
+            pool:
+              type: elastic
+              max-idle-time: 30s
+
+          # DELIBERATELY ABSENT: `globalcors`. CORS is configured in exactly one
+          # place - the Spring Security chain (SecurityConfig#corsConfigurationSource).
+          # Configuring both makes a preflight pass through two CORS handlers and
+          # emit two Access-Control-Allow-Origin headers, which browsers reject
+          # outright while reporting a message that points at neither config.
+
+          default-filters:
+            # THE OTHER HALF OF THE "EXACTLY ONE CORS HEADER" RULE, and the half
+            # that only shows up against a real downstream.
+            #
+            # Not configuring globalcors stops the GATEWAY emitting the header
+            # twice. It does nothing about auth-service, which has its own
+            # CorsConfigurationSource (it has to - it is directly reachable in
+            # dev and during its own tests). Its Access-Control-* headers arrive
+            # on the proxied response and NettyWriteResponseFilter appends them
+            # to the ones the edge already set, so the browser sees two
+            # Access-Control-Allow-Origin values and rejects the response with a
+            # message that names neither service. VERIFIED against the live
+            # auth-service during Phase 1D - a stubbed downstream that emits no
+            # CORS headers will not reproduce it.
+            #
+            # RETAIN_FIRST, not RETAIN_UNIQUE: the edge's policy is the platform's
+            # policy, and it must win even if a downstream's allow-list drifts.
+            - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials Access-Control-Expose-Headers Access-Control-Allow-Methods Access-Control-Allow-Headers, RETAIN_FIRST
+            # `Vary` is legitimately multi-valued, so unique values are kept
+            # rather than only the first - the duplication there is cosmetic but
+            # it inflates every response and confuses caches.
+            - DedupeResponseHeader=Vary, RETAIN_UNIQUE
+
+          routes:
+            # --- auth-service: public endpoints ---------------------------------
+            # A client hitting these has no token yet, by definition.
+            - id: auth-public
+              uri: lb://AUTH-SERVICE
+              predicates:
+                - Path=/api/auth/login,/api/auth/register,/api/auth/refresh,/api/auth/logout
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: authCb
+                    fallbackUri: forward:/__fallback/auth
+              metadata:
+                # 10s, overriding the 5s global. Argon2id verification on login is
+                # deliberately expensive (~0.5-1s under load, by design - it is
+                # what makes offline cracking impractical), and a login that is
+                # merely slow must not be reported to the user as an outage.
+                response-timeout: 10000
+                connect-timeout: 2000
+
+            # --- auth-service: authenticated endpoints --------------------------
+            - id: auth-secured
+              uri: lb://AUTH-SERVICE
+              predicates:
+                - Path=/api/auth/me,/api/auth/validate
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: authCb
+                    fallbackUri: forward:/__fallback/auth
+              metadata:
+                response-timeout: 10000
+                connect-timeout: 2000
+
+            # --- auth-service: the JWKS document --------------------------------
+            # Separate route rather than folded into auth-public, because it has a
+            # different cache profile and is the one endpoint whose availability
+            # every other service depends on.
+            - id: auth-jwks
+              uri: lb://AUTH-SERVICE
+              predicates:
+                - Path=/.well-known/jwks.json
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: authCb
+                    fallbackUri: forward:/__fallback/auth
+
+            # --- auth-service: the Google OIDC leg ------------------------------
+            # NO CircuitBreaker here. A tripped breaker on a browser redirect
+            # produces a JSON problem document in the address bar instead of a
+            # redirect, which is a worse user experience than the failure it is
+            # protecting against - and this leg carries no load worth shedding.
+            - id: auth-oauth2
+              uri: lb://AUTH-SERVICE
+              predicates:
+                - Path=/oauth2/**,/login/oauth2/**
+
+            # --- product-service (Phase 1E) -------------------------------------
+            # Declared BEFORE the service exists. A route table does not care
+            # whether its target is registered: until Phase 1E stands
+            # product-service up, ReactiveLoadBalancerClientFilter fails to
+            # resolve `lb://PRODUCT-SERVICE`, the circuit breaker catches it, and
+            # the client gets a clean 503 from /__fallback/product. That is the
+            # correct answer for "the catalog is not deployed yet", and it means
+            # Phase 1E changes nothing in this file.
+            - id: product
+              uri: lb://PRODUCT-SERVICE
+              predicates:
+                - Path=/api/products/**
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: productCb
+                    fallbackUri: forward:/__fallback/product
+
+            # --- inventory-service (Phase 2) ------------------------------------
+            # Own route, own breaker (inventoryCb, not productCb) - deliberately
+            # NOT sharing productCb's instance, so a catalog incident and a stock
+            # incident cannot trip each other's circuit (HLD Open Question #3,
+            # confirmed at the approval gate).
+            - id: inventory
+              uri: lb://INVENTORY-SERVICE
+              predicates:
+                - Path=/api/inventory/**
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: inventoryCb
+                    fallbackUri: forward:/__fallback/inventory
+
+# -----------------------------------------------------------------------------
+# The gateway's own settings. Every one is documented on
+# com.acme.ecommerce.gateway.config.GatewayProperties.
+# -----------------------------------------------------------------------------
+gateway:
+  jwt:
+    # SAME ENV VAR AND SAME DEFAULT AS auth-service's `auth.jwt.issuer`. One of
+    # the two drifting is a total outage with a singularly unhelpful error
+    # ("invalid_token", on every request).
+    issuer: ${AUTH_JWT_ISSUER:https://auth.acme-ecommerce.internal}
+    # Must equal auth-service's `auth.jwt.audiences`.
+    audience: ${AUTH_JWT_AUDIENCES:ecommerce-platform}
+    # Resolved through Eureka, so the keys come from whichever auth-service
+    # instance is currently registered rather than a hostname frozen in here.
+    jwks-service-id: ${GATEWAY_JWKS_SERVICE_ID:AUTH-SERVICE}
+    jwks-path: /.well-known/jwks.json
+    # Set this ONLY where there is no registry (tests, single-node deploys). A
+    # non-blank value bypasses discovery entirely.
+    jwks-uri: ${GATEWAY_JWKS_URI:}
+
+  jwks:
+    ttl: 15m
+    refresh-timeout: 5s
+    # Renewed on a background thread 2 minutes before expiry, so no request ever
+    # pays for a refresh.
+    refresh-ahead: 2m
+    # A burst of requests carrying a post-rotation `kid` produces ONE fetch per
+    # 30s bucket, not one per request.
+    rate-limit-interval: 30s
+    # An auth-service outage must not become a platform outage: keep verifying
+    # tokens against the last known key set for an hour.
+    outage-ttl: 1h
+    connect-timeout: 2s
+    read-timeout: 3s
+
+  cors:
+    # The Vue admin SPA's dev server (Phase 1F). EXACT origins only - never `*`,
+    # which the CORS spec forbids combining with allow-credentials, and
+    # allow-credentials is required for the refresh cookie.
+    allowed-origins: ${GATEWAY_CORS_ALLOWED_ORIGINS:http://localhost:5173}
+    allowed-methods: GET,POST,PUT,PATCH,DELETE,OPTIONS
+    allowed-headers: Authorization,Content-Type,X-Correlation-Id
+    exposed-headers: X-Correlation-Id
+    max-age: 1h
+
+# -----------------------------------------------------------------------------
+# Circuit breakers.
+#
+# TWO INSTANCES WITH DIFFERENT SLOW-CALL THRESHOLDS, and this is the point of
+# having two. Argon2id login is legitimately slow; a single platform-wide
+# threshold tight enough to be useful for the product catalog (1s) would classify
+# every normal login as a slow call and trip the auth circuit under ordinary
+# load - taking down login because login is working as designed.
+#
+# THE TIME LIMITER IS NOT OPTIONAL. Spring Cloud CircuitBreaker's reactive
+# Resilience4J implementation applies TimeLimiterConfig.timeoutDuration as a
+# Reactor timeout, and its DEFAULT IS 1 SECOND. Leaving it unset would cap every
+# proxied request at 1s regardless of the httpclient response-timeout above, and
+# the symptom (sporadic 503s on slow-but-healthy calls) points nowhere near here.
+# -----------------------------------------------------------------------------
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 20
+        # Small enough that the breaker can act during a genuine outage, large
+        # enough that two unlucky calls at startup cannot trip it.
+        minimum-number-of-calls: 10
+        failure-rate-threshold: 50
+        slow-call-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 3
+        # Without this, the breaker only leaves OPEN when a call happens to
+        # arrive after the wait duration - so a route with no traffic stays open
+        # forever and the first user back is the one who finds it.
+        automatic-transition-from-open-to-half-open-enabled: true
+        register-health-indicator: true
+    instances:
+      authCb:
+        base-config: default
+        # 4s. Argon2id is meant to be expensive.
+        slow-call-duration-threshold: 4s
+      productCb:
+        base-config: default
+        # 1s. A catalog read that takes a second is already a problem.
+        slow-call-duration-threshold: 1s
+      inventoryCb:
+        base-config: default
+        # 1s, mirroring productCb - a stock-level read is the same class of
+        # short, indexed query. A SEPARATE INSTANCE from productCb on purpose
+        # (not a shared name): a catalog incident and a stock incident must not
+        # be able to trip each other's circuit, even though the threshold
+        # happens to match today.
+        slow-call-duration-threshold: 1s
+
+  timelimiter:
+    configs:
+      default:
+        timeout-duration: 6s
+        # FALSE. `true` cancels the upstream publisher on timeout, which for a
+        # proxied request means tearing down the downstream connection
+        # mid-response - the downstream then logs a broken pipe for a request it
+        # completed successfully.
+        cancel-running-future: false
+    instances:
+      authCb:
+        base-config: default
+        # Above the route's 10s response-timeout, so a slow login is reported by
+        # the httpclient (as a real timeout, on the real route) rather than
+        # amputated by the breaker.
+        timeout-duration: 11s
+      productCb:
+        base-config: default
+        timeout-duration: 6s
+      inventoryCb:
+        base-config: default
+        timeout-duration: 6s
+
+server:
+  port: ${SERVER_PORT:8080}
+  shutdown: graceful
+
+# -----------------------------------------------------------------------------
+# Service discovery.
+#
+# TIMING INVARIANT (documented in services/eureka-server/README.md):
+#   lease-expiration-duration-in-seconds >= 3 x lease-renewal-interval-in-seconds
+# 10s renewal / 30s expiration satisfies it exactly.
+#
+# NOTE the gateway registers itself too. It does not need to be discoverable, but
+# registering makes it visible in the dashboard alongside everything else, and
+# `fetch-registry` (which it genuinely needs) is on the same client.
+# -----------------------------------------------------------------------------
+eureka:
+  client:
+    enabled: ${EUREKA_CLIENT_ENABLED:true}
+    service-url:
+      defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:http://localhost:8761/eureka/}
+    registry-fetch-interval-seconds: 5
+  instance:
+    prefer-ip-address: true
+    lease-renewal-interval-in-seconds: 10
+    lease-expiration-duration-in-seconds: 30
+
+management:
+  endpoints:
+    web:
+      exposure:
+        # health/info for orchestration, prometheus for scraping, gateway for
+        # inspecting the live route table during development. NOTE that only
+        # /actuator/health/** is reachable from outside - SecurityConfig denies
+        # the rest at the edge - so `gateway` here is a localhost/debug affordance,
+        # and the prod document below removes it.
+        include: health,info,prometheus,gateway
+  endpoint:
+    health:
+      show-details: when-authorized
+      probes:
+        enabled: true
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
+    # The circuit breakers' health indicators are informative but must NOT make
+    # the gateway report DOWN: an open breaker on the product route is the
+    # gateway working correctly, and letting it fail the readiness probe would
+    # have the orchestrator restart a healthy edge during a downstream incident.
+    circuitbreakers:
+      enabled: false
+  metrics:
+    tags:
+      application: gateway
+
+logging:
+  level:
+    root: INFO
+    com.acme.ecommerce.gateway: INFO
+    # Pinned at INFO so that turning on root DEBUG to chase an unrelated problem
+    # cannot dump Authorization headers or token contents into the log.
+    org.springframework.security: INFO
+    org.springframework.cloud.gateway: INFO
+    reactor.netty.http.client: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%X{correlationId:-}] %logger{36} - %msg%n"
+
+---
+# =============================================================================
+# PROFILE: prod
+#
+# Not exercised in Phase 1 (dev-only). Recorded here so the production intent
+# lives next to the dev values it overrides.
+#
+# STILL MISSING FOR A REAL PRODUCTION DEPLOY (out of Phase 1 scope):
+#   - TLS termination in front of (or at) this process
+#   - Per-client rate limiting at the edge (RequestRateLimiter + Redis); today
+#     the only throttle in the platform is auth-service's per-instance one
+#   - WAF / IP reputation ahead of the gateway
+# =============================================================================
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+management:
+  server:
+    # THE flag for actuator exposure. In production the management endpoints move
+    # to a separate port bound to the internal network, so /actuator is not
+    # reachable from the internet at all and SecurityConfig's `denyAll` becomes a
+    # second line of defence rather than the only one.
+    port: 8081
+    address: 127.0.0.1
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      show-details: never
+
+gateway:
+  cors:
+    # No default. A gateway that starts in production with a localhost origin
+    # allow-list is a gateway whose CORS policy nobody reviewed.
+    allowed-origins: ${GATEWAY_CORS_ALLOWED_ORIGINS}
+
+logging:
+  level:
+    root: WARN
+    com.acme.ecommerce.gateway: INFO

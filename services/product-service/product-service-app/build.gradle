@@ -1,0 +1,99 @@
+// =============================================================================
+// product-service-app - the deployable product catalog service (Phase 1E).
+//
+// BLOCKING MVC + VIRTUAL THREADS, NOT WEBFLUX, for the same reason auth-service
+// is: every request here is one short, indexed, blocking query behind an
+// ordinary request/response contract. Virtual threads (Java 25,
+// `spring.threads.virtual.enabled=true`) give reactive-grade concurrency while
+// leaving the code as plain imperative Java that @Transactional, debuggers and
+// stack traces all understand. The gateway is reactive because it proxies; this
+// service is not a proxy.
+//
+// PHASE 1E WAS DELIBERATELY SHALLOW: two GET endpoints over one table, proving
+// the gateway -> Eureka -> resource-server path resolves end to end. Phase 2
+// adds write endpoints with optimistic concurrency and, in this pass (2b),
+// publishes product.events to Kafka strictly after each write's transaction
+// commits - see com.acme.ecommerce.product.event.ProductEventPublisher.
+// =============================================================================
+plugins {
+    id 'java-library'
+    alias(libs.plugins.spring.boot)
+}
+
+dependencies {
+    // `api` (not `implementation`): the DTOs on this service's controller
+    // signatures ARE the published contract.
+    api project(':services:product-service:product-service-api')
+
+    // Phase 3 (docs/HLD-catalog-enrichment-and-saga.md S7.3, docs/adr/0003 Decision 2): the
+    // narrowly-approved read-only aggregate call needs inventory-service's published contract
+    // (InventoryClient/InventoryResponse) to build a Feign client against. This is the ONLY
+    // reason this module now depends on inventory-service-api - nothing else here talks to
+    // inventory-service directly.
+    implementation project(':services:inventory-service:inventory-service-api')
+
+    implementation project(':libs:common-web')
+    implementation project(':libs:common-security')
+
+    implementation libs.bundles.service.web
+    implementation libs.bundles.service.discovery.client
+    implementation libs.bundles.persistence.postgres
+    // Pure resource server: this service issues no tokens and holds no signing
+    // key. It validates the platform's tokens locally against auth-service's
+    // JWKS, exactly as the gateway does - the gateway is a filter, not the trust
+    // boundary.
+    implementation libs.bundles.resource.server
+    // The Kafka producer: ProductEventPublisher sends to product.events after
+    // each write's transaction commits. product-service issues no tokens and
+    // holds no signing key here either - this is purely the messaging client.
+    implementation libs.spring.kafka
+    // See the alias's own comment in gradle/libs.versions.toml - without this,
+    // spring.kafka.* properties bind but no KafkaTemplate bean is ever created.
+    implementation libs.spring.boot.kafka
+    // Phase 1E-3: was on the classpath only so common-web's
+    // FeignPropagationConfiguration (@ConditionalOnClass feign.RequestInterceptor)
+    // registered the Authorization/X-Correlation-Id relay ahead of any real
+    // consumer. Phase 3 (docs/HLD-catalog-enrichment-and-saga.md S7.3) is that
+    // consumer: InventoryFeignClient, product-service's first real @FeignClient.
+    implementation libs.spring.cloud.starter.openfeign
+    // The BLOCKING circuit-breaker starter - NOT spring-cloud-starter-circuitbreaker-
+    // reactor-resilience4j, which is the gateway's reactive-only variant and would not
+    // register a blocking CircuitBreakerFactory bean for this MVC-on-virtual-threads
+    // service. Backs CatalogAggregateService's aggregateCb breaker (docs/adr/0003
+    // Decision 2) around the outbound call to inventory-service.
+    implementation libs.spring.cloud.starter.circuitbreaker.resilience4j
+
+    implementation libs.micrometer.registry.prometheus
+
+    // Getter/no-arg-constructor generation for the domain entities (Product,
+    // Category, ProductImage) - compileOnly + annotationProcessor only, never
+    // on the runtime classpath. Their hand-rolled equals()/hashCode()/toString()
+    // and validating factory methods are deliberately left untouched (see each
+    // class's own comments), so Lombok is scoped to @Getter/@NoArgsConstructor.
+    compileOnly libs.lombok
+    annotationProcessor libs.lombok
+
+    // Generates META-INF/spring-configuration-metadata.json so `product.*` shows
+    // up with documentation in IDE completion.
+    //
+    // The BOM has to be re-imported here: the root build adds the platforms to
+    // the `api` configuration, and `annotationProcessor` does not extend it.
+    annotationProcessor platform(libs.spring.boot.bom)
+    annotationProcessor libs.spring.boot.configuration.processor
+
+    testImplementation libs.bundles.testing.unit
+    testImplementation libs.bundles.testing.containers
+    // InventoryEventListenerIntegrationTest proves the listener's dispatch logic
+    // against a real broker rather than a mock, using Testcontainers' Kafka
+    // module - mirrors inventory-service-app's identical addition for its own
+    // ProductEventListenerIntegrationTest.
+    testImplementation libs.testcontainers.kafka
+    testImplementation libs.spring.kafka.test
+    testImplementation libs.spring.security.test
+    testImplementation libs.spring.boot.webmvc.test
+    // Mints genuinely valid (and genuinely invalid) test tokens - see TestKeys.
+    testImplementation libs.nimbus.jose.jwt
+}
+
+// Deployed as a container image, never consumed as a library.
+tasks.named('jar') { enabled = false }

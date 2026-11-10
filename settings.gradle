@@ -1,0 +1,54 @@
+// =============================================================================
+// Multi-project settings for the e-commerce platform monorepo.
+//
+// Every module that will ever hold Java code is wired up here NOW, even where
+// the module is an empty scaffold that a later phase fills in. That keeps
+// `./gradlew build` a whole-tree gate from day one instead of something that
+// silently stops covering new modules.
+//
+// `apps/admin-product-catalog` is deliberately absent: it is a Vue application
+// (Phase 1F) and is not built by Gradle.
+// =============================================================================
+
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        mavenCentral()
+    }
+}
+
+rootProject.name = 'ecommerce-platform'
+
+dependencyResolutionManagement {
+    // Modules must not declare their own repositories; resolution is centralised.
+    repositoriesMode = org.gradle.api.initialization.resolve.RepositoriesMode.FAIL_ON_PROJECT_REPOS
+    repositories {
+        mavenCentral()
+    }
+    // `gradle/libs.versions.toml` is picked up conventionally as `libs`.
+}
+
+// --- shared libraries --------------------------------------------------------
+include ':libs:common-core'
+include ':libs:common-web'
+include ':libs:common-security'
+
+// --- platform services -------------------------------------------------------
+include ':services:eureka-server' // Phase 1B
+include ':services:gateway' // Phase 1D
+
+// --- auth service ------------------------------------------------------------
+include ':services:auth-service:auth-service-api' // Phase 1C
+include ':services:auth-service:auth-service-app' // Phase 1C
+
+// --- product service ---------------------------------------------------------
+include ':services:product-service:product-service-api' // Phase 1E
+include ':services:product-service:product-service-app' // Phase 1E
+
+// --- inventory service ---------------------------------------------------------
+include ':services:inventory-service:inventory-service-api' // Phase 2
+include ':services:inventory-service:inventory-service-app' // Phase 2
+
+// --- rating service --------- ------------------------------------------------
+include ':services:rating-service:rating-service-api' // Phase 4
+include ':services:rating-service:rating-service-app' // Phase 4

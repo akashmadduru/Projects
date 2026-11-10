@@ -1,0 +1,70 @@
+// =============================================================================
+// rating-service-app - the deployable rating and review service (Phase 4).
+//
+// BLOCKING MVC + VIRTUAL THREADS, NOT WEBFLUX, for the same reason
+// product-service is: every request here is one short, indexed, blocking query
+// behind an ordinary request/response contract. Virtual threads (Java 25,
+// `spring.threads.virtual.enabled=true`) give reactive-grade concurrency while
+// leaving the code as plain imperative Java that @Transactional, debuggers and
+// stack traces all understand. The gateway is reactive because it proxies;
+// this service is not a proxy.
+//
+// PHASE 4 ADDS THE KAFKA PRODUCER SIDE. Rating CRUD operations publish to
+// rating.events Kafka topic so product-service can denormalize rating aggregates.
+// =============================================================================
+plugins {
+    id 'java-library'
+    alias(libs.plugins.spring.boot)
+}
+
+dependencies {
+    // `api` (not `implementation`): the DTOs on this service's controller
+    // signatures ARE the published contract.
+    api project(':services:rating-service:rating-service-api')
+
+    implementation project(':libs:common-web')
+    implementation project(':libs:common-security')
+
+    implementation libs.bundles.service.web
+    implementation libs.bundles.service.discovery.client
+    implementation libs.bundles.persistence.postgres
+    // Pure resource server: this service issues no tokens and holds no signing
+    // key. It validates the platform's tokens locally against auth-service's
+    // JWKS, exactly as product-service and the gateway do - the gateway is a
+    // filter, not the trust boundary.
+    implementation libs.bundles.resource.server
+    // The Kafka producer: RatingService publishes rating lifecycle events to
+    // rating.events so product-service can keep its denormalized aggregates in
+    // sync.
+    implementation libs.spring.kafka
+    // See the alias's own comment in gradle/libs.versions.toml - without this,
+    // spring.kafka.* properties bind but no bean is ever created.
+    implementation libs.spring.boot.kafka
+
+    implementation libs.micrometer.registry.prometheus
+
+    // Lombok for DTO generation and configuration properties
+    compileOnly libs.lombok
+    annotationProcessor libs.lombok
+
+    // Generates META-INF/spring-configuration-metadata.json so `rating.*`
+    // shows up with documentation in IDE completion.
+    //
+    // The BOM has to be re-imported here: the root build adds the platforms to
+    // the `api` configuration, and `annotationProcessor` does not extend it - so
+    // without this the processor resolves to a version-less coordinate and the
+    // build fails with "Could not find ...:spring-boot-configuration-processor:".
+    annotationProcessor platform(libs.spring.boot.bom)
+    annotationProcessor libs.spring.boot.configuration.processor
+
+    testImplementation libs.bundles.testing.unit
+    testImplementation libs.bundles.testing.containers
+    testImplementation libs.spring.kafka.test
+    testImplementation libs.spring.security.test
+    testImplementation libs.spring.boot.webmvc.test
+    // Mints genuinely valid (and genuinely invalid) test tokens - see TestKeys.
+    testImplementation libs.nimbus.jose.jwt
+}
+
+// Deployed as a container image, never consumed as a library.
+tasks.named('jar') { enabled = false }

@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin Product Catalog</title>
+    <!--
+      Google Fonts for `--font-sans` (Inter) / `--font-mono` (JetBrains Mono),
+      declared in style.css's `@theme` block. preconnect first so the actual
+      font requests don't pay the DNS/TLS handshake cost twice.
+    -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+    />
+    <script>
+      // Synchronous, inline, and BEFORE any stylesheet/app script on purpose: this
+      // is what avoids a flash of the wrong theme. A bundled module runs after CSS
+      // has already parsed with a default theme, which is too late.
+      (function () {
+        var KEY = 'theme';
+        var stored = localStorage.getItem(KEY);
+        var theme;
+        if (stored === 'catalogLight' || stored === 'catalogDark') {
+          theme = stored;
+        } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+          theme = 'catalogDark';
+        } else {
+          theme = 'catalogLight';
+        }
+        document.documentElement.dataset.theme = theme;
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

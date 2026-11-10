@@ -1,0 +1,570 @@
+{
+  "info": {
+    "_postman_id": "e7b3a4c0-6c1a-4a3e-9d2f-ecommerce0001",
+    "name": "E-commerce Platform",
+    "description": "Gateway + all backing services (auth-service, product-service, inventory-service, eureka-server) for the Spring Boot microservices monorepo. Folders: Gateway (edge), Auth Service, Product Service, Inventory Service, Eureka Server — each with a client-facing (via gateway) flow and a direct-to-service section for local debugging.\n\nFlow: run \"Login\" in Auth Service first — it captures `accessToken` into a collection variable and Postman's cookie jar picks up the `refresh_token` cookie automatically for the \"Refresh Token\" request. Product/Inventory write requests additionally need a CATALOG_MANAGER or ADMIN role on the logged-in user — a VIEWER-only token gets 403 on those.\n\nEvent-driven note: product writes (POST/PUT/DELETE) publish to Kafka topic `product.events` after the write commits; inventory-service consumes it asynchronously and provisions/removes its own `inventory.stock_levels` row a moment later — a `GET /api/inventory` immediately after `POST /api/products` may still 404 until that catches up (prototype-scope, no synchronous coupling by design — see docs/HLD-event-driven-inventory.md).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "gatewayBaseUrl", "value": "http://localhost:8080", "type": "string" },
+    { "key": "authBaseUrl", "value": "http://localhost:8081", "type": "string" },
+    { "key": "productBaseUrl", "value": "http://localhost:8082", "type": "string" },
+    { "key": "inventoryBaseUrl", "value": "http://localhost:8083", "type": "string" },
+    { "key": "eurekaBaseUrl", "value": "http://localhost:8761", "type": "string" },
+    { "key": "accessToken", "value": "", "type": "string" },
+    { "key": "testEmail", "value": "test.user@example.com", "type": "string" },
+    { "key": "testPassword", "value": "SuperSecret123!", "type": "string" },
+    { "key": "productId", "value": "", "type": "string" },
+    { "key": "inventoryId", "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Gateway",
+      "description": "The platform's single public edge (:8080). Routes /api/auth/**, /oauth2/**, /.well-known/jwks.json to auth-service, /api/products/** to product-service, and /api/inventory/** to inventory-service (own inventoryCb circuit breaker). Requests below hit the gateway itself; use the service folders for the routed calls.",
+      "item": [
+        {
+          "name": "Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{gatewayBaseUrl}}/actuator/health",
+              "host": ["{{gatewayBaseUrl}}"],
+              "path": ["actuator", "health"]
+            }
+          }
+        },
+        {
+          "name": "Fallback (circuit-open example)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{gatewayBaseUrl}}/__fallback/product-service",
+              "host": ["{{gatewayBaseUrl}}"],
+              "path": ["__fallback", "product-service"]
+            },
+            "description": "Internal circuit-breaker fallback path — not in PUBLIC_PATHS, so a direct call returns 401 unless it's an internal forward. Kept here for reference/documentation, expect 401."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth Service",
+      "description": "Identity provider — password login, Google OAuth2 login, rotating refresh tokens, JWKS. All requests below go through the gateway (base path /api/auth). A \"Direct (bypass gateway)\" sub-folder hits auth-service on :8081 directly for debugging.",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Correlation-Id", "value": "{{$guid}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{testEmail}}\",\n  \"password\": \"{{testPassword}}\",\n  \"displayName\": \"Test User\"\n}"
+            },
+            "url": {
+              "raw": "{{gatewayBaseUrl}}/api/auth/register",
+              "host": ["{{gatewayBaseUrl}}"],
+              "path": ["api", "auth", "register"]
+            },
+            "description": "Public. Gated by auth.registration.enabled (default false — enable via AUTH_REGISTRATION_ENABLED=true). Always assigns ROLE_VIEWER server-side; no role field accepted. Returns 201 + UserResponse, no token (registration ≠ login)."
+          }
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const body = pm.response.json();",
+                  "    pm.collectionVariables.set('accessToken', body.accessToken);",
+                  "}",
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Correlation-Id", "value": "{{$guid}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{testEmail}}\",\n  \"password\": \"{{testPassword}}\"\n}"
+            },
+            "url": {
+              "raw": "{{gatewayBaseUrl}}/api/auth/login",
+              "host": ["{{gatewayBaseUrl}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "description": "Public. Returns 200 + TokenResponse { accessToken, tokenType, expiresIn, authMethod }. Sets HttpOnly refresh_token cookie (Path=/api/auth) — never in the JSON body. Enable Postman's cookie jar to carry it to Refresh/Logout. Captures accessToken into the collection variable on success."
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const body = pm.response.json();",
+                  "    pm.collectionVariables.set('accessToken', body.accessToken);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Correlation-Id", "value": "{{$guid}}" }
+            ],
+            "body": { "mode": "raw", "raw": "" },
+            "url": {
+              "raw": "{{gatewayBaseUrl}}/api/auth/refresh",
+              "host": ["{{gatewayBaseUrl}}"],
+              "path": ["api", "auth", "refresh"]
+            },
+            "description": "Public, but requires the refresh_token cookie set by Login (cookie only — no header/body fallback). Rotates the refresh token: old one is invalidated, new Set-Cookie issued. Requires Postman cookie jar to be enabled for this domain."
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Correlation-Id", "value": "{{$guid}}" }
+            ],
+            "url": {
+              "raw": "{{gatewayBaseUrl}}/api/auth/logout",
+              "host": ["{{gatewayBaseUrl}}"],
+              "path": ["api", "auth", "logout"]
+            },
+            "description": "Public, reads refresh_token cookie (missing is fine). Always returns 204. Clears the cookie."
+          }
+        },
+        {
+          "name": "Get Current User (Me)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }]
+            },
+            "method": "GET",
+            "header": [
+              { "key": "X-Correlation-Id", "value": "{{$guid}}" }
+            ],
+            "url": {
+              "raw": "{{gatewayBaseUrl}}/api/auth/me",
+              "host": ["{{gatewayBaseUrl}}"],
+              "path": ["api", "auth", "me"]
+            },
+            "description": "Bearer JWT required. Returns UserResponse { id, email, emailVerified, displayName, status, roles[], createdAt }."
+          }
+        },
+        {
+          "name": "Validate Token",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }]
+            },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Correlation-Id", "value": "{{$guid}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{}" },
+            "url": {
+              "raw": "{{gatewayBaseUrl}}/api/auth/validate",
+              "host": ["{{gatewayBaseUrl}}"],
+              "path": ["api", "auth", "validate"]
+            },
+            "description": "Bearer JWT required. Always introspects the caller's own bearer token (request body's token field is currently ignored). Returns ValidateResponse { valid, userId, email, roles[], authMethod, expiresAt }."
+          }
+        },
+        {
+          "name": "JWKS",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{gatewayBaseUrl}}/.well-known/jwks.json",
+              "host": ["{{gatewayBaseUrl}}"],
+              "path": [".well-known", "jwks.json"]
+            },
+            "description": "Public. Standard JWKS document (public RSA keys). Cache-Control: max-age=300, public."
+          }
+        },
+        {
+          "name": "Start Google OAuth2 Login",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{gatewayBaseUrl}}/oauth2/authorization/google",
+              "host": ["{{gatewayBaseUrl}}"],
+              "path": ["oauth2", "authorization", "google"]
+            },
+            "description": "Public. Redirects to Google's consent screen (302) — only 404s unless GOOGLE_CLIENT_ID/SECRET are configured. Not fully testable in Postman since it's a browser redirect dance (state/PKCE + callback to /login/oauth2/code/google); at most observe the 302 here. On success the browser is redirected to auth.oauth2.default-redirect-uri (dev: http://localhost:5173/auth/callback) with a token pair minted and the refresh cookie set, same as password login."
+          }
+        },
+        {
+          "name": "Direct (bypass gateway)",
+          "item": [
+            {
+              "name": "Health",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{authBaseUrl}}/actuator/health",
+                  "host": ["{{authBaseUrl}}"],
+                  "path": ["actuator", "health"]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Product Service",
+      "description": "Catalog service (Phase 1G). Reads (GET /api/products**) are PUBLIC — no authentication required. Writes (POST/PUT/DELETE) require Bearer JWT with CATALOG_MANAGER or ADMIN role, and use optimistic locking (echo the `version` you last read on PUT, or get 409). Writes publish to Kafka topic `product.events` after commit — see Inventory Service folder for the consuming side. Requests below go through the gateway (base path /api/products). A \"Direct (bypass gateway)\" sub-folder hits product-service on :8082 directly.",
+      "auth": {
+        "type": "bearer",
+        "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }]
+      },
+      "item": [
+        {
+          "name": "List Products",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-Correlation-Id", "value": "{{$guid}}" }
+            ],
+            "url": {
+              "raw": "{{gatewayBaseUrl}}/api/products?page=0&size=20&sort=sku,asc",
+              "host": ["{{gatewayBaseUrl}}"],
+              "path": ["api", "products"],
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "20" },
+                { "key": "sort", "value": "sku,asc" }
+              ]
+            },
+            "description": "PUBLIC — No authentication required (Phase 1G). page 0-based, size default 20 / max 100, sort default sku,asc (repeatable). Returns a Spring Data PagedModel<ProductResponse>: { content: [{id, sku, name, priceAmount, priceCurrency, active, lastKnownQuantity}], page: {size, totalElements, totalPages, number} }."
+          }
+        },
+        {
+          "name": "Get Product By Id",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-Correlation-Id", "value": "{{$guid}}" }
+            ],
+            "url": {
+              "raw": "{{gatewayBaseUrl}}/api/products/:id",
+              "host": ["{{gatewayBaseUrl}}"],
+              "path": ["api", "products", ":id"],
+              "variable": [{ "key": "id", "value": "{{productId}}" }]
+            },
+            "description": "PUBLIC — No authentication required (Phase 1G). Path param id must be a UUID. Returns ProductResponse with images array populated; 404 problem+json if unknown, 400 if id isn't a valid UUID."
+          }
+        },
+        {
+          "name": "Get Product Aggregate (with Inventory)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-Correlation-Id", "value": "{{$guid}}" }
+            ],
+            "url": {
+              "raw": "{{gatewayBaseUrl}}/api/products/catalog/products/:id",
+              "host": ["{{gatewayBaseUrl}}"],
+              "path": ["api", "products", "catalog", "products", ":id"],
+              "variable": [{ "key": "id", "value": "{{productId}}" }]
+            },
+            "description": "PUBLIC — No authentication required (Phase 1G). Returns ProductCatalogAggregateResponse: { product: ProductResponse, inventory?: {productId, quantity, reserved} }. Inventory lookup is fail-open (returns inventory: null if inventory-service is unavailable). 404 problem+json if product unknown."
+          }
+        },
+        {
+          "name": "Create Product",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    pm.collectionVariables.set('productId', pm.response.json().id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Correlation-Id", "value": "{{$guid}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sku\": \"SKU-DEMO-001\",\n  \"name\": \"Demo Product\",\n  \"priceAmount\": 19.99,\n  \"priceCurrency\": \"USD\",\n  \"active\": true\n}"
+            },
+            "url": {
+              "raw": "{{gatewayBaseUrl}}/api/products",
+              "host": ["{{gatewayBaseUrl}}"],
+              "path": ["api", "products"]
+            },
+            "description": "Requires CATALOG_MANAGER or ADMIN role. 201 + ProductResponse (includes `version`, starts at 0) on success; 409 RESOURCE_CONFLICT on duplicate sku; 403 FORBIDDEN if the caller lacks the role. Publishes PRODUCT_CREATED to Kafka topic `product.events` strictly after the DB transaction commits. Captures the new id into the `productId` collection variable."
+          }
+        },
+        {
+          "name": "Update Product",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Correlation-Id", "value": "{{$guid}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Demo Product (updated)\",\n  \"priceAmount\": 24.99,\n  \"priceCurrency\": \"USD\",\n  \"active\": true,\n  \"version\": 0\n}"
+            },
+            "url": {
+              "raw": "{{gatewayBaseUrl}}/api/products/:id",
+              "host": ["{{gatewayBaseUrl}}"],
+              "path": ["api", "products", ":id"],
+              "variable": [{ "key": "id", "value": "{{productId}}" }]
+            },
+            "description": "Requires CATALOG_MANAGER or ADMIN role. `version` must match the value on the currently-persisted row (returned by Create/Get) or this returns 409 RESOURCE_CONFLICT — optimistic locking, not a soft check. 200 + ProductResponse (with incremented version) on success. Publishes PRODUCT_UPDATED to Kafka after commit (inventory-service currently treats this as log-only — see docs/HLD-event-driven-inventory.md Open Question)."
+          }
+        },
+        {
+          "name": "Delete Product",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "X-Correlation-Id", "value": "{{$guid}}" }
+            ],
+            "url": {
+              "raw": "{{gatewayBaseUrl}}/api/products/:id",
+              "host": ["{{gatewayBaseUrl}}"],
+              "path": ["api", "products", ":id"],
+              "variable": [{ "key": "id", "value": "{{productId}}" }]
+            },
+            "description": "Requires CATALOG_MANAGER or ADMIN role. 204 on success, 404 if unknown. Publishes PRODUCT_DELETED to Kafka after commit — inventory-service removes the matching inventory.stock_levels row (idempotent; no-op if it never existed or is already gone)."
+          }
+        },
+        {
+          "name": "Direct (bypass gateway)",
+          "item": [
+            {
+              "name": "Health",
+              "request": {
+                "auth": { "type": "noauth" },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{productBaseUrl}}/actuator/health",
+                  "host": ["{{productBaseUrl}}"],
+                  "path": ["actuator", "health"]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Inventory Service",
+      "description": "Stock-level service, added by the event-driven inventory feature (docs/HLD-event-driven-inventory.md). Reads (GET) need any authenticated user; writes (POST/PUT/DELETE) need CATALOG_MANAGER or ADMIN, same as Product Service. Rows here are also provisioned/removed asynchronously by a Kafka consumer reacting to product.events — a direct POST here is for manual stock adjustments, independent of that pipeline. Requests below go through the gateway (base path /api/inventory). A \"Direct (bypass gateway)\" sub-folder hits inventory-service on :8083 directly.",
+      "auth": {
+        "type": "bearer",
+        "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }]
+      },
+      "item": [
+        {
+          "name": "List Inventory",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-Correlation-Id", "value": "{{$guid}}" }
+            ],
+            "url": {
+              "raw": "{{gatewayBaseUrl}}/api/inventory?page=0&size=20",
+              "host": ["{{gatewayBaseUrl}}"],
+              "path": ["api", "inventory"],
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "20" }
+              ]
+            },
+            "description": "Bearer JWT required. Returns a Spring Data PagedModel<InventoryResponse>: { content: [{id, productId, quantity, version}], page: {...} }."
+          }
+        },
+        {
+          "name": "Get Inventory By Id",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-Correlation-Id", "value": "{{$guid}}" }
+            ],
+            "url": {
+              "raw": "{{gatewayBaseUrl}}/api/inventory/:id",
+              "host": ["{{gatewayBaseUrl}}"],
+              "path": ["api", "inventory", ":id"],
+              "variable": [{ "key": "id", "value": "{{inventoryId}}" }]
+            },
+            "description": "Bearer JWT required. 404 problem+json if unknown."
+          }
+        },
+        {
+          "name": "Create Inventory (manual)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    pm.collectionVariables.set('inventoryId', pm.response.json().id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Correlation-Id", "value": "{{$guid}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productId\": \"{{productId}}\",\n  \"quantity\": 100\n}"
+            },
+            "url": {
+              "raw": "{{gatewayBaseUrl}}/api/inventory",
+              "host": ["{{gatewayBaseUrl}}"],
+              "path": ["api", "inventory"]
+            },
+            "description": "Requires CATALOG_MANAGER or ADMIN role. 201 + InventoryResponse on success; 409 RESOURCE_CONFLICT if a row for this productId already exists (unique constraint — this is also the idempotency guard the Kafka consumer relies on). No FK to product.products (separate database) — this succeeds even for a productId that doesn't exist in the catalog, by design."
+          }
+        },
+        {
+          "name": "Update Inventory (adjust quantity)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Correlation-Id", "value": "{{$guid}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantity\": 85,\n  \"version\": 0\n}"
+            },
+            "url": {
+              "raw": "{{gatewayBaseUrl}}/api/inventory/:id",
+              "host": ["{{gatewayBaseUrl}}"],
+              "path": ["api", "inventory", ":id"],
+              "variable": [{ "key": "id", "value": "{{inventoryId}}" }]
+            },
+            "description": "Requires CATALOG_MANAGER or ADMIN role. `version` must match the currently-persisted row or this returns 409 RESOURCE_CONFLICT (optimistic locking). 200 + InventoryResponse (incremented version) on success."
+          }
+        },
+        {
+          "name": "Delete Inventory",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "X-Correlation-Id", "value": "{{$guid}}" }
+            ],
+            "url": {
+              "raw": "{{gatewayBaseUrl}}/api/inventory/:id",
+              "host": ["{{gatewayBaseUrl}}"],
+              "path": ["api", "inventory", ":id"],
+              "variable": [{ "key": "id", "value": "{{inventoryId}}" }]
+            },
+            "description": "Requires CATALOG_MANAGER or ADMIN role. 204 on success, 404 if unknown."
+          }
+        },
+        {
+          "name": "Direct (bypass gateway)",
+          "item": [
+            {
+              "name": "Health",
+              "request": {
+                "auth": { "type": "noauth" },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{inventoryBaseUrl}}/actuator/health",
+                  "host": ["{{inventoryBaseUrl}}"],
+                  "path": ["actuator", "health"]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Eureka Server",
+      "description": "Service registry (:8761). Unauthenticated in dev (documented gap — needs Basic auth/mTLS before non-loopback exposure). No business API; useful for debugging service registration.",
+      "item": [
+        {
+          "name": "Dashboard (HTML)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{eurekaBaseUrl}}/",
+              "host": ["{{eurekaBaseUrl}}"],
+              "path": [""]
+            }
+          }
+        },
+        {
+          "name": "Registry Apps (JSON)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{eurekaBaseUrl}}/eureka/apps",
+              "host": ["{{eurekaBaseUrl}}"],
+              "path": ["eureka", "apps"]
+            },
+            "description": "XML by default; Accept: application/json for JSON."
+          }
+        },
+        {
+          "name": "Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{eurekaBaseUrl}}/actuator/health",
+              "host": ["{{eurekaBaseUrl}}"],
+              "path": ["actuator", "health"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

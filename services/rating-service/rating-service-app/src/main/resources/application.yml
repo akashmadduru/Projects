@@ -1,0 +1,71 @@
+spring:
+  application:
+    name: rating-service
+
+  datasource:
+    url: jdbc:postgresql://postgres:5432/rating_db
+    username: rating_service
+    password: rating_service_password
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQL13Dialect
+        format_sql: true
+        jdbc:
+          batch_size: 20
+          fetch_size: 50
+
+  kafka:
+    bootstrap-servers: kafka:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+    consumer:
+      bootstrap-servers: kafka:9092
+      group-id: rating-service
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.type.mapping: "com.acme.ecommerce.rating.event.RatingEvent:com.acme.ecommerce.rating.event.RatingEvent"
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://auth-service:8081
+          audiences: rating-service
+          jwk-set-uri: http://auth-service:8081/.well-known/jwks.json
+
+server:
+  port: 8084
+  servlet:
+    context-path: /
+    compression:
+      enabled: true
+      min-response-size: 1024
+
+logging:
+  level:
+    root: INFO
+    com.acme: DEBUG
+  pattern:
+    console: "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+    file: "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+  endpoint:
+    health:
+      show-details: when-authorized

@@ -1,0 +1,230 @@
+# =============================================================================
+# Gradle Version Catalog - single source of truth for every dependency version
+# used anywhere in the platform.
+#
+# VERIFIED COMBINATION (Phase 1A de-risking - see docs/adr/0001):
+#   Java         : 25 (LTS) toolchain, release 25
+#   Gradle       : 9.6.1 (wrapper-pinned)
+#   Spring Boot  : 4.0.7  -> Spring Framework 7.0.8
+#   Spring Cloud : 2025.1.2 -> Cloud modules 5.0.2
+#   Spring Sec   : 7.0.6 (managed by the Boot BOM)
+#
+# WHY BOOT 4.0.7 AND NOT 4.1.0:
+#   Spring Boot 4.1.0 is GA, but the newest Spring Cloud release train
+#   (2025.1.2) declares <spring-boot.version>4.0.7</spring-boot.version> in its
+#   BOM - it is built and tested against the 4.0.x line. Pinning 4.0.7 keeps the
+#   Cloud BOM's expectations aligned. Revisit when a Boot 4.1-compatible Spring
+#   Cloud train ships.
+#
+# WHY SPRINGDOC 3.0.3 AND NOT 3.1.0:
+#   springdoc-openapi 3.1.0 depends on spring-boot-autoconfigure 4.1.0, which
+#   wins Gradle conflict resolution and *silently* dragged the whole Boot
+#   platform to 4.1.0 - past what Spring Cloud 2025.1.2 is tested against.
+#   The 3.0.x line targets Boot 4.0.x. Verified: with 3.0.3 the resolved
+#   org.springframework.boot:spring-boot stays at 4.0.7.
+#
+# WHY BOUNCYCASTLE 1.85 AND NOT 1.85.2:
+#   bcprov-jdk18on publishes 1.85.2 but bcpkix-jdk18on's latest is 1.85. The BC
+#   modules must be version-aligned, so both are pinned to 1.85.
+# =============================================================================
+
+[versions]
+# --- platform BOMs ---
+springBoot = "4.0.7"
+springCloud = "2025.1.2"
+
+# --- build plugins ---
+spotless = "8.9.0"
+googleJavaFormat = "1.36.1"
+checkstyleTool = "13.9.0"
+
+# --- libraries not managed by the Boot/Cloud BOMs ---
+bouncycastle = "1.85"
+springdoc = "3.0.3"
+mapstruct = "1.6.3"
+lombok = "1.18.46"
+# WHY 8.10.1 AND NOT NEWER: the `com.bucket4j:bucket4j-core` coordinate stops at
+# 8.10.1 on Maven Central; from 8.11 the project split into JDK-specific
+# artifacts (`bucket4j_jdk17-core`). 8.10.1 is the last release of the plain
+# coordinate and exposes the same `io.github.bucket4j` API. Used ONLY for the
+# per-instance, in-memory login/refresh throttle in auth-service - the real
+# brute-force control is the per-account lockout in the database, which works
+# regardless of replica count.
+bucket4j = "8.10.1"
+# NOTE: Testcontainers is NOT pinned here. The Spring Boot 4.0.7 BOM already
+# manages it (currently 2.0.5). Importing a second Testcontainers BOM would
+# create a silent version conflict of exactly the kind that bit us with
+# springdoc above. Let the Boot BOM win.
+
+[libraries]
+# --- BOMs (consumed via platform(...) ) -------------------------------------
+spring-boot-bom = { module = "org.springframework.boot:spring-boot-dependencies", version.ref = "springBoot" }
+spring-cloud-bom = { module = "org.springframework.cloud:spring-cloud-dependencies", version.ref = "springCloud" }
+
+# --- Spring Boot starters (versions come from the Boot BOM) -----------------
+spring-boot-starter = { module = "org.springframework.boot:spring-boot-starter" }
+spring-boot-starter-web = { module = "org.springframework.boot:spring-boot-starter-web" }
+spring-boot-starter-webflux = { module = "org.springframework.boot:spring-boot-starter-webflux" }
+spring-boot-starter-validation = { module = "org.springframework.boot:spring-boot-starter-validation" }
+spring-boot-starter-actuator = { module = "org.springframework.boot:spring-boot-starter-actuator" }
+spring-boot-starter-data-jpa = { module = "org.springframework.boot:spring-boot-starter-data-jpa" }
+spring-boot-starter-security = { module = "org.springframework.boot:spring-boot-starter-security" }
+# auth-service's user-snapshot cache (Phase 2). Pulls in Lettuce + the blocking
+# StringRedisTemplate - matches the service's blocking-MVC-on-virtual-threads
+# stack (see auth-service-app/build.gradle), no reactive Redis client needed.
+spring-boot-starter-data-redis = { module = "org.springframework.boot:spring-boot-starter-data-redis" }
+spring-boot-starter-oauth2-resource-server = { module = "org.springframework.boot:spring-boot-starter-oauth2-resource-server" }
+spring-boot-starter-oauth2-client = { module = "org.springframework.boot:spring-boot-starter-oauth2-client" }
+spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-starter-test" }
+spring-boot-testcontainers = { module = "org.springframework.boot:spring-boot-testcontainers" }
+spring-boot-configuration-processor = { module = "org.springframework.boot:spring-boot-configuration-processor" }
+spring-boot-autoconfigure = { module = "org.springframework.boot:spring-boot-autoconfigure" }
+spring-boot = { module = "org.springframework.boot:spring-boot" }
+
+# --- Spring Framework / Security pieces used directly by libs ---------------
+spring-web = { module = "org.springframework:spring-web" }
+spring-webmvc = { module = "org.springframework:spring-webmvc" }
+spring-context = { module = "org.springframework:spring-context" }
+spring-security-core = { module = "org.springframework.security:spring-security-core" }
+spring-security-config = { module = "org.springframework.security:spring-security-config" }
+spring-security-web = { module = "org.springframework.security:spring-security-web" }
+spring-security-crypto = { module = "org.springframework.security:spring-security-crypto" }
+spring-security-oauth2-jose = { module = "org.springframework.security:spring-security-oauth2-jose" }
+spring-security-oauth2-resource-server = { module = "org.springframework.security:spring-security-oauth2-resource-server" }
+jakarta-servlet-api = { module = "jakarta.servlet:jakarta.servlet-api" }
+jakarta-validation-api = { module = "jakarta.validation:jakarta.validation-api" }
+slf4j-api = { module = "org.slf4j:slf4j-api" }
+
+# --- Spring Cloud (versions come from the Cloud BOM) ------------------------
+# NOTE: in the 2025.1.x train the gateway starter was renamed. The legacy
+# `spring-cloud-starter-gateway` artifact stops at 4.3.x (Boot 3.x only).
+spring-cloud-starter-gateway-server-webflux = { module = "org.springframework.cloud:spring-cloud-starter-gateway-server-webflux" }
+spring-cloud-starter-gateway-server-webmvc = { module = "org.springframework.cloud:spring-cloud-starter-gateway-server-webmvc" }
+spring-cloud-starter-netflix-eureka-server = { module = "org.springframework.cloud:spring-cloud-starter-netflix-eureka-server" }
+spring-cloud-starter-netflix-eureka-client = { module = "org.springframework.cloud:spring-cloud-starter-netflix-eureka-client" }
+spring-cloud-starter-openfeign = { module = "org.springframework.cloud:spring-cloud-starter-openfeign" }
+spring-cloud-starter-loadbalancer = { module = "org.springframework.cloud:spring-cloud-starter-loadbalancer" }
+spring-cloud-starter-circuitbreaker-resilience4j = { module = "org.springframework.cloud:spring-cloud-starter-circuitbreaker-resilience4j" }
+# REACTOR variant, required by the gateway. The plain (non-reactor) starter above
+# registers a blocking `CircuitBreakerFactory`; Spring Cloud Gateway's
+# `CircuitBreaker` route filter looks for a `ReactiveCircuitBreakerFactory` and
+# silently fails to start ("Unable to find GatewayFilterFactory with name
+# CircuitBreaker") if only the blocking one is present.
+spring-cloud-starter-circuitbreaker-reactor-resilience4j = { module = "org.springframework.cloud:spring-cloud-starter-circuitbreaker-reactor-resilience4j" }
+feign-core = { module = "io.github.openfeign:feign-core" }
+
+# --- JWT / crypto -----------------------------------------------------------
+nimbus-jose-jwt = { module = "com.nimbusds:nimbus-jose-jwt" }
+bouncycastle-bcprov = { module = "org.bouncycastle:bcprov-jdk18on", version.ref = "bouncycastle" }
+bouncycastle-bcpkix = { module = "org.bouncycastle:bcpkix-jdk18on", version.ref = "bouncycastle" }
+
+# --- rate limiting ----------------------------------------------------------
+bucket4j-core = { module = "com.bucket4j:bucket4j-core", version.ref = "bucket4j" }
+
+# --- persistence ------------------------------------------------------------
+flyway-core = { module = "org.flywaydb:flyway-core" }
+flyway-database-postgresql = { module = "org.flywaydb:flyway-database-postgresql" }
+# BOOT 4 MODULARISATION TRAP: flyway-core on the classpath is NOT enough any more.
+# In Boot 3 the Flyway auto-configuration shipped inside spring-boot-autoconfigure;
+# in Boot 4 it lives in its own `spring-boot-flyway` module, which no starter pulls
+# in transitively. Without it the application starts perfectly happily, logs
+# nothing, and simply never runs a migration - so the first symptom is
+# "relation does not exist" at runtime rather than anything pointing at Flyway.
+spring-boot-flyway = { module = "org.springframework.boot:spring-boot-flyway" }
+postgresql = { module = "org.postgresql:postgresql" }
+
+# --- observability ----------------------------------------------------------
+micrometer-registry-prometheus = { module = "io.micrometer:micrometer-registry-prometheus" }
+micrometer-tracing-bridge-otel = { module = "io.micrometer:micrometer-tracing-bridge-otel" }
+
+# --- messaging ----------------------------------------------------------------
+# BOM-managed, no version.ref, same as every other Boot-BOM-managed starter
+# above. Added ahead of the Phase 2b Kafka wiring (product-service publisher /
+# inventory-service consumer) so that pass does not need a second catalog edit.
+spring-kafka = { module = "org.springframework.kafka:spring-kafka" }
+# BOOT 4 MODULARISATION TRAP, SAME AS spring-boot-flyway ABOVE: KafkaAutoConfiguration
+# (the bean that turns spring.kafka.* properties into a KafkaTemplate) is NOT in
+# spring-boot-autoconfigure any more - it lives in its own spring-boot-kafka
+# module, which spring-kafka itself does not pull in. Without it, spring-kafka is
+# on the classpath, every spring.kafka.* property is happily bound, and no
+# KafkaTemplate bean is ever created - so the first symptom is a
+# NoSuchBeanDefinitionException at the FIRST class that autowires one, not
+# anything pointing at "add this dependency".
+spring-boot-kafka = { module = "org.springframework.boot:spring-boot-kafka" }
+# Test-only utilities (EmbeddedKafka, KafkaTestUtils) for the inventory-service
+# consumer test suite. BOM-managed, same as spring-kafka above.
+spring-kafka-test = { module = "org.springframework.kafka:spring-kafka-test" }
+
+# --- API docs / mapping -----------------------------------------------------
+springdoc-openapi-webmvc-ui = { module = "org.springdoc:springdoc-openapi-starter-webmvc-ui", version.ref = "springdoc" }
+mapstruct = { module = "org.mapstruct:mapstruct", version.ref = "mapstruct" }
+mapstruct-processor = { module = "org.mapstruct:mapstruct-processor", version.ref = "mapstruct" }
+
+# --- compile-time boilerplate generation -------------------------------------
+# compileOnly + annotationProcessor only, same as mapstruct above - lombok
+# generates source at compile time and must never end up on a module's runtime
+# classpath.
+lombok = { module = "org.projectlombok:lombok", version.ref = "lombok" }
+
+# --- testing ----------------------------------------------------------------
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
+assertj-core = { module = "org.assertj:assertj-core" }
+mockito-core = { module = "org.mockito:mockito-core" }
+mockito-junit-jupiter = { module = "org.mockito:mockito-junit-jupiter" }
+# NOTE: Testcontainers 2.x renamed every module artifact to `testcontainers-<module>`.
+# The pre-2.x coordinates (org.testcontainers:junit-jupiter, :postgresql) stop at
+# 1.21.4 and will NOT resolve against the version the Boot 4 BOM manages.
+testcontainers-core = { module = "org.testcontainers:testcontainers" }
+testcontainers-junit-jupiter = { module = "org.testcontainers:testcontainers-junit-jupiter" }
+testcontainers-postgresql = { module = "org.testcontainers:testcontainers-postgresql" }
+# Added ahead of Phase 2b for the same reason as spring-kafka above: the
+# inventory-service consumer test suite will need a real broker.
+testcontainers-kafka = { module = "org.testcontainers:testcontainers-kafka" }
+spring-security-test = { module = "org.springframework.security:spring-security-test" }
+# StepVerifier. Reactive assertions need it, and no starter brings it transitively.
+reactor-test = { module = "io.projectreactor:reactor-test" }
+# Boot 4 modularised spring-boot-test: @AutoConfigureMockMvc and the MockMvc
+# auto-configuration are no longer in spring-boot-starter-test, and Boot 4 also
+# dropped TestRestTemplate entirely. Any Boot-4 module that wants full-stack HTTP
+# tests needs this explicitly, or the annotation simply does not resolve.
+spring-boot-webmvc-test = { module = "org.springframework.boot:spring-boot-webmvc-test" }
+
+[bundles]
+# Everything a Boot web service needs to register with Eureka and be observable.
+service-web = [
+    "spring-boot-starter-web",
+    "spring-boot-starter-validation",
+    "spring-boot-starter-actuator",
+]
+service-discovery-client = [
+    "spring-cloud-starter-netflix-eureka-client",
+    "spring-cloud-starter-loadbalancer",
+]
+resource-server = [
+    "spring-boot-starter-security",
+    "spring-boot-starter-oauth2-resource-server",
+]
+persistence-postgres = [
+    "spring-boot-starter-data-jpa",
+    "spring-boot-flyway",
+    "flyway-core",
+    "flyway-database-postgresql",
+    "postgresql",
+]
+testing-unit = [
+    "spring-boot-starter-test",
+    "assertj-core",
+    "mockito-core",
+    "mockito-junit-jupiter",
+]
+testing-containers = [
+    "testcontainers-core",
+    "testcontainers-junit-jupiter",
+    "testcontainers-postgresql",
+    "spring-boot-testcontainers",
+]
+
+[plugins]
+spring-boot = { id = "org.springframework.boot", version.ref = "springBoot" }
+spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }

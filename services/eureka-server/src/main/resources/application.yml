@@ -1,0 +1,167 @@
+# =============================================================================
+# eureka-server configuration.
+#
+# The unprofiled document below is the DEV/DOCKER-COMPOSE configuration. It is
+# tuned for fast feedback, not for resilience. The `prod` document at the bottom
+# shows exactly which knobs must move for a real environment - it is kept in
+# this same file on purpose, so the dev/prod delta is impossible to miss.
+#
+# NOT CONFIGURED HERE, DELIBERATELY:
+#   - No datasource. The registry is an in-memory, self-healing store; a lost
+#     registry re-populates from client heartbeats within one renewal interval.
+#   - No security. See "DASHBOARD EXPOSURE" below and services/eureka-server/README.md.
+# =============================================================================
+
+spring:
+  application:
+    name: eureka-server
+
+server:
+  port: 8761
+  # The registry is only ever called by other containers on the compose network;
+  # a small shutdown grace period is enough and keeps restarts snappy.
+  shutdown: graceful
+
+# -----------------------------------------------------------------------------
+# DASHBOARD EXPOSURE
+#
+# Nothing here binds the dashboard to a public interface - the process listens on
+# 0.0.0.0 *inside its container*, and infra/docker-compose.yml publishes the port
+# to 127.0.0.1 only. That container-boundary binding is the entire access control
+# story in dev.
+#
+# PRODUCTION GAP (tracked, not implemented in Phase 1): the dashboard and the
+# /eureka/** registry API must sit behind HTTP Basic auth (or mTLS) before this
+# runs anywhere reachable. Unauthenticated, /eureka/apps is a complete map of
+# every service instance and port in the platform, and it accepts registrations
+# and de-registrations from anyone who can reach it.
+# -----------------------------------------------------------------------------
+
+eureka:
+  instance:
+    # Matches the docker-compose service name, so the URL a peer or client would
+    # build (http://eureka-server:8761/eureka/) resolves on the compose network.
+    hostname: eureka-server
+    prefer-ip-address: false
+
+  client:
+    # Standalone single-node registry: it is not a client of itself and has no
+    # peers, so both of these are false. Leaving them at their `true` defaults
+    # produces a startup storm of connection-refused retries against itself.
+    register-with-eureka: false
+    fetch-registry: false
+    service-url:
+      # Still declared: PeerEurekaNodes reads this list, recognises this node's
+      # own hostname in it and filters itself out. An empty list is the less
+      # well-trodden path.
+      defaultZone: http://${eureka.instance.hostname}:${server.port}/eureka/
+
+  server:
+    # DEV ONLY - MUST BE `true` IN PRODUCTION (see the prod document below).
+    # Self-preservation stops the server evicting instances when it stops
+    # hearing heartbeats, on the theory that a network partition is more likely
+    # than every service dying at once. In dev that theory is wrong: services
+    # really are being killed and restarted constantly, and self-preservation
+    # keeps serving their stale addresses long after they are gone.
+    enable-self-preservation: false
+
+    # How often the eviction sweep runs (default 60s). Tightened so a stopped
+    # service disappears from the registry quickly during local development.
+    eviction-interval-timer-in-ms: 10000
+
+    # The server serves /eureka/apps from a read-only response cache refreshed on
+    # this interval (default 30s). Tightened for the same reason.
+    response-cache-update-interval-ms: 5000
+
+    # Fraction of expected renewals below which self-preservation would trip.
+    # Inert while enable-self-preservation is false, but set here so the value is
+    # already correct the moment the prod profile flips that flag.
+    renewal-percent-threshold: 0.85
+
+# -----------------------------------------------------------------------------
+# DEV DISCOVERY LAG - EXPECTED BEHAVIOUR, NOT A BUG
+#
+# Worst case ~20s from "service process dies" to "callers stop trying it":
+#     eviction sweep          up to 10s  (eviction-interval-timer-in-ms)
+#   + response cache refresh  up to  5s  (response-cache-update-interval-ms)
+#   + client registry fetch   up to  5s  (client's registry-fetch-interval-seconds)
+#   = ~20s
+# Shrinking it further trades away more CPU/chattiness than it is worth.
+#
+# CLIENT-SIDE TIMING INVARIANT (for Phase 1C/1D/1E, when services register here):
+#   eureka.instance.lease-expiration-duration-in-seconds
+#       >= 3 x eureka.instance.lease-renewal-interval-in-seconds
+# A single dropped heartbeat must never be enough to evict a healthy instance.
+# With the conventional 5s renewal, expiration must be >= 15s. Violating this
+# produces instances that flap in and out of the registry under mild GC pauses.
+# -----------------------------------------------------------------------------
+
+management:
+  endpoints:
+    web:
+      exposure:
+        # Health only. The registry has no business exposing env/heapdump/etc.
+        # even on an internal network.
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
+  health:
+    # Otherwise the server reports DOWN until it has finished its first
+    # (never-arriving, because fetch-registry=false) registry fetch, which makes
+    # the compose healthcheck permanently red.
+    defaults:
+      enabled: true
+
+logging:
+  level:
+    # The Netflix client logs a WARN on every heartbeat cycle about the
+    # unregistered self-instance; it is expected for a standalone node.
+    com.netflix.discovery: WARN
+    com.netflix.eureka: INFO
+
+---
+# =============================================================================
+# PROFILE: prod
+#
+# Not exercised in Phase 1 (dev-only). It exists so the production intent is
+# recorded next to the dev values it overrides, rather than living in someone's
+# memory. Activate with SPRING_PROFILES_ACTIVE=prod.
+#
+# STILL MISSING FOR A REAL PRODUCTION DEPLOY (out of Phase 1 scope):
+#   - HTTP Basic auth / mTLS in front of the dashboard and /eureka/**
+#   - Peer-to-peer replication across >= 2 nodes in different AZs, with
+#     register-with-eureka and fetch-registry set back to `true` and
+#     service-url.defaultZone listing the peers
+#   - TLS termination
+# =============================================================================
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+eureka:
+  instance:
+    # In a real deployment the hostname is environment-supplied (ECS task DNS,
+    # k8s service, EC2 private DNS) - never hardcoded.
+    hostname: ${EUREKA_INSTANCE_HOSTNAME}
+
+  server:
+    # THE flag. With it off, a transient network partition makes the registry
+    # evict a large slice of a perfectly healthy fleet and takes the platform
+    # down with it. Availability beats consistency for a service registry.
+    enable-self-preservation: true
+
+    # Back to the Netflix defaults: less sweep/refresh churn, and the extra
+    # seconds of staleness are absorbed by client-side retry + load balancing.
+    eviction-interval-timer-in-ms: 60000
+    response-cache-update-interval-ms: 30000
+    renewal-percent-threshold: 0.85
+
+management:
+  endpoint:
+    health:
+      # Health details are an information leak on an internet-adjacent surface.
+      show-details: never

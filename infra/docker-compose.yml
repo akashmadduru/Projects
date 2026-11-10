@@ -1,0 +1,549 @@
+# Local development infrastructure.
+#
+# Phase 1A provisions BACKING SERVICES ONLY (postgres, zookeeper). The platform
+# services (eureka, gateway, auth, product) are commented-out placeholders below
+# and are filled in by the phase that builds each one.
+#
+# WHY PLACEHOLDERS RATHER THAN STUB CONTAINERS: a stub container that starts and
+# immediately exits makes `docker compose up` red and `docker compose ps` noisy,
+# which trains people to ignore both. A commented block is honest about what
+# does not exist yet.
+#
+#   Bring up backing services:  docker compose -f infra/docker-compose.yml up -d
+#   Tear down (keep data):      docker compose -f infra/docker-compose.yml down
+#   Tear down (wipe data):      docker compose -f infra/docker-compose.yml down -v
+# =============================================================================
+
+name: ecommerce-platform
+
+services:
+  # ---------------------------------------------------------------------------
+  # PostgreSQL - one instance hosting a separate database per service.
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:17
+    container_name: ecommerce-postgres
+    restart: unless-stopped
+    environment:
+      # Superuser credentials are LOCAL-ONLY throwaway values. Service
+      # credentials are created by the init script, not here.
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+      # Deterministic collation, so ORDER BY behaves the same for everyone.
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    ports:
+      # Host port is overridable so a pre-existing local Postgres (or another
+      # project's stack) does not block bring-up: POSTGRES_PORT=15432 docker compose up -d
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      # Executed only when the data volume is empty (first start).
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      # `-d postgres` matters: without it pg_isready can report ready during the
+      # init phase, before the init scripts have created the service databases.
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+      start_period: 15s
+
+  # ---------------------------------------------------------------------------
+  # ZooKeeper - generic coordination primitives (distributed locks, leader
+  # election) for later phases.
+  #
+  # IMPORTANT: ZooKeeper is NOT service discovery in this platform. Eureka owns
+  # discovery. No service depends on spring-cloud-starter-zookeeper-discovery,
+  # and adding it would give us two competing registries.
+  # ---------------------------------------------------------------------------
+  zookeeper:
+    image: zookeeper:3.9
+    container_name: ecommerce-zookeeper
+    restart: unless-stopped
+    environment:
+      ZOO_MY_ID: 1
+      ZOO_STANDALONE_ENABLED: "true"
+      # The `ruok` four-letter word is disabled by default from 3.5 onward; the
+      # healthcheck below depends on it being allow-listed.
+      ZOO_4LW_COMMANDS_WHITELIST: "srvr,mntr,ruok,conf"
+      ZOO_TICK_TIME: 2000
+      ZOO_INIT_LIMIT: 5
+      ZOO_SYNC_LIMIT: 2
+    ports:
+      - "${ZOOKEEPER_PORT:-2181}:2181"
+    volumes:
+      - zookeeper-data:/data
+      - zookeeper-datalog:/datalog
+    healthcheck:
+      # "Are you ok?" - answers `imok` when the server is running and healthy.
+      test: ["CMD-SHELL", "echo ruok | nc -w 2 localhost 2181 | grep -q imok"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+
+  # ---------------------------------------------------------------------------
+  # Kafka (KRaft mode, single broker) - the event backbone for Phase 2's
+  # product.events topic. Deliberately independent of the ZooKeeper container
+  # above: that one is reserved for future app-level coordination primitives,
+  # this one is the message broker, and KRaft mode means Kafka does not need
+  # ZooKeeper for its own metadata any more anyway.
+  #
+  # `apache/kafka:3.9.0` is the official upstream image, KRaft-only (no
+  # ZooKeeper-mode entrypoint at all) - there is no separate "which mode" flag
+  # to get wrong.
+  #
+  # NO HOST PORT. Nothing outside the compose network talks to Kafka directly
+  # in this design - only product-service (producer) and inventory-service
+  # (consumer), both reached over the internal `kafka:9092` listener - so there
+  # is nothing here for a developer's machine to need published.
+  # ---------------------------------------------------------------------------
+  kafka:
+    image: apache/kafka:3.9.0
+    container_name: ecommerce-kafka
+    restart: unless-stopped
+    environment:
+      # Single-node KRaft: this broker is also the (only) controller.
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:9093"
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      # PLAINTEXT everywhere - this is a dev/compose network with no external
+      # exposure, matching the platform's other backing services.
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      # CONTROLLER must be advertised too, not just PLAINTEXT: in KRaft combined
+      # mode (broker+controller on one node), Kafka's own config validation
+      # computes an effective advertised address for every listener declared in
+      # KAFKA_LISTENERS, including the controller one - if it's left out of
+      # KAFKA_ADVERTISED_LISTENERS, that computation falls back to the raw
+      # 0.0.0.0 bind address from KAFKA_LISTENERS and startup fails with
+      # "advertised.listeners cannot use the nonroutable meta-address 0.0.0.0".
+      # Verified empirically against apache/kafka:3.9.0 - the container will not
+      # start in combined mode without this, even though CONTROLLER traffic
+      # itself is quorum-internal (KAFKA_CONTROLLER_QUORUM_VOTERS), not
+      # client-facing.
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,CONTROLLER://kafka:9093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      # Single broker: a replication factor above 1 cannot be satisfied and
+      # would simply fail every topic creation. See HLD S8 - this is a
+      # documented durability gap, not a scale gap.
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    healthcheck:
+      # Broker-API-versions is a lightweight, always-available way to prove the
+      # broker is accepting client connections, without depending on any topic
+      # existing yet.
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+  # ---------------------------------------------------------------------------
+  # Redis - the auth-service user-snapshot cache (Phase 2). A single instance,
+  # matching the "prototype-grade" scope (HLD S8): it holds nothing that cannot
+  # be reconstructed from auth_db, so it needs no HA to stay correct.
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: ecommerce-redis
+    restart: unless-stopped
+    ports:
+      # Loopback only, like every backing service a developer might want to
+      # inspect directly (`redis-cli -p 6379`) but that has no business being
+      # reachable from outside the host.
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+
+  # ===========================================================================
+  # PLATFORM SERVICES - added by the phase that builds each service.
+  # ===========================================================================
+
+  # ---------------------------------------------------------------------------
+  # Eureka - the service registry (Phase 1B). THE discovery mechanism for this
+  # platform; see the ZooKeeper note above.
+  #
+  # No `depends_on`: the registry owns no state and talks to nothing. It is the
+  # root of the startup graph, not a participant in it.
+  # ---------------------------------------------------------------------------
+  eureka-server:
+    build:
+      context: ..
+      dockerfile: services/eureka-server/Dockerfile
+    container_name: ecommerce-eureka
+    restart: unless-stopped
+    environment:
+      # Dev/compose profile is the unprofiled default in application.yml. The
+      # `prod` document in that same file shows what must change for a real
+      # deploy (self-preservation on, relaxed sweep intervals).
+      SPRING_PROFILES_ACTIVE: default
+    ports:
+      # BOUND TO LOOPBACK ON PURPOSE. `- "8761:8761"` would be shorthand for
+      # 0.0.0.0:8761 and publish the registry to every interface on the host -
+      # including the coffee-shop wifi. Unauthenticated, /eureka/apps is a
+      # complete map of every service instance and port in the platform, and it
+      # accepts registrations and de-registrations from anyone who can reach it.
+      #
+      # This publish exists only so a developer can open the dashboard at
+      # http://localhost:8761/. Services reach the registry over the compose
+      # network at http://eureka-server:8761/eureka/ and do not need it at all.
+      #
+      # PRODUCTION GAP (Phase 1 is dev-only, documented not implemented):
+      # the dashboard and /eureka/** need HTTP Basic auth (or mTLS) plus TLS
+      # before this runs anywhere a network boundary is not doing the work.
+      - "127.0.0.1:${EUREKA_PORT:-8761}:8761"
+    healthcheck:
+      # Later services gate on this with `condition: service_healthy`, so it has
+      # to mean "registry is accepting registrations", not "container exists".
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8761/actuator/health | grep -q '\"status\":\"UP\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      # Boot + Eureka bootstrap is slower than a native process; without this the
+      # container is marked unhealthy and restarted before it ever comes up.
+      start_period: 45s
+
+  # ---------------------------------------------------------------------------
+  # auth-service (Phase 1C) - the platform's identity provider.
+  #
+  # Gates on BOTH postgres (Flyway migrates on startup) and eureka (it registers
+  # on startup). Without the health conditions it starts, fails to connect, and
+  # restart-loops for the 30s it takes the dependencies to come up.
+  #
+  # DELIBERATELY NOT `depends_on: redis` (Phase 2). UserSessionCache#put writes
+  # the user-snapshot cache best-effort, AFTER the login/refresh transaction has
+  # already succeeded, and swallows every failure (fail open - see the class
+  # Javadoc). Gating this service's startup, or any login, on an optional
+  # display-only cache would trade away identity-provider availability for a
+  # feature nothing on the authentication path depends on - the same call
+  # product-service's `depends_on` note makes for Kafka above.
+  # ---------------------------------------------------------------------------
+  auth-service:
+    build:
+      context: ..
+      dockerfile: services/auth-service/auth-service-app/Dockerfile
+    container_name: ecommerce-auth
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: default
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/auth_db
+      SPRING_DATASOURCE_USERNAME: auth_service
+      # Injected from the developer's .env (gitignored) - never inlined here.
+      SPRING_DATASOURCE_PASSWORD: ${AUTH_DB_PASSWORD:?set AUTH_DB_PASSWORD in infra/.env}
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      # Keystore produced by infra/scripts/generate-keystore.sh. MOUNTED, never
+      # baked into the image and never generated at startup - a key generated
+      # in-process differs on every replica and after every restart, so half the
+      # fleet cannot verify the other half's tokens.
+      PLATFORM_JWT_KEYSTORE_PATH: /run/secrets/jwt-keystore.p12
+      PLATFORM_JWT_KEYSTORE_PASSWORD: ${JWT_KEYSTORE_PASSWORD:?set JWT_KEYSTORE_PASSWORD in infra/.env}
+      PLATFORM_JWT_KEYSTORE_ALIAS: ${JWT_KEYSTORE_ALIAS:-jwt-signing}
+      # Google OIDC is OPTIONAL. Left blank, the OAuth2 leg is simply not
+      # installed and every other endpoint works normally.
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      # Registration is OFF by default; this is an internal console.
+      AUTH_REGISTRATION_ENABLED: ${AUTH_REGISTRATION_ENABLED:-false}
+      # UserSessionCache's connection (Phase 2). Resolved on the compose network,
+      # not localhost - see the depends_on note above for why this is not a
+      # startup gate.
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    volumes:
+      - ./secrets/jwt-keystore.p12:/run/secrets/jwt-keystore.p12:ro
+    ports:
+      # Loopback only, like the registry: this is the identity provider, and in
+      # dev the container boundary is the entire access-control story.
+      - "127.0.0.1:${AUTH_PORT:-8081}:8081"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8081/actuator/health | grep -q '\"status\":\"UP\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      # Boot + Hibernate + Flyway is slower to start than the registry.
+      start_period: 60s
+
+  # ---------------------------------------------------------------------------
+  # gateway - the platform's single public edge (Phase 1D).
+  #
+  # THE ONLY SERVICE PUBLISHED ON A NON-LOOPBACK PORT. Everything else in this
+  # file binds to 127.0.0.1; this one is meant to be reachable, and it is the
+  # only place where authentication, CORS and per-route circuit breaking happen
+  # for external traffic.
+  # ---------------------------------------------------------------------------
+  gateway:
+    build:
+      context: ..
+      dockerfile: services/gateway/Dockerfile
+    container_name: ecommerce-gateway
+    restart: unless-stopped
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+      # DELIBERATELY NOT `auth-service: condition: service_healthy`. The edge
+      # must be able to start while its identity provider is down, or every
+      # auth-service rollout becomes a platform-wide outage and every
+      # auth-service crash-loop takes the gateway with it. The JWKS cache is
+      # lazily populated and outage-tolerant precisely so this dependency does
+      # not have to exist - see GatewayProperties.Jwks. What the gateway does
+      # need is the registry, to resolve `lb://` targets at all.
+    environment:
+      SPRING_PROFILES_ACTIVE: default
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      # MUST MATCH auth-service's values exactly. A mismatch produces
+      # "invalid_token" on every authenticated request, with nothing in either
+      # service's log pointing at the cause.
+      AUTH_JWT_ISSUER: ${AUTH_JWT_ISSUER:-https://auth.acme-ecommerce.internal}
+      AUTH_JWT_AUDIENCES: ${AUTH_JWT_AUDIENCES:-ecommerce-platform}
+      # Frontend SPAs - EXACT origins (dev and prod). `*` is forbidden alongside
+      # allow-credentials, which the refresh cookie needs.
+      # DEV MODE (local Vite servers):
+      # - http://localhost:5173 is the Vue admin SPA dev server
+      # - http://localhost:5174 is the React product catalog dev server
+      # DOCKER MODE (production-like):
+      # - http://localhost:3000 is the React product catalog
+      # - http://localhost:3001 is the Vue admin SPA
+      GATEWAY_CORS_ALLOWED_ORIGINS: ${GATEWAY_CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:5174,http://localhost:3000,http://localhost:3001}
+    ports:
+      - "${GATEWAY_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/actuator/health | grep -q '\"status\":\"UP\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 45s
+
+  # ===========================================================================
+  # FRONTEND SERVICES - Customer and admin-facing SPAs
+  # ===========================================================================
+
+  # ---------------------------------------------------------------------------
+  # admin-product-catalog - the Vue 3 admin SPA for product management (Phase 1F).
+  #
+  # A Vite-built Vue 3 SPA serving product management endpoints. The build
+  # happens in the first Docker build stage; the second stage serves the static
+  # dist/ files via http-server with CORS and SPA fallback (index.html for 404s).
+  #
+  # Does not depend on any backend service (static files only). The Vue app
+  # makes HTTP calls to /api/products and /api/inventory via the gateway,
+  # which are resolved dynamically at runtime.
+  #
+  # Port 3001 is published to the host (unlike backend services, which are
+  # loopback-only) because this is an admin-facing SPA that developers and
+  # product managers access directly via the browser.
+  # ---------------------------------------------------------------------------
+  # admin-product-catalog:
+  #   build:
+  #     context: ..
+  #     dockerfile: apps/admin-product-catalog/Dockerfile
+  #   container_name: ecommerce-admin-catalog
+  #   restart: unless-stopped
+  #   environment:
+  #     # Vue app runs fully on the client; no backend env vars needed.
+  #     # Vite build is hardcoded to proxy /api/* to http://localhost:8080 in dev;
+  #     # in Docker, the app runs as static files and the browser makes requests
+  #     # directly to the gateway.
+  #     NODE_ENV: production
+  #   ports:
+  #     # Published to 0.0.0.0:3001 so admins can access it at http://localhost:3001
+  #     - "${ADMIN_CATALOG_PORT:-3001}:3001"
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost:3001/ || exit 1"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 3
+  #     start_period: 10s
+
+  # ---------------------------------------------------------------------------
+  # product-catalog - the React customer-facing product catalog SPA (Phase 1G).
+  #
+  # A Vite-built React 19 SPA serving the /api/products endpoints. The build
+  # happens in the first Docker build stage; the second stage serves the static
+  # dist/ files via http-server with CORS and SPA fallback (index.html for 404s).
+  #
+  # Does not depend on any backend service (static files only). The React app
+  # makes HTTP calls to /api/products via the gateway, which are resolved
+  # dynamically at runtime - no backend connectivity needed for the frontend
+  # to start.
+  #
+  # Port 3000 is published to the host (unlike backend services, which are
+  # loopback-only) because this is a public-facing SPA that developers and
+  # users access directly via the browser.
+  # ---------------------------------------------------------------------------
+  # product-catalog:
+  #   build:
+  #     context: ..
+  #     dockerfile: apps/product-catalog/Dockerfile
+  #   container_name: ecommerce-product-catalog
+  #   restart: unless-stopped
+  #   environment:
+  #     # React app runs fully on the client; no backend env vars needed.
+  #     # Vite build is hardcoded to proxy /api/* to http://localhost:8080 in dev;
+  #     # in Docker, the app runs as static files and the browser makes requests
+  #     # directly to the gateway (resolved by Docker network and host port mapping).
+  #     NODE_ENV: production
+  #   ports:
+  #     # Unlike backend services, this SPA is published to 0.0.0.0:3000 so
+  #     # developers can access it at http://localhost:3000 and users can reach
+  #     # the product catalog from outside the host.
+  #     - "${PRODUCT_CATALOG_PORT:-3000}:3000"
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost:3000/ || exit 1"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 3
+  #     start_period: 10s
+
+  # ---------------------------------------------------------------------------
+  # product-service (Phase 1E) - the catalog service.
+  #
+  # Gates on BOTH postgres (Flyway migrates on startup) and eureka (it registers
+  # on startup, and the gateway's `lb://PRODUCT-SERVICE` route cannot resolve
+  # until it has).
+  #
+  # DELIBERATELY NOT `depends_on: auth-service`. This service validates tokens
+  # against auth-service's JWKS, but lazily - the first token to arrive triggers
+  # the first fetch. Gating startup on the identity provider would make every
+  # auth-service rollout a catalog outage, which is the same call the gateway
+  # made in Phase 1D.
+  #
+  # DELIBERATELY NOT `depends_on: kafka` EITHER (Phase 2b). ProductEventPublisher
+  # publishes strictly after each write's transaction commits, on a best-effort
+  # basis - a send failure is logged, not thrown (HLD S7, S10). Gating product
+  # writes/reads on a broker whose only consumer is a display-only, advisory
+  # inventory count would trade away the catalog's availability for a stream
+  # that is allowed to lag or be briefly unconsumed by design.
+  # ---------------------------------------------------------------------------
+  product-service:
+    build:
+      context: ..
+      dockerfile: services/product-service/product-service-app/Dockerfile
+    container_name: ecommerce-product
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: default
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/product_db
+      SPRING_DATASOURCE_USERNAME: product_service
+      # Injected from the developer's .env (gitignored) - never inlined here.
+      SPRING_DATASOURCE_PASSWORD: ${PRODUCT_DB_PASSWORD:?set PRODUCT_DB_PASSWORD in infra/.env}
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      # MUST MATCH auth-service's and the gateway's values EXACTLY. A mismatch
+      # produces "invalid_token" on every request to /api/products/**, with
+      # nothing in any service's log pointing at the cause.
+      AUTH_JWT_ISSUER: ${AUTH_JWT_ISSUER:-https://auth.acme-ecommerce.internal}
+      AUTH_JWT_AUDIENCES: ${AUTH_JWT_AUDIENCES:-ecommerce-platform}
+      # ProductEventPublisher's producer. Resolved on the compose network, not
+      # localhost - see the depends_on note above for why this is not a startup
+      # gate: a Kafka outage delays events, it must never delay or block a
+      # product write/read.
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    ports:
+      # Loopback only, like every service except the gateway: nothing outside the
+      # host has any business reaching the catalog directly.
+      - "127.0.0.1:${PRODUCT_PORT:-8082}:8082"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8082/actuator/health | grep -q '\"status\":\"UP\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      # Boot + Hibernate + Flyway is slower to start than the registry.
+      start_period: 60s
+
+  # ---------------------------------------------------------------------------
+  # inventory-service (Phase 2, Kafka consumer wired in Phase 3) - owns stock
+  # levels in its own database and consumes product.events to keep them in
+  # sync with the catalog.
+  #
+  # `depends_on: kafka` HERE USES `service_started`, NOT `service_healthy` -
+  # deliberately asymmetric with product-service's choice to add no Kafka
+  # dependency at all. Per HLD S7, neither service may let a Kafka/each-other
+  # outage block its own core job: product-service's core job is catalog
+  # writes, which do not need Kafka to succeed (the publish is after-commit,
+  # best-effort), so it depends on nothing Kafka-related. inventory-service's
+  # core job in THIS feature is consuming product.events, but "depends on" here
+  # still cannot mean "must be healthy before I start" - Spring Kafka's
+  # listener container retries connecting in the background on its own, so a
+  # `condition: service_healthy` gate would only slow down local `docker
+  # compose up` (waiting on Kafka's ~30s start_period/healthcheck) for a
+  # dependency this service already tolerates being down. `service_started`
+  # exists ONLY to sequence container *creation* so Kafka's container exists
+  # before the first connection attempt in docker-compose's normal up-order - a
+  # developer convenience, not a correctness requirement; removing this line
+  # would not make anything here incorrect, only occasionally noisier in early
+  # consumer-log lines on a cold `docker compose up`.
+  #
+  # Otherwise gates on postgres (Flyway migrates on startup) and eureka (it
+  # registers on startup, and the gateway's `lb://INVENTORY-SERVICE` route
+  # cannot resolve until it has), mirroring product-service's shape exactly.
+  # ---------------------------------------------------------------------------
+  inventory-service:
+    build:
+      context: ..
+      dockerfile: services/inventory-service/inventory-service-app/Dockerfile
+    container_name: ecommerce-inventory
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+      # `service_started`, NOT `service_healthy` - see the block comment above.
+      # This waits only for the Kafka container process to start, not for its
+      # broker-readiness healthcheck, which is the "ordering, not a hard gate"
+      # distinction this service needs.
+      kafka:
+        condition: service_started
+    environment:
+      SPRING_PROFILES_ACTIVE: default
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/inventory_db
+      SPRING_DATASOURCE_USERNAME: inventory_service
+      # Injected from the developer's .env (gitignored) - never inlined here.
+      SPRING_DATASOURCE_PASSWORD: ${INVENTORY_DB_PASSWORD:?set INVENTORY_DB_PASSWORD in infra/.env}
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      # MUST MATCH auth-service's and the gateway's values EXACTLY. A mismatch
+      # produces "invalid_token" on every request to /api/inventory/**, with
+      # nothing in any service's log pointing at the cause.
+      AUTH_JWT_ISSUER: ${AUTH_JWT_ISSUER:-https://auth.acme-ecommerce.internal}
+      AUTH_JWT_AUDIENCES: ${AUTH_JWT_AUDIENCES:-ecommerce-platform}
+      # ProductEventListener's consumer. Resolved on the compose network, not
+      # localhost - see the depends_on note above for why this is ordering-only,
+      # not a startup gate: a Kafka outage delays catch-up, it must never delay
+      # or block this service's own CRUD reads/writes.
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    ports:
+      # Loopback only, like every service except the gateway: nothing outside
+      # the host has any business reaching inventory directly.
+      - "127.0.0.1:${INVENTORY_PORT:-8083}:8083"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8083/actuator/health | grep -q '\"status\":\"UP\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      # Boot + Hibernate + Flyway is slower to start than the registry.
+      start_period: 60s
+
+volumes:
+  postgres-data:
+  zookeeper-data:
+  zookeeper-datalog:
+  kafka-data:

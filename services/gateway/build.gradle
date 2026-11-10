@@ -1,0 +1,74 @@
+// =============================================================================
+// gateway - the platform's single public edge (Phase 1D).
+//
+// REACTIVE (WebFlux), NOT MVC-ON-VIRTUAL-THREADS. This is the one module in the
+// platform where that choice is not a matter of taste: Spring Cloud Gateway's
+// route/predicate/filter engine, its `lb://` load-balancer client filter and its
+// Netty proxying filter are all built on the reactive stack. A gateway is also
+// the workload reactive was designed for - almost no CPU work, thousands of
+// concurrent in-flight proxied requests, and back-pressure that has to be
+// propagated from a slow downstream to a fast client. auth-service is blocking
+// MVC on virtual threads for exactly the opposite reasons; see its build.gradle.
+//
+// NO FEIGN ANYWHERE IN THIS MODULE. Feign is a blocking HTTP client; one call
+// through it on a Netty event-loop thread stalls every other request that loop
+// is multiplexing. If this module ever needs to call a service itself, it uses
+// WebClient.
+//
+// NOTE: uses `spring-cloud-starter-gateway-server-webflux`. In the 2025.1.x
+// train the old `spring-cloud-starter-gateway` coordinate was split/renamed and
+// its last release is 4.3.x (Boot 3.x only) - it will NOT resolve here.
+// =============================================================================
+plugins {
+    id 'java-library'
+    alias(libs.plugins.spring.boot)
+}
+
+dependencies {
+    // Shared JWT semantics. The gateway MUST agree with every downstream service
+    // about what a token means (audience, issuer, how `roles` becomes an
+    // authority) - a private copy of that logic here is how an endpoint ends up
+    // accidentally open on one side of the edge and closed on the other.
+    implementation project(':libs:common-security')
+
+    // NOTE: `:libs:common-web` is deliberately NOT a dependency. It is a servlet
+    // module (jakarta.servlet Filter, @RestControllerAdvice, a Feign
+    // RequestInterceptor); none of it applies to a WebFlux gateway, and its
+    // auto-configuration would only add classpath weight. The RFC 9457 *payload*
+    // shape is shared via `:libs:common-core`, which common-security brings in
+    // transitively as an `api` dependency.
+
+    implementation libs.spring.cloud.starter.gateway.server.webflux
+    implementation libs.bundles.service.discovery.client
+    implementation libs.spring.boot.starter.actuator
+    implementation libs.spring.boot.starter.oauth2.resource.server
+    implementation libs.spring.cloud.starter.circuitbreaker.reactor.resilience4j
+
+    // Used directly: the JWKS cache is built from Nimbus' JWKSourceBuilder
+    // (refresh-ahead + rate-limited + outage-tolerant), not from
+    // NimbusReactiveJwtDecoder's defaults. See JwksReactiveJwtDecoderFactory.
+    implementation libs.nimbus.jose.jwt
+
+    implementation libs.micrometer.registry.prometheus
+
+    // Lombok for configuration properties and DTO generation
+    compileOnly libs.lombok
+    annotationProcessor libs.lombok
+
+    // Generates META-INF/spring-configuration-metadata.json so `gateway.*` shows
+    // up with documentation in IDE completion.
+    //
+    // The BOM has to be re-imported here: the root build adds the platforms to
+    // the `api` configuration, and `annotationProcessor` does not extend it - so
+    // without this the processor resolves to a version-less coordinate and the
+    // build fails with "Could not find ...:spring-boot-configuration-processor:".
+    annotationProcessor platform(libs.spring.boot.bom)
+    annotationProcessor libs.spring.boot.configuration.processor
+
+    testImplementation libs.bundles.testing.unit
+    testImplementation libs.spring.security.test
+    testImplementation libs.reactor.test
+}
+
+// Deployed as a container image, never consumed as a library.
+tasks.named('jar') { enabled = false }

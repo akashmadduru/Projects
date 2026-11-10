@@ -1,0 +1,115 @@
+// =============================================================================
+// Root build - conventions applied to every Java module in the monorepo.
+//
+// The root project itself produces no artifact. It exists to hold the shared
+// toolchain, formatting and static-analysis configuration so no module has to
+// repeat it (and so no module can quietly drift away from it).
+// =============================================================================
+
+plugins {
+    // Declared here (without applying) so subprojects can apply them without
+    // re-resolving the plugin coordinates.
+    alias(libs.plugins.spotless) apply false
+    alias(libs.plugins.spring.boot) apply false
+}
+
+def javaLanguageVersion = 25
+
+allprojects {
+    group = 'com.acme.ecommerce'
+    version = '0.1.0-SNAPSHOT'
+}
+
+subprojects {
+    apply plugin: 'java-library'
+    apply plugin: 'checkstyle'
+    apply plugin: 'com.diffplug.spotless'
+
+    // Re-resolve the catalog inside the subproject scope.
+    def catalog = rootProject.extensions
+        .getByType(VersionCatalogsExtension)
+        .named('libs')
+
+    def lib = { String alias ->
+        catalog.findLibrary(alias).orElseThrow {
+            new IllegalStateException("Missing version catalog library alias: ${alias}" as String)
+        }
+    }
+
+    def libVersion = { String alias ->
+        catalog.findVersion(alias).orElseThrow {
+            new IllegalStateException("Missing version catalog version alias: ${alias}" as String)
+        }.requiredVersion
+    }
+
+    java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(javaLanguageVersion)
+        }
+        withSourcesJar()
+    }
+
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = 'UTF-8'
+        options.release = javaLanguageVersion
+        options.compilerArgs.addAll([
+            '-Xlint:all,-serial,-processing',
+            // Keep parameter names in the bytecode: Spring's constructor
+            // binding and @RequestParam/@PathVariable resolution rely on
+            // them, and losing them produces confusing runtime failures.
+            '-parameters',
+        ])
+    }
+
+    tasks.withType(Test).configureEach {
+        useJUnitPlatform()
+        testLogging {
+            events 'failed'
+            exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+        }
+    }
+
+    // --- dependency conventions ---------------------------------------------
+    dependencies {
+        // Every module resolves against the same platform BOMs, so no module
+        // ever declares a Spring version of its own.
+        add('api', platform(lib('spring-boot-bom')))
+        add('api', platform(lib('spring-cloud-bom')))
+
+        add('testImplementation', lib('spring-boot-starter-test'))
+        add('testRuntimeOnly', lib('junit-platform-launcher'))
+    }
+
+    // --- formatting ----------------------------------------------------------
+    spotless {
+        java {
+            googleJavaFormat(libVersion('googleJavaFormat'))
+            removeUnusedImports()
+            trimTrailingWhitespace()
+            endWithNewline()
+            // Generated sources are not ours to format.
+            targetExclude('**/build/**', '**/generated/**')
+        }
+        groovyGradle {
+            target('*.gradle')
+            trimTrailingWhitespace()
+            endWithNewline()
+        }
+    }
+
+    // --- static analysis -----------------------------------------------------
+    checkstyle {
+        toolVersion = libVersion('checkstyleTool')
+        configFile = rootProject.file('config/checkstyle/checkstyle.xml')
+        // A style violation should fail the build, not scroll past in a report.
+        ignoreFailures = false
+        maxWarnings = 0
+    }
+
+    tasks.withType(Checkstyle).configureEach {
+        reports {
+            html.required = true
+            xml.required = false
+        }
+    }
+}
