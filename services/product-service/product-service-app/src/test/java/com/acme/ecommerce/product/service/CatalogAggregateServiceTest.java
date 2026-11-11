@@ -15,6 +15,7 @@ import com.acme.ecommerce.product.web.dto.ProductCatalogAggregateResponse;
 import feign.FeignException;
 import feign.Request;
 import feign.Request.HttpMethod;
+import feign.RequestTemplate;
 import feign.RetryableException;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerConfig;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
@@ -68,15 +69,23 @@ class CatalogAggregateServiceTest {
   void composesProductAndInventoryWhenLookupSucceeds() {
     ProductResponse product = product();
     InventoryResponse inventory =
-        new InventoryResponse(
-            UUID.randomUUID(), PRODUCT_ID, 25, 0L, "WH-1", "Widget", "SKU-01", 10);
+        InventoryResponse.builder()
+            .id(UUID.randomUUID())
+            .productId(PRODUCT_ID)
+            .quantity(25)
+            .version(0L)
+            .warehouseCode("WH-1")
+            .productName("Widget")
+            .productSku("SKU-01")
+            .lowStockThreshold(10)
+            .build();
     when(products.findById(PRODUCT_ID)).thenReturn(product);
     when(inventoryClient.findByProductId(PRODUCT_ID)).thenReturn(inventory);
 
     ProductCatalogAggregateResponse response = service.getAggregate(PRODUCT_ID);
 
-    assertThat(response.product()).isEqualTo(product);
-    assertThat(response.inventory()).isEqualTo(inventory);
+    assertThat(response.getProduct()).isEqualTo(product);
+    assertThat(response.getInventory()).isEqualTo(inventory);
   }
 
   @Test
@@ -89,7 +98,7 @@ class CatalogAggregateServiceTest {
 
     ProductCatalogAggregateResponse response = service.getAggregate(PRODUCT_ID);
 
-    assertThat(response.inventory()).isNull();
+    assertThat(response.getInventory()).isNull();
   }
 
   @Test
@@ -101,7 +110,7 @@ class CatalogAggregateServiceTest {
 
     ProductCatalogAggregateResponse response = service.getAggregate(PRODUCT_ID);
 
-    assertThat(response.inventory()).isNull();
+    assertThat(response.getInventory()).isNull();
   }
 
   @Test
@@ -139,31 +148,28 @@ class CatalogAggregateServiceTest {
 
       // minimumNumberOfCalls=2, failureRateThreshold=50: two failing calls are enough for the
       // breaker's sliding window to evaluate and trip OPEN.
-      assertThat(tightlyConfiguredService.getAggregate(PRODUCT_ID).inventory()).isNull();
-      assertThat(tightlyConfiguredService.getAggregate(PRODUCT_ID).inventory()).isNull();
+      assertThat(tightlyConfiguredService.getAggregate(PRODUCT_ID).getInventory()).isNull();
+      assertThat(tightlyConfiguredService.getAggregate(PRODUCT_ID).getInventory()).isNull();
 
       // A long waitDurationInOpenState means the breaker stays OPEN for this third call - the
       // Feign client must not be invoked a third time; CallNotPermittedException is what the
       // fallback function absorbs instead.
-      assertThat(tightlyConfiguredService.getAggregate(PRODUCT_ID).inventory()).isNull();
+      assertThat(tightlyConfiguredService.getAggregate(PRODUCT_ID).getInventory()).isNull();
       verify(inventoryClient, times(2)).findByProductId(PRODUCT_ID);
     }
   }
 
   private static ProductResponse product() {
-    return new ProductResponse(
-        PRODUCT_ID,
-        "SKU-01",
-        "Widget",
-        new BigDecimal("9.99"),
-        "USD",
-        true,
-        0L,
-        null,
-        null,
-        null,
-        List.of(),
-        null);
+    return ProductResponse.builder()
+        .id(PRODUCT_ID)
+        .sku("SKU-01")
+        .name("Widget")
+        .priceAmount(new BigDecimal("9.99"))
+        .priceCurrency("USD")
+        .active(true)
+        .version(0L)
+        .images(List.of())
+        .build();
   }
 
   private static Request inventoryRequest() {
@@ -172,7 +178,8 @@ class CatalogAggregateServiceTest {
         "/api/inventory/by-product/" + PRODUCT_ID,
         Map.of(),
         (byte[]) null,
-        (java.nio.charset.Charset) null);
+        (java.nio.charset.Charset) null,
+        new RequestTemplate());
   }
 
   private static FeignException.NotFound notFoundException() {

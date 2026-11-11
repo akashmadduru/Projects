@@ -17,28 +17,42 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/**
- * Inbound product creation request with validation and catalog enrichment fields.
- */
+/** Inbound product creation request with validation and catalog enrichment fields. */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 public class CreateProductRequest {
-  @NotBlank @Size(max = 64) String sku;
-  @NotBlank @Size(max = 200) String name;
-  @NotNull @DecimalMin("0.00") BigDecimal priceAmount;
-  @NotBlank @Pattern(regexp = "^[A-Z]{3}$") String priceCurrency;
+  @NotBlank
+  @Size(max = 64)
+  String sku;
+
+  @NotBlank
+  @Size(max = 200)
+  String name;
+
+  @NotNull
+  @DecimalMin("0.00")
+  BigDecimal priceAmount;
+
+  @NotBlank
+  @Pattern(regexp = "^[A-Z]{3}$")
+  String priceCurrency;
+
   boolean active;
-  @Min(0) Integer initialQuantity;
+
+  @Min(0)
+  Integer initialQuantity;
+
   UUID categoryId;
-  @Size(max = 200) String sellerName;
+
+  @Size(max = 200)
+  String sellerName;
+
   Map<String, Object> specifications;
   @Valid List<ProductImageRequest> images;
 
-  /**
-   * Custom validation: active products require initialQuantity >= 1.
-   */
+  /** Custom validation: active products require initialQuantity >= 1. */
   @AssertTrue(message = "initialQuantity must be >= 1 when active=true")
   public boolean isInitialStockValidWhenActive() {
     return !active || (initialQuantity != null && initialQuantity >= 1);

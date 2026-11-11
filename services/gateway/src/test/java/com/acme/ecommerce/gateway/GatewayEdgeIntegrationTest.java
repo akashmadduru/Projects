@@ -150,14 +150,9 @@ class GatewayEdgeIntegrationTest {
     @Test
     @DisplayName("GET /api/products is public and reachable without a token")
     void publicProductGetRequiresNoToken() {
-      // Phase 1F: product catalog reads are public. An unauthenticated GET succeeds (or
-      // fails cleanly with 503 if the downstream is down) - NOT 401.
-      client
-          .get()
-          .uri("/api/products")
-          .exchange()
-          .expectStatus()
-          .isOk();
+      // Phase 1F: product catalog reads are public. PRODUCT-SERVICE has no instances in this
+      // fixture, so passing the security layer means reaching the clean 503 - NOT a 401.
+      client.get().uri("/api/products").exchange().expectStatus().isEqualTo(503);
     }
 
     @Test
@@ -166,8 +161,12 @@ class GatewayEdgeIntegrationTest {
       // Create/update/delete remain protected: a POST without credentials is rejected
       // at the edge with 401.
       expectUnauthenticatedProblem(
-          client.post().uri("/api/products").contentType(MediaType.APPLICATION_JSON)
-              .bodyValue("{}").exchange());
+          client
+              .post()
+              .uri("/api/products")
+              .contentType(MediaType.APPLICATION_JSON)
+              .bodyValue("{}")
+              .exchange());
     }
 
     @Test
@@ -472,10 +471,13 @@ class GatewayEdgeIntegrationTest {
     @DisplayName("every gateway-generated failure carries a correlation id")
     void failuresAreCorrelated() {
       String correlationId = UUID.randomUUID().toString();
+      // POST, because GET /api/products/** is public and would not fail at the edge.
       client
-          .get()
+          .post()
           .uri("/api/products/42")
           .header(GatewayHeaders.CORRELATION_ID, correlationId)
+          .contentType(MediaType.APPLICATION_JSON)
+          .bodyValue("{}")
           .exchange()
           .expectStatus()
           .isUnauthorized()

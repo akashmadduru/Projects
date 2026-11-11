@@ -46,7 +46,7 @@ public class RefreshTokenReaper {
       RefreshTokenStore store, TimeProvider timeProvider, AuthProperties properties) {
     this.store = store;
     this.timeProvider = timeProvider;
-    this.config = properties.getHousekeeping();
+    this.config = properties.housekeeping();
   }
 
   /**

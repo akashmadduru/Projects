@@ -49,7 +49,7 @@ public class TokenService {
     this.refreshTokens = refreshTokens;
     this.accessTokenIssuer = accessTokenIssuer;
     this.timeProvider = timeProvider;
-    this.refreshConfig = properties.getRefresh();
+    this.refreshConfig = properties.refresh();
     this.metrics = metrics;
     this.sessionCache = sessionCache;
   }

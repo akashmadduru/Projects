@@ -1,12 +1,13 @@
 /**
- * Custom hook for fetching paginated products with fallback to dummy data
+ * Fetches one page of the catalog for a query, falling back to demo data when the API is down
  */
 
 import { useEffect, useState } from 'react'
 import { usePaginationStore } from '../stores'
 import { productApi } from '../services/productApi'
 import { dummyProducts } from '../lib/dummyProducts'
-import type { ApiError, ProductResponse } from '../types'
+import { queryLocally } from '../lib/localCatalog'
+import type { ApiError, ProductQuery, ProductResponse } from '../types'
 
 type ProductsState =
   | { status: 'idle'; isDummyData?: boolean }
@@ -14,42 +15,27 @@ type ProductsState =
   | { status: 'success'; data: ProductResponse; isDummyData: boolean }
   | { status: 'error'; error: ApiError; isDummyData?: boolean }
 
-export function useProducts(): ProductsState {
-  const { page, size } = usePaginationStore()
+export function useProducts(query: ProductQuery = {}, page = 0, sizeOverride?: number): ProductsState {
+  const storedSize = usePaginationStore((state) => state.size)
+  const size = sizeOverride ?? storedSize
   const [state, setState] = useState<ProductsState>({ status: 'idle' })
+  // Stable dependency for an object the caller rebuilds on every render.
+  const queryKey = JSON.stringify(query)
 
   useEffect(() => {
     let mounted = true
+    const currentQuery = JSON.parse(queryKey) as ProductQuery
 
     async function fetchProducts() {
       setState({ status: 'loading' })
       try {
-        const data = await productApi.list(page, size)
+        const data = await productApi.list(page, size, currentQuery)
+        if (mounted) setState({ status: 'success', data, isDummyData: false })
+      } catch {
         if (mounted) {
-          setState({ status: 'success', data, isDummyData: false })
-        }
-      } catch (error) {
-        if (mounted) {
-          // Fallback to dummy products on error
-          const dummyStart = page * size
-          const dummyEnd = dummyStart + size
-          const dummyContent = dummyProducts.slice(dummyStart, dummyEnd)
-
-          const fallbackData: ProductResponse = {
-            content: dummyContent,
-            pageable: {
-              pageNumber: page,
-              pageSize: size,
-            },
-            totalElements: dummyProducts.length,
-            totalPages: Math.ceil(dummyProducts.length / size),
-            isFirst: page === 0,
-            isLast: dummyEnd >= dummyProducts.length,
-          }
-
           setState({
             status: 'success',
-            data: fallbackData,
+            data: queryLocally(dummyProducts, currentQuery, page, size),
             isDummyData: true,
           })
         }
@@ -57,11 +43,10 @@ export function useProducts(): ProductsState {
     }
 
     void fetchProducts()
-
     return () => {
       mounted = false
     }
-  }, [page, size])
+  }, [queryKey, page, size])
 
   return state
 }

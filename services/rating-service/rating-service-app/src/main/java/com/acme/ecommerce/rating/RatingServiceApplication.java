@@ -7,7 +7,7 @@ import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 /**
  * Rating Service application entry point.
  *
- * Provides product rating and review functionality with Kafka event integration.
+ * <p>Provides product rating and review functionality with Kafka event integration.
  */
 @SpringBootApplication
 @EnableDiscoveryClient

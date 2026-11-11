@@ -6,10 +6,13 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.boot.context.properties.bind.DefaultValue;
+import org.springframework.boot.context.properties.NestedConfigurationProperty;
 
 /**
  * Every tunable this service has, in one type-safe, IDE-completable place.
+ *
+ * <p>JavaBean binding, so defaults are field initializers ({@code @DefaultValue} only applies to
+ * constructor parameters and record components). Environment overrides live in application.yml.
  */
 @Data
 @NoArgsConstructor
@@ -17,25 +20,23 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
 @Builder
 @ConfigurationProperties(prefix = "product")
 public class ProductProperties {
-  @DefaultValue Jwt jwt;
+  @NestedConfigurationProperty @Builder.Default private Jwt jwt = new Jwt();
 
-  /**
-   * Token validation contract with custom helper methods.
-   */
+  /** Token validation contract with custom helper methods. */
   @Data
   @NoArgsConstructor
   @AllArgsConstructor
   @Builder
   public static class Jwt {
-    @DefaultValue("https://auth.acme-ecommerce.internal") String issuer;
-    @DefaultValue("ecommerce-platform") String audience;
-    @DefaultValue("AUTH-SERVICE") String jwksServiceId;
-    @DefaultValue("/.well-known/jwks.json") String jwksPath;
-    @DefaultValue("") String jwksUri;
-    @DefaultValue("2s") Duration jwksConnectTimeout;
-    @DefaultValue("3s") Duration jwksReadTimeout;
-
     public static final Duration CLOCK_SKEW = Duration.ofSeconds(30);
+
+    @Builder.Default private String issuer = "https://auth.acme-ecommerce.internal";
+    @Builder.Default private String audience = "ecommerce-platform";
+    @Builder.Default private String jwksServiceId = "AUTH-SERVICE";
+    @Builder.Default private String jwksPath = "/.well-known/jwks.json";
+    @Builder.Default private String jwksUri = "";
+    @Builder.Default private Duration jwksConnectTimeout = Duration.ofSeconds(2);
+    @Builder.Default private Duration jwksReadTimeout = Duration.ofSeconds(3);
 
     public boolean hasStaticJwksUri() {
       return jwksUri != null && !jwksUri.isBlank();

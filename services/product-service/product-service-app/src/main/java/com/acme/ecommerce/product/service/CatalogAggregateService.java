@@ -31,7 +31,6 @@ import org.springframework.stereotype.Service;
  * Product.lastKnownQuantity} already established; this class just composes that same advisory data
  * into one response instead of requiring the caller to make two.
  */
-
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -44,7 +43,6 @@ public class CatalogAggregateService {
    * cannot be conflated with, or trip, anything else.
    */
   static final String CIRCUIT_BREAKER_NAME = "aggregateCb";
-
 
   private final ProductCatalogService products;
   private final InventoryFeignClient inventoryClient;

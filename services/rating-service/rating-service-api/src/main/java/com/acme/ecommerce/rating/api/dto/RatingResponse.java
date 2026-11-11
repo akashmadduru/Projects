@@ -7,9 +7,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/**
- * A product rating/review as exposed to callers.
- */
+/** A product rating/review as exposed to callers. */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

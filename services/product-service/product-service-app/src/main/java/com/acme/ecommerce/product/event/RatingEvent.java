@@ -14,11 +14,12 @@ import java.util.UUID;
  * {@code publishedAt} match rating-service's producer-side {@code RatingEvent} field-for-field so
  * Jackson deserialises the wire JSON compatibly.
  *
- * <p>{@code payload} IS {@link RatingSnapshot}, NOT {@code RatingResponse}. product-service has
- * no dependency on {@code rating-service-api} - the event contract is the only coupling between
- * the two services. The consumer's {@code RatingEventListener} may evolve to compute or propagate
- * individual rating signals (ratingValue, helpfulness aggregate, etc.) into product denormalization;
- * this snapshot is structured to enable that evolution (see LLD-catalog-enrichment-and-saga.md S4).
+ * <p>{@code payload} IS {@link RatingSnapshot}, NOT {@code RatingResponse}. product-service has no
+ * dependency on {@code rating-service-api} - the event contract is the only coupling between the
+ * two services. The consumer's {@code RatingEventListener} may evolve to compute or propagate
+ * individual rating signals (ratingValue, helpfulness aggregate, etc.) into product
+ * denormalization; this snapshot is structured to enable that evolution (see
+ * LLD-catalog-enrichment-and-saga.md S4).
  *
  * @param eventId unique id of this event, freshly generated at publish time
  * @param eventType which lifecycle transition occurred

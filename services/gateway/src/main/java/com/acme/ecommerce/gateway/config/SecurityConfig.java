@@ -12,11 +12,11 @@ import com.acme.ecommerce.gateway.security.JwksReactiveJwtDecoderFactory;
 import com.nimbusds.jose.proc.SecurityContext;
 import java.net.URI;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.http.HttpMethod;
 import org.springframework.cloud.client.ServiceInstance;
 import org.springframework.cloud.client.loadbalancer.reactive.ReactiveLoadBalancer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
 import org.springframework.security.oauth2.jwt.ReactiveJwtDecoder;
@@ -108,13 +108,22 @@ public class SecurityConfig {
                     .denyAll()
                     .pathMatchers(PUBLIC_PATHS)
                     .permitAll()
-                    // GET /api/products/** is public (Phase 1F) - POST/PUT/DELETE remain protected.
-                    // The gateway does not distinguish between GET methods when gating authorization,
+                    // GET /api/products/** and /api/categories/** are public (Phase 1F; categories
+                    // are
+                    // catalog data, read alongside products) - POST/PUT/DELETE remain protected.
+                    // The gateway does not distinguish between GET methods when gating
+                    // authorization,
                     // so only GET requests pass through. PUT and DELETE still hit authenticated()
                     // and are rejected by the gateway's default DENY-BY-DEFAULT posture.
-                    .pathMatchers(HttpMethod.GET, "/api/products", "/api/products/**")
+                    .pathMatchers(
+                        HttpMethod.GET,
+                        "/api/products",
+                        "/api/products/**",
+                        "/api/categories",
+                        "/api/categories/**")
                     .permitAll()
-                    // /api/auth/me, /api/auth/validate, /api/products POST/PUT/DELETE and anything added later.
+                    // /api/auth/me, /api/auth/validate, /api/products POST/PUT/DELETE and anything
+                    // added later.
                     .anyExchange()
                     .authenticated())
         .oauth2ResourceServer(
@@ -154,17 +163,17 @@ public class SecurityConfig {
    */
   @Bean
   public CorsConfigurationSource corsConfigurationSource(GatewayProperties properties) {
-    GatewayProperties.Cors cors = properties.cors();
+    GatewayProperties.Cors cors = properties.getCors();
 
     CorsConfiguration configuration = new CorsConfiguration();
-    configuration.setAllowedOrigins(cors.allowedOrigins());
-    configuration.setAllowedMethods(cors.allowedMethods());
-    configuration.setAllowedHeaders(cors.allowedHeaders());
-    configuration.setExposedHeaders(cors.exposedHeaders());
+    configuration.setAllowedOrigins(cors.getAllowedOrigins());
+    configuration.setAllowedMethods(cors.getAllowedMethods());
+    configuration.setAllowedHeaders(cors.getAllowedHeaders());
+    configuration.setExposedHeaders(cors.getExposedHeaders());
     // Required for the refresh cookie to travel on a cross-origin XHR at all - and the reason the
     // origin list above can never be `*`.
     configuration.setAllowCredentials(true);
-    configuration.setMaxAge(cors.maxAge().toSeconds());
+    configuration.setMaxAge(cors.getMaxAge().toSeconds());
 
     UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
     source.registerCorsConfiguration("/**", configuration);
@@ -191,7 +200,9 @@ public class SecurityConfig {
   public HttpJwkSetSource<SecurityContext> jwkSetSource(
       GatewayProperties properties, JwkSetUriResolver jwkSetUriResolver) {
     return new HttpJwkSetSource<>(
-        jwkSetUriResolver, properties.jwks().connectTimeout(), properties.jwks().readTimeout());
+        jwkSetUriResolver,
+        properties.getJwks().getConnectTimeout(),
+        properties.getJwks().getReadTimeout());
   }
 
   /**
@@ -206,13 +217,13 @@ public class SecurityConfig {
       GatewayProperties properties,
       ObjectProvider<ReactiveLoadBalancer.Factory<ServiceInstance>> loadBalancerFactory) {
 
-    GatewayProperties.Jwt jwt = properties.jwt();
+    GatewayProperties.Jwt jwt = properties.getJwt();
     if (jwt.hasStaticJwksUri()) {
-      URI uri = URI.create(jwt.jwksUri());
+      URI uri = URI.create(jwt.getJwksUri());
       return () -> uri;
     }
     ReactiveLoadBalancer.Factory<ServiceInstance> factory = loadBalancerFactory.getObject();
-    return new DiscoveryJwkSetUriResolver(factory, jwt.jwksServiceId(), jwt.jwksPath());
+    return new DiscoveryJwkSetUriResolver(factory, jwt.getJwksServiceId(), jwt.getJwksPath());
   }
 
   /**

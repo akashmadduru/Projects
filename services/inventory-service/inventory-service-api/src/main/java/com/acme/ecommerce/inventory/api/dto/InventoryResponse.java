@@ -7,9 +7,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/**
- * Stock-level inventory as exposed to callers.
- */
+/** Stock-level inventory as exposed to callers. */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

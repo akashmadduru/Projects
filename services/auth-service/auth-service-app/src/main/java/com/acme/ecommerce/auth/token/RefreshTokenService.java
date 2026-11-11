@@ -91,7 +91,7 @@ public class RefreshTokenService {
     this.snapshots = snapshots;
     this.timeProvider = timeProvider;
     this.metrics = metrics;
-    this.graceWindow = properties.getRefresh().rotationGraceWindow();
+    this.graceWindow = properties.refresh().rotationGraceWindow();
   }
 
   /**

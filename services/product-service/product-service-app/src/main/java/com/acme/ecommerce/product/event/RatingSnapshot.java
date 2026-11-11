@@ -7,8 +7,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * The subset of rating-service's RatingResponse this consumer actually needs.
- * Deliberately narrow for forward compatibility with producer schema evolution.
+ * The subset of rating-service's RatingResponse this consumer actually needs. Deliberately narrow
+ * for forward compatibility with producer schema evolution.
  */
 @Data
 @NoArgsConstructor

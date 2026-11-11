@@ -3,19 +3,21 @@
  */
 
 import { Link } from 'react-router-dom'
+import { LogoMark } from '../components/Logo'
 
 export function NotFoundPage() {
   return (
-    <div className="flex items-center justify-center min-h-[60vh]">
-      <div className="text-center">
-        <h1 className="text-6xl font-bold text-on-surface mb-2">404</h1>
-        <h2 className="text-2xl font-semibold text-on-surface mb-4">Page Not Found</h2>
-        <p className="text-on-surface-muted mb-8">The page you&apos;re looking for doesn&apos;t exist.</p>
+    <div className="flex min-h-[55vh] items-center justify-center">
+      <div className="max-w-md space-y-4 text-center">
+        <LogoMark className="mx-auto w-14 h-14 text-primary" />
+        <p className="font-display text-gradient-brand text-7xl font-extrabold">404</p>
+        <h1 className="text-2xl font-bold text-on-surface">This page took a wrong turn</h1>
+        <p className="text-on-surface-muted">The page you&apos;re looking for doesn&apos;t exist or has moved.</p>
         <Link
           to="/"
-          className="inline-block px-6 py-2 bg-on-surface text-surface rounded-lg hover:opacity-90 transition-opacity"
+          className="press shine bg-cta-gradient inline-block rounded-xl px-6 py-2.5 font-semibold text-on-accent shadow-cta"
         >
-          Back to Catalog
+          Back to shopping
         </Link>
       </div>
     </div>

@@ -8,8 +8,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * The message consumed from Kafka topic product.events.
- * Consumer-side duplicate for loose coupling between services.
+ * The message consumed from Kafka topic product.events. Consumer-side duplicate for loose coupling
+ * between services.
  */
 @Data
 @NoArgsConstructor

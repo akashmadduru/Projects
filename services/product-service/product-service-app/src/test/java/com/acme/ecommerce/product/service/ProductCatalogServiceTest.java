@@ -19,6 +19,7 @@ import com.acme.ecommerce.product.domain.Product;
 import com.acme.ecommerce.product.domain.ProductImage;
 import com.acme.ecommerce.product.event.ProductEventPublisher;
 import com.acme.ecommerce.product.event.ProductEventType;
+import com.acme.ecommerce.product.repository.ProductFilter;
 import com.acme.ecommerce.product.repository.ProductImageRepository;
 import com.acme.ecommerce.product.repository.ProductRepository;
 import com.acme.ecommerce.product.web.dto.CreateProductRequest;
@@ -37,6 +38,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -44,6 +47,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 
 /**
  * Unit tests for the catalog service's read and write decisions.
@@ -140,7 +145,7 @@ class ProductCatalogServiceTest {
                 null,
                 null));
 
-    assertThat(response.sku()).isEqualTo("SKU-NEW-01");
+    assertThat(response.getSku()).isEqualTo("SKU-NEW-01");
     verify(events).publishAfterCommit(ProductEventType.PRODUCT_CREATED, response, 10);
   }
 
@@ -175,17 +180,17 @@ class ProductCatalogServiceTest {
                 Map.of("color", "red", "weightGrams", 500),
                 List.of(new ProductImageRequest("https://img/1.png", 0))));
 
-    assertThat(response.categoryId()).isEqualTo(categoryId);
-    assertThat(response.sellerName()).isEqualTo("Acme Sellers");
-    assertThat(response.specifications())
+    assertThat(response.getCategoryId()).isEqualTo(categoryId);
+    assertThat(response.getSellerName()).isEqualTo("Acme Sellers");
+    assertThat(response.getSpecifications())
         .containsEntry("color", "red")
         .containsEntry("weightGrams", 500);
-    assertThat(response.images()).hasSize(1);
-    assertThat(response.images().get(0).url()).isEqualTo("https://img/1.png");
-    assertThat(response.images().get(0).displayOrder()).isEqualTo(0);
+    assertThat(response.getImages()).hasSize(1);
+    assertThat(response.getImages().get(0).getUrl()).isEqualTo("https://img/1.png");
+    assertThat(response.getImages().get(0).getDisplayOrder()).isEqualTo(0);
     // lastKnownQuantity is never touched by create() in this pass - a later pass's
     // inventory-event listener is its only writer.
-    assertThat(response.lastKnownQuantity()).isNull();
+    assertThat(response.getLastKnownQuantity()).isNull();
   }
 
   @Test
@@ -262,8 +267,8 @@ class ProductCatalogServiceTest {
             new UpdateProductRequest(
                 "Renamed", new BigDecimal("19.99"), "EUR", false, 0L, null, null, null, null));
 
-    assertThat(response.name()).isEqualTo("Renamed");
-    assertThat(response.version()).isEqualTo(1L);
+    assertThat(response.getName()).isEqualTo("Renamed");
+    assertThat(response.getVersion()).isEqualTo(1L);
     verify(events).publishAfterCommit(ProductEventType.PRODUCT_UPDATED, response);
   }
 
@@ -284,13 +289,37 @@ class ProductCatalogServiceTest {
   void listDoesNotLoadImages() {
     Product product = newTestProduct();
     Pageable pageable = PageRequest.of(0, 20);
-    when(products.findAll(pageable)).thenReturn(new PageImpl<>(List.of(product)));
+    when(products.findAll(ArgumentMatchers.<Specification<Product>>any(), any(Pageable.class)))
+        .thenReturn(new PageImpl<>(List.of(product)));
 
-    Page<ProductResponse> page = service.list(pageable);
+    Page<ProductResponse> page = service.list(ProductFilter.none(), pageable);
 
     assertThat(page.getContent()).hasSize(1);
-    assertThat(page.getContent().get(0).images()).isEmpty();
+    assertThat(page.getContent().get(0).getImages()).isEmpty();
     verifyNoInteractions(images);
+  }
+
+  @Test
+  @DisplayName("list() sorts NULLs last and appends sku so page boundaries stay stable")
+  void listNormalizesSort() {
+    when(products.findAll(ArgumentMatchers.<Specification<Product>>any(), any(Pageable.class)))
+        .thenReturn(new PageImpl<>(List.of()));
+    ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
+
+    service.list(
+        ProductFilter.none(), PageRequest.of(2, 10, Sort.by(Sort.Order.desc("averageRating"))));
+
+    verify(products).findAll(ArgumentMatchers.<Specification<Product>>any(), captor.capture());
+    Pageable sent = captor.getValue();
+    assertThat(sent.getPageNumber()).isEqualTo(2);
+    assertThat(sent.getPageSize()).isEqualTo(10);
+    assertThat(sent.getSort().getOrderFor("averageRating"))
+        .satisfies(
+            order -> {
+              assertThat(order.getDirection()).isEqualTo(Sort.Direction.DESC);
+              assertThat(order.getNullHandling()).isEqualTo(Sort.NullHandling.NULLS_LAST);
+            });
+    assertThat(sent.getSort().toList()).last().extracting(Sort.Order::getProperty).isEqualTo("sku");
   }
 
   @Test
@@ -310,8 +339,8 @@ class ProductCatalogServiceTest {
 
     ProductResponse response = service.findById(id);
 
-    assertThat(response.images()).hasSize(1);
-    assertThat(response.images().get(0).url()).isEqualTo("https://img/1.png");
+    assertThat(response.getImages()).hasSize(1);
+    assertThat(response.getImages().get(0).getUrl()).isEqualTo("https://img/1.png");
   }
 
   /**

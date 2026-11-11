@@ -121,22 +121,22 @@ public class InventoryEventPublisher {
   private void send(InventoryEvent event) {
     log.info(
         "Publishing inventory event eventId={} eventType={} productId={}",
-        event.eventId(),
-        event.eventType(),
-        event.productId());
+        event.getEventId(),
+        event.getEventType(),
+        event.getProductId());
     try {
       // send() itself can throw SYNCHRONOUSLY - see ProductEventPublisher's
       // identical comment. By the time this runs, the write has already
       // committed (or, for publishNow, has already failed/rolled back), so an
       // uncaught exception here would turn either case into an unhandled error
       // on a thread this event's own caller does not expect one from.
-      kafka.send(TOPIC, event.productId().toString(), event);
+      kafka.send(TOPIC, event.getProductId().toString(), event);
     } catch (RuntimeException e) {
       log.warn(
           "Failed to publish inventory event eventId={} eventType={} productId={}: {}",
-          event.eventId(),
-          event.eventType(),
-          event.productId(),
+          event.getEventId(),
+          event.getEventType(),
+          event.getProductId(),
           e.getMessage());
     }
   }

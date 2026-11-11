@@ -88,9 +88,9 @@ public class CookieOAuth2AuthorizationRequestRepository
       JwtKeyProvider keyProvider) {
     this.objectMapper = objectMapper;
     this.redirectTargets = redirectTargets;
-    this.cookieConfig = properties.getCookie();
+    this.cookieConfig = properties.cookie();
 
-    String configured = properties.getOauth2().getStateCookieSecret();
+    String configured = properties.oauth2().stateCookieSecret();
     this.hmacKey =
         configured == null || configured.isBlank()
             ? keyProvider.deriveSecret(KEY_LABEL)
@@ -248,16 +248,16 @@ public class CookieOAuth2AuthorizationRequestRepository
         value,
         path,
         COOKIE_TTL,
-        cookieConfig.isSecure(),
+        cookieConfig.secure(),
         // Lax, not Strict: the cookie must survive Google's cross-site redirect
         // back to the callback endpoint. Strict would drop it and every login
         // would fail at the last step.
         "Lax",
-        cookieConfig.getDomain());
+        cookieConfig.domain());
   }
 
   private void clearCookie(HttpServletResponse response, String name, String path) {
-    CookieSupport.clear(response, name, path, cookieConfig.isSecure(), "Lax", cookieConfig.getDomain());
+    CookieSupport.clear(response, name, path, cookieConfig.secure(), "Lax", cookieConfig.domain());
   }
 
   private static Base64.Encoder encoder() {

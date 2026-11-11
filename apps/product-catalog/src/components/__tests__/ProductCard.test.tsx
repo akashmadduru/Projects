@@ -1,312 +1,125 @@
 /**
- * Unit tests for ProductCard component with ripple effect animation
+ * ProductCard: what a shopper sees and can do from a listing card
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { screen, fireEvent, cleanup } from '@testing-library/react'
+import { describe, it, expect, beforeEach } from 'vitest'
+import { fireEvent, render, screen } from '@testing-library/react'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { ProductCard } from '../ProductCard'
 import { singleProduct } from '../../test/fixtures'
-import { render, resetMatchMedia } from '../../test/test-utils'
+import { useCartStore, useUiStore, useWishlistStore } from '../../stores'
+import type { Product } from '../../types'
+
+const deal: Product = {
+  ...singleProduct,
+  priceAmount: 16.99,
+  listPrice: 18.69,
+  averageRating: 4.5,
+  ratingCount: 1250,
+  featured: true,
+  sellerName: 'BookStore',
+  sellerVerified: true,
+}
+
+function renderCard(product: Product = deal) {
+  return render(
+    <MemoryRouter initialEntries={['/']}>
+      <Routes>
+        <Route path="/" element={<ProductCard product={product} />} />
+        <Route path="/products/:id" element={<p>detail page</p>} />
+      </Routes>
+    </MemoryRouter>,
+  )
+}
 
 describe('ProductCard', () => {
   beforeEach(() => {
-    vi.clearAllMocks()
-    resetMatchMedia()
-    vi.useFakeTimers()
+    useCartStore.setState({ items: [] })
+    useWishlistStore.setState({ items: [] })
+    useUiStore.setState({ toasts: [] })
   })
 
-  afterEach(() => {
-    cleanup()
-    vi.runOnlyPendingTimers()
-    vi.useRealTimers()
+  it('links the product name to its detail page', () => {
+    renderCard()
+
+    fireEvent.click(screen.getByRole('link', { name: deal.name }))
+
+    expect(screen.getByText('detail page')).toBeInTheDocument()
   })
 
-  describe('Rendering', () => {
-    it('should render without crashing', () => {
-      render(<ProductCard product={singleProduct} />)
-      expect(screen.getByRole('link')).toBeInTheDocument()
-    })
+  it('shows the deal price, the struck list price and the saving', () => {
+    renderCard()
 
-    it('should display product name', () => {
-      render(<ProductCard product={singleProduct} />)
-      expect(screen.getByText(singleProduct.name)).toBeInTheDocument()
-    })
-
-    it('should display product category', () => {
-      render(<ProductCard product={singleProduct} />)
-      expect(screen.getByText(singleProduct.categoryId!)).toBeInTheDocument()
-    })
-
-    it('should render with correct link href', () => {
-      render(<ProductCard product={singleProduct} />)
-      const link = screen.getByRole('link')
-      expect(link).toHaveAttribute('href', `/products/${singleProduct.id}`)
-    })
-
-    it('should have ripple-container class', () => {
-      render(<ProductCard product={singleProduct} />)
-      const link = screen.getByRole('link')
-      expect(link).toHaveClass('ripple-container')
-    })
-
-    it('should display price', () => {
-      render(<ProductCard product={singleProduct} />)
-      expect(screen.getByText(/\$/)).toBeInTheDocument()
-    })
-
-    it('should have shadow styling', () => {
-      render(<ProductCard product={singleProduct} />)
-      const link = screen.getByRole('link')
-      expect(link).toHaveClass('shadow-md')
-    })
+    expect(screen.getByText('$16.99')).toBeInTheDocument()
+    expect(screen.getByText('$18.69')).toHaveClass('line-through')
+    expect(screen.getByText('9% off')).toBeInTheDocument()
+    expect(screen.getByText('-9%')).toBeInTheDocument()
   })
 
-  describe('Animations - Ripple Effect', () => {
-    it('should create ripple element on click', () => {
-      render(<ProductCard product={singleProduct} />)
-      const link = screen.getByRole('link')
+  it('omits the discount when there is no list price above the selling price', () => {
+    renderCard({ ...deal, listPrice: null })
 
-      const appendChildSpy = vi.spyOn(link, 'appendChild')
-
-      fireEvent.click(link, {
-        clientX: 50,
-        clientY: 50,
-      })
-
-      expect(appendChildSpy).toHaveBeenCalled()
-
-      appendChildSpy.mockRestore()
-    })
-
-    it('should apply ripple animation style', () => {
-      render(<ProductCard product={singleProduct} />)
-      const link = screen.getByRole('link')
-
-      const appendChildSpy = vi.spyOn(link, 'appendChild')
-
-      fireEvent.click(link, {
-        clientX: 50,
-        clientY: 50,
-      })
-
-      expect(appendChildSpy).toHaveBeenCalledTimes(1)
-      const rippleElement = appendChildSpy.mock.calls[0]![0] as HTMLElement
-      expect(rippleElement.className).toContain('ripple')
-
-      appendChildSpy.mockRestore()
-    })
-
-    it('should remove ripple after 300ms', () => {
-      render(<ProductCard product={singleProduct} />)
-      const link = screen.getByRole('link')
-      const removeSpy = vi.spyOn(Element.prototype, 'remove')
-
-      fireEvent.click(link, {
-        clientX: 50,
-        clientY: 50,
-      })
-
-      expect(removeSpy).not.toHaveBeenCalled()
-
-      vi.advanceTimersByTime(300)
-
-      expect(removeSpy).toHaveBeenCalled()
-
-      removeSpy.mockRestore()
-    })
-
-    it('should not create multiple ripples on rapid clicks', () => {
-      render(<ProductCard product={singleProduct} />)
-      const link = screen.getByRole('link')
-      const appendChildSpy = vi.spyOn(link, 'appendChild')
-
-      fireEvent.click(link, { clientX: 50, clientY: 50 })
-      fireEvent.click(link, { clientX: 60, clientY: 60 })
-      fireEvent.click(link, { clientX: 70, clientY: 70 })
-
-      expect(appendChildSpy).toHaveBeenCalledTimes(3)
-
-      appendChildSpy.mockRestore()
-    })
-
-    it('should calculate ripple size correctly', () => {
-      render(<ProductCard product={singleProduct} />)
-      const link = screen.getByRole('link')
-
-      const appendChildSpy = vi.spyOn(link, 'appendChild')
-
-      fireEvent.click(link, {
-        clientX: 100,
-        clientY: 100,
-      })
-
-      expect(appendChildSpy).toHaveBeenCalled()
-      const ripple = appendChildSpy.mock.calls[0]![0] as HTMLElement
-
-      expect(ripple.style.width).toBeDefined()
-      expect(ripple.style.height).toBeDefined()
-
-      appendChildSpy.mockRestore()
-    })
-
-    it('should have animation defined on ripple', () => {
-      render(<ProductCard product={singleProduct} />)
-      const link = screen.getByRole('link')
-
-      const appendChildSpy = vi.spyOn(link, 'appendChild')
-
-      fireEvent.click(link, {
-        clientX: 50,
-        clientY: 50,
-      })
-
-      const ripple = appendChildSpy.mock.calls[0]![0] as HTMLElement
-      expect(ripple.style.animation).toBeDefined()
-
-      appendChildSpy.mockRestore()
-    })
+    expect(screen.queryByText(/% off/)).not.toBeInTheDocument()
   })
 
-  describe('Accessibility', () => {
-    it('should have focus ring styling', () => {
-      render(<ProductCard product={singleProduct} />)
-      const link = screen.getByRole('link')
+  it('shows the rating chip with a compact count', () => {
+    renderCard()
 
-      expect(link).toHaveClass('focus:ring-2', 'focus:ring-outline', 'focus:ring-offset-2')
-    })
-
-    it('should be keyboard focusable', () => {
-      render(<ProductCard product={singleProduct} />)
-      const link = screen.getByRole('link')
-
-      expect(link).toHaveAttribute('href')
-      expect(link).toHaveClass('focus:outline-none')
-    })
-
-    it('should have outline-none in default state', () => {
-      render(<ProductCard product={singleProduct} />)
-      const link = screen.getByRole('link')
-
-      expect(link).toHaveClass('focus:outline-none')
-    })
-
-    it('should have proper border styling for contrast', () => {
-      render(<ProductCard product={singleProduct} />)
-      const link = screen.getByRole('link')
-
-      expect(link).toHaveClass('border')
-    })
+    expect(screen.getByLabelText('Rated 4.5 out of 5')).toBeInTheDocument()
+    expect(screen.getByText('(1.3K)')).toBeInTheDocument()
   })
 
-  describe('Memory Management', () => {
-    it('should cleanup ripple on unmount', () => {
-      const { unmount } = render(<ProductCard product={singleProduct} />)
-      const link = screen.getByRole('link')
+  it('says so when a product has no ratings', () => {
+    renderCard({ ...deal, averageRating: null, ratingCount: 0 })
 
-      fireEvent.click(link, {
-        clientX: 50,
-        clientY: 50,
-      })
-
-      unmount()
-
-      // Should not throw any errors
-      expect(() => unmount()).not.toThrow()
-    })
-
-    it('should cleanup setTimeout on unmount', () => {
-      const { unmount } = render(<ProductCard product={singleProduct} />)
-      const link = screen.getByRole('link')
-
-      fireEvent.click(link, {
-        clientX: 50,
-        clientY: 50,
-      })
-
-      unmount()
-
-      vi.advanceTimersByTime(300)
-
-      // Should not throw
-      expect(true).toBe(true)
-    })
+    expect(screen.getByText('No ratings yet')).toBeInTheDocument()
   })
 
-  describe('Component Integration', () => {
-    it('should render ProductImage component', () => {
-      render(<ProductCard product={singleProduct} />)
+  it('badges featured products and verified sellers', () => {
+    renderCard()
 
-      // ProductImage is rendered as img
-      const img = screen.getByAltText(singleProduct.name)
-
-      expect(img).toBeInTheDocument()
-    })
-
-    it('should render PriceDisplay component', () => {
-      render(<ProductCard product={singleProduct} />)
-
-      // PriceDisplay shows formatted price
-      expect(screen.getByText(/\$/)).toBeInTheDocument()
-    })
-
-    it('should render StockStatus component', () => {
-      render(<ProductCard product={singleProduct} />)
-
-      // StockStatus shows stock status message
-      expect(screen.getByText(/Stock|stock/i)).toBeInTheDocument()
-    })
+    expect(screen.getByText('Top pick')).toBeInTheDocument()
+    expect(screen.getByText('by BookStore')).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: 'Verified seller' })).toBeInTheDocument()
   })
 
-  describe('Responsive Design', () => {
-    it('should have responsive classes applied', () => {
-      render(<ProductCard product={singleProduct} />)
-      const link = screen.getByRole('link')
+  it('warns when stock is low', () => {
+    renderCard({ ...deal, lastKnownQuantity: 3 })
 
-      expect(link).toHaveClass('rounded-lg', 'overflow-hidden', 'shadow-md')
-    })
-
-    it('should have border styling', () => {
-      render(<ProductCard product={singleProduct} />)
-      const link = screen.getByRole('link')
-
-      expect(link).toHaveClass('border', 'border-outline/10')
-    })
-
-    it('should have hover effects applied', () => {
-      render(<ProductCard product={singleProduct} />)
-      const link = screen.getByRole('link')
-
-      expect(link).toHaveClass('hover:shadow-xl', 'hover:border-outline/20')
-    })
-
-    it('should have proper group styling', () => {
-      render(<ProductCard product={singleProduct} />)
-      const link = screen.getByRole('link')
-
-      expect(link).toHaveClass('group')
-    })
-
-    it('should have fade-in animation', () => {
-      render(<ProductCard product={singleProduct} />)
-      const link = screen.getByRole('link')
-
-      expect(link).toHaveClass('animate-fade-in')
-    })
+    expect(screen.getByText('Only 3 left')).toBeInTheDocument()
   })
 
-  describe('Product Data Display', () => {
-    it('should display all product information', () => {
-      render(<ProductCard product={singleProduct} />)
+  it('adds to the cart with a snapshot, confirms, and stays on the listing', () => {
+    renderCard()
 
-      expect(screen.getByText(singleProduct.name)).toBeInTheDocument()
-      expect(screen.getByText(singleProduct.categoryId!)).toBeInTheDocument()
-    })
+    fireEvent.click(screen.getByRole('button', { name: 'Add to cart' }))
 
-    it('should render with correct href pattern', () => {
-      render(<ProductCard product={singleProduct} />)
-      const link = screen.getByRole('link')
+    const [item] = useCartStore.getState().items
+    expect(item).toMatchObject({ productId: deal.id, quantity: 1 })
+    expect(item?.snapshot).toMatchObject({ name: deal.name, priceAmount: 16.99, priceCurrency: 'USD' })
+    expect(useUiStore.getState().toasts[0]?.message).toBe(`Added ${deal.name} to your cart`)
+    expect(screen.queryByText('detail page')).not.toBeInTheDocument()
+  })
 
-      expect(link.getAttribute('href')).toMatch(/^\/products\//)
-    })
+  it('cannot be added to the cart when out of stock', () => {
+    renderCard({ ...deal, lastKnownQuantity: 0 })
+
+    expect(screen.getByRole('button', { name: 'Unavailable' })).toBeDisabled()
+    expect(screen.getByText('Out of stock')).toBeInTheDocument()
+  })
+
+  it('toggles the wishlist without navigating', () => {
+    renderCard()
+    const heart = screen.getByRole('button', { name: `Save ${deal.name} to wishlist` })
+    expect(heart).toHaveAttribute('aria-pressed', 'false')
+
+    fireEvent.click(heart)
+
+    expect(useWishlistStore.getState().isInWishlist(deal.id)).toBe(true)
+    expect(screen.getByRole('button', { name: `Remove ${deal.name} from wishlist` })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    expect(screen.queryByText('detail page')).not.toBeInTheDocument()
   })
 })

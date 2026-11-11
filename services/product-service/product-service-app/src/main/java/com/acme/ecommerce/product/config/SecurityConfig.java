@@ -87,10 +87,17 @@ public class SecurityConfig {
                 requests
                     .requestMatchers(PUBLIC_ENDPOINTS)
                     .permitAll()
-                    // GET /api/products/** is public (Phase 1F) - POST/PUT/DELETE remain protected.
+                    // GET /api/products/** and /api/categories/** are public (Phase 1F; categories
+                    // are
+                    // catalog data, read alongside products) - POST/PUT/DELETE remain protected.
                     // Catalog reads are open to any caller; mutations require CATALOG_MANAGER/ADMIN
                     // (enforced via @PreAuthorize on ProductController).
-                    .requestMatchers(HttpMethod.GET, "/api/products", "/api/products/**")
+                    .requestMatchers(
+                        HttpMethod.GET,
+                        "/api/products",
+                        "/api/products/**",
+                        "/api/categories",
+                        "/api/categories/**")
                     .permitAll()
                     // `anyRequest().authenticated()` rather than an allow-list of
                     // protected paths, so a Phase 2 endpoint is secure by default
@@ -186,7 +193,7 @@ public class SecurityConfig {
    */
   @Bean
   public JwtDecoder jwtDecoder(ProductProperties properties, RestTemplate jwksRestTemplate) {
-    ProductProperties.Jwt jwt = properties.jwt();
+    ProductProperties.Jwt jwt = properties.getJwt();
 
     NimbusJwtDecoder decoder =
         NimbusJwtDecoder.withJwkSetUri(jwt.effectiveJwksUri())
@@ -215,15 +222,15 @@ public class SecurityConfig {
   private static OAuth2TokenValidator<Jwt> validators(ProductProperties.Jwt jwt) {
     List<OAuth2TokenValidator<Jwt>> validators = new ArrayList<>();
     validators.add(new JwtTimestampValidator(ProductProperties.Jwt.CLOCK_SKEW));
-    validators.add(new JwtIssuerValidator(jwt.issuer()));
-    validators.add(new AudienceValidator(jwt.audience()));
+    validators.add(new JwtIssuerValidator(jwt.getIssuer()));
+    validators.add(new AudienceValidator(jwt.getAudience()));
     return new DelegatingOAuth2TokenValidator<>(validators);
   }
 
   private static SimpleClientHttpRequestFactory requestFactory(ProductProperties properties) {
     SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-    factory.setConnectTimeout(properties.jwt().jwksConnectTimeout());
-    factory.setReadTimeout(properties.jwt().jwksReadTimeout());
+    factory.setConnectTimeout(properties.getJwt().getJwksConnectTimeout());
+    factory.setReadTimeout(properties.getJwt().getJwksReadTimeout());
     return factory;
   }
 }

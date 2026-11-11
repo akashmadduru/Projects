@@ -26,7 +26,7 @@ public class RequestDeviceContext {
   private final boolean trustForwardedFor;
 
   public RequestDeviceContext(AuthProperties properties) {
-    this.trustForwardedFor = properties.getRateLimit().trustForwardedFor();
+    this.trustForwardedFor = properties.rateLimit().trustForwardedFor();
   }
 
   /** User-agent plus source IP, truncated to what the database can store. */

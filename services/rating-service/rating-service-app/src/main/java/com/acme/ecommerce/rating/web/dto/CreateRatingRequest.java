@@ -8,9 +8,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/**
- * Request to create a product rating.
- */
+/** Request to create a product rating. */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

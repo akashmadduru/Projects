@@ -169,7 +169,7 @@ spring:
             - id: product
               uri: lb://PRODUCT-SERVICE
               predicates:
-                - Path=/api/products/**
+                - Path=/api/products/**,/api/categories/**
               filters:
                 - name: CircuitBreaker
                   args:

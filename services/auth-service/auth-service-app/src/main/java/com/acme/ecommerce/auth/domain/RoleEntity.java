@@ -74,5 +74,4 @@ public class RoleEntity {
   public String toString() {
     return "RoleEntity[id=" + id + ", name=" + name + "]";
   }
-
 }

@@ -1,7 +1,6 @@
 package com.acme.ecommerce.rating.repository;
 
 import com.acme.ecommerce.rating.domain.Rating;
-import java.util.List;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -55,7 +54,8 @@ public interface RatingRepository extends JpaRepository<Rating, UUID> {
    * @param pageable page number/size/sort
    * @return paged result
    */
-  @Query("SELECT r FROM Rating r WHERE r.productId = ?1 AND r.reviewText IS NOT NULL ORDER BY r.createdAt DESC")
+  @Query(
+      "SELECT r FROM Rating r WHERE r.productId = ?1 AND r.reviewText IS NOT NULL ORDER BY r.createdAt DESC")
   Page<Rating> findReviewsByProductId(UUID productId, Pageable pageable);
 
   /**

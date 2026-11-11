@@ -46,7 +46,7 @@ class AccessTokenIssuer {
 
   AccessTokenIssuer(JwtKeyProvider keyProvider, AuthProperties properties) {
     this.keyProvider = keyProvider;
-    this.config = properties.getJwt();
+    this.config = properties.jwt();
   }
 
   /** Access-token lifetime in seconds; surfaced to clients as {@code expiresIn}. */

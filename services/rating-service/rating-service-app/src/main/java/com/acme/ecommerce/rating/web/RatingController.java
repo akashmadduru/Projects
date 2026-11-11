@@ -8,7 +8,6 @@ import com.acme.ecommerce.rating.web.dto.UpdateRatingRequest;
 import jakarta.validation.Valid;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
@@ -33,8 +32,8 @@ import org.springframework.web.bind.annotation.RestController;
  * <p>Thin: bind, delegate, return. No branching, no persistence. {@code ResourceNotFoundException}
  * / {@code ResourceConflictException} propagate to common-web's {@code GlobalExceptionHandler}.
  *
- * <p>{@code @PreAuthorize} ON WRITES: authenticated on POST (any user can rate), author-or-admin
- * on PUT/DELETE. Reads are public (no @PreAuthorize).
+ * <p>{@code @PreAuthorize} ON WRITES: authenticated on POST (any user can rate), author-or-admin on
+ * PUT/DELETE. Reads are public (no @PreAuthorize).
  */
 @RestController
 @RequestMapping("/api/ratings")
@@ -55,7 +54,10 @@ public class RatingController {
   @GetMapping("/products/{productId}")
   public PagedModel<RatingResponse> findByProductId(
       @PathVariable UUID productId,
-      @PageableDefault(size = DEFAULT_PAGE_SIZE, sort = "createdAt", direction = Sort.Direction.DESC)
+      @PageableDefault(
+              size = DEFAULT_PAGE_SIZE,
+              sort = "createdAt",
+              direction = Sort.Direction.DESC)
           Pageable pageable) {
     return new PagedModel<>(ratings.findByProductId(productId, pageable));
   }

@@ -75,8 +75,8 @@ public class Category {
   private int depthLevel = 0;
 
   /**
-   * Flag indicating if category is active/visible. Defaults to true. Not enforced in the
-   * database, only in application queries.
+   * Flag indicating if category is active/visible. Defaults to true. Not enforced in the database,
+   * only in application queries.
    */
   @Builder.Default
   @Column(name = "is_active", nullable = false)

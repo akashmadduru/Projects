@@ -5,11 +5,51 @@
 
 import type { Product } from '../types'
 
+type CoreFields = Pick<
+  Product,
+  | 'id'
+  | 'sku'
+  | 'name'
+  | 'priceAmount'
+  | 'priceCurrency'
+  | 'active'
+  | 'version'
+  | 'categoryId'
+  | 'sellerName'
+  | 'specifications'
+  | 'images'
+  | 'lastKnownQuantity'
+>
+
+/** The enrichment fields the backend sends as null/zero/false when unset. */
+export const EMPTY_ENRICHMENT: Omit<Product, keyof CoreFields> = {
+  description: null,
+  listPrice: null,
+  salePrice: null,
+  discountPercent: null,
+  thumbnailUrl: null,
+  videoUrls: null,
+  view360Url: null,
+  weightGrams: null,
+  dimensionsLength: null,
+  dimensionsWidth: null,
+  dimensionsHeight: null,
+  color: null,
+  material: null,
+  averageRating: null,
+  ratingCount: 0,
+  reviewCount: 0,
+  ratingDistribution: null,
+  sellerRating: null,
+  featured: false,
+  sellerVerified: false,
+}
+
 const generateSkuId = (base: string, index: number): string => {
   return `${base}-${String(index).padStart(5, '0')}`
 }
 
-export const dummyProducts: Product[] = [
+const coreProducts: CoreFields[] = [
   {
     id: '1',
     sku: generateSkuId('SKU-HEADPHONES', 1),
@@ -484,3 +524,27 @@ export const dummyProducts: Product[] = [
     lastKnownQuantity: 29,
   },
 ]
+
+const DEMO_DISCOUNTS = [10, 15, 20, 25, 30]
+
+// Deterministic (index-based) deal and rating data, so demo mode shows the same storefront
+// features as the real catalog on every load.
+export const dummyProducts: Product[] = coreProducts.map((product, i) => {
+  const discount = DEMO_DISCOUNTS[i % DEMO_DISCOUNTS.length] ?? 10
+  const listPrice = Math.round((product.priceAmount / (1 - discount / 100)) * 100) / 100
+  const rated = i % 4 !== 3
+  return {
+    ...EMPTY_ENRICHMENT,
+    ...product,
+    description: `${product.name}${product.sellerName ? `, sold by ${product.sellerName}` : ''}.`,
+    listPrice,
+    salePrice: product.priceAmount,
+    discountPercent: discount,
+    averageRating: rated ? Math.round((3.6 + ((i * 7) % 14) / 10) * 10) / 10 : null,
+    ratingCount: rated ? 24 + ((i * 137) % 1900) : 0,
+    reviewCount: rated ? 9 + ((i * 53) % 640) : 0,
+    featured: i < 4,
+    sellerVerified: i % 3 !== 0,
+    sellerRating: 4.1 + (i % 8) / 10,
+  }
+})

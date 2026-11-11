@@ -54,7 +54,7 @@ public class ProductEventPublisher {
    * @param product the product snapshot to publish
    */
   public void publishAfterCommit(ProductEventType type, ProductResponse product) {
-    publishAfterCommit(type, product.id(), product, null);
+    publishAfterCommit(type, product.getId(), product, null);
   }
 
   /**
@@ -70,7 +70,7 @@ public class ProductEventPublisher {
    */
   public void publishAfterCommit(
       ProductEventType type, ProductResponse product, Integer initialQuantity) {
-    publishAfterCommit(type, product.id(), product, initialQuantity);
+    publishAfterCommit(type, product.getId(), product, initialQuantity);
   }
 
   /**
@@ -91,8 +91,7 @@ public class ProductEventPublisher {
       ProductEventType type,
       UUID productId,
       ProductResponse payloadOrNull,
-      Integer initialQuantity
-    ) {
+      Integer initialQuantity) {
 
     if (!TransactionSynchronizationManager.isSynchronizationActive()) {
       throw new IllegalStateException("publishAfterCommit called outside an active transaction");
@@ -103,18 +102,19 @@ public class ProductEventPublisher {
           @Override
           public void afterCommit() {
             ProductEvent event =
-                new ProductEvent(
-                    UUID.randomUUID(),
-                    type,
-                    productId,
-                    timeProvider.now(),
-                    payloadOrNull,
-                    initialQuantity);
+                ProductEvent.builder()
+                    .eventId(UUID.randomUUID())
+                    .eventType(type)
+                    .productId(productId)
+                    .publishedAt(timeProvider.now())
+                    .payload(payloadOrNull)
+                    .initialQuantity(initialQuantity)
+                    .build();
             log.info(
                 "Publishing product event eventId={} eventType={} productId={}",
-                event.eventId(),
-                event.eventType(),
-                event.productId());
+                event.getEventId(),
+                event.getEventType(),
+                event.getProductId());
             try {
               // send() itself can throw SYNCHRONOUSLY (not just via its returned
               // future's callback) - e.g. a metadata-fetch timeout when no broker
@@ -128,9 +128,9 @@ public class ProductEventPublisher {
             } catch (RuntimeException e) {
               log.warn(
                   "Failed to publish product event eventId={} eventType={} productId={}: {}",
-                  event.eventId(),
-                  event.eventType(),
-                  event.productId(),
+                  event.getEventId(),
+                  event.getEventType(),
+                  event.getProductId(),
                   e.getMessage());
             }
           }

@@ -20,7 +20,14 @@ import lombok.NoArgsConstructor;
 @Builder
 public class CreateInventoryRequest {
   @NotNull UUID productId;
-  @NotNull @Min(0) Integer quantity;
-  @Size(max = 32) String warehouseCode;
-  @Min(0) Integer lowStockThreshold;
+
+  @NotNull
+  @Min(0)
+  Integer quantity;
+
+  @Size(max = 32)
+  String warehouseCode;
+
+  @Min(0)
+  Integer lowStockThreshold;
 }

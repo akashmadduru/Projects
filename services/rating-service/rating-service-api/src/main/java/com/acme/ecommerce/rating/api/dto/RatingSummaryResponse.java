@@ -8,9 +8,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/**
- * Aggregate rating summary for a product.
- */
+/** Aggregate rating summary for a product. */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

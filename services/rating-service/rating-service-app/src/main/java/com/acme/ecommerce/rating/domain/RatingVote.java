@@ -23,8 +23,8 @@ import lombok.ToString;
  * <p>UNIQUE CONSTRAINT on (rating_id, user_id) makes vote addition idempotent: a user can change
  * their vote (helpful -> unhelpful, vice versa) but only one vote per rating per user can exist.
  *
- * <p>NO {@code @PrePersist}, AND NO {@code Instant.now()} ANYWHERE IN THIS CLASS - mirroring
- * {@link Rating}: {@code now} is an explicit parameter callers pass to {@link #builder()}.
+ * <p>NO {@code @PrePersist}, AND NO {@code Instant.now()} ANYWHERE IN THIS CLASS - mirroring {@link
+ * Rating}: {@code now} is an explicit parameter callers pass to {@link #builder()}.
  *
  * <p>EQUALITY IS KEYED ON {@code id} ONLY (same pattern, same caveat, as {@link Rating}).
  * Construction goes through Lombok's generated builder, never a hand-rolled constructor.

@@ -8,9 +8,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/**
- * A rating lifecycle event published to {@code rating.events} Kafka topic.
- */
+/** A rating lifecycle event published to {@code rating.events} Kafka topic. */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

@@ -46,8 +46,8 @@ public class GoogleOAuth2ClientConfig {
     ClientRegistration google =
         CommonOAuth2Provider.GOOGLE
             .getBuilder(REGISTRATION_ID)
-            .clientId(properties.getOauth2().clientId())
-            .clientSecret(properties.getOauth2().clientSecret())
+            .clientId(properties.oauth2().clientId())
+            .clientSecret(properties.oauth2().clientSecret())
             .build();
 
     log.info("Google OIDC login is ENABLED (redirect URI template {})", google.getRedirectUri());

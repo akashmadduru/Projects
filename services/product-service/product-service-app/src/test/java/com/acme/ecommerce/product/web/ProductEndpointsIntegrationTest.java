@@ -9,7 +9,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.acme.ecommerce.product.support.AbstractProductIntegrationTest;
-import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -151,7 +150,8 @@ class ProductEndpointsIntegrationTest extends AbstractProductIntegrationTest {
     }
 
     @Test
-    @DisplayName("GET /api/products/catalog/products/{id} returns 200 with aggregate without a token")
+    @DisplayName(
+        "GET /api/products/catalog/products/{id} returns 200 with aggregate without a token")
     void getAggregateWithoutToken() throws Exception {
       mockMvc
           .perform(get("/api/products/catalog/products/{id}", KNOWN_ID))
@@ -278,7 +278,8 @@ class ProductEndpointsIntegrationTest extends AbstractProductIntegrationTest {
     }
 
     @Test
-    @DisplayName("GET without a token succeeds for known id, returns 404 for unknown id (no probing)")
+    @DisplayName(
+        "GET without a token succeeds for known id, returns 404 for unknown id (no probing)")
     void unauthenticatedGetIsAllowed() throws Exception {
       // Phase 1F: GET /api/products/{id} is now public. A known id returns 200 with the product;
       // an unknown id returns 404. No 401, because authentication is not required for reads.
@@ -289,7 +290,8 @@ class ProductEndpointsIntegrationTest extends AbstractProductIntegrationTest {
           .andExpect(jsonPath("$.sku").value("SKU-KEYBOARD-01"));
 
       // An unknown id returns 404, which does theoretically allow probing - but that is a separate
-      // decision (rate-limit anonymous reads, or return 200 with a cache-busting marker) and outside
+      // decision (rate-limit anonymous reads, or return 200 with a cache-busting marker) and
+      // outside
       // this phase's scope. Catalog queries are public, and their response codes follow the same
       // pattern as any other public API.
       mockMvc

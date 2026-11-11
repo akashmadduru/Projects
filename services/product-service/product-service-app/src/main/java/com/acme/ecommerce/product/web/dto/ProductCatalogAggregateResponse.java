@@ -8,8 +8,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * The composed response for GET /api/products/catalog/products/{id}.
- * App-internal aggregate combining product and inventory data.
+ * The composed response for GET /api/products/catalog/products/{id}. App-internal aggregate
+ * combining product and inventory data.
  */
 @Data
 @NoArgsConstructor

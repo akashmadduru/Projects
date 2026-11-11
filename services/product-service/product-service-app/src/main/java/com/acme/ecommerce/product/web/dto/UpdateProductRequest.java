@@ -15,21 +15,31 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/**
- * Product update request with optimistic-concurrency control and catalog enrichment fields.
- */
+/** Product update request with optimistic-concurrency control and catalog enrichment fields. */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 public class UpdateProductRequest {
-  @NotBlank @Size(max = 200) String name;
-  @NotNull @DecimalMin("0.00") BigDecimal priceAmount;
-  @NotBlank @Pattern(regexp = "^[A-Z]{3}$") String priceCurrency;
+  @NotBlank
+  @Size(max = 200)
+  String name;
+
+  @NotNull
+  @DecimalMin("0.00")
+  BigDecimal priceAmount;
+
+  @NotBlank
+  @Pattern(regexp = "^[A-Z]{3}$")
+  String priceCurrency;
+
   boolean active;
   @NotNull Long version;
   UUID categoryId;
-  @Size(max = 200) String sellerName;
+
+  @Size(max = 200)
+  String sellerName;
+
   Map<String, Object> specifications;
   @Valid List<ProductImageRequest> images;
 }

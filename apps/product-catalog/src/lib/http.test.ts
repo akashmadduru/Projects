@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach } from 'vitest'
 import { apiFetch, setAuthToken, getAuthToken, clearRequestCache } from './http'
-import type { ProductResponse } from '../types'
+import type { BackendPagedModel, BackendProductResponse } from '../types'
 
 describe('apiFetch', () => {
   beforeEach(() => {
@@ -14,7 +14,7 @@ describe('apiFetch', () => {
   })
 
   it('should fetch and return JSON data on success', async () => {
-    const data = await apiFetch<ProductResponse>('/api/products', {
+    const data = await apiFetch<BackendPagedModel<BackendProductResponse>>('/api/products', {
       method: 'GET',
       params: { page: 0, size: 20 },
     })
@@ -22,7 +22,7 @@ describe('apiFetch', () => {
     expect(data).toBeDefined()
     expect(data.content).toBeDefined()
     expect(Array.isArray(data.content)).toBe(true)
-    expect(data.totalElements).toBe(100)
+    expect(data.page.totalElements).toBe(100)
   })
 
   it('should handle GET request deduplication', async () => {
@@ -51,7 +51,7 @@ describe('apiFetch', () => {
 
     expect(getAuthToken()).toBe(testToken)
 
-    const data = await apiFetch<ProductResponse>('/api/products', {
+    const data = await apiFetch<BackendPagedModel<BackendProductResponse>>('/api/products', {
       method: 'GET',
     })
 
@@ -76,7 +76,7 @@ describe('apiFetch', () => {
   })
 
   it('should add query parameters to request URL', async () => {
-    const data = await apiFetch<ProductResponse>('/api/products', {
+    const data = await apiFetch<BackendPagedModel<BackendProductResponse>>('/api/products', {
       method: 'GET',
       params: {
         page: 1,

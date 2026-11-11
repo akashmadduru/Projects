@@ -38,10 +38,10 @@ public class RedirectTargetPolicy {
   private final String defaultTarget;
 
   public RedirectTargetPolicy(AuthProperties properties) {
-    AuthProperties.Oauth2 config = properties.getOauth2();
+    AuthProperties.Oauth2 config = properties.oauth2();
     this.allowed =
-        config.getAllowedRedirectUris().stream().map(RedirectTargetPolicy::normalise).toList();
-    this.defaultTarget = normalise(config.getDefaultRedirectUri());
+        config.allowedRedirectUris().stream().map(RedirectTargetPolicy::normalise).toList();
+    this.defaultTarget = normalise(config.defaultRedirectUri());
 
     if (!allowed.contains(defaultTarget)) {
       // Otherwise the fallback path would itself fail validation on the way back

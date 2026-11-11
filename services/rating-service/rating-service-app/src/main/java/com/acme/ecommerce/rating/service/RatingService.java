@@ -7,10 +7,10 @@ import com.acme.ecommerce.rating.api.dto.RatingResponse;
 import com.acme.ecommerce.rating.api.dto.RatingSummaryResponse;
 import com.acme.ecommerce.rating.domain.Rating;
 import com.acme.ecommerce.rating.domain.RatingVote;
-import com.acme.ecommerce.rating.repository.RatingRepository;
-import com.acme.ecommerce.rating.repository.RatingVoteRepository;
 import com.acme.ecommerce.rating.event.RatingEventPublisher;
 import com.acme.ecommerce.rating.event.RatingEventType;
+import com.acme.ecommerce.rating.repository.RatingRepository;
+import com.acme.ecommerce.rating.repository.RatingVoteRepository;
 import com.acme.ecommerce.rating.web.dto.CreateRatingRequest;
 import com.acme.ecommerce.rating.web.dto.UpdateRatingRequest;
 import java.math.BigDecimal;
@@ -33,8 +33,8 @@ import org.springframework.transaction.annotation.Transactional;
  * publish Kafka events after commit (via {@link RatingEventPublisher}).
  *
  * <p>{@code readOnly = true} AT THE CLASS LEVEL lets Hibernate skip dirty-checking on reads and
- * tells JDBC those transactions will not write. Each write method opens its own {@code
- * @Transactional}, overriding this default.
+ * tells JDBC those transactions will not write. Each write method opens its own
+ * {@code @Transactional}, overriding this default.
  *
  * <p>HELPFUL/UNHELPFUL VOTING IS IDEMPOTENT via the UNIQUE(rating_id, user_id) constraint: a user
  * can change their vote (helpful -> unhelpful) by issuing the same request twice with a different
@@ -59,9 +59,7 @@ public class RatingService {
    * @return paged result
    */
   public Page<RatingResponse> findByProductId(UUID productId, Pageable pageable) {
-    return ratings
-        .findByProductIdOrderByCreatedAtDesc(productId, pageable)
-        .map(this::toResponse);
+    return ratings.findByProductIdOrderByCreatedAtDesc(productId, pageable).map(this::toResponse);
   }
 
   /**
@@ -89,7 +87,7 @@ public class RatingService {
   public RatingResponse create(UUID productId, CreateRatingRequest request, UUID userId) {
     Instant now = timeProvider.now();
 
-    if (request.ratingValue() < 1 || request.ratingValue() > 5) {
+    if (request.getRatingValue() < 1 || request.getRatingValue() > 5) {
       throw new IllegalArgumentException("Rating value must be between 1 and 5");
     }
 
@@ -97,10 +95,11 @@ public class RatingService {
         Rating.builder()
             .productId(productId)
             .userId(userId)
-            .ratingValue(request.ratingValue())
-            .reviewTitle(request.reviewTitle())
-            .reviewText(request.reviewText())
-            .isVerifiedPurchase(request.isVerifiedPurchase() != null && request.isVerifiedPurchase())
+            .ratingValue(request.getRatingValue())
+            .reviewTitle(request.getReviewTitle())
+            .reviewText(request.getReviewText())
+            .isVerifiedPurchase(
+                request.getIsVerifiedPurchase() != null && request.getIsVerifiedPurchase())
             .createdAt(now)
             .updatedAt(now)
             .build();
@@ -129,27 +128,28 @@ public class RatingService {
   @Transactional
   public RatingResponse update(UUID id, UpdateRatingRequest request, UUID userId, boolean isAdmin) {
 
-    Rating rating = ratings.findById(id).orElseThrow(() -> new ResourceNotFoundException("Rating", id));
+    Rating rating =
+        ratings.findById(id).orElseThrow(() -> new ResourceNotFoundException("Rating", id));
 
     if (!isAdmin && !Objects.equals(rating.getUserId(), userId)) {
       throw new ResourceConflictException("Only the rating author or admin may update this rating");
     }
 
-    if (!Objects.equals(rating.getVersion(), request.version())) {
+    if (!Objects.equals(rating.getVersion(), request.getVersion())) {
       throw new ResourceConflictException(
-          "Rating " + id + " has version " + rating.getVersion() + ", not " + request.version());
+          "Rating " + id + " has version " + rating.getVersion() + ", not " + request.getVersion());
     }
 
     Instant now = timeProvider.now();
 
-    if (request.ratingValue() != null) {
-      if (request.ratingValue() < 1 || request.ratingValue() > 5) {
+    if (request.getRatingValue() != null) {
+      if (request.getRatingValue() < 1 || request.getRatingValue() > 5) {
         throw new IllegalArgumentException("Rating value must be between 1 and 5");
       }
-      rating.updateRating(request.ratingValue(), now);
+      rating.updateRating(request.getRatingValue(), now);
     }
 
-    rating.updateReview(request.reviewTitle(), request.reviewText(), now);
+    rating.updateReview(request.getReviewTitle(), request.getReviewText(), now);
 
     Rating saved = ratings.saveAndFlush(rating);
     RatingResponse response = toResponse(saved);
@@ -173,7 +173,8 @@ public class RatingService {
   @Transactional
   public void delete(UUID id, UUID userId, boolean isAdmin) {
 
-    Rating rating = ratings.findById(id).orElseThrow(() -> new ResourceNotFoundException("Rating", id));
+    Rating rating =
+        ratings.findById(id).orElseThrow(() -> new ResourceNotFoundException("Rating", id));
 
     if (!isAdmin && !Objects.equals(rating.getUserId(), userId)) {
       throw new ResourceConflictException("Only the rating author or admin may delete this rating");
@@ -219,7 +220,9 @@ public class RatingService {
   public void addVote(UUID ratingId, String voteType, UUID userId) {
 
     Rating rating =
-        ratings.findById(ratingId).orElseThrow(() -> new ResourceNotFoundException("Rating", ratingId));
+        ratings
+            .findById(ratingId)
+            .orElseThrow(() -> new ResourceNotFoundException("Rating", ratingId));
 
     Instant now = timeProvider.now();
 
@@ -292,12 +295,12 @@ public class RatingService {
   private Map<Integer, Integer> buildRatingDistribution(UUID productId) {
     Map<Integer, Integer> distribution = new HashMap<>();
     for (int star = 1; star <= 5; star++) {
+      int value = star;
       Page<Rating> ratingsByValue =
           ratings.findByProductIdAndRatingValueGreaterThanEqualOrderByCreatedAtDesc(
-              productId, star, Pageable.unpaged());
-      long count = ratingsByValue.getContent().stream()
-          .filter(r -> r.getRatingValue() == star)
-          .count();
+              productId, value, Pageable.unpaged());
+      long count =
+          ratingsByValue.getContent().stream().filter(r -> r.getRatingValue() == value).count();
       if (count > 0) {
         distribution.put(star, (int) count);
       }

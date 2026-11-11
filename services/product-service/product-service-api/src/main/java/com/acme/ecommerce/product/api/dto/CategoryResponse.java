@@ -6,9 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/**
- * A product category as exposed to callers.
- */
+/** A product category as exposed to callers. */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

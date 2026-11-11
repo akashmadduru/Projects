@@ -72,7 +72,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
       RequestDeviceContext deviceContexts,
       ProblemResponseWriter problems,
       AuthMetrics metrics) {
-    this.config = properties.getRateLimit();
+    this.config = properties.rateLimit();
     this.deviceContexts = deviceContexts;
     this.problems = problems;
     this.metrics = metrics;
@@ -80,7 +80,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
   @Override
   protected boolean shouldNotFilter(HttpServletRequest request) {
-    if (!config.isEnabled()) {
+    if (!config.enabled()) {
       return true;
     }
     return capacityFor(request.getRequestURI()) == 0;
@@ -95,15 +95,15 @@ public class RateLimitFilter extends OncePerRequestFilter {
     int capacity = capacityFor(path);
     String key = path + "|" + deviceContexts.clientIp(request);
 
-    if (buckets.size() > config.getMaxTrackedClients()) {
+    if (buckets.size() > config.maxTrackedClients()) {
       log.warn(
           "Rate-limit bucket map exceeded {} entries; clearing. "
               + "This usually means a source-address flood.",
-          config.getMaxTrackedClients());
+          config.maxTrackedClients());
       buckets.clear();
     }
 
-    Bucket bucket = buckets.computeIfAbsent(key, ignored -> newBucket(capacity, config.getWindow()));
+    Bucket bucket = buckets.computeIfAbsent(key, ignored -> newBucket(capacity, config.window()));
     if (bucket.tryConsume(1)) {
       chain.doFilter(request, response);
       return;
@@ -117,10 +117,10 @@ public class RateLimitFilter extends OncePerRequestFilter {
   /** 0 means "not throttled". */
   private int capacityFor(String path) {
     if (LOGIN_PATH.equals(path) || REGISTER_PATH.equals(path)) {
-      return config.getLoginCapacity();
+      return config.loginCapacity();
     }
     if (REFRESH_PATH.equals(path)) {
-      return config.getRefreshCapacity();
+      return config.refreshCapacity();
     }
     return 0;
   }

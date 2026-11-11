@@ -6,8 +6,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * The result of any successful authentication or refresh.
- * Refresh token is HttpOnly cookie, access token is in body.
+ * The result of any successful authentication or refresh. Refresh token is HttpOnly cookie, access
+ * token is in body.
  */
 @Data
 @NoArgsConstructor

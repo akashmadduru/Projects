@@ -74,28 +74,29 @@ public class CategoryService {
 
     // Validate depth: if parentCategoryId is set, the parent must have depth 0
     int depthLevel = 0;
-    if (request.parentCategoryId() != null) {
+    if (request.getParentCategoryId() != null) {
       Category parent =
           categories
-              .findById(request.parentCategoryId())
+              .findById(request.getParentCategoryId())
               .orElseThrow(
                   () ->
                       ValidationException.forField(
                           "parentCategoryId", "parent category does not exist"));
       if (parent.getDepthLevel() >= MAX_DEPTH) {
         throw ValidationException.forField(
-            "parentCategoryId", "cannot create nested subcategories beyond " + MAX_DEPTH + " levels");
+            "parentCategoryId",
+            "cannot create nested subcategories beyond " + MAX_DEPTH + " levels");
       }
       depthLevel = parent.getDepthLevel() + 1;
     }
 
     Category category =
         Category.builder()
-            .name(request.name())
-            .description(request.description())
-            .parentCategoryId(request.parentCategoryId())
+            .name(request.getName())
+            .description(request.getDescription())
+            .parentCategoryId(request.getParentCategoryId())
             .depthLevel(depthLevel)
-            .isActive(request.isActive() != null ? request.isActive() : true)
+            .isActive(request.getIsActive() != null ? request.getIsActive() : true)
             .createdAt(now)
             .updatedAt(now)
             .build();
@@ -121,15 +122,20 @@ public class CategoryService {
     Category category =
         categories.findById(id).orElseThrow(() -> new ResourceNotFoundException("Category", id));
 
-    if (!Objects.equals(category.getVersion(), request.version())) {
+    if (!Objects.equals(category.getVersion(), request.getVersion())) {
       throw new ResourceConflictException(
-          "Category " + id + " has version " + category.getVersion() + ", not " + request.version());
+          "Category "
+              + id
+              + " has version "
+              + category.getVersion()
+              + ", not "
+              + request.getVersion());
     }
 
     Instant now = timeProvider.now();
 
-    category.setName(request.name());
-    category.setDescription(request.description());
+    category.setName(request.getName());
+    category.setDescription(request.getDescription());
     category.setIsActive(request.isActive());
     category.setUpdatedAt(now);
 

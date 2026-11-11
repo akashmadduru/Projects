@@ -218,8 +218,8 @@ public class SecurityConfig {
     NimbusJwtDecoder decoder = new NimbusJwtDecoder(processor);
 
     List<OAuth2TokenValidator<Jwt>> validators = new ArrayList<>();
-    validators.add(JwtValidators.createDefaultWithIssuer(properties.getJwt().getIssuer()));
-    properties.getJwt().getAudiences().stream()
+    validators.add(JwtValidators.createDefaultWithIssuer(properties.jwt().issuer()));
+    properties.jwt().audiences().stream()
         .findFirst()
         .map(AudienceValidator::new)
         .ifPresent(validators::add);

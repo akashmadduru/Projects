@@ -39,7 +39,7 @@ public class RefreshCookieWriter {
   private final TimeProvider timeProvider;
 
   public RefreshCookieWriter(AuthProperties properties, TimeProvider timeProvider) {
-    this.config = properties.getCookie();
+    this.config = properties.cookie();
     this.timeProvider = timeProvider;
   }
 

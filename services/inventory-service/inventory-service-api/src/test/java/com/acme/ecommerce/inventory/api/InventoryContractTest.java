@@ -2,7 +2,6 @@ package com.acme.ecommerce.inventory.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.acme.ecommerce.inventory.api.dto.InventoryResponse;
 import java.lang.reflect.Method;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
@@ -54,14 +53,14 @@ class InventoryContractTest {
 
     // InventoryResponse response =
     //     new InventoryResponse(
-    //       UUID.randomUUID(), 
-    //       UUID.randomUUID(), 
-    //       5, 
-    //       1, 
+    //       UUID.randomUUID(),
+    //       UUID.randomUUID(),
+    //       5,
     //       1,
-    //       "WH-1", 
-    //       1, 
-    //       "Product Name", 
+    //       1,
+    //       "WH-1",
+    //       1,
+    //       "Product Name",
     //       "SKU123",
     //       10,
     //       0L

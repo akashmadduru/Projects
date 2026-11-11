@@ -164,8 +164,7 @@ public class Product {
   private String thumbnailUrl;
 
   /**
-   * Nullable, array of video URLs stored as JSONB. Conversion handled at service layer via
-   * Jackson.
+   * Nullable, array of video URLs stored as JSONB. Conversion handled at service layer via Jackson.
    */
   @JdbcTypeCode(SqlTypes.JSON)
   @Column(name = "video_urls", columnDefinition = "jsonb")
@@ -217,8 +216,8 @@ public class Product {
   private int reviewCount = 0;
 
   /**
-   * Nullable, rating distribution as JSONB, e.g. {1: 10, 2: 20, 3: 50, 4: 100, 5: 200}. Updated
-   * by rating-service listener.
+   * Nullable, rating distribution as JSONB, e.g. {1: 10, 2: 20, 3: 50, 4: 100, 5: 200}. Updated by
+   * rating-service listener.
    */
   @JdbcTypeCode(SqlTypes.JSON)
   @Column(name = "rating_distribution", columnDefinition = "jsonb")

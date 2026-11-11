@@ -11,11 +11,11 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
- * Publishes {@link RatingEvent}s to {@code rating.events} Kafka topic, strictly AFTER the
- * enclosing {@code @Transactional} method's transaction commits - never inside it.
+ * Publishes {@link RatingEvent}s to {@code rating.events} Kafka topic, strictly AFTER the enclosing
+ * {@code @Transactional} method's transaction commits - never inside it.
  *
- * <p>USES {@code TransactionSynchronizationManager}, not an {@code @TransactionalEventListener},
- * so the "after commit, never inside" rule is explicit and inspectable in one class.
+ * <p>USES {@code TransactionSynchronizationManager}, not an {@code @TransactionalEventListener}, so
+ * the "after commit, never inside" rule is explicit and inspectable in one class.
  *
  * <p>A {@code send()} FAILURE IS LOGGED, NEVER RETHROWN (HLD S7/S10). By the time {@code
  * afterCommit()} runs, the database write has already committed; an uncaught exception here would
@@ -52,21 +52,22 @@ public class RatingEventPublisher {
           @Override
           public void afterCommit() {
             RatingEvent event =
-                new RatingEvent(UUID.randomUUID(), type, ratingId, productId, timeProvider.now(), payload);
+                new RatingEvent(
+                    UUID.randomUUID(), type, ratingId, productId, timeProvider.now(), payload);
             log.info(
                 "Publishing rating event eventId={} eventType={} ratingId={} productId={}",
-                event.eventId(),
-                event.eventType(),
-                event.ratingId(),
-                event.productId());
+                event.getEventId(),
+                event.getEventType(),
+                event.getRatingId(),
+                event.getProductId());
             try {
               kafka.send(TOPIC, ratingId.toString(), event);
             } catch (RuntimeException e) {
               log.warn(
                   "Failed to publish rating event eventId={} eventType={} ratingId={}: {}",
-                  event.eventId(),
-                  event.eventType(),
-                  event.ratingId(),
+                  event.getEventId(),
+                  event.getEventType(),
+                  event.getRatingId(),
                   e.getMessage());
             }
           }

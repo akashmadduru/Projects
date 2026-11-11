@@ -81,7 +81,7 @@ describe('ProductGrid', () => {
 
       const grid = container.querySelector('.grid')
 
-      expect(grid).toHaveClass('grid', 'grid-cols-1')
+      expect(grid).toHaveClass('grid', 'grid-cols-2')
     })
   })
 
@@ -91,15 +91,15 @@ describe('ProductGrid', () => {
 
       const grid = container.querySelector('.grid')
 
-      expect(grid).toHaveClass('sm:grid-cols-2', 'lg:grid-cols-3', 'xl:grid-cols-4')
+      expect(grid).toHaveClass('grid-cols-2', 'md:grid-cols-3', 'xl:grid-cols-4')
     })
 
-    it('should have gap-6 spacing between items', () => {
+    it('should have consistent spacing between items', () => {
       const { container } = render(<ProductGrid products={productsForGrid} />)
 
       const grid = container.querySelector('.grid')
 
-      expect(grid).toHaveClass('gap-6')
+      expect(grid).toHaveClass('gap-3', 'sm:gap-5')
     })
 
     it('should have mb-8 margin bottom', () => {
@@ -282,7 +282,7 @@ describe('ProductGrid', () => {
       const grid = container.querySelector('.grid')
 
       // Grid should have stable gap and columns
-      expect(grid).toHaveClass('gap-6')
+      expect(grid).toHaveClass('gap-3', 'sm:gap-5')
     })
   })
 
@@ -322,7 +322,8 @@ describe('ProductGrid', () => {
 
       // All links should be keyboard accessible
       links.forEach((link) => {
-        expect(link).toHaveClass('focus:outline-none', 'focus:ring-2')
+        expect(link.tagName).toBe('A')
+        expect(link).toHaveAttribute('href')
       })
     })
 
@@ -338,21 +339,11 @@ describe('ProductGrid', () => {
   })
 
   describe('Empty State', () => {
-    it('should render empty grid with no products', () => {
+    it('should show an empty-state message instead of an empty grid', () => {
       const { container } = render(<ProductGrid products={[]} />)
 
-      const grid = container.querySelector('.grid')
-
-      expect(grid).toBeInTheDocument()
-      expect(grid?.children.length).toBe(0)
-    })
-
-    it('should handle undefined products gracefully', () => {
-      const { container } = render(<ProductGrid products={[]} />)
-
-      const wrapper = container.querySelector('.mb-8')
-
-      expect(wrapper).toBeInTheDocument()
+      expect(screen.getByText('No products found')).toBeInTheDocument()
+      expect(container.querySelector('.grid')).not.toBeInTheDocument()
     })
   })
 
@@ -386,8 +377,8 @@ describe('ProductGrid', () => {
 
       const grid = container.querySelector('.grid')
 
-      // Should have grid-cols-1 for mobile
-      expect(grid).toHaveClass('grid-cols-1')
+      // Two columns on phones, as in mobile shopping apps
+      expect(grid).toHaveClass('grid-cols-2')
     })
 
     it('should have tablet layout classes', () => {
@@ -395,7 +386,7 @@ describe('ProductGrid', () => {
 
       const grid = container.querySelector('.grid')
 
-      expect(grid).toHaveClass('sm:grid-cols-2')
+      expect(grid).toHaveClass('md:grid-cols-3')
     })
 
     it('should have desktop layout classes', () => {
@@ -403,7 +394,7 @@ describe('ProductGrid', () => {
 
       const grid = container.querySelector('.grid')
 
-      expect(grid).toHaveClass('lg:grid-cols-3')
+      expect(grid).toHaveClass('md:grid-cols-3')
     })
 
     it('should have large desktop layout classes', () => {

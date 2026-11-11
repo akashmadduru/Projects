@@ -10,8 +10,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * A catalog product as exposed to callers.
- * Uses Lombok @Data for full POJO functionality with fine-grained control.
+ * A catalog product as exposed to callers. Uses Lombok @Data for full POJO functionality with
+ * fine-grained control.
  */
 @Data
 @NoArgsConstructor

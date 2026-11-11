@@ -8,9 +8,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/**
- * Request to update a product rating with optimistic-concurrency control.
- */
+/** Request to update a product rating with optimistic-concurrency control. */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -23,5 +21,6 @@ public class UpdateRatingRequest {
   String reviewTitle;
   String reviewText;
 
-  @NotNull(message = "version is required for optimistic lock") Long version;
+  @NotNull(message = "version is required for optimistic lock")
+  Long version;
 }

@@ -6,9 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/**
- * One image on a {@link ProductResponse}.
- */
+/** One image on a {@link ProductResponse}. */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

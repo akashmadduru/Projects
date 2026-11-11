@@ -65,7 +65,7 @@ public class RegistrationService {
     this.passwordEncoder = passwordEncoder;
     this.principals = principals;
     this.timeProvider = timeProvider;
-    this.config = properties.getRegistration();
+    this.config = properties.registration();
   }
 
   /**
@@ -77,13 +77,13 @@ public class RegistrationService {
    */
   @Transactional
   public UserResponse register(RegisterRequest request) {
-    if (!config.isEnabled()) {
+    if (!config.enabled()) {
       throw new AuthException(
           AuthErrorCode.AUTH_REGISTRATION_DISABLED,
           "Registration attempted while auth.registration.enabled=false");
     }
 
-    String email = UserAccount.normaliseEmail(request.email());
+    String email = UserAccount.normaliseEmail(request.getEmail());
     if (users.existsByEmail(email)) {
       throw new AuthException(AuthErrorCode.AUTH_EMAIL_TAKEN, "Email already registered: " + email);
     }
@@ -98,14 +98,14 @@ public class RegistrationService {
                     new IllegalStateException(
                         "Role " + Roles.ROLE_VIEWER + " is missing; check Flyway migrations"));
 
-    UserAccount user = UserAccount.create(email, request.displayName(), false);
+    UserAccount user = UserAccount.create(email, request.getDisplayName(), false);
     user.grant(viewer);
 
     try {
       users.saveAndFlush(user);
       credentials.save(
           UserCredential.create(
-              user.getId(), passwordEncoder.encode(request.password()), timeProvider.now()));
+              user.getId(), passwordEncoder.encode(request.getPassword()), timeProvider.now()));
     } catch (DataIntegrityViolationException e) {
       // The existsByEmail check above is advisory only: two concurrent
       // registrations for the same address both pass it and one loses at the

@@ -69,7 +69,7 @@ public class JwtKeyProvider {
   private final RSAKey activeKey;
 
   public JwtKeyProvider(AuthProperties properties) {
-    AuthProperties.Jwt jwt = properties.getJwt();
+    AuthProperties.Jwt jwt = properties.jwt();
     Map<String, String> aliasToKid = new LinkedHashMap<>();
     this.keysByKid = loadKeys(jwt, aliasToKid);
     this.activeKey = selectActiveKey(jwt.activeKid(), aliasToKid);

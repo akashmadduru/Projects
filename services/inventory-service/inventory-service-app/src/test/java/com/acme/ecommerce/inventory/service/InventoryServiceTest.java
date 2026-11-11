@@ -86,8 +86,8 @@ class InventoryServiceTest {
 
       InventoryResponse response = service.findByProductId(productId);
 
-      assertThat(response.productId()).isEqualTo(productId);
-      assertThat(response.quantity()).isEqualTo(7);
+      assertThat(response.getProductId()).isEqualTo(productId);
+      assertThat(response.getQuantity()).isEqualTo(7);
     }
 
     @Test
@@ -114,8 +114,8 @@ class InventoryServiceTest {
     InventoryResponse response =
         service.create(new CreateInventoryRequest(productId, 25, null, null));
 
-    assertThat(response.productId()).isEqualTo(productId);
-    assertThat(response.quantity()).isEqualTo(25);
+    assertThat(response.getProductId()).isEqualTo(productId);
+    assertThat(response.getQuantity()).isEqualTo(25);
   }
 
   @Test
@@ -180,8 +180,8 @@ class InventoryServiceTest {
     InventoryResponse response =
         service.create(new CreateInventoryRequest(productId, 25, "WH-1", 5));
 
-    assertThat(response.warehouseCode()).isEqualTo("WH-1");
-    assertThat(response.lowStockThreshold()).isEqualTo(5);
+    assertThat(response.getWarehouseCode()).isEqualTo("WH-1");
+    assertThat(response.getLowStockThreshold()).isEqualTo(5);
   }
 
   @Test
@@ -195,7 +195,7 @@ class InventoryServiceTest {
     InventoryResponse response =
         service.create(new CreateInventoryRequest(productId, 25, null, null));
 
-    assertThat(response.lowStockThreshold()).isEqualTo(10);
+    assertThat(response.getLowStockThreshold()).isEqualTo(10);
   }
 
   @Test
@@ -236,7 +236,7 @@ class InventoryServiceTest {
 
     InventoryResponse response = service.update(id, new UpdateInventoryRequest(50, 0L, null, null));
 
-    assertThat(response.quantity()).isEqualTo(50);
+    assertThat(response.getQuantity()).isEqualTo(50);
   }
 
   @Test
@@ -284,8 +284,8 @@ class InventoryServiceTest {
 
     InventoryResponse response = service.update(id, new UpdateInventoryRequest(50, 0L, "WH-2", 7));
 
-    assertThat(response.warehouseCode()).isEqualTo("WH-2");
-    assertThat(response.lowStockThreshold()).isEqualTo(7);
+    assertThat(response.getWarehouseCode()).isEqualTo("WH-2");
+    assertThat(response.getLowStockThreshold()).isEqualTo(7);
   }
 
   @Test
@@ -299,7 +299,7 @@ class InventoryServiceTest {
 
     InventoryResponse response = service.update(id, new UpdateInventoryRequest(50, 0L, null, null));
 
-    assertThat(response.lowStockThreshold()).isEqualTo(10);
+    assertThat(response.getLowStockThreshold()).isEqualTo(10);
   }
 
   /** {@code @Version} is Hibernate-managed; a plain unit test has to set it via reflection. */

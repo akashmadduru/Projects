@@ -21,11 +21,11 @@ import lombok.ToString;
  * A product rating/review.
  *
  * <p>NO ASSOCIATIONS, therefore NO N+1 RISK. Both {@code product_id} and {@code user_id} are PLAIN
- * {@code UUID} COLUMNS, NOT {@code @ManyToOne} associations - the same "no associations"
- * invariant {@link com.acme.ecommerce.product.domain.Product} follows.
+ * {@code UUID} COLUMNS, NOT {@code @ManyToOne} associations - the same "no associations" invariant
+ * {@link com.acme.ecommerce.product.domain.Product} follows.
  *
- * <p>NO {@code @PrePersist}/{@code @PreUpdate}, AND NO {@code Instant.now()} ANYWHERE IN THIS
- * CLASS - mirroring {@link com.acme.ecommerce.product.domain.Product}: {@code now} is an explicit
+ * <p>NO {@code @PrePersist}/{@code @PreUpdate}, AND NO {@code Instant.now()} ANYWHERE IN THIS CLASS
+ * - mirroring {@link com.acme.ecommerce.product.domain.Product}: {@code now} is an explicit
  * parameter callers pass to {@link #builder()} and to mutation methods like {@link
  * #updateReview(String, String, Instant)}.
  *
@@ -36,8 +36,8 @@ import lombok.ToString;
  * logic, NOT left to the database alone.
  *
  * <p>EQUALITY IS KEYED ON {@code id} ONLY, via {@code @EqualsAndHashCode(onlyExplicitlyIncluded =
- * true)} - the standard JPA+Lombok pattern, not {@code Objects.hash(id)} over every field. Note
- * the one accepted caveat: {@code hashCode()} is {@code id}-derived, so it changes when a transient
+ * true)} - the standard JPA+Lombok pattern, not {@code Objects.hash(id)} over every field. Note the
+ * one accepted caveat: {@code hashCode()} is {@code id}-derived, so it changes when a transient
  * instance is first flushed - do not put a not-yet-persisted {@code Rating} into a {@code
  * HashSet}/{@code HashMap} and persist it afterward. No code in this service does that today.
  * Construction goes through Lombok's generated builder, never a hand-rolled constructor.

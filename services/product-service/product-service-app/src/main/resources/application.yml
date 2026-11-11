@@ -281,6 +281,22 @@ logging:
 
 ---
 # =============================================================================
+# PROFILE: default (local runs and infra/docker-compose.yml)
+#
+# Adds the demo catalog seed (db/seed/R__product_demo_seed.sql). Active only
+# when no other profile is - `test` and `prod` never see it, so integration
+# tests keep asserting against V1's five products and no demo data ships.
+# =============================================================================
+spring:
+  config:
+    activate:
+      on-profile: default
+
+  flyway:
+    locations: classpath:db/migration,classpath:db/seed
+
+---
+# =============================================================================
 # PROFILE: prod
 #
 # Not exercised in Phase 1 (dev-only). Recorded here so the production intent

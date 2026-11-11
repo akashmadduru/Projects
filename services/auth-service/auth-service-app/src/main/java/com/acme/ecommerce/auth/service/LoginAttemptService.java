@@ -46,7 +46,7 @@ public class LoginAttemptService {
     this.users = users;
     this.credentials = credentials;
     this.timeProvider = timeProvider;
-    this.policy = properties.getLockout();
+    this.policy = properties.lockout();
   }
 
   /**
@@ -69,9 +69,9 @@ public class LoginAttemptService {
     UserCredential entity = credential.get();
     boolean locked =
         entity.recordFailure(
-            policy.getMaxFailedAttempts(),
-            policy.getBaseDuration(),
-            policy.getMaxDuration(),
+            policy.maxFailedAttempts(),
+            policy.baseDuration(),
+            policy.maxDuration(),
             timeProvider.now());
     credentials.save(entity);
 

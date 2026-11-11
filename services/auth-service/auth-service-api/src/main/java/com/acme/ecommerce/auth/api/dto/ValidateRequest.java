@@ -6,8 +6,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * Introspection request for POST /api/auth/validate.
- * Token is optional - null means use caller's bearer credential.
+ * Introspection request for POST /api/auth/validate. Token is optional - null means use caller's
+ * bearer credential.
  */
 @Data
 @NoArgsConstructor

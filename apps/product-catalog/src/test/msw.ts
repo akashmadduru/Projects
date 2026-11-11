@@ -3,16 +3,16 @@
  */
 
 import { http, HttpResponse } from 'msw'
-import { sampleProductResponse } from './fixtures'
+import { backendProductPage, sampleProductResponse } from './fixtures'
 
 export const handlers = [
   http.get('/api/products', () => {
-    return HttpResponse.json(sampleProductResponse, { status: 200 })
+    return HttpResponse.json(backendProductPage, { status: 200 })
   }),
 
   http.get('/api/products/:id', ({ params }) => {
     const productId = params['id']
-    const product = sampleProductResponse.content.find((p) => p.id === productId)
+    const product = backendProductPage.content.find((p) => p.id === productId)
     if (!product) {
       return HttpResponse.json(
         {

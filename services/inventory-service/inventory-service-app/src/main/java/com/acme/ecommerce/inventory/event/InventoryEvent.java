@@ -7,9 +7,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/**
- * An inventory lifecycle event published to inventory.events Kafka topic.
- */
+/** An inventory lifecycle event published to inventory.events Kafka topic. */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

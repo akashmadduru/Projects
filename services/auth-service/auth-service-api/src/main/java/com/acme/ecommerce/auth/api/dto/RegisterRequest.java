@@ -9,17 +9,26 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * Self-service sign-up payload for POST /api/auth/register.
- * Custom toString() masks password for security.
+ * Self-service sign-up payload for POST /api/auth/register. Custom toString() masks password for
+ * security.
  */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 public class RegisterRequest {
-  @NotBlank @Email @Size(max = 320) String email;
-  @NotBlank @Size(min = 12, max = 200) String password;
-  @NotBlank @Size(max = 200) String displayName;
+  @NotBlank
+  @Email
+  @Size(max = 320)
+  String email;
+
+  @NotBlank
+  @Size(min = 12, max = 200)
+  String password;
+
+  @NotBlank
+  @Size(max = 200)
+  String displayName;
 
   @Override
   public String toString() {

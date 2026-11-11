@@ -1,15 +1,5 @@
 package com.acme.ecommerce.inventory.service;
 
-import java.time.Instant;
-import java.util.Objects;
-import java.util.UUID;
-
-import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import com.acme.ecommerce.common.core.error.ResourceConflictException;
 import com.acme.ecommerce.common.core.error.ResourceNotFoundException;
 import com.acme.ecommerce.common.core.time.TimeProvider;
@@ -20,6 +10,14 @@ import com.acme.ecommerce.inventory.event.InventoryEventType;
 import com.acme.ecommerce.inventory.repository.InventoryRepository;
 import com.acme.ecommerce.inventory.web.dto.CreateInventoryRequest;
 import com.acme.ecommerce.inventory.web.dto.UpdateInventoryRequest;
+import java.time.Instant;
+import java.util.Objects;
+import java.util.UUID;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Stock-level CRUD.
@@ -118,7 +116,7 @@ public class InventoryService {
    * @throws ResourceConflictException if a row for this {@code productId} already exists
    */
   @Transactional
-  public InventoryResponse create(CreateInventoryRequest request) throws Exception {
+  public InventoryResponse create(CreateInventoryRequest request) {
     if (inventory.findByProductId(request.getProductId()).isPresent()) {
       throw new ResourceConflictException(
           "Inventory already exists for productId " + request.getProductId());
@@ -159,7 +157,7 @@ public class InventoryService {
    *     but the explicit check produces a clean 409 before any column is touched.
    */
   @Transactional
-  public InventoryResponse update(UUID id, UpdateInventoryRequest request) throws Exception {
+  public InventoryResponse update(UUID id, UpdateInventoryRequest request) {
     Inventory row =
         inventory.findById(id).orElseThrow(() -> new ResourceNotFoundException("Inventory", id));
     if (!Objects.equals(row.getVersion(), request.getVersion())) {
@@ -235,12 +233,8 @@ public class InventoryService {
     }
     int startingQuantity = quantity != null ? quantity : 0;
     Instant now = timeProvider.now();
-    Inventory row = Inventory.builder()
-                      .productId(productId)
-                      .quantity(0)
-                      .createdAt(now)
-                      .updatedAt(now)
-                      .build();
+    Inventory row =
+        Inventory.builder().productId(productId).quantity(0).createdAt(now).updatedAt(now).build();
     row.adjustQuantity(startingQuantity, now);
     row.applyProductSnapshot(name, sku, now);
     Inventory saved;
@@ -347,7 +341,6 @@ public class InventoryService {
         row.getVersion(),
         row.getLastUpdatedAt(),
         row.getCreatedAt(),
-        row.getUpdatedAt()
-    );
+        row.getUpdatedAt());
   }
 }

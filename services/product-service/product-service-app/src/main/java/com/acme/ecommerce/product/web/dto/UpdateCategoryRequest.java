@@ -7,16 +7,18 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/**
- * Request to update a product category with optimistic-concurrency control.
- */
+/** Request to update a product category with optimistic-concurrency control. */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 public class UpdateCategoryRequest {
-  @NotBlank(message = "name is required") String name;
+  @NotBlank(message = "name is required")
+  String name;
+
   String description;
   boolean isActive;
-  @NotNull(message = "version is required for optimistic lock") Long version;
+
+  @NotNull(message = "version is required for optimistic lock")
+  Long version;
 }

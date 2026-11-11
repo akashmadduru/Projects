@@ -1,13 +1,17 @@
 package com.acme.ecommerce.product.web;
 
+import com.acme.ecommerce.common.core.error.ValidationException;
 import com.acme.ecommerce.product.api.ProductClient;
 import com.acme.ecommerce.product.api.dto.ProductResponse;
+import com.acme.ecommerce.product.repository.ProductFilter;
 import com.acme.ecommerce.product.service.CatalogAggregateService;
 import com.acme.ecommerce.product.service.ProductCatalogService;
 import com.acme.ecommerce.product.web.dto.CreateProductRequest;
 import com.acme.ecommerce.product.web.dto.ProductCatalogAggregateResponse;
 import com.acme.ecommerce.product.web.dto.UpdateProductRequest;
 import jakarta.validation.Valid;
+import java.math.BigDecimal;
+import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
@@ -23,6 +27,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -60,6 +65,14 @@ public class ProductController {
    */
   private static final int DEFAULT_PAGE_SIZE = 20;
 
+  /**
+   * Properties a caller may sort by. Anything else would surface as Spring Data's {@code
+   * PropertyReferenceException}, which the shared advice can only treat as a 500 - and would also
+   * let a caller sort on a column nobody indexed.
+   */
+  private static final Set<String> SORTABLE =
+      Set.of("sku", "name", "priceAmount", "averageRating", "discountPercent", "createdAt");
+
   private final ProductCatalogService catalog;
   private final CatalogAggregateService catalogAggregateService;
 
@@ -75,14 +88,56 @@ public class ProductController {
    * directly emits Spring Data's internal shape, which the framework itself warns is not a stable
    * contract; {@code PagedModel} is the documented, stable {@code {content, page}} envelope.
    *
-   * @param pageable page/size/sort, bound from the query string
+   * <p>Every filter is optional and they combine with AND. Range bounds are inclusive.
+   *
+   * @param categoryId a category; a root category also matches its subcategories' products
+   * @param q case-insensitive substring of the name or sku
+   * @param minPrice lower price bound
+   * @param maxPrice upper price bound
+   * @param minRating lowest average rating (0-5); unrated products are excluded
+   * @param minDiscount lowest discount percentage (0-100)
+   * @param pageable page/size/sort, bound from the query string; sort limited to {@link #SORTABLE}
    * @return the requested page of products
    */
   @GetMapping
   public PagedModel<ProductResponse> list(
+      @RequestParam(required = false) UUID categoryId,
+      @RequestParam(required = false) String q,
+      @RequestParam(required = false) BigDecimal minPrice,
+      @RequestParam(required = false) BigDecimal maxPrice,
+      @RequestParam(required = false) BigDecimal minRating,
+      @RequestParam(required = false) BigDecimal minDiscount,
       @PageableDefault(size = DEFAULT_PAGE_SIZE, sort = "sku", direction = Sort.Direction.ASC)
           Pageable pageable) {
-    return new PagedModel<>(catalog.list(pageable));
+    requireInRange("minPrice", minPrice, BigDecimal.ZERO, null);
+    requireInRange("maxPrice", maxPrice, BigDecimal.ZERO, null);
+    if (minPrice != null && maxPrice != null && minPrice.compareTo(maxPrice) > 0) {
+      throw ValidationException.forField("minPrice", "must not be greater than maxPrice");
+    }
+    requireInRange("minRating", minRating, BigDecimal.ZERO, BigDecimal.valueOf(5));
+    requireInRange("minDiscount", minDiscount, BigDecimal.ZERO, BigDecimal.valueOf(100));
+    for (Sort.Order order : pageable.getSort()) {
+      if (!SORTABLE.contains(order.getProperty())) {
+        throw ValidationException.forField(
+            "sort", "unsupported property '" + order.getProperty() + "'; use one of " + SORTABLE);
+      }
+    }
+
+    ProductFilter filter =
+        new ProductFilter(categoryId, q, minPrice, maxPrice, minRating, minDiscount);
+    return new PagedModel<>(catalog.list(filter, pageable));
+  }
+
+  private static void requireInRange(
+      String field, BigDecimal value, BigDecimal min, BigDecimal max) {
+    if (value == null) {
+      return;
+    }
+    if (value.compareTo(min) < 0 || (max != null && value.compareTo(max) > 0)) {
+      throw ValidationException.forField(
+          field,
+          max == null ? "must be at least " + min : "must be between " + min + " and " + max);
+    }
   }
 
   /**

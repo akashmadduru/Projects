@@ -62,21 +62,21 @@ public final class JwksReactiveJwtDecoderFactory {
   public static ReactiveJwtDecoder create(
       HttpJwkSetSource<SecurityContext> jwkSetSource, GatewayProperties properties) {
 
-    GatewayProperties.Jwks policy = properties.jwks();
+    GatewayProperties.Jwks policy = properties.getJwks();
 
     JWKSource<SecurityContext> cachingSource =
         JWKSourceBuilder.<SecurityContext>create(jwkSetSource)
             // One retry on a transient failure, before any of the fallbacks below engage.
             .retrying(true)
-            .cache(policy.ttl().toMillis(), policy.refreshTimeout().toMillis())
+            .cache(policy.getTtl().toMillis(), policy.getRefreshTimeout().toMillis())
             // `true` = refresh on a background thread. `false` would make the triggering request
             // wait for the refresh, which is exactly the latency spike refresh-ahead exists to
             // remove.
-            .refreshAheadCache(policy.refreshAhead().toMillis(), true)
+            .refreshAheadCache(policy.getRefreshAhead().toMillis(), true)
             // Collapses a burst of unknown-`kid` requests into one upstream fetch per interval.
-            .rateLimited(policy.rateLimitInterval().toMillis())
+            .rateLimited(policy.getRateLimitInterval().toMillis())
             // Keeps serving the last known key set while the source is unreachable.
-            .outageTolerant(policy.outageTtl().toMillis())
+            .outageTolerant(policy.getOutageTtl().toMillis())
             .build();
 
     NimbusReactiveJwtDecoder decoder =
@@ -87,7 +87,7 @@ public final class JwksReactiveJwtDecoderFactory {
             .jwsAlgorithm(SignatureAlgorithm.RS256)
             .build();
 
-    decoder.setJwtValidator(validator(properties.jwt()));
+    decoder.setJwtValidator(validator(properties.getJwt()));
     return decoder;
   }
 
@@ -120,8 +120,8 @@ public final class JwksReactiveJwtDecoderFactory {
     List<OAuth2TokenValidator<Jwt>> validators = new ArrayList<>();
     // exp/nbf, with tolerance for NTP drift between auth-service and here.
     validators.add(new JwtTimestampValidator(GatewayProperties.Jwt.CLOCK_SKEW));
-    validators.add(new JwtIssuerValidator(jwt.issuer()));
-    validators.add(new AudienceValidator(jwt.audience()));
+    validators.add(new JwtIssuerValidator(jwt.getIssuer()));
+    validators.add(new AudienceValidator(jwt.getAudience()));
     return new DelegatingOAuth2TokenValidator<>(validators);
   }
 }

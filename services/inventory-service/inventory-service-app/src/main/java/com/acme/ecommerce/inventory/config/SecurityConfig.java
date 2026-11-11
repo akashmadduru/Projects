@@ -177,7 +177,7 @@ public class SecurityConfig {
    */
   @Bean
   public JwtDecoder jwtDecoder(InventoryProperties properties, RestTemplate jwksRestTemplate) {
-    InventoryProperties.Jwt jwt = properties.jwt();
+    InventoryProperties.Jwt jwt = properties.getJwt();
 
     NimbusJwtDecoder decoder =
         NimbusJwtDecoder.withJwkSetUri(jwt.effectiveJwksUri())
@@ -206,15 +206,15 @@ public class SecurityConfig {
   private static OAuth2TokenValidator<Jwt> validators(InventoryProperties.Jwt jwt) {
     List<OAuth2TokenValidator<Jwt>> validators = new ArrayList<>();
     validators.add(new JwtTimestampValidator(InventoryProperties.Jwt.CLOCK_SKEW));
-    validators.add(new JwtIssuerValidator(jwt.issuer()));
-    validators.add(new AudienceValidator(jwt.audience()));
+    validators.add(new JwtIssuerValidator(jwt.getIssuer()));
+    validators.add(new AudienceValidator(jwt.getAudience()));
     return new DelegatingOAuth2TokenValidator<>(validators);
   }
 
   private static SimpleClientHttpRequestFactory requestFactory(InventoryProperties properties) {
     SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-    factory.setConnectTimeout(properties.jwt().jwksConnectTimeout());
-    factory.setReadTimeout(properties.jwt().jwksReadTimeout());
+    factory.setConnectTimeout(properties.getJwt().getJwksConnectTimeout());
+    factory.setReadTimeout(properties.getJwt().getJwksReadTimeout());
     return factory;
   }
 }

@@ -10,8 +10,10 @@ import com.acme.ecommerce.product.domain.Product;
 import com.acme.ecommerce.product.domain.ProductImage;
 import com.acme.ecommerce.product.event.ProductEventPublisher;
 import com.acme.ecommerce.product.event.ProductEventType;
+import com.acme.ecommerce.product.repository.ProductFilter;
 import com.acme.ecommerce.product.repository.ProductImageRepository;
 import com.acme.ecommerce.product.repository.ProductRepository;
+import com.acme.ecommerce.product.repository.ProductSpecifications;
 import com.acme.ecommerce.product.web.dto.CreateProductRequest;
 import com.acme.ecommerce.product.web.dto.ProductImageRequest;
 import com.acme.ecommerce.product.web.dto.UpdateProductRequest;
@@ -19,6 +21,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -26,7 +29,9 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -80,11 +85,28 @@ public class ProductCatalogService {
    * <p>{@code images} IS DELIBERATELY EMPTY ON EVERY ROW HERE - see class javadoc. A caller that
    * needs a product's images calls {@link #findById(UUID)}.
    *
+   * <p>SORTING IS NORMALIZED before the query: every order puts NULLs last (Postgres's default puts
+   * them FIRST on a descending sort, so "top rated" would open with unrated products), and {@code
+   * sku} is appended as a final tiebreaker so that a sort on a non-unique column like price still
+   * has stable page boundaries.
+   *
+   * @param filter optional narrowing; {@link ProductFilter#none()} for the whole catalog
    * @param pageable page number/size/sort, defaulted by the controller
    * @return the requested page, already mapped to the published DTO
    */
-  public Page<ProductResponse> list(Pageable pageable) {
-    return products.findAll(pageable).map(product -> toResponse(product, List.of()));
+  public Page<ProductResponse> list(ProductFilter filter, Pageable pageable) {
+    return products
+        .findAll(ProductSpecifications.matching(filter), normalizeSort(pageable))
+        .map(product -> toResponse(product, List.of()));
+  }
+
+  private static Pageable normalizeSort(Pageable pageable) {
+    List<Sort.Order> orders = new ArrayList<>();
+    pageable.getSort().forEach(order -> orders.add(order.nullsLast()));
+    if (orders.stream().noneMatch(order -> order.getProperty().equals("sku"))) {
+      orders.add(Sort.Order.asc("sku"));
+    }
+    return PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), Sort.by(orders));
   }
 
   /**
@@ -115,14 +137,14 @@ public class ProductCatalogService {
     Instant now = timeProvider.now();
     Product product =
         Product.builder()
-            .sku(request.sku())
-            .name(request.name())
-            .priceAmount(request.priceAmount())
-            .priceCurrency(request.priceCurrency())
-            .active(request.active())
-            .categoryId(request.categoryId())
-            .sellerName(request.sellerName())
-            .specifications(writeSpecifications(request.specifications()))
+            .sku(request.getSku())
+            .name(request.getName())
+            .priceAmount(request.getPriceAmount())
+            .priceCurrency(request.getPriceCurrency())
+            .active(request.isActive())
+            .categoryId(request.getCategoryId())
+            .sellerName(request.getSellerName())
+            .specifications(writeSpecifications(request.getSpecifications()))
             .createdAt(now)
             .updatedAt(now)
             .build();
@@ -138,12 +160,12 @@ public class ProductCatalogService {
       // RegistrationService.register()'s identical fix for the same class of bug.
       product = products.saveAndFlush(product);
     } catch (DataIntegrityViolationException e) {
-      throw new ResourceConflictException("Product sku already exists: " + request.sku(), e);
+      throw new ResourceConflictException("Product sku already exists: " + request.getSku(), e);
     }
     // Images reference the generated product id, so they can only be persisted
     // after the product itself has one - hence after the saveAndFlush above.
     List<ProductImage> savedImages =
-        images.saveAll(toImageEntities(product.getId(), request.images(), now));
+        images.saveAll(toImageEntities(product.getId(), request.getImages(), now));
 
     ProductResponse response = toResponse(product, savedImages);
     // Registered to fire AFTER this @Transactional method's transaction commits -
@@ -151,8 +173,7 @@ public class ProductCatalogService {
     // initialQuantity rides on the PRODUCT_CREATED payload - the choreographed
     // creation-saga's entry point (docs/HLD-catalog-enrichment-and-saga.md S5).
     events.publishAfterCommit(
-        ProductEventType.PRODUCT_CREATED, response, request.initialQuantity()
-    );
+        ProductEventType.PRODUCT_CREATED, response, request.getInitialQuantity());
 
     return response;
   }
@@ -180,20 +201,25 @@ public class ProductCatalogService {
     Product product =
         products.findById(id).orElseThrow(() -> new ResourceNotFoundException("Product", id));
 
-    if (!Objects.equals(product.getVersion(), request.version())) {
+    if (!Objects.equals(product.getVersion(), request.getVersion())) {
       throw new ResourceConflictException(
-          "Product " + id + " has version " + product.getVersion() + ", not " + request.version());
+          "Product "
+              + id
+              + " has version "
+              + product.getVersion()
+              + ", not "
+              + request.getVersion());
     }
 
     Instant now = timeProvider.now();
 
-    product.setName(request.name());
-    product.setPriceAmount(request.priceAmount());
-    product.setPriceCurrency(request.priceCurrency());
-    product.setActive(request.active());
-    product.setCategoryId(request.categoryId());
-    product.setSellerName(request.sellerName());
-    product.setSpecifications(writeSpecifications(request.specifications()));
+    product.setName(request.getName());
+    product.setPriceAmount(request.getPriceAmount());
+    product.setPriceCurrency(request.getPriceCurrency());
+    product.setActive(request.isActive());
+    product.setCategoryId(request.getCategoryId());
+    product.setSellerName(request.getSellerName());
+    product.setSpecifications(writeSpecifications(request.getSpecifications()));
     product.setUpdatedAt(now);
 
     // FLUSH BEFORE READING THE VERSION BACK. @Version is a Hibernate-managed field
@@ -204,7 +230,7 @@ public class ProductCatalogService {
     // a version that is already wrong.
     Product saved = products.saveAndFlush(product);
     images.deleteByProductId(id);
-    List<ProductImage> savedImages = images.saveAll(toImageEntities(id, request.images(), now));
+    List<ProductImage> savedImages = images.saveAll(toImageEntities(id, request.getImages(), now));
     ProductResponse response = toResponse(saved, savedImages);
     events.publishAfterCommit(ProductEventType.PRODUCT_UPDATED, response);
     return response;
@@ -247,10 +273,10 @@ public class ProductCatalogService {
   }
 
   /**
-   * Updates denormalized rating fields on a product. Called ONLY by {@code RatingEventListener},
-   * in reaction to consumed rating events (RATING_ADDED/UPDATED/DELETED). Recalculates average
-   * rating, rating count, and rating distribution from rating-service via Feign client (or
-   * directly if integration is not yet implemented).
+   * Updates denormalized rating fields on a product. Called ONLY by {@code RatingEventListener}, in
+   * reaction to consumed rating events (RATING_ADDED/UPDATED/DELETED). Recalculates average rating,
+   * rating count, and rating distribution from rating-service via Feign client (or directly if
+   * integration is not yet implemented).
    *
    * <p>Deliberately does NOT call {@link ProductEventPublisher} - ratings changed, not the product
    * itself. If the product no longer exists, this is a silent no-op - the event describes a product
@@ -260,14 +286,18 @@ public class ProductCatalogService {
    */
   @Transactional
   public void updateRatingDenormalization(UUID productId) {
-    products.findById(productId).ifPresent(product -> {
-      // In production, this would:
-      // 1. Call ratingServiceClient.getSummary(productId)
-      // 2. Update product.averageRating, ratingCount, reviewCount, ratingDistribution
-      // 3. Save the product
-      // For now, this is a placeholder that ensures the method exists for the listener to call.
-      // TODO: Implement rating aggregation via Feign client to rating-service
-    });
+    products
+        .findById(productId)
+        .ifPresent(
+            product -> {
+              // In production, this would:
+              // 1. Call ratingServiceClient.getSummary(productId)
+              // 2. Update product.averageRating, ratingCount, reviewCount, ratingDistribution
+              // 3. Save the product
+              // For now, this is a placeholder that ensures the method exists for the listener to
+              // call.
+              // TODO: Implement rating aggregation via Feign client to rating-service
+            });
   }
 
   private static List<ProductImage> toImageEntities(
@@ -280,8 +310,8 @@ public class ProductCatalogService {
             request ->
                 ProductImage.builder()
                     .productId(productId)
-                    .url(request.url())
-                    .displayOrder(request.displayOrder())
+                    .url(request.getUrl())
+                    .displayOrder(request.getDisplayOrder())
                     .createdAt(now)
                     .build())
         .toList();

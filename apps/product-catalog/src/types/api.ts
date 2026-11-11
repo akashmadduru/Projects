@@ -8,21 +8,10 @@ export interface ProductImage {
   displayOrder: number
 }
 
-export interface Product {
-  id: string
-  sku: string
-  name: string
-  priceAmount: number
-  priceCurrency: string
-  active: boolean
-  version: number
-  categoryId: string | null
-  sellerName: string | null
-  specifications: unknown | null
-  images: string[]
-  lastKnownQuantity: number | null
-}
+/** Star value ("1".."5") -> count, as serialized from the backend's Map<Integer, Integer>. */
+export type RatingCounts = Record<string, number>
 
+/** GET /api/products/{id} and each GET /api/products row, exactly as the backend sends it. */
 export interface BackendProductResponse {
   id: string
   sku: string
@@ -33,9 +22,46 @@ export interface BackendProductResponse {
   version: number
   categoryId: string | null
   sellerName: string | null
-  specifications: unknown | null
-  images: ProductImage[]
+  specifications: Record<string, unknown> | null
+  // Empty on the paged list (the backend skips the per-row image lookup); use thumbnailUrl there.
+  images: ProductImage[] | null
   lastKnownQuantity: number | null
+  description: string | null
+  listPrice: number | null
+  salePrice: number | null
+  discountPercent: number | null
+  thumbnailUrl: string | null
+  videoUrls: string[] | null
+  view360Url: string | null
+  weightGrams: number | null
+  dimensionsLength: number | null
+  dimensionsWidth: number | null
+  dimensionsHeight: number | null
+  color: string | null
+  material: string | null
+  averageRating: number | null
+  ratingCount: number
+  reviewCount: number
+  ratingDistribution: RatingCounts | null
+  sellerRating: number | null
+  featured: boolean
+  sellerVerified: boolean
+}
+
+/** The backend product with images normalized to ordered URLs (thumbnailUrl as fallback). */
+export interface Product extends Omit<BackendProductResponse, 'images'> {
+  images: string[]
+}
+
+/** Spring Data's PagedModel envelope, as GET /api/products returns it. */
+export interface BackendPagedModel<T> {
+  content: T[]
+  page: {
+    size: number
+    number: number
+    totalElements: number
+    totalPages: number
+  }
 }
 
 export interface PagedModel<T> {
@@ -68,11 +94,28 @@ export interface ProductCatalogAggregateResponse {
   }
 }
 
+/** GET /api/categories row. `active` is Lombok's name for the entity's `isActive`. */
 export interface Category {
   id: string
   name: string
-  description?: string
-  imageUrl?: string
+  description: string | null
+  parentCategoryId: string | null
+  depthLevel: number
+  active: boolean
+  version: number
+}
+
+export type ProductSort = 'relevance' | 'price-asc' | 'price-desc' | 'rating' | 'discount' | 'newest'
+
+/** Catalog list narrowing; every field optional. Mirrors GET /api/products query params. */
+export interface ProductQuery {
+  q?: string
+  categoryId?: string
+  minPrice?: number
+  maxPrice?: number
+  minRating?: number
+  minDiscount?: number
+  sort?: ProductSort
 }
 
 export interface RatingDistribution {

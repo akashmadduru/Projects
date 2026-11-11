@@ -92,13 +92,13 @@ class ProductEventPublisherTest {
     triggerCommitThenClear();
 
     ArgumentCaptor<ProductEvent> captor = ArgumentCaptor.forClass(ProductEvent.class);
-    verify(kafka).send(eq("product.events"), eq(product.id().toString()), captor.capture());
+    verify(kafka).send(eq("product.events"), eq(product.getId().toString()), captor.capture());
     ProductEvent event = captor.getValue();
-    assertThat(event.eventId()).isNotNull();
-    assertThat(event.eventType()).isEqualTo(ProductEventType.PRODUCT_CREATED);
-    assertThat(event.productId()).isEqualTo(product.id());
-    assertThat(event.occurredAt()).isEqualTo(NOW);
-    assertThat(event.payload()).isEqualTo(product);
+    assertThat(event.getEventId()).isNotNull();
+    assertThat(event.getEventType()).isEqualTo(ProductEventType.PRODUCT_CREATED);
+    assertThat(event.getProductId()).isEqualTo(product.getId());
+    assertThat(event.getPublishedAt()).isEqualTo(NOW);
+    assertThat(event.getPayload()).isEqualTo(product);
   }
 
   @Test
@@ -126,9 +126,9 @@ class ProductEventPublisherTest {
     ArgumentCaptor<ProductEvent> captor = ArgumentCaptor.forClass(ProductEvent.class);
     verify(kafka).send(eq("product.events"), eq(productId.toString()), captor.capture());
     ProductEvent event = captor.getValue();
-    assertThat(event.eventType()).isEqualTo(ProductEventType.PRODUCT_DELETED);
-    assertThat(event.productId()).isEqualTo(productId);
-    assertThat(event.payload()).isNull();
+    assertThat(event.getEventType()).isEqualTo(ProductEventType.PRODUCT_DELETED);
+    assertThat(event.getProductId()).isEqualTo(productId);
+    assertThat(event.getPayload()).isNull();
   }
 
   @Test
@@ -150,7 +150,7 @@ class ProductEventPublisherTest {
     // Must not throw - the whole point of this test.
     triggerCommitThenClear();
 
-    verify(kafka).send(eq("product.events"), eq(product.id().toString()), any());
+    verify(kafka).send(eq("product.events"), eq(product.getId().toString()), any());
   }
 
   /**
@@ -179,18 +179,15 @@ class ProductEventPublisherTest {
   }
 
   private static ProductResponse sampleProduct() {
-    return new ProductResponse(
-        UUID.randomUUID(),
-        "SKU-01",
-        "Widget",
-        new BigDecimal("9.99"),
-        "USD",
-        true,
-        0L,
-        null,
-        null,
-        null,
-        List.of(),
-        null);
+    return ProductResponse.builder()
+        .id(UUID.randomUUID())
+        .sku("SKU-01")
+        .name("Widget")
+        .priceAmount(new BigDecimal("9.99"))
+        .priceCurrency("USD")
+        .active(true)
+        .version(0L)
+        .images(List.of())
+        .build();
   }
 }

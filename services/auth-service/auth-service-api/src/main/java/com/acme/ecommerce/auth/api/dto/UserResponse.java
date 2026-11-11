@@ -9,8 +9,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * A user as exposed to callers (GET /api/auth/me).
- * Roles carry unprefixed names matching the access token claims.
+ * A user as exposed to callers (GET /api/auth/me). Roles carry unprefixed names matching the access
+ * token claims.
  */
 @Data
 @NoArgsConstructor
