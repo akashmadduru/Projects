@@ -69,6 +69,21 @@ public class CartController {
     return cart.merge(userId(jwt), request.items());
   }
 
+  @PostMapping("/items/{productId}/save-for-later")
+  public CartResponse saveForLater(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID productId) {
+    return cart.saveForLater(userId(jwt), productId);
+  }
+
+  @PostMapping("/saved/{productId}/move-to-cart")
+  public CartResponse moveToCart(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID productId) {
+    return cart.moveSavedToCart(userId(jwt), productId);
+  }
+
+  @DeleteMapping("/saved/{productId}")
+  public CartResponse removeSaved(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID productId) {
+    return cart.removeSaved(userId(jwt), productId);
+  }
+
   private static UUID userId(Jwt jwt) {
     return UUID.fromString(jwt.getSubject());
   }

@@ -46,6 +46,10 @@ Start here:
 1. **Phase1-DecisionLog.md** (all decisions; especially Decision 1: CSS vs libraries, Decision 7: Config strategy)
 2. **Phase1-Technical-Debt.md** (Phase 2 recommendations section)
 
+### Product Roadmap (Phases 6-10)
+
+- **[Product Roadmap](./Product-Roadmap.md)** — Gap analysis vs Amazon / Flipkart; features ranked by importance, at least 10 per phase, with build order and the tech-debt items each one closes
+
 ### Feature Documentation (Phase 5: Customer Accounts)
 
 Login, Google SSO and the user/cart/order services.

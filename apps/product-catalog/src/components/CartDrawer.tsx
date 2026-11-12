@@ -15,6 +15,11 @@ export function CartDrawer() {
   const items = useCartStore((s) => s.items)
   const updateQuantity = useCartStore((s) => s.updateQuantity)
   const removeItem = useCartStore((s) => s.removeItem)
+  const saved = useCartStore((s) => s.saved)
+  const serverBacked = useCartStore((s) => s.serverBacked)
+  const saveForLater = useCartStore((s) => s.saveForLater)
+  const moveSavedToCart = useCartStore((s) => s.moveSavedToCart)
+  const removeSaved = useCartStore((s) => s.removeSaved)
   const authStatus = useAuthStore((s) => s.status)
   const navigate = useNavigate()
 
@@ -57,7 +62,7 @@ export function CartDrawer() {
         )
       }
     >
-      {items.length === 0 ? (
+      {items.length === 0 && saved.length === 0 ? (
         <div className="flex flex-col items-center gap-3 py-16 text-center">
           <CartIcon className="w-12 h-12 text-on-surface-muted" />
           <p className="font-semibold text-on-surface">Your cart is empty</p>
@@ -71,6 +76,8 @@ export function CartDrawer() {
           </button>
         </div>
       ) : (
+        <>
+        {items.length === 0 && <p className="py-6 text-center text-sm text-on-surface-muted">Your cart is empty.</p>}
         <ul className="divide-y divide-outline">
           {items.map((item) => (
             <li key={item.productId} className="flex gap-3 py-4">
@@ -116,6 +123,16 @@ export function CartDrawer() {
                       <PlusIcon className="w-4 h-4" />
                     </button>
                   </div>
+                  {serverBacked && (
+                    <button
+                      type="button"
+                      onClick={() => void saveForLater(item.productId)}
+                      className="text-xs font-semibold text-primary hover:underline"
+                      aria-label={`Save ${item.snapshot?.name ?? "product"} for later`}
+                    >
+                      Save for later
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => removeItem(item.productId)}
@@ -129,6 +146,47 @@ export function CartDrawer() {
             </li>
           ))}
         </ul>
+        {serverBacked && saved.length > 0 && (
+          <section aria-label="Saved for later" className="mt-6 space-y-2">
+            <h3 className="font-bold text-on-surface">Saved for later ({saved.length})</h3>
+            <ul className="divide-y divide-outline">
+              {saved.map((item) => (
+                <li key={item.productId} className="flex gap-3 py-3">
+                  <Link
+                    to={`/products/${item.productId}`}
+                    onClick={close}
+                    className="h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-surface-variant"
+                  >
+                    <ProductImage src={item.imageUrl ?? undefined} alt={item.name} productId={item.productId} />
+                  </Link>
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <p className="line-clamp-2 text-sm font-medium text-on-surface">{item.name}</p>
+                    <p className="text-sm font-bold text-on-surface">{formatMoney(Number(item.unitPrice), item.currency)}</p>
+                    <div className="flex gap-3">
+                      <button
+                        type="button"
+                        onClick={() => void moveSavedToCart(item.productId)}
+                        className="text-xs font-semibold text-primary hover:underline"
+                        aria-label={`Move ${item.name} to cart`}
+                      >
+                        Move to cart
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void removeSaved(item.productId)}
+                        className="text-xs font-semibold text-on-surface-muted hover:text-error"
+                        aria-label={`Remove ${item.name} from saved items`}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+        </>
       )}
     </Drawer>
   )

@@ -49,6 +49,12 @@ public class UserAccount {
   @Column(name = "email_verified", nullable = false)
   private boolean emailVerified;
 
+  @Column(name = "phone", length = 20)
+  private String phone;
+
+  @Column(name = "phone_verified", nullable = false)
+  private boolean phoneVerified;
+
   @Column(name = "display_name", nullable = false, length = 200)
   private String displayName;
 
@@ -134,6 +140,19 @@ public class UserAccount {
     this.emailVerified = true;
   }
 
+  /** Sets the (unverified) phone number. Changing the number clears verification. */
+  public void changePhone(String e164) {
+    if (!Objects.equals(this.phone, e164)) {
+      this.phone = e164;
+      this.phoneVerified = false;
+    }
+  }
+
+  /** Marks the current phone number as proven. */
+  public void markPhoneVerified() {
+    this.phoneVerified = true;
+  }
+
   public void disable() {
     this.status = UserStatus.DISABLED;
   }
@@ -155,6 +174,14 @@ public class UserAccount {
 
   public boolean isEmailVerified() {
     return emailVerified;
+  }
+
+  public String getPhone() {
+    return phone;
+  }
+
+  public boolean isPhoneVerified() {
+    return phoneVerified;
   }
 
   public String getDisplayName() {

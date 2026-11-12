@@ -1,0 +1,29 @@
+// notification-service-app - stateless: Kafka order.events consumer + internal email/sms
+// endpoints. No database, no JWT validation (internal token only, never routed by the gateway).
+plugins {
+    id 'java-library'
+    alias(libs.plugins.spring.boot)
+}
+
+dependencies {
+    api project(':services:notification-service:notification-service-api')
+
+    implementation project(':libs:common-web')
+
+    implementation libs.bundles.service.web
+    implementation libs.bundles.service.discovery.client
+    implementation libs.spring.boot.starter.mail
+    implementation libs.spring.kafka
+    // See the alias comment in gradle/libs.versions.toml (Boot 4 modularisation).
+    implementation libs.spring.boot.kafka
+    implementation libs.micrometer.registry.prometheus
+
+    compileOnly libs.lombok
+    annotationProcessor libs.lombok
+
+    annotationProcessor platform(libs.spring.boot.bom)
+    annotationProcessor libs.spring.boot.configuration.processor
+}
+
+// Deployed as a container image, never consumed as a library.
+tasks.named('jar') { enabled = false }

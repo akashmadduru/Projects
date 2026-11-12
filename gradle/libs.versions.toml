@@ -51,6 +51,10 @@ lombok = "1.18.46"
 # brute-force control is the per-account lockout in the database, which works
 # regardless of replica count.
 bucket4j = "8.10.1"
+# Stripe Java SDK (payment-service). Not managed by the Boot BOM.
+stripeJava = "34.1.0"
+# OpenPDF (order-service invoice PDFs). Not managed by the Boot BOM.
+openpdf = "2.0.3"
 # NOTE: Testcontainers is NOT pinned here. The Spring Boot 4.0.7 BOM already
 # manages it (currently 2.0.5). Importing a second Testcontainers BOM would
 # create a silent version conflict of exactly the kind that bit us with
@@ -121,6 +125,10 @@ bouncycastle-bcpkix = { module = "org.bouncycastle:bcpkix-jdk18on", version.ref 
 # --- rate limiting ----------------------------------------------------------
 bucket4j-core = { module = "com.bucket4j:bucket4j-core", version.ref = "bucket4j" }
 
+# --- payments ---------------------------------------------------------------
+stripe-java = { module = "com.stripe:stripe-java", version.ref = "stripeJava" }
+openpdf = { module = "com.github.librepdf:openpdf", version.ref = "openpdf" }
+
 # --- persistence ------------------------------------------------------------
 flyway-core = { module = "org.flywaydb:flyway-core" }
 flyway-database-postgresql = { module = "org.flywaydb:flyway-database-postgresql" }
@@ -154,6 +162,8 @@ spring-boot-kafka = { module = "org.springframework.boot:spring-boot-kafka" }
 # Test-only utilities (EmbeddedKafka, KafkaTestUtils) for the inventory-service
 # consumer test suite. BOM-managed, same as spring-kafka above.
 spring-kafka-test = { module = "org.springframework.kafka:spring-kafka-test" }
+# Phase 6: notification-service sends email through Spring Mail (BOM-managed).
+spring-boot-starter-mail = { module = "org.springframework.boot:spring-boot-starter-mail" }
 
 # --- API docs / mapping -----------------------------------------------------
 springdoc-openapi-webmvc-ui = { module = "org.springdoc:springdoc-openapi-starter-webmvc-ui", version.ref = "springdoc" }

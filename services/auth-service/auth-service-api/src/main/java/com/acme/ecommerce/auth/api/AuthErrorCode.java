@@ -83,7 +83,22 @@ public enum AuthErrorCode {
   AUTH_TOKEN_INVALID(401, "Access token invalid"),
 
   /** The caller is authenticated but lacks the authority for this operation. */
-  AUTH_FORBIDDEN(403, "Forbidden");
+  AUTH_FORBIDDEN(403, "Forbidden"),
+
+  /** Password-reset token is unknown, expired or already used. */
+  AUTH_RESET_TOKEN_INVALID(400, "Reset token invalid"),
+
+  /** Email-verification token is unknown, expired or already used. */
+  AUTH_VERIFY_TOKEN_INVALID(400, "Verification token invalid"),
+
+  /** One-time code is wrong, expired, or its attempts are exhausted. */
+  AUTH_OTP_INVALID(401, "Verification code invalid"),
+
+  /** The phone number is not valid E.164. */
+  AUTH_PHONE_INVALID(400, "Phone number invalid"),
+
+  /** The phone number is already verified on another account. */
+  AUTH_PHONE_TAKEN(409, "Phone number already in use");
 
   private static final String TYPE_PREFIX = "https://errors.acme-ecommerce.internal/";
 

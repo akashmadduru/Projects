@@ -60,6 +60,18 @@ public class RateLimitFilter extends OncePerRequestFilter {
   private static final String REGISTER_PATH = "/api/auth/register";
   private static final String REFRESH_PATH = "/api/auth/refresh";
 
+  /** Phase 6 unauthenticated or SMS/email-sending endpoints, throttled like login. */
+  private static final java.util.Set<String> SENSITIVE_PATHS =
+      java.util.Set.of(
+          "/api/auth/password/forgot",
+          "/api/auth/password/reset",
+          "/api/auth/email/verify",
+          "/api/auth/email/verify/resend",
+          "/api/auth/otp/request",
+          "/api/auth/otp/verify",
+          "/api/auth/me/phone",
+          "/api/auth/me/phone/verify");
+
   private final Map<String, Bucket> buckets = new ConcurrentHashMap<>();
 
   private final AuthProperties.RateLimit config;
@@ -116,7 +128,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
   /** 0 means "not throttled". */
   private int capacityFor(String path) {
-    if (LOGIN_PATH.equals(path) || REGISTER_PATH.equals(path)) {
+    if (LOGIN_PATH.equals(path) || REGISTER_PATH.equals(path) || SENSITIVE_PATHS.contains(path)) {
       return config.loginCapacity();
     }
     if (REFRESH_PATH.equals(path)) {

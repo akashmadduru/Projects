@@ -7,6 +7,9 @@ import {
   LogOut,
   Menu,
   Package,
+  ReceiptText,
+  RotateCcw,
+  Ticket,
   PanelLeftClose,
   PanelLeftOpen,
   Settings as SettingsIcon,
@@ -31,20 +34,32 @@ interface NavItem {
   readonly label: string;
   readonly to: string;
   readonly icon: typeof LayoutDashboard;
+  /** Hidden unless the user holds the ADMIN role (mirrors the route guard). */
+  readonly adminOnly?: boolean;
 }
 
 const NAV_ITEMS: readonly NavItem[] = [
   { name: 'dashboard', label: 'Overview', to: '/dashboard', icon: LayoutDashboard },
   { name: 'products', label: 'Products', to: '/products', icon: Package },
   { name: 'inventory', label: 'Inventory', to: '/inventory', icon: Boxes },
+  { name: 'orders', label: 'Orders', to: '/orders', icon: ReceiptText, adminOnly: true },
+  { name: 'returns', label: 'Returns', to: '/returns', icon: RotateCcw, adminOnly: true },
+  { name: 'coupons', label: 'Coupons', to: '/coupons', icon: Ticket, adminOnly: true },
   { name: 'settings', label: 'Settings', to: '/settings', icon: SettingsIcon },
 ];
+
+const visibleNavItems = computed<readonly NavItem[]>(() =>
+  NAV_ITEMS.filter((item) => !item.adminOnly || auth.isAdmin),
+);
 
 const PAGE_TITLES: Readonly<Record<string, string>> = {
   dashboard: 'Overview',
   products: 'Products',
   'new-product': 'New product',
   inventory: 'Inventory',
+  orders: 'Orders',
+  returns: 'Returns',
+  coupons: 'Coupons',
   settings: 'Settings',
 };
 
@@ -145,7 +160,7 @@ async function signOut(): Promise<void> {
         </div>
         <nav class="flex-1 overflow-y-auto px-2" aria-label="Primary">
           <RouterLink
-            v-for="item in NAV_ITEMS"
+            v-for="item in visibleNavItems"
             :key="item.name"
             :to="item.to"
             class="nav-item mb-1 px-3 py-2"

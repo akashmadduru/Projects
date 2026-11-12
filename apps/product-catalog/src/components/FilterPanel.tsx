@@ -48,7 +48,7 @@ function Option({
       type="button"
       onClick={onClick}
       aria-pressed={selected}
-      className={`press flex w-full items-center gap-2 rounded-full border-2 px-3 py-1.5 text-left text-sm transition-all duration-300 ${
+      className={`press flex w-full items-center gap-2 rounded-full border-2 px-3 py-1.5 text-left text-sm transition-all duration-500 ${
         indent ? 'pl-6' : ''
       } ${
         selected
@@ -91,7 +91,7 @@ function Switch({
       role="switch"
       aria-checked={checked}
       onClick={onToggle}
-      className="press group flex w-full items-center gap-3 rounded-2xl px-2.5 py-2 text-left transition-colors duration-500 hover:bg-vivid-amber/20"
+      className="press group flex w-full items-center gap-3 rounded-2xl px-2.5 py-2 text-left transition-colors duration-700 hover:bg-vivid-amber/20"
     >
       <span className="min-w-0 flex-1">
         <span className="block text-sm font-bold text-on-surface">{label}</span>
@@ -99,12 +99,12 @@ function Switch({
       </span>
       <span
         aria-hidden="true"
-        className={`relative h-6 w-11 shrink-0 rounded-full border-2 border-ink transition-colors duration-500 ${
+        className={`relative h-6 w-11 shrink-0 rounded-full border-2 border-ink transition-colors duration-700 ${
           checked ? 'bg-vivid-teal' : 'bg-surface-variant'
         }`}
       >
         <span
-          className={`absolute top-0.5 h-4 w-4 rounded-full border-2 border-ink bg-surface transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${
+          className={`absolute top-0.5 h-4 w-4 rounded-full border-2 border-ink bg-surface transition-all duration-700 ease-[var(--ease-spring)] ${
             checked ? 'left-[1.35rem]' : 'left-0.5'
           }`}
         />

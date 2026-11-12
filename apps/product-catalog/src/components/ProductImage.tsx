@@ -93,7 +93,7 @@ function ProductImageComponent({ src, alt, productId }: Props) {
         aria-label={alt}
       >
         <div
-          className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-450"
+          className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700"
           style={{ background: gradient(productId, 0.31) }}
         />
         <div className="relative z-10 flex flex-col items-center">
@@ -101,7 +101,7 @@ function ProductImageComponent({ src, alt, productId }: Props) {
           <button
             type="button"
             onClick={handleRetry}
-            className="mt-3 px-3 py-1 bg-surface/60 backdrop-blur-sm text-xs font-medium rounded-full hover:bg-surface/80 transition-all duration-300 border border-outline/50 hover:border-outline"
+            className="mt-3 px-3 py-1 bg-surface/60 backdrop-blur-sm text-xs font-medium rounded-full hover:bg-surface/80 transition-all duration-500 border border-outline/50 hover:border-outline"
             aria-label="Retry loading image"
           >
             Retry
@@ -118,7 +118,7 @@ function ProductImageComponent({ src, alt, productId }: Props) {
         alt={alt}
         onLoad={() => setStatus('loaded')}
         onError={() => setStatus('error')}
-        className={`w-full h-full object-cover transition-[transform,opacity] duration-1000 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-110 ${
+        className={`w-full h-full object-cover transition-[transform,opacity] duration-1000 ease-[var(--ease-smooth)] group-hover:scale-110 ${
           status === 'loaded' ? 'opacity-100' : 'opacity-0'
         }`}
         loading="lazy"

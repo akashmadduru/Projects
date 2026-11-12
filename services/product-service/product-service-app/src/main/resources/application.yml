@@ -142,15 +142,19 @@ server:
 # GET /api/products/catalog/products/{id} must not wait meaningfully longer for the advisory
 # inventory half than for the product half alone.
 # -----------------------------------------------------------------------------
-feign:
+# Prefix is spring.cloud.openfeign.client; keys MUST equal the @FeignClient contextId.
+spring.cloud.openfeign:
   client:
     config:
-      inventory-service:
+      inventoryClient:
+        connect-timeout: 1000
+        read-timeout: 1500
+      inventoryServiceClient:
         connect-timeout: 1000
         read-timeout: 1500
       # RatingFeignClient: public GET summary, called from the rating.events consumer. No retries
       # (Spring Cloud's default Retryer is NEVER_RETRY); a miss is repaired by the next event.
-      rating-service:
+      ratingClient:
         connect-timeout: 1000
         read-timeout: 3000
 

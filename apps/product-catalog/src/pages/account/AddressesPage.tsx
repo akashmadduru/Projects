@@ -99,7 +99,7 @@ export function AddressesPage() {
         {addresses?.map((a) => (
           <li
             key={a.id}
-            className={`${cardClass} relative space-y-4 transition-all duration-500 hover:-translate-y-0.5 hover:shadow-card-hover ${
+            className={`${cardClass} relative space-y-4 transition-all duration-700 hover:-translate-y-0.5 hover:shadow-card-hover ${
               a.isDefault ? '!border-ink !bg-vivid-amber/10' : ''
             }`}
           >

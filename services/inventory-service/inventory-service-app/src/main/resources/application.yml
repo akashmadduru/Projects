@@ -139,6 +139,8 @@ server:
 # com.acme.ecommerce.inventory.config.InventoryProperties.
 # -----------------------------------------------------------------------------
 inventory:
+  internal:
+    token: ${INTERNAL_API_TOKEN:}
   jwt:
     # SAME ENV VARS AND SAME DEFAULTS AS auth-service's `auth.jwt.*`, the
     # gateway's `gateway.jwt.*` and product-service's `product.jwt.*`. Any of

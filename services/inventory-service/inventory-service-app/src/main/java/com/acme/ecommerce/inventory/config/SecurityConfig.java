@@ -5,6 +5,9 @@ import com.acme.ecommerce.common.security.AudienceValidator;
 import com.acme.ecommerce.common.security.PlatformJwtAuthenticationConverter;
 import com.acme.ecommerce.inventory.error.ProblemResponseWriter;
 import java.util.ArrayList;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
+import org.springframework.security.web.access.intercept.AuthorizationFilter;
 import java.util.List;
 import org.springframework.cloud.client.loadbalancer.LoadBalanced;
 import org.springframework.context.annotation.Bean;
@@ -66,6 +69,26 @@ public class SecurityConfig {
   private static final String[] PUBLIC_ENDPOINTS = {
     "/actuator/health", "/actuator/health/**", "/actuator/info", "/actuator/prometheus"
   };
+
+  /**
+   * Service-to-service chain for /internal/** (never routed by the gateway). No JWT: callers
+   * authenticate with the shared X-Internal-Token.
+   */
+  @Bean
+  @Order(Ordered.HIGHEST_PRECEDENCE)
+  public SecurityFilterChain internalFilterChain(
+      HttpSecurity http, InventoryProperties properties, ProblemResponseWriter problems)
+      throws Exception {
+    http.securityMatcher("/internal/**")
+        .csrf(AbstractHttpConfigurer::disable)
+        .sessionManagement(
+            session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+        .authorizeHttpRequests(requests -> requests.anyRequest().permitAll())
+        .addFilterBefore(
+            new InternalTokenFilter(properties.getInternal().getToken(), problems),
+            AuthorizationFilter.class);
+    return http.build();
+  }
 
   /** The filter chain. */
   @Bean

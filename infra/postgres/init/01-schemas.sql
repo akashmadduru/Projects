@@ -54,6 +54,16 @@ CREATE ROLE rating_service WITH LOGIN PASSWORD 'rating_service_local_pwd';
 CREATE DATABASE rating_db WITH OWNER rating_service ENCODING 'UTF8';
 COMMENT ON DATABASE rating_db IS 'rating-service: product ratings, reviews, helpfulness votes';
 
+-- --- payment-service ---------------------------------------------------------
+CREATE ROLE payment_service WITH LOGIN PASSWORD 'payment_service_local_pwd';
+CREATE DATABASE payment_db WITH OWNER payment_service ENCODING 'UTF8';
+COMMENT ON DATABASE payment_db IS 'payment-service: payments, refunds, processed Stripe events';
+
+-- --- promotion-service -------------------------------------------------------
+CREATE ROLE promotion_service WITH LOGIN PASSWORD 'promotion_service_local_pwd';
+CREATE DATABASE promotion_db WITH OWNER promotion_service ENCODING 'UTF8';
+COMMENT ON DATABASE promotion_db IS 'promotion-service: coupons and redemptions';
+
 -- --- lock down the public schema in each database ----------------------------
 -- Postgres 15+ already revokes CREATE on public from PUBLIC, but the grants are
 -- restated explicitly so the intent survives a version change.
@@ -93,3 +103,13 @@ ALTER DATABASE order_db SET search_path TO public;
 REVOKE ALL ON SCHEMA public FROM PUBLIC;
 GRANT ALL ON SCHEMA public TO rating_service;
 ALTER DATABASE rating_db SET search_path TO public;
+
+\connect payment_db
+REVOKE ALL ON SCHEMA public FROM PUBLIC;
+GRANT ALL ON SCHEMA public TO payment_service;
+ALTER DATABASE payment_db SET search_path TO public;
+
+\connect promotion_db
+REVOKE ALL ON SCHEMA public FROM PUBLIC;
+GRANT ALL ON SCHEMA public TO promotion_service;
+ALTER DATABASE promotion_db SET search_path TO public;

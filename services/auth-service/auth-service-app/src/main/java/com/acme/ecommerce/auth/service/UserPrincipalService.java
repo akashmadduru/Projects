@@ -85,6 +85,8 @@ public class UserPrincipalService implements PrincipalLoader {
         user.getId(),
         user.getEmail(),
         user.isEmailVerified(),
+        user.getPhone(),
+        user.isPhoneVerified(),
         user.getDisplayName(),
         user.getStatus().name(),
         claimNames(user).stream().sorted().toList(),

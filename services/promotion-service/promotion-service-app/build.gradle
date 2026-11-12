@@ -1,0 +1,26 @@
+plugins {
+    id 'java-library'
+    alias(libs.plugins.spring.boot)
+}
+
+dependencies {
+    api project(':services:promotion-service:promotion-service-api')
+
+    implementation project(':libs:common-web')
+    implementation project(':libs:common-security')
+
+    implementation libs.bundles.service.web
+    implementation libs.bundles.service.discovery.client
+    implementation libs.bundles.persistence.postgres
+    implementation libs.bundles.resource.server
+    implementation libs.micrometer.registry.prometheus
+
+    compileOnly libs.lombok
+    annotationProcessor libs.lombok
+
+    annotationProcessor platform(libs.spring.boot.bom)
+    annotationProcessor libs.spring.boot.configuration.processor
+}
+
+// Deployed as a container image, never consumed as a library.
+tasks.named('jar') { enabled = false }

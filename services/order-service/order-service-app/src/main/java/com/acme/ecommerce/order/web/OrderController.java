@@ -1,19 +1,32 @@
 package com.acme.ecommerce.order.web;
 
+import com.acme.ecommerce.common.core.error.ResourceConflictException;
 import com.acme.ecommerce.common.core.error.ValidationException;
+import com.acme.ecommerce.order.api.dto.CreateReturnRequest;
+import com.acme.ecommerce.order.api.dto.DeliveryEstimateResponse;
 import com.acme.ecommerce.order.api.dto.OrderResponse;
 import com.acme.ecommerce.order.api.dto.OrderSummaryResponse;
 import com.acme.ecommerce.order.api.dto.PlaceOrderRequest;
 import com.acme.ecommerce.order.api.dto.PurchaseStatusResponse;
+import com.acme.ecommerce.order.api.dto.ReturnResponse;
+import com.acme.ecommerce.order.service.InvoiceService;
+import com.acme.ecommerce.order.service.OrderLifecycleService;
 import com.acme.ecommerce.order.service.OrderService;
 import com.acme.ecommerce.order.service.OrderService.Placement;
 import com.acme.ecommerce.order.service.OrderStore;
+import com.acme.ecommerce.order.service.PricingService;
+import com.acme.ecommerce.order.service.ReturnService;
 import jakarta.validation.Valid;
+import java.math.BigDecimal;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PagedModel;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -37,10 +50,24 @@ public class OrderController {
 
   private final OrderService orders;
   private final OrderStore store;
+  private final OrderLifecycleService lifecycle;
+  private final ReturnService returns;
+  private final InvoiceService invoices;
+  private final PricingService pricing;
 
-  public OrderController(OrderService orders, OrderStore store) {
+  public OrderController(
+      OrderService orders,
+      OrderStore store,
+      OrderLifecycleService lifecycle,
+      ReturnService returns,
+      InvoiceService invoices,
+      PricingService pricing) {
     this.orders = orders;
     this.store = store;
+    this.lifecycle = lifecycle;
+    this.returns = returns;
+    this.invoices = invoices;
+    this.pricing = pricing;
   }
 
   @PostMapping
@@ -54,9 +81,19 @@ public class OrderController {
       throw ValidationException.forField(
           "Idempotency-Key", "is required and must be at most " + MAX_KEY_LENGTH + " characters");
     }
-    Placement placement = orders.place(userId(jwt), request.addressId(), idempotencyKey.trim());
+    Placement placement =
+        orders.place(userId(jwt), jwt.getClaimAsString("email"), idempotencyKey.trim(), request);
     return ResponseEntity.status(placement.created() ? HttpStatus.CREATED : HttpStatus.OK)
         .body(placement.order());
+  }
+
+  /** PUBLIC (gateway + service): delivery date, shipping fee and COD availability for a pincode. */
+  @GetMapping("/delivery-estimate")
+  public DeliveryEstimateResponse deliveryEstimate(
+      @RequestParam String pincode,
+      @RequestParam(required = false) BigDecimal subtotal,
+      @RequestParam(required = false) String currency) {
+    return pricing.estimate(pincode, subtotal, currency);
   }
 
   @GetMapping
@@ -86,7 +123,38 @@ public class OrderController {
 
   @PostMapping("/{id}/cancel")
   public OrderResponse cancel(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id) {
-    return store.cancel(userId(jwt), id);
+    return lifecycle.cancelByUser(userId(jwt), id);
+  }
+
+  @GetMapping(value = "/{id}/invoice.pdf", produces = MediaType.APPLICATION_PDF_VALUE)
+  public ResponseEntity<byte[]> invoice(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id) {
+    OrderResponse order = store.get(userId(jwt), id);
+    if ("PENDING_PAYMENT".equals(order.status()) || "CANCELLED".equals(order.status())) {
+      throw new ResourceConflictException("No invoice is available for this order yet");
+    }
+    byte[] pdf = invoices.render(order);
+    return ResponseEntity.ok()
+        .contentType(MediaType.APPLICATION_PDF)
+        .header(
+            HttpHeaders.CONTENT_DISPOSITION,
+            ContentDisposition.inline()
+                .filename(InvoiceService.invoiceNumber(order) + ".pdf")
+                .build()
+                .toString())
+        .body(pdf);
+  }
+
+  @PostMapping("/{id}/returns")
+  public ResponseEntity<ReturnResponse> requestReturn(
+      @AuthenticationPrincipal Jwt jwt,
+      @PathVariable UUID id,
+      @Valid @RequestBody CreateReturnRequest request) {
+    return ResponseEntity.status(HttpStatus.CREATED).body(returns.request(userId(jwt), id, request));
+  }
+
+  @GetMapping("/{id}/returns")
+  public List<ReturnResponse> listReturns(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id) {
+    return returns.list(userId(jwt), id);
   }
 
   private static UUID userId(Jwt jwt) {

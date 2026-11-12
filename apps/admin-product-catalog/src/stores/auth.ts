@@ -95,6 +95,9 @@ export const useAuthStore = defineStore('auth', () => {
     () => user.value?.roles.some((role) => role === 'CATALOG_MANAGER' || role === 'ADMIN') ?? false,
   );
 
+  /** Phase 6 order/returns/coupon admin screens: ADMIN only. */
+  const isAdmin = computed<boolean>(() => user.value?.roles.includes('ADMIN') ?? false);
+
   function clearSession(): void {
     accessToken.value = null;
     user.value = null;
@@ -234,6 +237,7 @@ export const useAuthStore = defineStore('auth', () => {
     isAuthenticated,
     displayName,
     canManageCatalog,
+    isAdmin,
     login,
     register,
     logout,

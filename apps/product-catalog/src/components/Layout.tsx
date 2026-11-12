@@ -10,6 +10,7 @@ import { Header } from './Header'
 import { Atom, Boomerang, Starburst } from './Atomic'
 import { ArrowUpIcon } from './Icons'
 import { Toaster } from './Toaster'
+import { VerifyEmailBanner } from './VerifyEmailBanner'
 import { useScrolled } from '../hooks/useScrolled'
 
 /** Starburst laminate wallpaper with a few slow-moving space-age motifs. Purely decorative. */
@@ -42,7 +43,7 @@ function BackToTop() {
       aria-label="Back to top"
       tabIndex={visible ? 0 : -1}
       aria-hidden={!visible}
-      className={`press bg-cta-gradient fixed bottom-6 right-6 z-40 rounded-full border-2 border-ink p-3 text-on-accent shadow-cta transition-all duration-450 ease-[cubic-bezier(0.34,1.56,0.64,1)] hover:-translate-y-1 ${
+      className={`press bg-cta-gradient fixed bottom-6 right-6 z-40 rounded-full border-2 border-ink p-3 text-on-accent shadow-cta transition-all duration-700 ease-[var(--ease-spring)] hover:-translate-y-1 ${
         visible ? 'translate-y-0 scale-100 opacity-100' : 'pointer-events-none translate-y-6 scale-75 opacity-0'
       }`}
     >
@@ -69,6 +70,7 @@ export function Layout() {
         Skip to content
       </a>
       <Header />
+      <VerifyEmailBanner />
       {/* Keyed on the path so each page navigation replays the entrance transition. */}
       <main key={pathname} id="main" className="animate-page-in mx-auto w-full max-w-[1400px] flex-1 px-4 py-6 sm:px-6 lg:px-8">
         <Outlet />

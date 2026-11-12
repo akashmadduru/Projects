@@ -63,6 +63,50 @@ public enum ErrorCode {
   /** A user may not vote on their own review. */
   CANNOT_VOTE_OWN_REVIEW("CANNOT_VOTE_OWN_REVIEW", 409, "Cannot vote on own review"),
 
+  // --- Phase 6: sell for real -------------------------------------------------
+
+  /** Not enough stock to reserve one or more order lines. */
+  OUT_OF_STOCK("OUT_OF_STOCK", 409, "Out of stock"),
+
+  /** The requested order status change is not allowed from the current status. */
+  INVALID_STATUS_TRANSITION("INVALID_STATUS_TRANSITION", 409, "Invalid status transition"),
+
+  /** The order can no longer be cancelled (already shipped, delivered or cancelled). */
+  ORDER_NOT_CANCELLABLE("ORDER_NOT_CANCELLABLE", 409, "Order not cancellable"),
+
+  /** The payment was declined or failed. */
+  PAYMENT_FAILED("PAYMENT_FAILED", 402, "Payment failed"),
+
+  /** No payment exists for the order. */
+  PAYMENT_NOT_FOUND("PAYMENT_NOT_FOUND", 404, "Payment not found"),
+
+  /** The chosen payment method is not available for this order (e.g. COD over the limit). */
+  PAYMENT_METHOD_UNAVAILABLE("PAYMENT_METHOD_UNAVAILABLE", 422, "Payment method unavailable"),
+
+  /** Unknown or inactive coupon code. */
+  COUPON_INVALID("COUPON_INVALID", 422, "Coupon invalid"),
+
+  /** Coupon is outside its validity window. */
+  COUPON_EXPIRED("COUPON_EXPIRED", 422, "Coupon expired"),
+
+  /** Coupon conditions not met (minimum order, currency, first order only). */
+  COUPON_NOT_APPLICABLE("COUPON_NOT_APPLICABLE", 422, "Coupon not applicable"),
+
+  /** Coupon total or per-user usage limit reached. */
+  COUPON_USAGE_LIMIT("COUPON_USAGE_LIMIT", 409, "Coupon usage limit reached"),
+
+  /** The order or items are not eligible for return. */
+  RETURN_NOT_ALLOWED("RETURN_NOT_ALLOWED", 409, "Return not allowed"),
+
+  /** The return window for the order has passed. */
+  RETURN_WINDOW_EXPIRED("RETURN_WINDOW_EXPIRED", 409, "Return window expired"),
+
+  /** Pincode is malformed or not serviceable. */
+  INVALID_PINCODE("INVALID_PINCODE", 400, "Invalid pincode"),
+
+  /** Missing or wrong internal service token on an /internal/** endpoint. */
+  INTERNAL_AUTH_FAILED("INTERNAL_AUTH_FAILED", 401, "Internal authentication failed"),
+
   /** A collaborating service needed to complete the request is unavailable. */
   DEPENDENCY_UNAVAILABLE("DEPENDENCY_UNAVAILABLE", 503, "Dependency unavailable"),
 

@@ -19,7 +19,7 @@ import { displayNameOf } from '../../lib/account'
 import { useAuthStore, useWishlistStore } from '../../stores'
 
 const navLink = ({ isActive }: { isActive: boolean }) =>
-  `press group flex shrink-0 items-center gap-2.5 rounded-full border-2 px-4 py-2 text-sm font-bold transition-all duration-500 lg:w-full ${
+  `press group flex shrink-0 items-center gap-2.5 rounded-full border-2 px-4 py-2 text-sm font-bold transition-all duration-700 lg:w-full ${
     isActive
       ? 'border-ink bg-vivid-amber text-ink shadow-[3px_3px_0_hsl(var(--color-ink))] lg:translate-x-1'
       : 'border-transparent text-on-surface hover:bg-surface-variant lg:hover:translate-x-1'

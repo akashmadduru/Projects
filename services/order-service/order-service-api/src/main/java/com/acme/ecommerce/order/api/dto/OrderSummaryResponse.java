@@ -11,4 +11,6 @@ public record OrderSummaryResponse(
     String currency,
     BigDecimal totalAmount,
     Instant placedAt,
-    long itemCount) {}
+    long itemCount,
+    String paymentMethod,
+    String paymentStatus) {}

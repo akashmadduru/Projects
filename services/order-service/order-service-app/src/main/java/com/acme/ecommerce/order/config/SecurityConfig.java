@@ -5,6 +5,9 @@ import com.acme.ecommerce.common.security.AudienceValidator;
 import com.acme.ecommerce.common.security.PlatformJwtAuthenticationConverter;
 import com.acme.ecommerce.order.error.ProblemResponseWriter;
 import java.util.ArrayList;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
+import org.springframework.security.web.access.intercept.AuthorizationFilter;
 import java.util.List;
 import org.springframework.cloud.client.loadbalancer.LoadBalanced;
 import org.springframework.context.annotation.Bean;
@@ -66,6 +69,27 @@ public class SecurityConfig {
   private static final String[] PUBLIC_ENDPOINTS = {
     "/actuator/health", "/actuator/health/**", "/actuator/info", "/actuator/prometheus"
   };
+
+  /**
+   * No-JWT chain for /internal/** (service-to-service, X-Internal-Token) and the PUBLIC delivery
+   * estimate. Kept off the resource-server chain so a stale bearer token on a public call cannot
+   * turn it into a 401.
+   */
+  @Bean
+  @Order(Ordered.HIGHEST_PRECEDENCE)
+  public SecurityFilterChain internalFilterChain(
+      HttpSecurity http, OrderProperties properties, ProblemResponseWriter problems)
+      throws Exception {
+    http.securityMatcher("/internal/**", "/api/orders/delivery-estimate")
+        .csrf(AbstractHttpConfigurer::disable)
+        .sessionManagement(
+            session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+        .authorizeHttpRequests(requests -> requests.anyRequest().permitAll())
+        .addFilterBefore(
+            new InternalTokenFilter(properties.getInternal().getToken(), problems),
+            AuthorizationFilter.class);
+    return http.build();
+  }
 
   /** The filter chain. */
   @Bean

@@ -40,6 +40,24 @@ export const routes: readonly RouteRecordRaw[] = [
         meta: { requiresAuth: true },
       },
       {
+        path: 'orders',
+        name: 'orders',
+        component: () => import('@/views/OrdersView.vue'),
+        meta: { requiresAuth: true, requiresAnyRole: ['ADMIN'] },
+      },
+      {
+        path: 'returns',
+        name: 'returns',
+        component: () => import('@/views/ReturnsView.vue'),
+        meta: { requiresAuth: true, requiresAnyRole: ['ADMIN'] },
+      },
+      {
+        path: 'coupons',
+        name: 'coupons',
+        component: () => import('@/views/CouponsView.vue'),
+        meta: { requiresAuth: true, requiresAnyRole: ['ADMIN'] },
+      },
+      {
         path: 'settings',
         name: 'settings',
         component: () => import('@/views/SettingsView.vue'),

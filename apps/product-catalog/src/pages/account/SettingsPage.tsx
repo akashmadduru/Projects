@@ -3,6 +3,7 @@
  */
 
 import { useNavigate } from 'react-router-dom'
+import { PhoneSection } from '../../components/account/PhoneSection'
 import { SectionCard } from '../../components/account/SectionCard'
 import { secondaryButtonClass } from '../../components/Form'
 import { CheckBadgeIcon, CheckIcon, LogoutIcon, MoonIcon, SettingsIcon, SunIcon } from '../../components/Icons'
@@ -52,7 +53,7 @@ function ThemeOption({
       role="radio"
       aria-checked={selected}
       onClick={onSelect}
-      className={`press group space-y-3 rounded-[1.5rem] border-2 p-3 text-left transition-all duration-500 ${
+      className={`press group space-y-3 rounded-[1.5rem] border-2 p-3 text-left transition-all duration-700 ${
         selected
           ? 'border-ink bg-primary-container shadow-[4px_4px_0_hsl(var(--color-ink))]'
           : 'border-outline bg-surface hover:-translate-y-0.5 hover:shadow-card'
@@ -146,7 +147,11 @@ export function SettingsPage() {
         </dl>
       </SectionCard>
 
-      <SectionCard id="session" title="Session" icon={<LogoutIcon className="h-5 w-5" />}>
+      <SectionCard id="phone" title="Mobile number" icon={<CheckBadgeIcon className="h-5 w-5" />}>
+        <PhoneSection />
+      </SectionCard>
+
+      <SectionCard id="session"title="Session" icon={<LogoutIcon className="h-5 w-5" />}>
         <div className="flex flex-wrap items-center justify-between gap-4">
           <p className="max-w-md text-sm text-on-surface-muted">
             You&apos;re signed in on this device. Signing out also clears your cart and wishlist from this browser — they stay

@@ -19,7 +19,10 @@ public enum AuthMethod {
   PASSWORD("password"),
 
   /** Google OIDC. The user may have no local credential at all. */
-  GOOGLE("google");
+  GOOGLE("google"),
+
+  /** One-time code sent by SMS to a verified phone number. */
+  OTP("otp");
 
   private final String claimValue;
 

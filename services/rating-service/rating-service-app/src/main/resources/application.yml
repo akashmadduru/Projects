@@ -79,16 +79,17 @@ rating:
 
 # Outbound Feign clients. Resolved through Eureka by service name; SHORT timeouts
 # and NO retries - a slow dependency must fail the review request quickly.
-feign:
+# Prefix is spring.cloud.openfeign.client; keys MUST equal the @FeignClient contextId.
+spring.cloud.openfeign:
   client:
     config:
-      order-service:
+      orderPurchaseClient:
         connect-timeout: 1000
         read-timeout: 3000
-      user-service:
+      userProfileClient:
         connect-timeout: 1000
         read-timeout: 3000
-      auth-service:
+      authAccountClient:
         connect-timeout: 1000
         read-timeout: 3000
 

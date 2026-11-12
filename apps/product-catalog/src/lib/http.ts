@@ -136,6 +136,20 @@ export async function apiFetch<T = unknown>(url: string, config: ApiRequestConfi
   return promise
 }
 
+/** Authenticated binary download (e.g. invoice PDF) with the same single refresh-and-replay on 401. */
+export async function apiDownload(url: string): Promise<Blob> {
+  const fullUrl = buildUrl(url)
+  const init: RequestInit = { method: 'GET' }
+  let response = await send(fullUrl, init)
+  if (response.status === 401) {
+    const token = await refreshSession()
+    if (token) response = await send(fullUrl, init)
+    else sessionExpiredHandler?.()
+  }
+  if (response.ok) return response.blob()
+  throw apiErrorFrom(response.status, await parseBody(response))
+}
+
 export function setAccessToken(token: string | null): void {
   accessToken = token
 }

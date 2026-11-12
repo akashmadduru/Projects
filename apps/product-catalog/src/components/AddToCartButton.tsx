@@ -63,7 +63,7 @@ export function AddToCartButton({ product, quantity = 1, size = 'sm', className 
         </span>
       ) : (
         <>
-          <CartIcon className={`transition-transform duration-450 group-hover/btn:-rotate-12 group-hover/btn:scale-110 ${size === 'lg' ? 'w-5 h-5' : 'w-4 h-4'}`} />
+          <CartIcon className={`transition-transform duration-700 group-hover/btn:-rotate-12 group-hover/btn:scale-110 ${size === 'lg' ? 'w-5 h-5' : 'w-4 h-4'}`} />
           {outOfStock ? 'Unavailable' : 'Add to cart'}
         </>
       )}

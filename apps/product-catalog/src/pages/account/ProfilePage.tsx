@@ -213,7 +213,7 @@ export function ProfilePage() {
         <div className="sticky bottom-4 z-10 flex flex-wrap items-center gap-3 rounded-full border-2 border-ink bg-surface px-4 py-3 shadow-card">
           <p className="mr-auto flex items-center gap-2 text-sm font-bold text-on-surface" aria-live="polite">
             <span
-              className={`h-2.5 w-2.5 rounded-full transition-colors duration-500 ${dirty ? 'bg-vivid-amber' : 'bg-success'}`}
+              className={`h-2.5 w-2.5 rounded-full transition-colors duration-700 ${dirty ? 'bg-vivid-amber' : 'bg-success'}`}
               aria-hidden="true"
             />
             {dirty ? 'You have unsaved changes' : 'All changes saved'}
@@ -230,7 +230,7 @@ export function ProfilePage() {
       <aside aria-label="Profile preview" className="space-y-6 xl:sticky xl:top-28 xl:self-start">
         <SectionCard id="preview" title="Preview">
           <div className="flex flex-col items-center gap-3 text-center">
-            <Avatar name={displayName} email={user.email} size="xl" className="transition-all duration-700" />
+            <Avatar name={displayName} email={user.email} size="xl" className="transition-all duration-1000" />
             <div className="min-w-0">
               <p className="font-display break-words text-xl text-on-surface">
                 {displayNameOf({ displayName, email: user.email })}

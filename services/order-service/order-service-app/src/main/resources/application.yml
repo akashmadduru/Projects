@@ -33,6 +33,18 @@ spring:
     virtual:
       enabled: true
 
+  # order.events producer. NOT a startup dependency: publishing is fail-open and the short
+  # max.block.ms bounds how long a broker outage can stall a write.
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        max.block.ms: 2000
+        # Consumers deserialize into their own type; do not leak our class name.
+        spring.json.add.type.headers: false
+
   datasource:
     # Host port 5432 is the compose default; a developer whose machine already
     # has a Postgres on it runs the stack with POSTGRES_PORT=15432 and overrides
@@ -110,6 +122,26 @@ server:
 # com.acme.ecommerce.order.config.OrderProperties.
 # -----------------------------------------------------------------------------
 order:
+  internal:
+    # Shared secret: required on inbound /internal/** and sent to inventory/payment/promotion.
+    token: ${INTERNAL_API_TOKEN:}
+  shipping:
+    inr-free-threshold: 499
+    inr-fee: 40
+    other-free-threshold: 25
+    other-fee: 4.99
+  tax:
+    gst-percent: 18
+    warehouse-state-aliases: KA,Karnataka
+  delivery:
+    warehouse-pincode-prefix: "560"
+    cod-limit-inr: 50000
+    cod-limit-other: 1000
+    zone: Asia/Kolkata
+  returns:
+    window-days: 7
+  pending:
+    expiry: 30m
   jwt:
     # SAME ENV VARS AND SAME DEFAULTS AS auth-service's `auth.jwt.*`, the
     # gateway's `gateway.jwt.*` and product-service's `product.jwt.*`. Any of
@@ -197,16 +229,27 @@ logging:
 # name; SHORT timeouts and NO retries (POSTs are not blindly retried, and a slow
 # dependency must fail checkout quickly rather than hang the request thread).
 # -----------------------------------------------------------------------------
-feign:
+# NOTE: the prefix is spring.cloud.openfeign.client (Spring Cloud 5; the old feign.client prefix is
+# ignored) and each key MUST equal the @FeignClient contextId, not the service name.
+spring.cloud.openfeign:
   client:
     config:
-      cart-service:
+      cartClient:
         connect-timeout: 1000
         read-timeout: 3000
-      user-service:
+      userAddressClient:
         connect-timeout: 1000
         read-timeout: 3000
-      product-service:
+      productClient:
+        connect-timeout: 1000
+        read-timeout: 3000
+      inventoryReservations:
+        connect-timeout: 1000
+        read-timeout: 3000
+      paymentInternal:
+        connect-timeout: 1000
+        read-timeout: 3000
+      promotionClient:
         connect-timeout: 1000
         read-timeout: 3000
 

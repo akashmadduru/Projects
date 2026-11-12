@@ -215,7 +215,7 @@ export function OverviewPage() {
               action={
                 <Link to="/account/orders" className={viewAllLink}>
                   View all
-                  <ChevronRightIcon className="h-4 w-4 transition-transform duration-500 group-hover:translate-x-1" />
+                  <ChevronRightIcon className="h-4 w-4 transition-transform duration-700 group-hover:translate-x-1" />
                 </Link>
               }
             >
@@ -238,7 +238,7 @@ export function OverviewPage() {
                     <li key={order.id}>
                       <Link
                         to={`/orders/${order.id}`}
-                        className="group flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl px-2 py-3 transition-colors duration-500 hover:bg-surface-variant"
+                        className="group flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl px-2 py-3 transition-colors duration-700 hover:bg-surface-variant"
                       >
                         <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 border-ink bg-vivid-sky/25 text-on-surface">
                           <PackageIcon className="h-5 w-5" />
@@ -254,7 +254,7 @@ export function OverviewPage() {
                         <span className="ml-auto min-w-[5.5rem] text-right font-bold text-on-surface sm:ml-0">
                           {formatMoney(Number(order.totalAmount), order.currency)}
                         </span>
-                        <ChevronRightIcon className="hidden h-4 w-4 text-on-surface-muted transition-transform duration-500 group-hover:translate-x-1 sm:block" />
+                        <ChevronRightIcon className="hidden h-4 w-4 text-on-surface-muted transition-transform duration-700 group-hover:translate-x-1 sm:block" />
                       </Link>
                     </li>
                   ))}
@@ -272,7 +272,7 @@ export function OverviewPage() {
                 wishlist.length > 0 ? (
                   <Link to="/wishlist" className={viewAllLink}>
                     View all {wishlist.length}
-                    <ChevronRightIcon className="h-4 w-4 transition-transform duration-500 group-hover:translate-x-1" />
+                    <ChevronRightIcon className="h-4 w-4 transition-transform duration-700 group-hover:translate-x-1" />
                   </Link>
                 ) : undefined
               }
@@ -295,7 +295,7 @@ export function OverviewPage() {
                         title={item.snapshot?.name}
                         className="group block space-y-1.5"
                       >
-                        <span className="relative block aspect-square overflow-hidden rounded-2xl border-2 border-outline bg-surface-variant transition-all duration-500 group-hover:-translate-y-1 group-hover:shadow-card">
+                        <span className="relative block aspect-square overflow-hidden rounded-2xl border-2 border-outline bg-surface-variant transition-all duration-700 group-hover:-translate-y-1 group-hover:shadow-card">
                           <ProductImage
                             src={item.snapshot?.imageUrl}
                             alt={item.snapshot?.name ?? 'Saved product'}
@@ -336,7 +336,7 @@ export function OverviewPage() {
                       const content = (
                         <>
                           <span
-                            className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 border-ink transition-colors duration-500 ${
+                            className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 border-ink transition-colors duration-700 ${
                               step.done ? 'bg-success text-white dark:text-ink' : 'bg-surface'
                             }`}
                             aria-hidden="true"
@@ -350,7 +350,7 @@ export function OverviewPage() {
                             {!step.done && <span className="block text-xs text-on-surface-muted">{step.hint}</span>}
                           </span>
                           {!step.done && (
-                            <ArrowRightIcon className="h-4 w-4 text-primary transition-transform duration-500 group-hover:translate-x-1" />
+                            <ArrowRightIcon className="h-4 w-4 text-primary transition-transform duration-700 group-hover:translate-x-1" />
                           )}
                         </>
                       )
@@ -361,7 +361,7 @@ export function OverviewPage() {
                           ) : (
                             <Link
                               to={step.to}
-                              className="group flex items-center gap-3 rounded-2xl px-2 py-1.5 transition-colors duration-500 hover:bg-surface-variant"
+                              className="group flex items-center gap-3 rounded-2xl px-2 py-1.5 transition-colors duration-700 hover:bg-surface-variant"
                             >
                               {content}
                             </Link>
@@ -383,7 +383,7 @@ export function OverviewPage() {
               action={
                 <Link to="/account/addresses" className={viewAllLink}>
                   Manage
-                  <ChevronRightIcon className="h-4 w-4 transition-transform duration-500 group-hover:translate-x-1" />
+                  <ChevronRightIcon className="h-4 w-4 transition-transform duration-700 group-hover:translate-x-1" />
                 </Link>
               }
             >

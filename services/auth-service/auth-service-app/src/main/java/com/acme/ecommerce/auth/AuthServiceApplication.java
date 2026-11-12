@@ -26,6 +26,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableDiscoveryClient
 @EnableConfigurationProperties(AuthProperties.class)
 @EnableScheduling
+@org.springframework.cloud.openfeign.EnableFeignClients
 public class AuthServiceApplication {
 
   public static void main(String[] args) {

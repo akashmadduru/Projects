@@ -12,6 +12,9 @@ import { WishlistPage } from '../pages/WishlistPage'
 import { LoginPage } from '../pages/LoginPage'
 import { RegisterPage } from '../pages/RegisterPage'
 import { AuthCallbackPage } from '../pages/AuthCallbackPage'
+import { ForgotPasswordPage } from '../pages/ForgotPasswordPage'
+import { ResetPasswordPage } from '../pages/ResetPasswordPage'
+import { VerifyEmailPage } from '../pages/VerifyEmailPage'
 import { CheckoutPage } from '../pages/CheckoutPage'
 import { OrderPage } from '../pages/OrderPage'
 import { AccountLayout } from '../pages/account/AccountLayout'
@@ -45,6 +48,9 @@ export const router = createBrowserRouter([
         path: '/register',
         element: <RegisterPage />,
       },
+      { path: '/forgot-password', element: <ForgotPasswordPage /> },
+      { path: '/reset-password', element: <ResetPasswordPage /> },
+      { path: '/verify-email', element: <VerifyEmailPage /> },
       {
         path: '/auth/callback',
         element: <AuthCallbackPage />,

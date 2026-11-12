@@ -18,6 +18,38 @@ export class AuthApiClient {
     return apiFetch<void>('/api/auth/logout', { method: 'POST' })
   }
 
+  forgotPassword(email: string): Promise<void> {
+    return apiFetch<void>('/api/auth/password/forgot', { method: 'POST', body: { email } })
+  }
+
+  resetPassword(token: string, newPassword: string): Promise<void> {
+    return apiFetch<void>('/api/auth/password/reset', { method: 'POST', body: { token, newPassword } })
+  }
+
+  verifyEmail(token: string): Promise<void> {
+    return apiFetch<void>('/api/auth/email/verify', { method: 'POST', body: { token } })
+  }
+
+  resendVerification(): Promise<void> {
+    return apiFetch<void>('/api/auth/email/verify/resend', { method: 'POST' })
+  }
+
+  requestOtp(phone: string): Promise<void> {
+    return apiFetch<void>('/api/auth/otp/request', { method: 'POST', body: { phone } })
+  }
+
+  verifyOtp(phone: string, code: string): Promise<TokenResponse> {
+    return apiFetch<TokenResponse>('/api/auth/otp/verify', { method: 'POST', body: { phone, code } })
+  }
+
+  addPhone(phone: string): Promise<void> {
+    return apiFetch<void>('/api/auth/me/phone', { method: 'POST', body: { phone } })
+  }
+
+  verifyPhone(code: string): Promise<void> {
+    return apiFetch<void>('/api/auth/me/phone/verify', { method: 'POST', body: { code } })
+  }
+
   me(): Promise<AuthUser> {
     return apiFetch<AuthUser>('/api/auth/me')
   }

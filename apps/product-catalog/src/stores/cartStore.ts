@@ -9,7 +9,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { errorMessage } from '../lib/errors'
 import { cartApi } from '../services/cartApi'
-import type { CartLineRequest, CartResponse } from '../types'
+import type { CartLineRequest, CartResponse, SavedItemResponse } from '../types'
 import { useUiStore } from './uiStore'
 
 /** What the cart drawer shows without refetching each product. Captured at add time. */
@@ -31,6 +31,11 @@ export interface CartState {
   items: CartItem[]
   /** True while a signed-in user's cart is mirrored from the server. Not persisted. */
   serverBacked: boolean
+  /** Save-for-later lines; signed-in users only, mirrored from the server. */
+  saved: SavedItemResponse[]
+  saveForLater: (productId: string) => Promise<void>
+  moveSavedToCart: (productId: string) => Promise<void>
+  removeSaved: (productId: string) => Promise<void>
   addItem: (productId: string, quantity: number, snapshot?: CartSnapshot) => void
   removeItem: (productId: string) => void
   updateQuantity: (productId: string, quantity: number) => void
@@ -90,7 +95,7 @@ export const useCartStore = create<CartState>()(
         set({ items: optimistic(previous) })
         call()
           .then((cart) => {
-            if (cart && seq === mutationSeq) set({ items: fromServer(cart) })
+            if (cart && seq === mutationSeq) set({ items: fromServer(cart), saved: cart.savedItems ?? get().saved })
           })
           .catch((error: unknown) => {
             if (seq === mutationSeq) set({ items: previous })
@@ -98,9 +103,27 @@ export const useCartStore = create<CartState>()(
           })
       }
 
+      /** Non-optimistic mutation: wait for the server cart, then adopt it (items and saved lines). */
+      const applyServer = async (call: () => Promise<CartResponse>, success?: string) => {
+        if (!get().serverBacked) return
+        const seq = ++mutationSeq
+        try {
+          const cart = await call()
+          if (seq === mutationSeq) set({ items: fromServer(cart), saved: cart.savedItems ?? [] })
+          if (success) useUiStore.getState().notify(success)
+        } catch (error) {
+          useUiStore.getState().notify(errorMessage(error))
+        }
+      }
+
       return {
         items: [],
         serverBacked: false,
+        saved: [],
+
+        saveForLater: (productId) => applyServer(() => cartApi.saveForLater(productId), 'Saved for later'),
+        moveSavedToCart: (productId) => applyServer(() => cartApi.moveSavedToCart(productId), 'Moved to your cart'),
+        removeSaved: (productId) => applyServer(() => cartApi.removeSaved(productId)),
 
         addItem: (productId, quantity, snapshot) => {
           const apply = (items: CartItem[]): CartItem[] => {
@@ -182,13 +205,15 @@ export const useCartStore = create<CartState>()(
               const merged = new Set(chunk.map((item) => item.productId))
               set({ items: get().items.filter((item) => !merged.has(item.productId)) })
             }
-            set({ items: fromServer(cart ?? (await cartApi.getCart())), serverBacked: true })
+            const adopted = cart ?? (await cartApi.getCart())
+            set({ items: fromServer(adopted), saved: adopted.savedItems ?? [], serverBacked: true })
           } catch (error) {
             useUiStore.getState().notify(errorMessage(error))
             // Never discard anonymous items that were not merged: stay in local mode and retry on next sign-in.
             if (get().items.length > 0) return
             try {
-              set({ items: fromServer(await cartApi.getCart()), serverBacked: true })
+              const adopted = await cartApi.getCart()
+              set({ items: fromServer(adopted), saved: adopted.savedItems ?? [], serverBacked: true })
             } catch {
               set({ items: [], serverBacked: true })
             }
@@ -197,7 +222,7 @@ export const useCartStore = create<CartState>()(
 
         detachServer: () => {
           mutationSeq++
-          set({ items: [], serverBacked: false })
+          set({ items: [], saved: [], serverBacked: false })
         },
       }
     },

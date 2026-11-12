@@ -17,6 +17,8 @@ dependencies {
     implementation project(':services:user-service:user-service-api')
     implementation project(':services:product-service:product-service-api')
     implementation libs.spring.cloud.starter.openfeign
+    implementation libs.spring.kafka
+    implementation libs.spring.boot.kafka
     implementation libs.micrometer.registry.prometheus
 
     compileOnly libs.lombok

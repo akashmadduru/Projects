@@ -1,0 +1,11 @@
+// Published contract of notification-service: DTOs plus the Feign-shaped client interface
+// auth-service consumes. No entities, no Boot app.
+plugins { id 'java-library' }
+
+dependencies {
+    api project(':libs:common-core')
+
+    compileOnly libs.jakarta.validation.api
+    compileOnly libs.spring.web
+    compileOnly libs.feign.core
+}

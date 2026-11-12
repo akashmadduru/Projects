@@ -43,7 +43,7 @@ export function Logo() {
       aria-label="Cartwise home"
     >
       <LogoMark
-        className="w-10 h-10 drop-shadow-[2px_2px_0_hsl(var(--color-ink))] transition-transform duration-700 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:-rotate-12 group-hover:scale-110"
+        className="w-10 h-10 drop-shadow-[2px_2px_0_hsl(var(--color-ink))] transition-transform duration-1000 ease-[var(--ease-spring)] group-hover:-rotate-12 group-hover:scale-110"
         orbitClassName="transition-transform duration-1000 group-hover:rotate-[200deg]"
       />
       <span className="font-display text-2xl leading-none tracking-wide [text-shadow:2px_2px_0_hsl(var(--color-ink))]">

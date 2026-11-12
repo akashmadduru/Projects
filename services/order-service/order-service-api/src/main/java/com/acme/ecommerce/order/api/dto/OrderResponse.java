@@ -2,6 +2,7 @@ package com.acme.ecommerce.order.api.dto;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -13,4 +14,58 @@ public record OrderResponse(
     Instant placedAt,
     Instant cancelledAt,
     ShipToResponse shipTo,
-    List<OrderItemResponse> items) {}
+    List<OrderItemResponse> items,
+    UUID userId,
+    String email,
+    String paymentMethod,
+    String paymentStatus,
+    BigDecimal subtotalAmount,
+    BigDecimal discountAmount,
+    String couponCode,
+    BigDecimal shippingAmount,
+    BigDecimal taxAmount,
+    String taxLabel,
+    TaxBreakdownResponse taxBreakdown,
+    LocalDate estimatedDeliveryDate,
+    String trackingNumber,
+    String carrier,
+    Instant deliveredAt,
+    boolean cancellable,
+    boolean returnable,
+    Instant returnWindowEndsAt,
+    List<TimelineEntryResponse> timeline,
+    PaymentBlockResponse payment) {
+
+  /** Copy with the payment block (CARD placement / replay) filled in. */
+  public OrderResponse withPayment(PaymentBlockResponse block) {
+    return new OrderResponse(
+        id,
+        status,
+        currency,
+        totalAmount,
+        placedAt,
+        cancelledAt,
+        shipTo,
+        items,
+        userId,
+        email,
+        paymentMethod,
+        paymentStatus,
+        subtotalAmount,
+        discountAmount,
+        couponCode,
+        shippingAmount,
+        taxAmount,
+        taxLabel,
+        taxBreakdown,
+        estimatedDeliveryDate,
+        trackingNumber,
+        carrier,
+        deliveredAt,
+        cancellable,
+        returnable,
+        returnWindowEndsAt,
+        timeline,
+        block);
+  }
+}

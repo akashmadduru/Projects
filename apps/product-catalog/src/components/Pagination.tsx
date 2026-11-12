@@ -85,7 +85,7 @@ export function Pagination({ page: requestedPage, pageSize: size, totalPages, to
                     onClick={() => goTo(item)}
                     aria-label={`Page ${item + 1}`}
                     aria-current={item === page ? 'page' : undefined}
-                    className={`press min-w-10 h-10 px-3 rounded-full border-2 text-sm font-bold transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-outline focus-visible:ring-offset-2 ${
+                    className={`press min-w-10 h-10 px-3 rounded-full border-2 text-sm font-bold transition-all duration-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-outline focus-visible:ring-offset-2 ${
                       item === page
                         ? 'bg-cta-gradient border-ink text-on-accent shadow-cta scale-110'
                         : 'text-on-surface border-outline bg-surface hover:-translate-y-0.5 hover:border-primary/50 hover:text-primary'

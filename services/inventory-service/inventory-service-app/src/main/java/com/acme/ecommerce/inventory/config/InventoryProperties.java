@@ -21,6 +21,17 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class InventoryProperties {
   @Builder.Default private Jwt jwt = new Jwt();
 
+  @Builder.Default private Internal internal = new Internal();
+
+  /** Shared secret for /internal/** callers (INTERNAL_API_TOKEN). */
+  @Data
+  @NoArgsConstructor
+  @AllArgsConstructor
+  @Builder
+  public static class Internal {
+    @Builder.Default private String token = "";
+  }
+
   /** Token validation contract with custom helper methods. */
   @Data
   @NoArgsConstructor

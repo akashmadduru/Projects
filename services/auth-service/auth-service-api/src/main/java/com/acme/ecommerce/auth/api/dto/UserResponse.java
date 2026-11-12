@@ -20,6 +20,8 @@ public class UserResponse {
   UUID id;
   String email;
   boolean emailVerified;
+  String phone;
+  boolean phoneVerified;
   String displayName;
   String status;
   List<String> roles;

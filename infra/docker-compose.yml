@@ -268,6 +268,11 @@ services:
       # startup gate.
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      # Phase 6: password-reset / email-verification links and the call to
+      # notification-service (found through Eureka; NOT a startup dependency -
+      # the send is async and fail-open).
+      STOREFRONT_BASE_URL: ${STOREFRONT_BASE_URL:-http://localhost:3000}
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?set INTERNAL_API_TOKEN in infra/.env}
     volumes:
       - ./secrets/jwt-keystore.p12:/run/secrets/jwt-keystore.p12:ro
     ports:
@@ -523,6 +528,7 @@ services:
       SPRING_DATASOURCE_USERNAME: inventory_service
       # Injected from the developer's .env (gitignored) - never inlined here.
       SPRING_DATASOURCE_PASSWORD: ${INVENTORY_DB_PASSWORD:?set INVENTORY_DB_PASSWORD in infra/.env}
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?set INTERNAL_API_TOKEN in infra/.env}
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
       # MUST MATCH auth-service's and the gateway's values EXACTLY. A mismatch
       # produces "invalid_token" on every request to /api/inventory/**, with
@@ -639,6 +645,10 @@ services:
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
       AUTH_JWT_ISSUER: ${AUTH_JWT_ISSUER:-https://auth.acme-ecommerce.internal}
       AUTH_JWT_AUDIENCES: ${AUTH_JWT_AUDIENCES:-ecommerce-platform}
+      # Phase 6: shared secret for /internal/** (inbound payment-result, outbound payment/
+      # promotion/inventory calls) and the order.events producer (best-effort, not a startup gate).
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?set INTERNAL_API_TOKEN in infra/.env}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     ports:
       - "127.0.0.1:${ORDER_PORT:-8087}:8087"
     healthcheck:
@@ -678,6 +688,122 @@ services:
       - "127.0.0.1:${RATING_PORT:-8084}:8084"
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:8084/actuator/health | grep -q '\"status\":\"UP\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 60s
+
+  # ---------------------------------------------------------------------------
+  # mailpit - dev SMTP sink + web UI/API (Phase 6). Every email (and dev "SMS",
+  # mailed to sms+<digits>@acme.local) lands here instead of leaving the host.
+  # UI/API on loopback only: http://127.0.0.1:8025 ; SMTP :1025 is compose-internal.
+  # ---------------------------------------------------------------------------
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: ecommerce-mailpit
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${MAILPIT_UI_PORT:-8025}:8025"
+
+  # ---------------------------------------------------------------------------
+  # notification-service (Phase 6) - stateless. Consumes order.events from Kafka
+  # and exposes token-guarded /internal/notifications/{email,sms} (never routed
+  # by the gateway). Sends through Mailpit in dev. NOT gated on kafka health: a
+  # broker outage only delays order emails.
+  # ---------------------------------------------------------------------------
+  notification-service:
+    build:
+      context: ..
+      dockerfile: services/notification-service/notification-service-app/Dockerfile
+    container_name: ecommerce-notification
+    restart: unless-stopped
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      mailpit:
+        condition: service_started
+    environment:
+      SPRING_PROFILES_ACTIVE: default
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      MAIL_HOST: mailpit
+      MAIL_PORT: 1025
+      STOREFRONT_BASE_URL: ${STOREFRONT_BASE_URL:-http://localhost:3000}
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?set INTERNAL_API_TOKEN in infra/.env}
+    ports:
+      - "127.0.0.1:${NOTIFICATION_PORT:-8090}:8090"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8090/actuator/health | grep -q '\"status\":\"UP\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 60s
+
+  # ---------------------------------------------------------------------------
+  # payment-service - Phase 6. Own database (payment_db) + role. STRIPE_SECRET_KEY blank =>
+  # SIMULATED mode. Calls order-service /internal/** with X-Internal-Token.
+  # ---------------------------------------------------------------------------
+  payment-service:
+    build:
+      context: ..
+      dockerfile: services/payment-service/payment-service-app/Dockerfile
+    container_name: ecommerce-payment
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: default
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/payment_db
+      SPRING_DATASOURCE_USERNAME: payment_service
+      SPRING_DATASOURCE_PASSWORD: ${PAYMENT_DB_PASSWORD:?set PAYMENT_DB_PASSWORD in infra/.env}
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      AUTH_JWT_ISSUER: ${AUTH_JWT_ISSUER:-https://auth.acme-ecommerce.internal}
+      AUTH_JWT_AUDIENCES: ${AUTH_JWT_AUDIENCES:-ecommerce-platform}
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?set INTERNAL_API_TOKEN in infra/.env}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+    ports:
+      - "127.0.0.1:${PAYMENT_PORT:-8088}:8088"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8088/actuator/health | grep -q '\"status\":\"UP\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 60s
+
+  # ---------------------------------------------------------------------------
+  # promotion-service - Phase 6. Own database (promotion_db) + role. Coupons + redemptions.
+  # ---------------------------------------------------------------------------
+  promotion-service:
+    build:
+      context: ..
+      dockerfile: services/promotion-service/promotion-service-app/Dockerfile
+    container_name: ecommerce-promotion
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: default
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/promotion_db
+      SPRING_DATASOURCE_USERNAME: promotion_service
+      SPRING_DATASOURCE_PASSWORD: ${PROMOTION_DB_PASSWORD:?set PROMOTION_DB_PASSWORD in infra/.env}
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      AUTH_JWT_ISSUER: ${AUTH_JWT_ISSUER:-https://auth.acme-ecommerce.internal}
+      AUTH_JWT_AUDIENCES: ${AUTH_JWT_AUDIENCES:-ecommerce-platform}
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?set INTERNAL_API_TOKEN in infra/.env}
+    ports:
+      - "127.0.0.1:${PROMOTION_PORT:-8089}:8089"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8089/actuator/health | grep -q '\"status\":\"UP\"'"]
       interval: 10s
       timeout: 5s
       retries: 6

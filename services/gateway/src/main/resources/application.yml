@@ -106,7 +106,7 @@ spring:
             - id: auth-public
               uri: lb://AUTH-SERVICE
               predicates:
-                - Path=/api/auth/login,/api/auth/register,/api/auth/refresh,/api/auth/logout
+                - Path=/api/auth/login,/api/auth/register,/api/auth/refresh,/api/auth/logout,/api/auth/password/forgot,/api/auth/password/reset,/api/auth/email/verify,/api/auth/otp/request,/api/auth/otp/verify
               filters:
                 - name: CircuitBreaker
                   args:
@@ -124,7 +124,7 @@ spring:
             - id: auth-secured
               uri: lb://AUTH-SERVICE
               predicates:
-                - Path=/api/auth/me,/api/auth/validate
+                - Path=/api/auth/me,/api/auth/validate,/api/auth/me/**,/api/auth/email/verify/resend
               filters:
                 - name: CircuitBreaker
                   args:
@@ -225,7 +225,7 @@ spring:
             - id: order
               uri: lb://ORDER-SERVICE
               predicates:
-                - Path=/api/orders/**,/api/orders
+                - Path=/api/orders/**,/api/orders,/api/admin/orders/**,/api/admin/returns/**
               filters:
                 - name: CircuitBreaker
                   args:
@@ -247,6 +247,34 @@ spring:
                   args:
                     name: ratingCb
                     fallbackUri: forward:/__fallback/rating
+              metadata:
+                response-timeout: 10000
+                connect-timeout: 2000
+
+            # --- payment-service (Phase 6): config + webhook are public (SecurityConfig) -----
+            - id: payment
+              uri: lb://PAYMENT-SERVICE
+              predicates:
+                - Path=/api/payments/**
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: paymentCb
+                    fallbackUri: forward:/__fallback/payment
+              metadata:
+                response-timeout: 10000
+                connect-timeout: 2000
+
+            # --- promotion-service (Phase 6): coupons; admin CRUD needs ROLE_ADMIN in-service --
+            - id: promotion
+              uri: lb://PROMOTION-SERVICE
+              predicates:
+                - Path=/api/promotions/**,/api/admin/coupons/**,/api/admin/coupons
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: promotionCb
+                    fallbackUri: forward:/__fallback/promotion
               metadata:
                 response-timeout: 10000
                 connect-timeout: 2000
@@ -359,6 +387,13 @@ resilience4j:
       ratingCb:
         base-config: default
         slow-call-duration-threshold: 2s
+      paymentCb:
+        base-config: default
+        # Stripe PaymentIntent creation happens in-line on order placement (internal), webhook is fast.
+        slow-call-duration-threshold: 3s
+      promotionCb:
+        base-config: default
+        slow-call-duration-threshold: 1s
 
   timelimiter:
     configs:
@@ -395,6 +430,12 @@ resilience4j:
       ratingCb:
         base-config: default
         timeout-duration: 8s
+      paymentCb:
+        base-config: default
+        timeout-duration: 11s
+      promotionCb:
+        base-config: default
+        timeout-duration: 6s
 
 server:
   port: ${SERVER_PORT:8080}

@@ -3,14 +3,24 @@ package com.acme.ecommerce.auth.web;
 import com.acme.ecommerce.auth.api.AuthClient;
 import com.acme.ecommerce.auth.api.AuthErrorCode;
 import com.acme.ecommerce.auth.api.dto.AuthMethod;
+import com.acme.ecommerce.auth.api.dto.CodeRequest;
+import com.acme.ecommerce.auth.api.dto.ForgotPasswordRequest;
 import com.acme.ecommerce.auth.api.dto.LoginRequest;
+import com.acme.ecommerce.auth.api.dto.OtpVerifyRequest;
+import com.acme.ecommerce.auth.api.dto.PhoneRequest;
 import com.acme.ecommerce.auth.api.dto.RegisterRequest;
+import com.acme.ecommerce.auth.api.dto.ResetPasswordRequest;
+import com.acme.ecommerce.auth.api.dto.TokenRequest;
 import com.acme.ecommerce.auth.api.dto.TokenResponse;
 import com.acme.ecommerce.auth.api.dto.UserResponse;
 import com.acme.ecommerce.auth.api.dto.ValidateRequest;
 import com.acme.ecommerce.auth.api.dto.ValidateResponse;
 import com.acme.ecommerce.auth.error.AuthException;
+import com.acme.ecommerce.auth.service.EmailVerificationService;
 import com.acme.ecommerce.auth.service.LoginService;
+import com.acme.ecommerce.auth.service.OtpLoginService;
+import com.acme.ecommerce.auth.service.PasswordResetService;
+import com.acme.ecommerce.auth.service.PhoneVerificationService;
 import com.acme.ecommerce.auth.service.RegistrationService;
 import com.acme.ecommerce.auth.service.UserPrincipalService;
 import com.acme.ecommerce.auth.token.RefreshTokenService;
@@ -52,6 +62,10 @@ public class AuthController {
   private final UserPrincipalService principals;
   private final RefreshCookieWriter refreshCookies;
   private final RequestDeviceContext deviceContexts;
+  private final PasswordResetService passwordResets;
+  private final EmailVerificationService emailVerifications;
+  private final PhoneVerificationService phones;
+  private final OtpLoginService otpLogins;
 
   public AuthController(
       RegistrationService registrationService,
@@ -59,13 +73,21 @@ public class AuthController {
       RefreshTokenService refreshTokenService,
       UserPrincipalService principals,
       RefreshCookieWriter refreshCookies,
-      RequestDeviceContext deviceContexts) {
+      RequestDeviceContext deviceContexts,
+      PasswordResetService passwordResets,
+      EmailVerificationService emailVerifications,
+      PhoneVerificationService phones,
+      OtpLoginService otpLogins) {
     this.registrationService = registrationService;
     this.loginService = loginService;
     this.refreshTokenService = refreshTokenService;
     this.principals = principals;
     this.refreshCookies = refreshCookies;
     this.deviceContexts = deviceContexts;
+    this.passwordResets = passwordResets;
+    this.emailVerifications = emailVerifications;
+    this.phones = phones;
+    this.otpLogins = otpLogins;
   }
 
   /**
@@ -77,7 +99,11 @@ public class AuthController {
    */
   @PostMapping("/register")
   public ResponseEntity<UserResponse> register(@Valid @RequestBody RegisterRequest request) {
-    return ResponseEntity.status(HttpStatus.CREATED).body(registrationService.register(request));
+    UserResponse created = registrationService.register(request);
+    // Fail-open: a notification outage must never fail sign-up.
+    emailVerifications.sendVerification(
+        created.getId(), created.getEmail(), created.getDisplayName());
+    return ResponseEntity.status(HttpStatus.CREATED).body(created);
   }
 
   /** Password login. Issues a new token family and sets the refresh cookie. */
@@ -182,6 +208,71 @@ public class AuthController {
         roles == null ? List.of() : roles,
         AuthMethod.fromClaimValue(jwt.getClaimAsString("auth_method")),
         expiresAt);
+  }
+
+  /** Starts a password reset. ALWAYS 202 - the response never reveals whether the email exists. */
+  @PostMapping("/password/forgot")
+  public ResponseEntity<Void> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+    passwordResets.requestReset(request.email());
+    return ResponseEntity.accepted().build();
+  }
+
+  /** Completes a password reset and revokes every session of the user. */
+  @PostMapping("/password/reset")
+  public ResponseEntity<Void> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+    passwordResets.reset(request.token(), request.newPassword());
+    return ResponseEntity.noContent().build();
+  }
+
+  /** Redeems an email-verification link token. */
+  @PostMapping("/email/verify")
+  public ResponseEntity<Void> verifyEmail(@Valid @RequestBody TokenRequest request) {
+    emailVerifications.verify(request.token());
+    return ResponseEntity.noContent().build();
+  }
+
+  /** Re-sends the verification email to the signed-in user. */
+  @PostMapping("/email/verify/resend")
+  public ResponseEntity<Void> resendVerification(@AuthenticationPrincipal Jwt jwt) {
+    emailVerifications.resend(UUID.fromString(jwt.getSubject()));
+    return ResponseEntity.accepted().build();
+  }
+
+  /** Attaches a phone number to the signed-in user and texts a verification code. */
+  @PostMapping("/me/phone")
+  public ResponseEntity<Void> addPhone(
+      @AuthenticationPrincipal Jwt jwt, @Valid @RequestBody PhoneRequest request) {
+    phones.addPhone(UUID.fromString(jwt.getSubject()), request.phone());
+    return ResponseEntity.accepted().build();
+  }
+
+  /** Verifies the code sent to the signed-in user's phone. */
+  @PostMapping("/me/phone/verify")
+  public ResponseEntity<Void> verifyPhone(
+      @AuthenticationPrincipal Jwt jwt, @Valid @RequestBody CodeRequest request) {
+    phones.verifyPhone(UUID.fromString(jwt.getSubject()), request.code());
+    return ResponseEntity.noContent().build();
+  }
+
+  /** Requests a login code by SMS. ALWAYS 202 - never reveals whether the number is registered. */
+  @PostMapping("/otp/request")
+  public ResponseEntity<Void> requestOtp(@Valid @RequestBody PhoneRequest request) {
+    otpLogins.request(request.phone());
+    return ResponseEntity.accepted().build();
+  }
+
+  /** OTP login: same outcome as password login (token + refresh cookie), method {@code otp}. */
+  @PostMapping("/otp/verify")
+  public ResponseEntity<TokenResponse> verifyOtp(
+      @Valid @RequestBody OtpVerifyRequest request,
+      HttpServletRequest httpRequest,
+      HttpServletResponse httpResponse) {
+
+    TokenPair pair =
+        otpLogins.verify(request.phone(), request.code(), deviceContexts.from(httpRequest));
+    refreshCookies.write(httpResponse, pair);
+    return ResponseEntity.ok(
+        TokenResponse.bearer(pair.accessToken(), pair.expiresInSeconds(), AuthMethod.OTP));
   }
 
   /**

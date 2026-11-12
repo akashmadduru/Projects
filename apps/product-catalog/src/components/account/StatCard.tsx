@@ -51,7 +51,7 @@ export function StatCard({
   const body = (
     <>
       <span
-        className="flex h-11 w-11 items-center justify-center rounded-full border-2 border-ink text-white shadow-[2px_2px_0_hsl(var(--color-ink))] transition-transform duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:scale-110 group-hover:-rotate-6 dark:text-ink"
+        className="flex h-11 w-11 items-center justify-center rounded-full border-2 border-ink text-white shadow-[2px_2px_0_hsl(var(--color-ink))] transition-transform duration-700 ease-[var(--ease-spring)] group-hover:scale-110 group-hover:-rotate-6 dark:text-ink"
         style={{ background: `hsl(var(--color-${hue}))` }}
         aria-hidden="true"
       >
@@ -74,7 +74,7 @@ export function StatCard({
   )
 
   const classes =
-    'group press flex h-full flex-col items-start gap-3 rounded-[1.5rem] border-2 border-outline bg-surface p-4 text-left shadow-card sm:flex-row sm:items-center sm:gap-4 transition-all duration-500 hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-card-hover'
+    'group press flex h-full flex-col items-start gap-3 rounded-[1.5rem] border-2 border-outline bg-surface p-4 text-left shadow-card sm:flex-row sm:items-center sm:gap-4 transition-all duration-700 hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-card-hover'
 
   if (to) {
     return (

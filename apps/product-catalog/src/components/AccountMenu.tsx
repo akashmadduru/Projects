@@ -23,7 +23,7 @@ const action =
   'press group relative flex items-center gap-2 rounded-full border-2 border-transparent px-3 py-1.5 text-sm font-bold text-on-brand hover:border-on-brand/40 hover:bg-on-brand/10'
 
 const menuItem =
-  'group flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm font-bold text-on-surface transition-colors duration-300 hover:bg-surface-variant focus-visible:bg-surface-variant focus-visible:outline-none'
+  'group flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm font-bold text-on-surface transition-colors duration-500 hover:bg-surface-variant focus-visible:bg-surface-variant focus-visible:outline-none'
 
 export function AccountMenu() {
   const status = useAuthStore((s) => s.status)
@@ -90,7 +90,7 @@ export function AccountMenu() {
         <Avatar name={user.displayName} email={user.email} size="sm" className="!shadow-none" />
         <span className="hidden max-w-[7rem] truncate sm:inline">{name}</span>
         <ChevronDownIcon
-          className={`hidden h-4 w-4 transition-transform duration-500 sm:block ${open ? 'rotate-180' : ''}`}
+          className={`hidden h-4 w-4 transition-transform duration-700 sm:block ${open ? 'rotate-180' : ''}`}
         />
       </button>
 

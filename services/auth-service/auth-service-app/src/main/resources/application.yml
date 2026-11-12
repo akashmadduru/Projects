@@ -178,6 +178,27 @@ auth:
     retention: 30d
     interval: 1h
 
+  # Phase 6: where links in emails point (password reset, email verification).
+  storefront:
+    base-url: ${STOREFRONT_BASE_URL:http://localhost:3000}
+
+# Phase 6: outbound call to notification-service (X-Internal-Token on /internal/**).
+notification:
+  internal-token: ${INTERNAL_API_TOKEN:}
+
+services:
+  notification:
+    # Blank => resolved through Eureka (notification-service).
+    url: ${NOTIFICATION_SERVICE_URL:}
+
+# Prefix is spring.cloud.openfeign.client; key = @FeignClient contextId (defaults to the name).
+spring.cloud.openfeign:
+  client:
+    config:
+      notification-service:
+        connect-timeout: 1000
+        read-timeout: 3000
+
 # -----------------------------------------------------------------------------
 # Service discovery.
 #

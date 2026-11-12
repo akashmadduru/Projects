@@ -3,10 +3,11 @@
  */
 
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { AddToCartButton } from '../components/AddToCartButton'
 import { Seal, Starburst } from '../components/Atomic'
 import { CheckBadgeIcon, ChevronRightIcon, MinusIcon, PlusIcon } from '../components/Icons'
+import { PincodeCheck } from '../components/PincodeCheck'
 import { PriceBlock } from '../components/PriceBlock'
 import { ProductCard } from '../components/ProductCard'
 import { ProductImage } from '../components/ProductImage'
@@ -16,6 +17,7 @@ import { SpecificationTable } from '../components/SpecificationTable'
 import { WishlistButton } from '../components/WishlistButton'
 import { toSearchString, useCategories, useProduct, useProducts } from '../hooks'
 import { effectiveDiscount, formatCount, formatMoney } from '../lib/format'
+import { effectivePrice } from '../lib/price'
 import type { Product } from '../types'
 
 const MAX_QUANTITY = 10
@@ -35,7 +37,7 @@ function productDetails(product: Product): Record<string, unknown> {
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-[1.75rem] border-2 border-outline bg-surface p-5 shadow-card transition-shadow duration-450 hover:shadow-card-hover sm:p-6">
+    <section className="rounded-[1.75rem] border-2 border-outline bg-surface p-5 shadow-card transition-shadow duration-700 hover:shadow-card-hover sm:p-6">
       <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-on-surface">
         <Starburst className="h-5 w-5 text-accent-2" />
         {title}
@@ -54,6 +56,7 @@ function StockLine({ quantity }: { quantity: number | null }) {
 
 export function ProductDetailPage() {
   const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
   const state = useProduct(id)
   const { categories } = useCategories()
   const [imageIndex, setImageIndex] = useState(0)
@@ -165,7 +168,7 @@ export function ProductDetailPage() {
                   onClick={() => setImageIndex(i)}
                   aria-label={`Show image ${i + 1} of ${images.length}`}
                   aria-pressed={i === imageIndex}
-                  className={`press h-20 w-20 shrink-0 overflow-hidden rounded-xl border-2 bg-surface transition-all duration-300 ${
+                  className={`press h-20 w-20 shrink-0 overflow-hidden rounded-xl border-2 bg-surface transition-all duration-500 ${
                     i === imageIndex
                       ? 'border-primary ring-4 ring-primary/20'
                       : 'border-outline opacity-75 hover:-translate-y-0.5 hover:opacity-100'
@@ -246,6 +249,15 @@ export function ProductDetailPage() {
             <AddToCartButton product={product} quantity={quantity} size="lg" className="flex-1" />
             <WishlistButton product={product} variant="outline" />
           </div>
+          <button
+            type="button"
+            disabled={product.lastKnownQuantity === 0 || !product.active}
+            onClick={() => navigate(`/checkout?buyNow=${encodeURIComponent(product.id)}&qty=${quantity}`)}
+            className="press inline-flex w-full items-center justify-center rounded-full border-2 border-ink bg-vivid-amber px-6 py-3 font-bold text-ink shadow-cta disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none"
+          >
+            Buy now
+          </button>
+          <PincodeCheck price={effectivePrice(product)} currency={product.priceCurrency} />
         </div>
       </div>
 

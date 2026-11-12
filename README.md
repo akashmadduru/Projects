@@ -374,6 +374,16 @@ never from a file on a developer machine.
 | 3 | Catalog enrichment and choreographed saga | ✅ Implemented — [HLD](docs/HLD-catalog-enrichment-and-saga.md), [ADR 0003](docs/adr/0003-choreographed-catalog-saga-and-narrow-read-only-cross-service-call.md) |
 | 4 | rating-service (reviews, summaries; storefront review UI) | ✅ Implemented |
 | 5 | Customer accounts: login/register, Google SSO, user/cart/order services, storefront checkout | ✅ Implemented, **no automated tests** — see [Phase5-Feature](docs/Phase5-Feature.md) |
+| 6 | Sell for real: payments + COD, stock reservation, order lifecycle & tracking, admin orders, shipping, GST invoice, notifications, returns, coupons, OTP/password reset | ⏳ Planned — [Product Roadmap](docs/Product-Roadmap.md#phase-6-sell-for-real-must-have-before-any-real-customer) |
+| 7 | Discovery & conversion: autocomplete, typo-tolerant search, variants, facets, offers, deals, recommendations, Q&A, alerts | ⏳ Planned |
+| 8 | Retention & loyalty: membership, rewards, wallet/gift cards, abandoned-cart reminders, personalised home | ⏳ Planned |
+| 9 | Marketplace & sellers: onboarding/KYC, seller portal, buy box, payouts, ads, warehouses | ⏳ Planned |
+| 10 | Trust, support & scale: help desk, 2FA, fraud checks, privacy controls, i18n, PWA, observability | ⏳ Planned |
+
+The full gap analysis against Amazon / Flipkart, ranked by importance with at least 10 features per
+phase, is in [docs/Product-Roadmap.md](docs/Product-Roadmap.md). From Phase 6 on, features ship
+without tests or per-feature HLD/LLD; every shortcut is logged in the
+[Tech Debt Register](techdebt/README.md).
 
 ## Known gaps
 

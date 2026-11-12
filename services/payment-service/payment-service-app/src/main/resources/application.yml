@@ -1,0 +1,238 @@
+# =============================================================================
+# payment-service configuration.
+#
+# The unprofiled document is the DEV/DOCKER-COMPOSE configuration. The `prod`
+# document at the bottom records exactly which knobs must move for a real
+# environment - kept in the same file on purpose, so the dev/prod delta cannot be
+# missed by reading only one of them.
+#
+# NOTHING SECRET HAS A WORKING DEFAULT except the throwaway local database
+# password, which is the same value infra/postgres/init/01-schemas.sql creates on
+# a developer's machine and is never deployed anywhere.
+# =============================================================================
+
+spring:
+  cloud:
+    openfeign:
+      client:
+        config:
+          order-service:
+            connect-timeout: 1000
+            read-timeout: 3000
+  application:
+    # THIS EXACT STRING IS A CONTRACT. Eureka uppercases it to
+    # PAYMENT-SERVICE, which is the service id the gateway's route table
+    # already targets (`lb://PAYMENT-SERVICE`, predicate
+    # Path=/api/**). Rename this and the route stops resolving
+    # SILENTLY - the gateway cannot tell an unregistered target from a down
+    # one, so the symptom is a 503 from /__fallback/cart with nothing
+    # anywhere pointing at the cause.
+    name: payment-service
+
+  # Blocking MVC on virtual threads. Every request here is one short, indexed
+  # query; virtual threads give reactive-grade concurrency without reactive-grade
+  # complexity. See the application class.
+  threads:
+    virtual:
+      enabled: true
+
+  datasource:
+    # Host port 5432 is the compose default; a developer whose machine already
+    # has a Postgres on it runs the stack with POSTGRES_PORT=15432 and overrides
+    # this variable to match.
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/payment_db}
+    username: ${SPRING_DATASOURCE_USERNAME:payment_service}
+    password: ${SPRING_DATASOURCE_PASSWORD:payment_service_local_pwd}
+    hikari:
+      # SIZED FOR CONNECTIONS, NOT FOR THREADS. Virtual threads make it trivial
+      # to have thousands of requests in flight, but Postgres still forks one
+      # backend process per connection - a pool sized to match the thread count
+      # is how a service takes the database down. 10 comfortably saturates the
+      # single indexed query this service issues; requests queue for a
+      # connection, which is the correct back-pressure point.
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 3000
+      pool-name: payment-hikari
+
+  jpa:
+    # Flyway owns the schema. `validate` would additionally re-derive the mapping
+    # at every startup and fail on differences that are correct on both sides.
+    hibernate:
+      ddl-auto: none
+    # OFF. Open-session-in-view holds a database connection for the whole request
+    # including response serialisation, and hides lazy-loading bugs until the day
+    # a query moves outside the request.
+    open-in-view: false
+    properties:
+      hibernate:
+        default_schema: payment
+        jdbc:
+          time_zone: UTC
+        # Fails loudly if anything lazy is touched after the session closes,
+        # instead of silently issuing a query.
+        enable_lazy_load_no_trans: false
+
+  flyway:
+    enabled: true
+    # Flyway creates the schema and puts its history table there.
+    schemas: payment
+    default-schema: payment
+    locations: classpath:db/migration
+    # Fail rather than "fix" a checksum mismatch: a changed migration means the
+    # code and the deployed schema disagree, and repairing quietly is how that
+    # ends up in production.
+    validate-on-migrate: true
+
+  data:
+    web:
+      pageable:
+        # THE CAP THAT MATTERS. Spring Data's own default is 2000, so without
+        # this a caller could ask for ?size=2000 and turn a paged read into a
+        # near-full-table scan - which, against the gateway's cartCb
+        # slow-call threshold, is a self-service way to trip the circuit for
+        # everyone else.
+        max-page-size: 100
+        default-page-size: 20
+
+  web:
+    # Never advertise the server implementation or render a stack trace. Moved
+    # here from server.error.* in Spring Boot 4 / Spring Framework 7.
+    error:
+      whitelabel:
+        enabled: false
+      include-stacktrace: never
+      include-message: never
+
+server:
+  port: ${SERVER_PORT:8088}
+  shutdown: graceful
+
+# -----------------------------------------------------------------------------
+# payment-service's own settings. Every one is documented on
+# com.acme.ecommerce.payment.config.CartProperties.
+# -----------------------------------------------------------------------------
+payment:
+  jwt:
+    # SAME ENV VARS AND SAME DEFAULTS AS auth-service's `auth.jwt.*`, the
+    # gateway's `gateway.jwt.*` and product-service's `product.jwt.*`. Any of
+    # the four drifting is a total outage for this service with a singularly
+    # unhelpful error ("invalid_token", on every request, with nothing in any
+    # log pointing at the cause).
+    issuer: ${AUTH_JWT_ISSUER:https://auth.acme-ecommerce.internal}
+    audience: ${AUTH_JWT_AUDIENCES:ecommerce-platform}
+    # Resolved through Eureka at FETCH time, so the keys come from whichever
+    # auth-service instance is currently registered rather than a host frozen in
+    # at startup.
+    jwks-service-id: ${PAYMENT_JWKS_SERVICE_ID:AUTH-SERVICE}
+    jwks-path: /.well-known/jwks.json
+    # Set this ONLY where there is no registry (tests, single-node deploys, or an
+    # incident in which discovery is the broken thing). A non-blank value bypasses
+    # discovery entirely.
+    jwks-uri: ${PAYMENT_JWKS_URI:}
+  internal-token: ${INTERNAL_API_TOKEN:}
+  stripe:
+    # Blank secret key => SIMULATED mode (no Stripe calls at all).
+    secret-key: ${STRIPE_SECRET_KEY:}
+    publishable-key: ${STRIPE_PUBLISHABLE_KEY:}
+    webhook-secret: ${STRIPE_WEBHOOK_SECRET:}
+  reporter:
+    interval-ms: 30000
+
+# -----------------------------------------------------------------------------
+# Service discovery.
+#
+# TIMING INVARIANT (documented in services/eureka-server/README.md):
+#   lease-expiration-duration-in-seconds >= 3 x lease-renewal-interval-in-seconds
+# A single dropped heartbeat must never be enough to evict a healthy instance.
+# 10s renewal / 30s expiration satisfies it exactly.
+# -----------------------------------------------------------------------------
+eureka:
+  client:
+    enabled: ${EUREKA_CLIENT_ENABLED:true}
+    service-url:
+      defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:http://localhost:8761/eureka/}
+    registry-fetch-interval-seconds: 5
+    healthcheck:
+      # Without this, Eureka reports the instance UP as long as the process is
+      # alive - including while the database is unreachable and every request is
+      # failing. With it, the actuator health status drives registration status,
+      # so the gateway stops routing to an instance that cannot serve.
+      enabled: true
+  instance:
+    # Containers have no resolvable hostname on the compose network from a
+    # caller's point of view; the IP always works.
+    prefer-ip-address: true
+    lease-renewal-interval-in-seconds: 10
+    lease-expiration-duration-in-seconds: 30
+
+management:
+  endpoints:
+    web:
+      exposure:
+        # health/info for orchestration, prometheus for scraping. Nothing else:
+        # /env and /configprops would expose the datasource URL and every
+        # cart.* setting.
+        include: health,info,prometheus
+  endpoint:
+    health:
+      show-details: when-authorized
+      probes:
+        enabled: true
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
+  metrics:
+    tags:
+      application: payment-service
+
+logging:
+  level:
+    root: INFO
+    "[com.acme.ecommerce.payment]": INFO
+    # These are the loggers that would print request headers (including
+    # Authorization) and SQL parameters at DEBUG. Pinned at INFO so that turning
+    # on root DEBUG to chase an unrelated bug does not dump credentials into the
+    # log.
+    org.springframework.web: INFO
+    org.springframework.security: INFO
+    org.hibernate.SQL: INFO
+    org.hibernate.orm.jdbc.bind: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%X{correlationId:-}] %logger{36} - %msg%n"
+
+---
+# =============================================================================
+# PROFILE: prod
+#
+# Not exercised in Phase 1/2 (dev-only). Recorded here so the production intent
+# lives next to the dev values it overrides.
+# =============================================================================
+spring:
+  cloud:
+    openfeign:
+      client:
+        config:
+          order-service:
+            connect-timeout: 1000
+            read-timeout: 3000
+  config:
+    activate:
+      on-profile: prod
+
+  datasource:
+    # No working default in production. A service that starts with a committed
+    # database password is a service that will eventually be deployed with one.
+    password: ${SPRING_DATASOURCE_PASSWORD}
+
+logging:
+  level:
+    root: WARN
+    "[com.acme.ecommerce.payment]": INFO
+
+management:
+  endpoint:
+    health:
+      show-details: never

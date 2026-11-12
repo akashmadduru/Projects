@@ -64,3 +64,15 @@ include ':services:cart-service:cart-service-app'
 // --- order service -----------------------------------------------------------
 include ':services:order-service:order-service-api'
 include ':services:order-service:order-service-app'
+
+// --- payment service (Stripe) ------------------------------------------------
+include ':services:payment-service:payment-service-api'
+include ':services:payment-service:payment-service-app'
+
+// --- promotion service (coupons) ---------------------------------------------
+include ':services:promotion-service:promotion-service-api'
+include ':services:promotion-service:promotion-service-app'
+
+// --- notification service (email / sms, order-event consumer) ----------------
+include ':services:notification-service:notification-service-api'
+include ':services:notification-service:notification-service-app'

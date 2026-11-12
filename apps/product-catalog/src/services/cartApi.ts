@@ -30,6 +30,18 @@ export class CartApiClient {
     return apiFetch<CartResponse>('/api/cart/merge', { method: 'POST', body: { items } })
   }
 
+  saveForLater(productId: string): Promise<CartResponse> {
+    return apiFetch<CartResponse>(`/api/cart/items/${productId}/save-for-later`, { method: 'POST' })
+  }
+
+  moveSavedToCart(productId: string): Promise<CartResponse> {
+    return apiFetch<CartResponse>(`/api/cart/saved/${productId}/move-to-cart`, { method: 'POST' })
+  }
+
+  removeSaved(productId: string): Promise<CartResponse> {
+    return apiFetch<CartResponse>(`/api/cart/saved/${productId}`, { method: 'DELETE' })
+  }
+
   getWishlist(): Promise<WishlistItemResponse[]> {
     return apiFetch<WishlistItemResponse[]>('/api/wishlist')
   }

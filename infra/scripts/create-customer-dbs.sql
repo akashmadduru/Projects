@@ -46,3 +46,24 @@ ALTER DATABASE order_db SET search_path TO public;
 REVOKE ALL ON SCHEMA public FROM PUBLIC;
 GRANT ALL ON SCHEMA public TO rating_service;
 ALTER DATABASE rating_db SET search_path TO public;
+
+-- --- Phase 6: payment-service + promotion-service ---------------------------
+\connect postgres
+SELECT 'CREATE ROLE payment_service WITH LOGIN PASSWORD ''payment_service_local_pwd'''
+WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'payment_service')\gexec
+SELECT 'CREATE ROLE promotion_service WITH LOGIN PASSWORD ''promotion_service_local_pwd'''
+WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'promotion_service')\gexec
+SELECT 'CREATE DATABASE payment_db WITH OWNER payment_service ENCODING ''UTF8'' TEMPLATE template0'
+WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'payment_db')\gexec
+SELECT 'CREATE DATABASE promotion_db WITH OWNER promotion_service ENCODING ''UTF8'' TEMPLATE template0'
+WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'promotion_db')\gexec
+
+\connect payment_db
+REVOKE ALL ON SCHEMA public FROM PUBLIC;
+GRANT ALL ON SCHEMA public TO payment_service;
+ALTER DATABASE payment_db SET search_path TO public;
+
+\connect promotion_db
+REVOKE ALL ON SCHEMA public FROM PUBLIC;
+GRANT ALL ON SCHEMA public TO promotion_service;
+ALTER DATABASE promotion_db SET search_path TO public;

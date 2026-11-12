@@ -2,10 +2,12 @@ package com.acme.ecommerce.cart.repository;
 
 import com.acme.ecommerce.cart.api.dto.CartItemRequest;
 import com.acme.ecommerce.cart.api.dto.CartItemResponse;
+import com.acme.ecommerce.cart.api.dto.SavedItemResponse;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
@@ -120,6 +122,83 @@ public class CartRepository {
         .param("cartId", cartId)
         .query(Integer.class)
         .single();
+  }
+
+  // --- save for later ---------------------------------------------------------------------
+
+  public List<SavedItemResponse> findSaved(UUID userId) {
+    return jdbc.sql(
+            "SELECT product_id, name, unit_price, currency, image_url, saved_at "
+                + "FROM cart.saved_items WHERE user_id = :userId ORDER BY saved_at DESC, id")
+        .param("userId", userId)
+        .query(
+            (rs, n) ->
+                new SavedItemResponse(
+                    rs.getObject("product_id", UUID.class),
+                    rs.getString("name"),
+                    rs.getBigDecimal("unit_price"),
+                    rs.getString("currency"),
+                    rs.getString("image_url"),
+                    rs.getObject("saved_at", OffsetDateTime.class).toInstant()))
+        .list();
+  }
+
+  public int countSaved(UUID userId) {
+    return jdbc.sql("SELECT count(*) FROM cart.saved_items WHERE user_id = :userId")
+        .param("userId", userId)
+        .query(Integer.class)
+        .single();
+  }
+
+  public boolean hasSaved(UUID userId, UUID productId) {
+    return jdbc.sql(
+            "SELECT EXISTS (SELECT 1 FROM cart.saved_items WHERE user_id = :userId "
+                + "AND product_id = :productId)")
+        .param("userId", userId)
+        .param("productId", productId)
+        .query(Boolean.class)
+        .single();
+  }
+
+  /** Copies the cart line into saved items (upsert). Returns rows written (0 = no such line). */
+  public int saveLineForLater(UUID cartId, UUID userId, UUID productId) {
+    return jdbc.sql(
+            "INSERT INTO cart.saved_items (user_id, product_id, name, unit_price, currency, "
+                + "image_url) SELECT :userId, product_id, name, unit_price, currency, image_url "
+                + "FROM cart.cart_items WHERE cart_id = :cartId AND product_id = :productId "
+                + "ON CONFLICT (user_id, product_id) DO UPDATE SET name = EXCLUDED.name, "
+                + "unit_price = EXCLUDED.unit_price, currency = EXCLUDED.currency, "
+                + "image_url = EXCLUDED.image_url, saved_at = now()")
+        .param("userId", userId)
+        .param("cartId", cartId)
+        .param("productId", productId)
+        .update();
+  }
+
+  /** The saved row as a quantity-1 cart request, or empty. */
+  public Optional<CartItemRequest> findSavedAsRequest(UUID userId, UUID productId) {
+    return jdbc.sql(
+            "SELECT product_id, name, unit_price, currency, image_url FROM cart.saved_items "
+                + "WHERE user_id = :userId AND product_id = :productId")
+        .param("userId", userId)
+        .param("productId", productId)
+        .query(
+            (rs, n) ->
+                new CartItemRequest(
+                    rs.getObject("product_id", UUID.class),
+                    1,
+                    rs.getString("name"),
+                    rs.getBigDecimal("unit_price"),
+                    rs.getString("currency"),
+                    rs.getString("image_url")))
+        .optional();
+  }
+
+  public void deleteSaved(UUID userId, UUID productId) {
+    jdbc.sql("DELETE FROM cart.saved_items WHERE user_id = :userId AND product_id = :productId")
+        .param("userId", userId)
+        .param("productId", productId)
+        .update();
   }
 
   public boolean hasLine(UUID cartId, UUID productId) {

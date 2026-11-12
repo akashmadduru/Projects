@@ -51,6 +51,13 @@ public class SecurityConfig {
     "/api/auth/register",
     "/api/auth/refresh",
     "/api/auth/logout",
+    // Phase 6: password reset, email verification and OTP login - all pre-authentication by
+    // nature. /api/auth/email/verify/resend and /api/auth/me/** stay authenticated.
+    "/api/auth/password/forgot",
+    "/api/auth/password/reset",
+    "/api/auth/email/verify",
+    "/api/auth/otp/request",
+    "/api/auth/otp/verify",
     // Public keys are public. Requiring a token here would be a circular dependency - you would
     // need a validated token to fetch the keys used to validate tokens.
     "/.well-known/jwks.json",
@@ -126,6 +133,16 @@ public class SecurityConfig {
                     // eligibility endpoint (/products/{id}/me) and every write stay authenticated.
                     .pathMatchers(
                         HttpMethod.GET, "/api/ratings/products/*", "/api/ratings/products/*/summary")
+                    .permitAll()
+                    // Orders (Phase 6): the pincode delivery estimate is a public read.
+                    .pathMatchers(HttpMethod.GET, "/api/orders/delivery-estimate")
+                    .permitAll()
+                    // Payments (Phase 6): the mode/publishable-key config is public; the Stripe
+                    // webhook carries no JWT (it is authenticated by its Stripe-Signature header,
+                    // verified in payment-service over the raw body).
+                    .pathMatchers(HttpMethod.GET, "/api/payments/config")
+                    .permitAll()
+                    .pathMatchers(HttpMethod.POST, "/api/payments/webhook")
                     .permitAll()
                     // /api/auth/me, /api/auth/validate, /api/products POST/PUT/DELETE and anything
                     // added later.

@@ -17,6 +17,10 @@ interface AuthState {
   status: AuthStatus
   user: AuthUser | null
   login: (email: string, password: string) => Promise<void>
+  /** Phone + one-time code sign-in. */
+  loginWithOtp: (phone: string, code: string) => Promise<void>
+  /** Re-reads /me (e.g. after verifying email or phone). */
+  refreshUser: () => Promise<void>
   /** Creates the account, then signs in. */
   register: (email: string, password: string, displayName: string) => Promise<void>
   logout: () => Promise<void>
@@ -58,6 +62,26 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
     } catch (error) {
       setAccessToken(null)
       throw error
+    }
+  },
+
+  loginWithOtp: async (phone, code) => {
+    const token = await authApi.verifyOtp(phone, code)
+    setAccessToken(token.accessToken)
+    try {
+      await enterAuthenticated(set, await authApi.me())
+    } catch (error) {
+      setAccessToken(null)
+      throw error
+    }
+  },
+
+  refreshUser: async () => {
+    if (get().status !== 'authenticated') return
+    try {
+      set({ user: await authApi.me() })
+    } catch {
+      // Keep the cached user; the next navigation or request will surface a real session problem.
     }
   },
 

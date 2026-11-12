@@ -39,7 +39,7 @@ export function CategoryTiles({ categories }: { categories: CategoryNode[] }) {
             <li key={category.id} style={{ animation: `slideUpStagger 0.75s cubic-bezier(0.22,1,0.36,1) ${i * 0.08}s both` }}>
               <Link
                 to={{ pathname: '/', search: toSearchString({ categoryId: category.id }) }}
-                className="press group flex h-full flex-col items-center gap-2 rounded-[1.75rem] border-2 border-outline bg-surface p-4 text-center shadow-card transition-all duration-450 ease-[cubic-bezier(0.34,1.56,0.64,1)] hover:-translate-x-1 hover:-translate-y-1 hover:shadow-card-hover"
+                className="press group flex h-full flex-col items-center gap-2 rounded-[1.75rem] border-2 border-outline bg-surface p-4 text-center shadow-card transition-all duration-700 ease-[var(--ease-spring)] hover:-translate-x-1 hover:-translate-y-1 hover:shadow-card-hover"
                 style={{ ['--tile' as string]: `var(--color-${hue})` }}
               >
                 <span className="relative flex h-16 w-16 items-center justify-center">
@@ -53,7 +53,7 @@ export function CategoryTiles({ categories }: { categories: CategoryNode[] }) {
                     <circle cx="58" cy="17" r="3.5" fill="hsl(var(--tile))" stroke="currentColor" strokeWidth="1.5" />
                   </svg>
                   <span
-                    className="relative flex h-14 w-14 items-center justify-center rounded-full border-2 border-ink text-white shadow-[3px_3px_0_hsl(var(--color-ink))] transition-transform duration-700 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:scale-110"
+                    className="relative flex h-14 w-14 items-center justify-center rounded-full border-2 border-ink text-white shadow-[3px_3px_0_hsl(var(--color-ink))] transition-transform duration-1000 ease-[var(--ease-spring)] group-hover:scale-110"
                     style={{ background: 'hsl(var(--tile))' }}
                   >
                     <Icon className="w-7 h-7 drop-shadow-[1px_1px_0_hsl(var(--color-ink))]" />

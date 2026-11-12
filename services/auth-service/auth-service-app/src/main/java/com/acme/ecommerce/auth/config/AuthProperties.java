@@ -25,6 +25,7 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * @param rateLimit per-IP soft throttle
  * @param oauth2 Google OIDC login
  * @param housekeeping dead-row sweep
+ * @param storefront storefront origin for links in emails
  */
 @ConfigurationProperties(prefix = "auth")
 public record AuthProperties(
@@ -35,7 +36,15 @@ public record AuthProperties(
     @DefaultValue Lockout lockout,
     @DefaultValue RateLimit rateLimit,
     @DefaultValue Oauth2 oauth2,
-    @DefaultValue Housekeeping housekeeping) {
+    @DefaultValue Housekeeping housekeeping,
+    @DefaultValue Storefront storefront) {
+
+  /**
+   * Storefront links used in emails (password reset, email verification).
+   *
+   * @param baseUrl origin of the storefront, no trailing slash
+   */
+  public record Storefront(@DefaultValue("http://localhost:3000") String baseUrl) {}
 
   /**
    * Access-token issuance.

@@ -5,7 +5,8 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ErrorAlert } from './ErrorAlert'
-import { inputClass, secondaryButtonClass } from './Form'
+import { secondaryButtonClass } from './Form'
+import { ThemedSelect } from './ThemedSelect'
 import { CheckBadgeIcon } from './Icons'
 import { ReviewStars } from './ReviewStars'
 import { errorMessage } from '../lib/errors'
@@ -106,23 +107,7 @@ export function ReviewList({ productId, refreshKey, authenticated, ownReviewId }
           Customer reviews
           {totalElements > 0 && <span className="font-normal text-on-surface-muted"> ({totalElements})</span>}
         </h3>
-        <div className="flex items-center gap-2">
-          <label htmlFor="review-sort" className="text-sm text-on-surface-muted">
-            Sort by
-          </label>
-          <select
-            id="review-sort"
-            value={sort}
-            onChange={(e) => setSort(e.target.value as ReviewSort)}
-            className={`${inputClass} w-auto py-1.5 text-sm`}
-          >
-            {SORTS.map((s) => (
-              <option key={s.value} value={s.value}>
-                {s.label}
-              </option>
-            ))}
-          </select>
-        </div>
+        <ThemedSelect id="review-sort" label="Sort by" value={sort} options={SORTS} onChange={setSort} />
       </div>
 
       {error && <ErrorAlert message={error} onDismiss={() => setError(undefined)} />}

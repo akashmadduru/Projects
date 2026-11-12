@@ -39,4 +39,10 @@ public interface UserAccountRepository extends JpaRepository<UserAccount, UUID> 
 
   /** Existence check for registration. Cheaper than loading the row we are about to reject. */
   boolean existsByEmail(String email);
+
+  /** The account that owns a VERIFIED phone number (at most one, by partial unique index). */
+  @EntityGraph(attributePaths = "roles")
+  Optional<UserAccount> findWithRolesByPhoneAndPhoneVerifiedTrue(String phone);
+
+  boolean existsByPhoneAndPhoneVerifiedTrueAndIdNot(String phone, UUID id);
 }

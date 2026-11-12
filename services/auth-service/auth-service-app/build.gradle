@@ -26,9 +26,12 @@ dependencies {
 
     implementation project(':libs:common-web')
     implementation project(':libs:common-security')
+    implementation project(':services:notification-service:notification-service-api')
 
     implementation libs.bundles.service.web
     implementation libs.bundles.service.discovery.client
+    // Phase 6: calls notification-service (email/sms) over Feign.
+    implementation libs.spring.cloud.starter.openfeign
     implementation libs.bundles.persistence.postgres
 
     // UserSessionCache's Redis client (Phase 2 - see docs/HLD-event-driven-inventory.md).

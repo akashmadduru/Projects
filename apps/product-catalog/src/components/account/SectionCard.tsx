@@ -19,7 +19,7 @@ export function SectionCard({ title, icon, action, id, className = '', children 
   return (
     <section
       aria-labelledby={headingId}
-      className={`rounded-[1.75rem] border-2 border-outline bg-surface p-5 shadow-card transition-shadow duration-500 hover:shadow-card-hover sm:p-6 ${className}`}
+      className={`rounded-[1.75rem] border-2 border-outline bg-surface p-5 shadow-card transition-shadow duration-700 hover:shadow-card-hover sm:p-6 ${className}`}
     >
       <header className="mb-4 flex items-center justify-between gap-3">
         <h2 id={headingId} className="font-display flex items-center gap-2 text-xl text-on-surface">

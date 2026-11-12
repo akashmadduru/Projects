@@ -26,11 +26,11 @@ function ProductCardComponent({ product }: Props) {
   const lowStock = quantity != null && quantity > 0 && quantity <= LOW_STOCK
 
   return (
-    <article className="group relative flex h-full flex-col overflow-hidden rounded-[1.75rem] border-2 border-outline bg-surface shadow-card transition-all duration-450 ease-[cubic-bezier(0.34,1.56,0.64,1)] hover:-translate-x-1 hover:-translate-y-1.5 hover:shadow-card-hover has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-primary has-[a:focus-visible]:ring-offset-2 has-[a:focus-visible]:ring-offset-background">
+    <article className="group relative flex h-full flex-col overflow-hidden rounded-[1.75rem] border-2 border-outline bg-surface shadow-card transition-all duration-700 ease-[var(--ease-spring)] hover:-translate-x-1 hover:-translate-y-1.5 hover:shadow-card-hover has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-primary has-[a:focus-visible]:ring-offset-2 has-[a:focus-visible]:ring-offset-background">
       {/* Diner stripe that sweeps in on hover. */}
       <span
         aria-hidden="true"
-        className="retro-stripes absolute inset-x-0 top-0 z-20 h-1.5 origin-left scale-x-0 transition-transform duration-700 ease-out group-hover:scale-x-100"
+        className="retro-stripes absolute inset-x-0 top-0 z-20 h-1.5 origin-left scale-x-0 transition-transform duration-1000 ease-out group-hover:scale-x-100"
       />
       <div className="relative aspect-square overflow-hidden border-b-2 border-outline bg-surface-variant">
         <div aria-hidden="true" className="bg-atomic-pattern absolute inset-0" />
@@ -60,7 +60,7 @@ function ProductCardComponent({ product }: Props) {
           {/* The stretched link makes the whole card clickable without nesting the buttons in it. */}
           <Link
             to={`/products/${product.id}`}
-            className="transition-colors duration-300 after:absolute after:inset-0 after:content-[''] focus-visible:outline-none group-hover:text-primary"
+            className="transition-colors duration-500 after:absolute after:inset-0 after:content-[''] focus-visible:outline-none group-hover:text-primary"
           >
             {product.name}
           </Link>

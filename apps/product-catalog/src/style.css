@@ -4,11 +4,27 @@
 @config "../tailwind.config.ts";
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
-/* Unsized `transition-*` utilities (colors, shadow, transform, ...) inherit these. Slightly slower
-   than Tailwind's 150ms, with a long ease-out tail so movement settles softly. */
+/* Unsized `transition-*` utilities (colors, shadow, transform, ...) inherit these. Deliberately
+   slow, with a long ease-out tail so movement glides in and settles softly. */
 @theme {
-  --default-transition-duration: 350ms;
+  --default-transition-duration: 550ms;
   --default-transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Motion tokens: one place to tune the feel of every transition and animation below.
+   --ease-smooth   long expo-style ease-out: fast start, very soft landing (default)
+   --ease-glide    symmetric ease-in-out for things that move across the screen
+   --ease-spring   gentle overshoot (was 1.56, which read as bouncy)
+   --ease-exit     ease-in for things leaving; exits stay shorter than entrances */
+:root {
+  --ease-smooth: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-glide: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-spring: cubic-bezier(0.34, 1.22, 0.64, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 0.6, 1);
+  --motion-fast: 380ms;
+  --motion-base: 600ms;
+  --motion-slow: 900ms;
+  --motion-slower: 1200ms;
 }
 
 /* =============================================================================
@@ -133,7 +149,9 @@ body {
   -moz-osx-font-smoothing: grayscale;
   background-color: hsl(var(--color-background));
   color: hsl(var(--color-on-surface));
-  transition: background-color 450ms ease, color 450ms ease;
+  transition:
+    background-color var(--motion-slow) var(--ease-smooth),
+    color var(--motion-slow) var(--ease-smooth);
 }
 
 h1,
@@ -256,7 +274,7 @@ h3.font-body {
   z-index: -1;
   background: linear-gradient(110deg, transparent 30%, hsl(45 100% 97% / 0.55) 50%, transparent 70%);
   transform: translateX(-120%);
-  transition: transform 900ms cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 1400ms var(--ease-glide);
 }
 
 .shine:hover::after {
@@ -266,11 +284,11 @@ h3.font-body {
 /* Tactile press: the control sinks into its own offset shadow. */
 .press {
   transition:
-    transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1),
-    box-shadow 260ms ease,
-    background-color 300ms ease,
-    color 300ms ease,
-    opacity 300ms ease;
+    transform var(--motion-fast) var(--ease-spring),
+    box-shadow var(--motion-fast) var(--ease-smooth),
+    background-color var(--motion-base) var(--ease-smooth),
+    color var(--motion-base) var(--ease-smooth),
+    opacity var(--motion-base) var(--ease-smooth);
 }
 
 .press:active:not(:disabled) {
@@ -279,11 +297,11 @@ h3.font-body {
 }
 
 .transition-smooth {
-  transition: all 400ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: all var(--motion-base) var(--ease-smooth);
 }
 
 .hover-scale {
-  transition: transform 400ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform var(--motion-base) var(--ease-smooth);
 }
 
 .hover-scale:hover {
@@ -541,47 +559,47 @@ h3.font-body {
 }
 
 .animate-fade-in {
-  animation: fadeIn 0.45s ease-out both;
+  animation: fadeIn 700ms var(--ease-smooth) both;
 }
 
 .animate-fade-out {
-  animation: fadeOut 0.35s ease-in both;
+  animation: fadeOut 500ms var(--ease-exit) both;
 }
 
 .animate-slide-up {
-  animation: slideUp 0.65s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: slideUp 950ms var(--ease-smooth) both;
 }
 
 .animate-page-in {
-  animation: pageIn 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: pageIn 1100ms var(--ease-smooth) both;
 }
 
 .animate-slide-in-right {
-  animation: slideInRight 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: slideInRight 800ms var(--ease-smooth) both;
 }
 
 .animate-slide-out-right {
-  animation: slideOutRight 0.35s cubic-bezier(0.4, 0, 0.6, 1) both;
+  animation: slideOutRight 500ms var(--ease-exit) both;
 }
 
 .animate-slide-in-left {
-  animation: slideInLeft 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: slideInLeft 800ms var(--ease-smooth) both;
 }
 
 .animate-slide-out-left {
-  animation: slideOutLeft 0.35s cubic-bezier(0.4, 0, 0.6, 1) both;
+  animation: slideOutLeft 500ms var(--ease-exit) both;
 }
 
 .animate-pop {
-  animation: pop 0.65s cubic-bezier(0.34, 1.56, 0.64, 1);
+  animation: pop 900ms var(--ease-spring);
 }
 
 .animate-burst {
-  animation: burst 0.9s ease-out forwards;
+  animation: burst 1200ms var(--ease-smooth) forwards;
 }
 
 .animate-bump {
-  animation: bump 0.7s cubic-bezier(0.34, 1.56, 0.64, 1);
+  animation: bump 950ms var(--ease-spring);
 }
 
 .animate-toast-countdown {
@@ -591,7 +609,7 @@ h3.font-body {
 
 .animate-shimmer {
   background-size: 200% 100%;
-  animation: shimmer 2s infinite;
+  animation: shimmer 2.8s var(--ease-glide) infinite;
 }
 
 .skeleton-loading {
@@ -602,15 +620,15 @@ h3.font-body {
     hsl(var(--color-surface-variant)) 90%
   );
   background-size: 200% 100%;
-  animation: shimmer 1.5s ease-in-out infinite;
+  animation: shimmer 2.2s var(--ease-glide) infinite;
 }
 
 .animate-star-fill {
-  animation: starFill 0.45s ease-out both;
+  animation: starFill 700ms var(--ease-smooth) both;
 }
 
 .animate-counter {
-  animation: counterCount 0.9s ease-out both;
+  animation: counterCount 1200ms var(--ease-smooth) both;
 }
 
 @media (prefers-reduced-motion: reduce) {

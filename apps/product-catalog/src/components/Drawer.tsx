@@ -15,7 +15,8 @@ interface Props {
   footer?: React.ReactNode
 }
 
-const EXIT_MS = 350
+// Must match the slide-out / fade-out durations in style.css (500ms).
+const EXIT_MS = 500
 
 export function Drawer({ open, onClose, title, side = 'right', children, footer }: Props) {
   const titleId = useId()

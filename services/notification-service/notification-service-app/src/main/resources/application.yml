@@ -1,0 +1,80 @@
+# =============================================================================
+# notification-service configuration (stateless: no database).
+# Dev/docker-compose defaults; mail goes to the mailpit container (UI :8025).
+# =============================================================================
+spring:
+  application:
+    name: notification-service
+
+  threads:
+    virtual:
+      enabled: true
+
+  mail:
+    host: ${MAIL_HOST:localhost}
+    port: ${MAIL_PORT:1025}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail.smtp.connectiontimeout: 3000
+      mail.smtp.timeout: 5000
+      mail.smtp.writetimeout: 5000
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+
+  web:
+    error:
+      whitelabel:
+        enabled: false
+      include-stacktrace: never
+      include-message: never
+
+server:
+  port: ${SERVER_PORT:8090}
+  shutdown: graceful
+
+notification:
+  # Shared secret for /internal/** (X-Internal-Token). No default: fail closed.
+  internal-token: ${INTERNAL_API_TOKEN:}
+  sender: ${NOTIFICATION_SENDER:no-reply@acme.local}
+  storefront-base-url: ${STOREFRONT_BASE_URL:http://localhost:3000}
+  sms-mailbox-domain: acme.local
+
+eureka:
+  client:
+    enabled: ${EUREKA_CLIENT_ENABLED:true}
+    service-url:
+      defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:http://localhost:8761/eureka/}
+    registry-fetch-interval-seconds: 5
+    healthcheck:
+      enabled: true
+  instance:
+    prefer-ip-address: true
+    lease-renewal-interval-in-seconds: 10
+    lease-expiration-duration-in-seconds: 30
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      show-details: never
+      probes:
+        enabled: true
+  health:
+    # A down SMTP relay must not flip the service DOWN (and out of Eureka).
+    mail:
+      enabled: false
+  metrics:
+    tags:
+      application: notification-service
+
+logging:
+  level:
+    root: INFO
+    "[com.acme.ecommerce.notification]": INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%X{correlationId:-}] %logger{36} - %msg%n"

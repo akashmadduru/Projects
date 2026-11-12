@@ -59,7 +59,7 @@ export function ActiveFilters({ query, categories, onChange, onClearAll }: Props
           aria-label={`Remove filter ${chip.label}`}
         >
           {chip.label}
-          <CloseIcon className="w-3.5 h-3.5 transition-transform duration-300 group-hover:rotate-90" />
+          <CloseIcon className="w-3.5 h-3.5 transition-transform duration-500 group-hover:rotate-90" />
         </button>
       ))}
       <button type="button" onClick={onClearAll} className="press text-sm font-semibold text-vivid-pink hover:underline">
