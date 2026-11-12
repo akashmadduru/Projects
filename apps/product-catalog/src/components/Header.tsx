@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom'
 import { CartIcon, HeartIcon } from './Icons'
 import { Logo } from './Logo'
 import { SearchBar } from './SearchBar'
+import { AccountMenu } from './AccountMenu'
 import { ThemeToggle } from './ThemeToggle'
 import { useScrolled } from '../hooks/useScrolled'
 import { useCartStore, useUiStore, useWishlistStore } from '../stores'
@@ -34,12 +35,12 @@ export function Header() {
 
   return (
     <header
-      className={`bg-brand-gradient sticky top-0 z-50 border-b-2 border-ink transition-shadow duration-300 ${
+      className={`bg-brand-gradient sticky top-0 z-50 border-b-2 border-ink transition-shadow duration-450 ${
         scrolled ? 'shadow-[0_4px_0_hsl(var(--color-ink)/0.25)]' : ''
       }`}
     >
       <div
-        className={`mx-auto flex max-w-[1400px] flex-wrap items-center gap-x-4 gap-y-3 px-4 transition-[padding] duration-300 sm:px-6 lg:flex-nowrap lg:px-8 ${
+        className={`mx-auto flex max-w-[1400px] flex-wrap items-center gap-x-4 gap-y-3 px-4 transition-[padding] duration-450 sm:px-6 lg:flex-nowrap lg:px-8 ${
           scrolled ? 'py-2' : 'py-3'
         }`}
       >
@@ -52,18 +53,19 @@ export function Header() {
         <div className="ml-auto flex items-center gap-1">
           <Link to="/wishlist" className={action} aria-label={`Wishlist, ${wishlistCount} items`}>
             <span className="relative">
-              <HeartIcon className="w-6 h-6 transition-transform duration-300 group-hover:scale-110 group-hover:text-vivid-pink" />
+              <HeartIcon className="w-6 h-6 transition-transform duration-450 group-hover:scale-110 group-hover:text-vivid-pink" />
               <CountBadge count={wishlistCount} />
             </span>
             <span className="hidden sm:inline">Wishlist</span>
           </Link>
           <button type="button" onClick={openCart} className={action} aria-label={`Cart, ${cartCount} items`}>
             <span className="relative">
-              <CartIcon className="w-6 h-6 transition-transform duration-300 group-hover:-rotate-6 group-hover:scale-110" />
+              <CartIcon className="w-6 h-6 transition-transform duration-450 group-hover:-rotate-6 group-hover:scale-110" />
               <CountBadge count={cartCount} />
             </span>
             <span className="hidden sm:inline">Cart</span>
           </button>
+          <AccountMenu />
           <ThemeToggle />
         </div>
       </div>

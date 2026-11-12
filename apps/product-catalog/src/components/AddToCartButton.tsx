@@ -5,6 +5,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { CartIcon } from './Icons'
+import { effectivePrice } from '../lib/price'
 import { useCartStore, useUiStore } from '../stores'
 import type { Product } from '../types'
 
@@ -31,7 +32,7 @@ export function AddToCartButton({ product, quantity = 1, size = 'sm', className 
     e.stopPropagation()
     addItem(product.id, quantity, {
       name: product.name,
-      priceAmount: product.priceAmount,
+      priceAmount: effectivePrice(product),
       priceCurrency: product.priceCurrency,
       image: product.images[0],
     })
@@ -62,7 +63,7 @@ export function AddToCartButton({ product, quantity = 1, size = 'sm', className 
         </span>
       ) : (
         <>
-          <CartIcon className={`transition-transform duration-300 group-hover/btn:-rotate-12 group-hover/btn:scale-110 ${size === 'lg' ? 'w-5 h-5' : 'w-4 h-4'}`} />
+          <CartIcon className={`transition-transform duration-450 group-hover/btn:-rotate-12 group-hover/btn:scale-110 ${size === 'lg' ? 'w-5 h-5' : 'w-4 h-4'}`} />
           {outOfStock ? 'Unavailable' : 'Add to cart'}
         </>
       )}

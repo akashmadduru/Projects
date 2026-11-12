@@ -135,7 +135,7 @@ describe('ProductGrid', () => {
 
       items.forEach((item, index) => {
         const style = item.getAttribute('style')
-        const expectedDelay = index * 0.05
+        const expectedDelay = index * 0.07
 
         // Check if delay is in the animation string
         expect(style).toContain(`${expectedDelay}s`)
@@ -148,17 +148,17 @@ describe('ProductGrid', () => {
       const item = container.querySelector('[style*="animation"]')
       const style = item?.getAttribute('style')
 
-      // Animation duration should be 0.6s
-      expect(style).toContain('0.6s')
+      // Slow, soft entrance: 0.9s
+      expect(style).toContain('0.9s')
     })
 
-    it('should use ease-out timing function', () => {
+    it('should use a smooth ease-out curve', () => {
       const { container } = render(<ProductGrid products={productsForGrid} />)
 
       const item = container.querySelector('[style*="animation"]')
       const style = item?.getAttribute('style')
 
-      expect(style).toContain('ease-out')
+      expect(style).toContain('cubic-bezier')
     })
 
     it('should use "both" fill mode', () => {

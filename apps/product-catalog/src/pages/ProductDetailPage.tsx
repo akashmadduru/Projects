@@ -10,8 +10,8 @@ import { CheckBadgeIcon, ChevronRightIcon, MinusIcon, PlusIcon } from '../compon
 import { PriceBlock } from '../components/PriceBlock'
 import { ProductCard } from '../components/ProductCard'
 import { ProductImage } from '../components/ProductImage'
-import { RatingBreakdown } from '../components/RatingBreakdown'
 import { RatingChip } from '../components/RatingChip'
+import { ReviewsSection } from '../components/ReviewsSection'
 import { SpecificationTable } from '../components/SpecificationTable'
 import { WishlistButton } from '../components/WishlistButton'
 import { toSearchString, useCategories, useProduct, useProducts } from '../hooks'
@@ -35,7 +35,7 @@ function productDetails(product: Product): Record<string, unknown> {
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-[1.75rem] border-2 border-outline bg-surface p-5 shadow-card transition-shadow duration-300 hover:shadow-card-hover sm:p-6">
+    <section className="rounded-[1.75rem] border-2 border-outline bg-surface p-5 shadow-card transition-shadow duration-450 hover:shadow-card-hover sm:p-6">
       <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-on-surface">
         <Starburst className="h-5 w-5 text-accent-2" />
         {title}
@@ -165,7 +165,7 @@ export function ProductDetailPage() {
                   onClick={() => setImageIndex(i)}
                   aria-label={`Show image ${i + 1} of ${images.length}`}
                   aria-pressed={i === imageIndex}
-                  className={`press h-20 w-20 shrink-0 overflow-hidden rounded-xl border-2 bg-surface transition-all duration-200 ${
+                  className={`press h-20 w-20 shrink-0 overflow-hidden rounded-xl border-2 bg-surface transition-all duration-300 ${
                     i === imageIndex
                       ? 'border-primary ring-4 ring-primary/20'
                       : 'border-outline opacity-75 hover:-translate-y-0.5 hover:opacity-100'
@@ -244,23 +244,18 @@ export function ProductDetailPage() {
               </button>
             </div>
             <AddToCartButton product={product} quantity={quantity} size="lg" className="flex-1" />
-            <WishlistButton productId={product.id} productName={product.name} variant="outline" />
+            <WishlistButton product={product} variant="outline" />
           </div>
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card title="Specifications">
-          <SpecificationTable specifications={productDetails(product)} />
-        </Card>
-        <div id="ratings" className="scroll-mt-24">
+      <Card title="Specifications">
+        <SpecificationTable specifications={productDetails(product)} />
+      </Card>
+      <div id="ratings" className="scroll-mt-24">
+        <div id="reviews" className="scroll-mt-24">
           <Card title="Ratings & reviews">
-            <RatingBreakdown
-              averageRating={product.averageRating}
-              ratingCount={product.ratingCount}
-              reviewCount={product.reviewCount}
-              distribution={product.ratingDistribution}
-            />
+            <ReviewsSection product={product} />
           </Card>
         </div>
       </div>

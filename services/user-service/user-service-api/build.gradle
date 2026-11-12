@@ -1,0 +1,11 @@
+// Published contract of the service: DTOs (and Feign-shaped client interfaces where another
+// service consumes this one). Same rules as inventory-service-api: no entities, no Boot app.
+plugins { id 'java-library' }
+
+dependencies {
+    api project(':libs:common-core')
+
+    compileOnly libs.jakarta.validation.api
+    compileOnly libs.spring.web
+    compileOnly libs.feign.core
+}

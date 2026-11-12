@@ -42,7 +42,7 @@ function BackToTop() {
       aria-label="Back to top"
       tabIndex={visible ? 0 : -1}
       aria-hidden={!visible}
-      className={`press bg-cta-gradient fixed bottom-6 right-6 z-40 rounded-full border-2 border-ink p-3 text-on-accent shadow-cta transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] hover:-translate-y-1 ${
+      className={`press bg-cta-gradient fixed bottom-6 right-6 z-40 rounded-full border-2 border-ink p-3 text-on-accent shadow-cta transition-all duration-450 ease-[cubic-bezier(0.34,1.56,0.64,1)] hover:-translate-y-1 ${
         visible ? 'translate-y-0 scale-100 opacity-100' : 'pointer-events-none translate-y-6 scale-75 opacity-0'
       }`}
     >

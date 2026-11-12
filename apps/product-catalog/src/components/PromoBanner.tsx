@@ -34,7 +34,7 @@ export function PromoBanner() {
         className="group absolute right-[21rem] top-10 z-10 hidden h-32 w-32 items-center justify-center xl:flex"
         aria-label="Deals of the day: 20% off or more"
       >
-        <Seal className="absolute inset-0 h-full w-full text-deal drop-shadow-[3px_3px_0_hsl(var(--color-ink))] transition-transform duration-700 group-hover:rotate-45" />
+        <Seal className="absolute inset-0 h-full w-full text-deal drop-shadow-[3px_3px_0_hsl(var(--color-ink))] transition-transform duration-1000 group-hover:rotate-45" />
         <span className="font-display relative rotate-[-12deg] text-center text-sm leading-tight text-white">
           DEALS
           <br />

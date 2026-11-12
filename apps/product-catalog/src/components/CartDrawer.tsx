@@ -2,12 +2,12 @@
  * Mini cart: line items with quantity steppers and a subtotal per currency
  */
 
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Drawer } from './Drawer'
 import { CartIcon, MinusIcon, PlusIcon, TrashIcon } from './Icons'
 import { ProductImage } from './ProductImage'
 import { formatMoney } from '../lib/format'
-import { useCartStore, useUiStore } from '../stores'
+import { useAuthStore, useCartStore, useUiStore } from '../stores'
 
 export function CartDrawer() {
   const open = useUiStore((s) => s.cartOpen)
@@ -15,6 +15,8 @@ export function CartDrawer() {
   const items = useCartStore((s) => s.items)
   const updateQuantity = useCartStore((s) => s.updateQuantity)
   const removeItem = useCartStore((s) => s.removeItem)
+  const authStatus = useAuthStore((s) => s.status)
+  const navigate = useNavigate()
 
   // Items may come from different currencies; never add USD to EUR.
   const subtotals = new Map<string, number>()
@@ -42,11 +44,14 @@ export function CartDrawer() {
             <p className="text-xs text-on-surface-muted">Taxes and shipping are calculated at checkout.</p>
             <button
               type="button"
-              disabled
-              className="bg-cta-gradient w-full rounded-xl py-3 font-semibold text-on-accent opacity-60"
-              title="Checkout is not available yet"
+              onClick={() => {
+                close()
+                navigate(authStatus === 'authenticated' ? '/checkout' : '/login?next=%2Fcheckout')
+              }}
+              disabled={authStatus === 'unknown'}
+              className="press shine bg-cta-gradient w-full rounded-xl py-3 font-semibold text-on-accent shadow-cta disabled:opacity-60"
             >
-              Checkout coming soon
+              {authStatus === 'authenticated' ? 'Checkout' : 'Sign in to check out'}
             </button>
           </div>
         )

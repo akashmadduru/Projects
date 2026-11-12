@@ -2,16 +2,15 @@
 
 A Spring Boot microservices platform with a Vue admin SPA, built as a Gradle multi-project monorepo.
 
-> **Current state: Phase 1 (1A–1F) complete, plus a Phase 2 event-driven inventory slice.**
-> The build, shared libraries, local infrastructure, service registry, gateway, auth-service,
-> product-service and the Vue admin SPA are all real and verified — `./gradlew build` passes
-> whole-tree. On top of that, product-service write endpoints, a new `inventory-service`, a Kafka
-> (KRaft) event backbone and a Redis-backed auth-service cache are also real and implemented — but
-> that slice is **prototype-grade by explicit design** (no schema registry, no dead-letter queue, no
-> exactly-once delivery — see [`docs/HLD-event-driven-inventory.md`](docs/HLD-event-driven-inventory.md)
-> §2 Non-Goals), and the rest of Phase 2 (search, pricing, categories, product images) is still not
-> started. See the [Roadmap](#roadmap) for what each phase delivered and
-> [Future Work](#future-work-phase-2) for what is deliberately still out of scope.
+> **Current state: Phases 1–5 implemented.**
+> Foundation, Eureka, gateway, auth-service, product-service and the Vue admin SPA (Phase 1);
+> event-driven inventory over Kafka (Phase 2); catalog enrichment and a choreographed saga
+> (Phase 3); rating-service (Phase 4); and **customer accounts (Phase 5)** — email/password and
+> Google sign-in, user/cart/order services, and a React storefront with checkout.
+> Phases 2–5 are **prototype-grade by explicit design** (no schema registry, dead-letter queue,
+> payment, or inventory reservation), and Phase 5 shipped **without automated tests** by decision.
+> See the [Roadmap](#roadmap), [Known gaps](#known-gaps) and the
+> [Tech Debt Register](techdebt/README.md).
 
 ---
 
@@ -32,7 +31,8 @@ A Spring Boot microservices platform with a Vue admin SPA, built as a Gradle mul
 | Caching | Redis (auth-service user-snapshot cache only) | **7 (alpine)** |
 | Testing | JUnit 5, AssertJ, Mockito, Testcontainers 2.0 | — |
 | Quality | Spotless (google-java-format), Checkstyle | — |
-| Frontend | Vue (Phase 1F) | — |
+| Admin frontend | Vue 3 (`apps/admin-product-catalog`) | — |
+| Storefront | React 19, Vite 6, TypeScript 5, Tailwind 4.1, Zustand 5, React Router 7, Vitest + MSW (`apps/product-catalog`) | — |
 
 These versions were verified by actually resolving and building them — see
 [ADR 0001](docs/adr/0001-monorepo-and-build-tooling.md), which also records four real coordinate
@@ -46,11 +46,12 @@ defects the verification caught.
 system_design/
 ├── gradle/libs.versions.toml     Version catalog — single source of truth for ALL versions
 ├── docs/adr/                     Architecture decision records
+├── techdebt/                     Tech debt register (TD-<AREA>-NN ids)
 ├── infra/
-│   ├── docker-compose.yml        postgres + zookeeper + kafka + redis (platform services added by phase)
-│   ├── postgres/init/            First-start SQL: creates auth_db, product_db, inventory_db + owner roles
+│   ├── docker-compose.yml        postgres + zookeeper + kafka + redis + all platform services
+│   ├── postgres/init/            First-start SQL: per-service databases + owner roles
 │   ├── zookeeper/                Notes — coordination only, NOT service discovery
-│   └── scripts/                  generate-keystore.sh (dev RSA keystore for JWT signing)
+│   └── scripts/                  generate-keystore.sh, create-customer-dbs.sql (existing volumes)
 ├── libs/
 │   ├── common-core/              ✅ Error envelope, correlation-id holder, clock abstraction
 │   ├── common-web/               ✅ RFC 9457 problem+json advice, correlation filter, Feign relay
@@ -65,10 +66,17 @@ system_design/
 │   │   ├── product-service-api/  ✅ Published contract — Phase 1E
 │   │   └── product-service-app/  ✅ Catalog reads (Phase 1E) + role-gated writes and Kafka event
 │   │                              publishing (Phase 2 slice) (:8082)
-│   └── inventory-service/        ✅ NEW — event-driven inventory (Phase 2 slice, prototype-grade)
-│       ├── inventory-service-api/  ✅ Published contract (`InventoryClient`, `InventoryResponse`)
-│       └── inventory-service-app/  ✅ Stock-level CRUD + Kafka consumer for `product.events` (:8083)
-└── apps/admin-product-catalog/   ✅ Vue 3 admin SPA — Phase 1F (not a Gradle module)
+│   ├── inventory-service/        ✅ Event-driven inventory (Phase 2, prototype-grade)
+│   │   ├── inventory-service-api/  ✅ Published contract (`InventoryClient`, `InventoryResponse`)
+│   │   └── inventory-service-app/  ✅ Stock-level CRUD + Kafka consumer for `product.events` (:8083)
+│   ├── rating-service/           ✅ Phase 4 — reviews and rating summaries (:8084)
+│   ├── user-service/             ✅ Phase 5 — profile, addresses (:8085)
+│   ├── cart-service/             ✅ Phase 5 — cart, wishlist, anonymous merge (:8086)
+│   └── order-service/            ✅ Phase 5 — idempotent checkout, history, cancel (:8087)
+│       (each of the three Phase 5 services and rating-service has -api and -app modules)
+└── apps/                         (not Gradle modules)
+    ├── product-catalog/          ✅ React storefront (:3000) — browse, auth, cart, checkout, account
+    └── admin-product-catalog/    ✅ Vue 3 admin SPA — Phase 1F
 ```
 
 ✅ = real implementation
@@ -102,9 +110,65 @@ system_design/
 
 ---
 
+## Architecture
+
+```
+ Browser (React storefront :3000 / Vue admin)
+        |  Bearer access token (in memory) + HttpOnly refresh cookie
+        v
+ Gateway :8080 -- JWT validation (JWKS) · deny-by-default · circuit breakers · CORS
+        |  lb:// via Eureka
+        |-> auth-service :8081       users, JWT issuance, Google OIDC, refresh rotation -> auth_db
+        |-> product-service :8082    catalog                                            -> product_db
+        |-> inventory-service :8083  stock                                              -> inventory_db
+        |-> rating-service :8084     reviews                                            -> rating_db
+        |-> user-service :8085       profile, addresses                                 -> user_db
+        |-> cart-service :8086       cart, wishlist                                     -> cart_db
+        `-> order-service :8087      checkout, history, cancel                          -> order_db
+                 |  Feign (read-only, 1s connect / 3s read, no retries)
+                 `-> cart-service · user-service · product-service
+ product-service --product.events (Kafka)--> inventory-service
+```
+
+Key patterns:
+
+- **Database per service**, owned by its own Postgres role; schema managed by Flyway.
+- **Choreography over orchestration** — async Kafka events for denormalization; synchronous calls are
+  narrow and read-only. Consistency is eventual and prototype-grade (no schema registry or DLQ).
+- **Stateless identity** — every customer endpoint takes the user from the JWT `sub`; resources owned
+  by someone else return 404. Services validate tokens independently (audience-checked).
+- **Idempotent checkout** — `POST /api/orders {addressId}` with an `Idempotency-Key`. The server
+  re-prices every line from product-service (sale price if > 0, else list price); client cart
+  prices are display-only. Reusing a key with a different body returns 422 `IDEMPOTENCY_KEY_REUSED`.
+- **Errors** — RFC 9457 problem+json with stable `ErrorCode`s; 5xx never echoes exception messages.
+
+### Customer accounts (Phase 5)
+
+- **Session:** access token in memory only; refresh token is an HttpOnly cookie. On a 401 the client
+  makes one single-flight `POST /api/auth/refresh` and replays the request once; failure redirects
+  to `/login?next=...`. The session is restored on page load via the same refresh call.
+- **Google SSO:** reuses auth-service's OIDC leg (no auth-service code change). The button goes to
+  `http://localhost:8081/oauth2/authorization/google?redirect_uri=<origin>/auth/callback`, then
+  `/auth/callback` completes the normal bootstrap. Allowed redirects are set by
+  `AUTH_ALLOWED_REDIRECT_URIS`.
+- **Anonymous shopping:** cart and wishlist are local until login, then merged server-side and the
+  local copy cleared; logout clears them.
+- **Storefront routes:** `/login`, `/register`, `/auth/callback`, `/checkout`, `/orders/:id`,
+  `/account`, `/account/addresses`, `/account/orders`.
+- **Not included:** payment, inventory reservation at checkout, shipping/tax, order events.
+
+Details: [Phase5-Feature](docs/Phase5-Feature.md) · [Phase5-Changes](docs/Phase5-Changes.md) ·
+[Phase5-DecisionLog](docs/Phase5-DecisionLog.md) · diagrams
+[13](docs/diagrams/13-auth-login-refresh-google-sequence.md),
+[14](docs/diagrams/14-checkout-sequence.md),
+[15](docs/diagrams/15-customer-data-er.md),
+[16](docs/diagrams/16-customer-components.md).
+
+---
+
 ## Backend Documentation
 
-Complete documentation for the three-service backend architecture (product, inventory, rating):
+Complete documentation for the backend architecture (product, inventory, rating, plus the Phase 5 customer services):
 
 | Document | Audience | Coverage |
 |----------|----------|----------|
@@ -113,6 +177,8 @@ Complete documentation for the three-service backend architecture (product, inve
 | **[Backend-EventSystem.md](docs/Backend-EventSystem.md)** | Event consumers, backend engineers | Event choreography, Kafka topics, event types, idempotency, failure scenarios |
 | **[Backend-DataModel.md](docs/Backend-DataModel.md)** | Backend engineers, DBAs | Database schemas, entity relationships, denormalization strategy, indexes, seed data |
 | **[Backend-Operations.md](docs/Backend-Operations.md)** | Ops engineers, SREs | Local dev setup, migrations, health checks, monitoring, troubleshooting |
+| **[Phase 5 docs](docs/Phase5-Feature.md)** | All | Customer accounts: feature overview, changes, decision log, run instructions |
+| **[techdebt/](techdebt/README.md)** | All | Tech debt register with severity, effort and stable IDs |
 | **[Backend-DecisionLog.md](docs/Backend-DecisionLog.md)** | Architects, future maintainers | Why optimistic locking, event choreography, eventual consistency, Feign for reads, no schema registry |
 
 **Quick start for backend developers:**
@@ -187,9 +253,27 @@ On **first** start, `infra/postgres/init/01-schemas.sql` creates:
 | `auth_db` | `auth_service` | `auth_service_local_pwd` |
 | `product_db` | `product_service` | `product_service_local_pwd` |
 | `inventory_db` | `inventory_service` | `inventory_service_local_pwd` |
+| `user_db` / `cart_db` / `order_db` | `user_service` / `cart_service` / `order_service` | `USER_DB_PASSWORD` / `CART_DB_PASSWORD` / `ORDER_DB_PASSWORD` from `infra/.env` |
 
-Those passwords are throwaway local values. The init script only runs when the data volume is empty —
-after editing it, run `down -v` then `up -d`.
+Those passwords are throwaway local values. The init script only runs when the data volume is empty.
+On an **existing** volume, create the Phase 5 databases without wiping data (re-runnable):
+
+```bash
+docker exec -i ecommerce-postgres psql -U postgres < infra/scripts/create-customer-dbs.sql
+```
+
+### Running the customer stack (Phase 5)
+
+```bash
+# infra/.env: USER_DB_PASSWORD, CART_DB_PASSWORD, ORDER_DB_PASSWORD (see infra/.env.example);
+# for Google sign-in also GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET
+docker compose -f infra/docker-compose.yml up -d --build auth-service user-service cart-service order-service
+cd apps/product-catalog && npm install && npm run dev      # http://localhost:3000 (strictPort)
+```
+
+Allow ~30–40 s after a restart before the gateway stops answering 503 (TD-BE-08). The Google
+console redirect URI must be `http://localhost:8081/login/oauth2/code/google`. Knobs:
+`VITE_AUTH_BASE_URL`, `VITE_GOOGLE_SSO_ENABLED=false`, `AUTH_REGISTRATION_ENABLED`.
 
 ### Service registry (Phase 1B)
 
@@ -208,7 +292,7 @@ Basic auth (or mTLS) plus TLS in front of it; that gap is documented, not implem
 > Building the eureka image needs **~3GB available to the Docker engine**. Below that the Gradle
 > build stage's daemon is OOM-killed and reports only "Gradle build daemon disappeared unexpectedly".
 
-Every platform service (gateway, auth-service, product-service, inventory-service) now has a real
+Every platform service (gateway, auth, product, inventory, rating, user, cart, order) has a real
 container block in `infra/docker-compose.yml` — none are placeholders any more.
 
 ### Kafka (Phase 2 slice) — the event backbone
@@ -287,8 +371,19 @@ never from a file on a developer machine.
 | 1E | product-service — catalog CRUD | ✅ Complete (read endpoints only — see [`services/product-service/README.md`](services/product-service/README.md) for what's deliberately deferred) |
 | 1F | Vue admin SPA | ✅ Complete |
 | 2 (slice) | Event-driven inventory: product-service write endpoints, `inventory-service`, Kafka (KRaft) `product.events` topic, Redis-backed auth-service user-snapshot cache | ✅ Implemented, **prototype-grade** — see [`docs/HLD-event-driven-inventory.md`](docs/HLD-event-driven-inventory.md) §2 Non-Goals |
+| 3 | Catalog enrichment and choreographed saga | ✅ Implemented — [HLD](docs/HLD-catalog-enrichment-and-saga.md), [ADR 0003](docs/adr/0003-choreographed-catalog-saga-and-narrow-read-only-cross-service-call.md) |
+| 4 | rating-service (reviews, summaries; storefront review UI) | ✅ Implemented |
+| 5 | Customer accounts: login/register, Google SSO, user/cart/order services, storefront checkout | ✅ Implemented, **no automated tests** — see [Phase5-Feature](docs/Phase5-Feature.md) |
 
-## Future work (Phase 2)
+## Known gaps
+
+Highest-severity items from the [Tech Debt Register](techdebt/README.md): no inventory reservation at
+checkout / oversell (TD-BE-01), no payment/shipping/tax (TD-BE-02), no tests for the Phase 5 services
+and storefront flows (TD-TEST-01/02), a real Google client secret in local `infra/.env` to rotate
+(TD-SEC-01), admin SPA Google login broken (TD-SEC-02), and a stale `http.test.ts` that makes
+`npm run type-check` fail (TD-TEST-03). Phase 5 backend builds use `-x test`.
+
+## Future work
 
 Phase 1 proves one request path end to end (browser → gateway → Eureka resolution → independent
 JWT validation → a real database read/write) across every layer of the platform. A Phase 2 slice

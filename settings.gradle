@@ -52,3 +52,15 @@ include ':services:inventory-service:inventory-service-app' // Phase 2
 // --- rating service --------- ------------------------------------------------
 include ':services:rating-service:rating-service-api' // Phase 4
 include ':services:rating-service:rating-service-app' // Phase 4
+
+// --- user service ------------------------------------------------------------
+include ':services:user-service:user-service-api'
+include ':services:user-service:user-service-app'
+
+// --- cart service (cart + wishlist) -----------------------------------------
+include ':services:cart-service:cart-service-api'
+include ':services:cart-service:cart-service-app'
+
+// --- order service -----------------------------------------------------------
+include ':services:order-service:order-service-api'
+include ':services:order-service:order-service-app'

@@ -3,12 +3,16 @@ package com.acme.ecommerce.rating.web.dto;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/** Request to create a product rating. */
+/**
+ * Body of POST /api/ratings/products/{productId}. Verified-purchase status and the display name are
+ * never accepted from the client - they are derived server-side.
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -19,7 +23,9 @@ public class CreateRatingRequest {
   @Max(value = 5, message = "ratingValue must be at most 5")
   Integer ratingValue;
 
+  @Size(max = 200, message = "reviewTitle must be at most 200 characters")
   String reviewTitle;
+
+  @Size(max = 5000, message = "reviewText must be at most 5000 characters")
   String reviewText;
-  Boolean isVerifiedPurchase;
 }

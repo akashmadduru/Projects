@@ -46,6 +46,16 @@ Start here:
 1. **Phase1-DecisionLog.md** (all decisions; especially Decision 1: CSS vs libraries, Decision 7: Config strategy)
 2. **Phase1-Technical-Debt.md** (Phase 2 recommendations section)
 
+### Feature Documentation (Phase 5: Customer Accounts)
+
+Login, Google SSO and the user/cart/order services.
+
+- **[Feature Overview](./Phase5-Feature.md)** — What was built, how it works, local run instructions
+- **[Technical Changes](./Phase5-Changes.md)** — File-by-file changes and contract deviations
+- **[Architecture Decisions](./Phase5-DecisionLog.md)** — Why (Google via auth-service :8081, checkout orchestration, idempotency)
+- **[Backend API: Customer Services](./Backend-API.md#customer-services-api-phase-5)** — User, cart, wishlist and order endpoints
+- **[Tech Debt Register](../techdebt/README.md)** — Known shortcuts, by area and severity
+
 ### Diagrams & Visual References
 
 - **01-component-tree.md** — Component hierarchy of product-catalog app
@@ -60,6 +70,10 @@ Start here:
 - **10-api-contract-matrix.md** — API endpoint contracts
 - **11-css-custom-properties-map.md** — CSS variable definitions and usage
 - **12-hook-dependencies-store-relationships.md** — React hook and store dependencies
+- **[13-auth-login-refresh-google-sequence.md](./diagrams/13-auth-login-refresh-google-sequence.md)** — Login, token refresh, Google SSO
+- **[14-checkout-sequence.md](./diagrams/14-checkout-sequence.md)** — Idempotent checkout flow
+- **[15-customer-data-er.md](./diagrams/15-customer-data-er.md)** — user_db / cart_db / order_db ER
+- **[16-customer-components.md](./diagrams/16-customer-components.md)** — Customer accounts component diagram
 
 ## Phase 1 Micro-interactions Feature Summary
 
@@ -153,6 +167,7 @@ See Phase1-Feature.md (Future Improvements section) and Phase1-Technical-Debt.md
 | Phase | Date | Feature | Status |
 |---|---|---|---|
 | 1 | November 2026 | Micro-interactions (ripple, star fill, price counter, grid stagger) | ✓ Implemented |
+| 5 | November 2026 | Customer accounts: login, Google SSO, user/cart/order services | Implemented (no tests; see techdebt/) |
 | 2 | TBD | TBD | Planned |
 | 3 | TBD | TBD | Planned |
 

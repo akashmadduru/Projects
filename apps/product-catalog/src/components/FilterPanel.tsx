@@ -48,7 +48,7 @@ function Option({
       type="button"
       onClick={onClick}
       aria-pressed={selected}
-      className={`press flex w-full items-center gap-2 rounded-full border-2 px-3 py-1.5 text-left text-sm transition-all duration-200 ${
+      className={`press flex w-full items-center gap-2 rounded-full border-2 px-3 py-1.5 text-left text-sm transition-all duration-300 ${
         indent ? 'pl-6' : ''
       } ${
         selected

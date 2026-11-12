@@ -13,6 +13,7 @@
 6. [Rating Service API](#rating-service-api)
 7. [Rate Limiting](#rate-limiting)
 8. [Pagination](#pagination)
+9. [Customer Services API (Phase 5)](#customer-services-api-phase-5)
 
 ---
 
@@ -675,6 +676,78 @@ All list endpoints return paginated results with the following structure:
 ```http
 GET /api/products?page=2&size=50&sort=name,desc
 ```
+
+---
+
+## Customer Services API (Phase 5)
+
+Added with customer accounts; see [Phase5-Feature.md](Phase5-Feature.md). All endpoints go through the gateway (8080), require `Authorization: Bearer <jwt>` (any role), and use the JWT `sub` as the user. A resource owned by another user returns 404. Errors are RFC 9457 problem documents.
+
+| Service | Port | Base Path | Database |
+|---------|------|-----------|----------|
+| User | 8085 | `/api/users` | `user_db` |
+| Cart | 8086 | `/api/cart`, `/api/wishlist` | `cart_db` |
+| Order | 8087 | `/api/orders` | `order_db` |
+
+### Additional error codes
+
+| HTTP | Code | When |
+|------|------|------|
+| 404 | ADDRESS_NOT_FOUND | Address missing or not owned (checkout) |
+| 409 | ADDRESS_LIMIT | More than 20 addresses |
+| 409 | CART_EMPTY | Checkout with an empty cart |
+| 409 | PRODUCT_UNAVAILABLE | Product inactive, unpriced or gone |
+| 409 | CURRENCY_MISMATCH | Mixed currencies in a cart/order |
+| 422 | DOMAIN_RULE_VIOLATION | Idempotency-Key reused with a different `addressId` (rule `IDEMPOTENCY_KEY_REUSED`), or more than 50 order lines |
+| 400 | VALIDATION_FAILED | Includes a missing or over-long `Idempotency-Key` |
+| 503 | DEPENDENCY_UNAVAILABLE | cart/user/product service failed during checkout |
+
+5xx problem details are generic; specifics are in service logs. Gateway returns 503 for up to ~30-40s after a downstream restart.
+
+### User Service
+
+| Method | Path | Body | Response |
+|--------|------|------|----------|
+| GET | `/api/users/me` | | `UserProfileResponse {userId, email, displayName, phone, createdAt}` (created on first call) |
+| PUT | `/api/users/me` | `{displayName, phone}` | profile |
+| GET | `/api/users/me/addresses` | | `AddressResponse[]`, default first |
+| POST | `/api/users/me/addresses` | `AddressRequest` | 201 `AddressResponse` (first address becomes default; max 20) |
+| GET | `/api/users/me/addresses/{id}` | | `AddressResponse` |
+| PUT | `/api/users/me/addresses/{id}` | `AddressRequest` (full replace) | `AddressResponse` |
+| DELETE | `/api/users/me/addresses/{id}` | | 204; most recent remaining address becomes default if the default was deleted |
+| PUT | `/api/users/me/addresses/{id}/default` | | `AddressResponse` |
+
+`AddressRequest`: `{label?, fullName, phone?, line1, line2?, city, state?, postalCode, country (ISO-2)}`. `AddressResponse` adds `id`, `isDefault`, `createdAt`, `updatedAt`.
+
+### Cart Service
+
+| Method | Path | Body | Response |
+|--------|------|------|----------|
+| GET | `/api/cart` | | `CartResponse {items, currency\|null, itemCount, subtotal}`; `itemCount` is total quantity |
+| POST | `/api/cart/items` | `{productId, quantity, name, unitPrice, currency, imageUrl?}` | `CartResponse` (adds quantity, capped at 99) |
+| PUT | `/api/cart/items/{productId}` | `{quantity}` 1..99 | `CartResponse`; 404 if absent |
+| DELETE | `/api/cart/items/{productId}` | | 204 (idempotent) |
+| DELETE | `/api/cart` | | 204 |
+| POST | `/api/cart/merge` | `{items: [...]}` max 100 | `CartResponse` (quantities summed, capped at 99, all-or-nothing) |
+| GET | `/api/wishlist` | | `WishlistItemResponse[] {productId, name, price, currency, imageUrl, addedAt}` |
+| PUT | `/api/wishlist/{productId}` | `{name, price, currency, imageUrl?}` | `WishlistItemResponse` (idempotent) |
+| DELETE | `/api/wishlist/{productId}` | | 204 |
+| POST | `/api/wishlist/merge` | `{items: [...]}` max 200 | `WishlistItemResponse[]` (union) |
+
+A cart holds one currency; adding another returns 409 `CURRENCY_MISMATCH`. `CartItemResponse`: `{productId, quantity, name, unitPrice, currency, imageUrl, lineTotal, addedAt}`. Cart names and prices are display snapshots only.
+
+### Order Service
+
+| Method | Path | Notes |
+|--------|------|-------|
+| POST | `/api/orders` | Body `{addressId}`; header `Idempotency-Key` required (max length enforced). 201 new order; 200 original order when the same key and address are replayed. |
+| GET | `/api/orders?page&size` | Max size 50, newest first; paged summaries |
+| GET | `/api/orders/{id}` | 404 if not owned |
+| POST | `/api/orders/{id}/cancel` | PLACED to CANCELLED; already CANCELLED returns 200. No stock release or refund yet. |
+
+`OrderResponse`: `{id, status, currency, totalAmount, placedAt, cancelledAt, shipTo{fullName, phone, line1, line2, city, state, postalCode, country}, items[{productId, sku, name, unitPrice, quantity, lineTotal, imageUrl}]}`. `OrderSummaryResponse`: `{id, status, currency, totalAmount, placedAt, itemCount}`.
+
+Unit price is re-read from product-service at checkout: `salePrice` when positive, else `priceAmount`. Orders snapshot address and prices. Limitations: no payment, inventory reservation, shipping or tax ([techdebt/backend.md](../techdebt/backend.md)).
 
 ---
 

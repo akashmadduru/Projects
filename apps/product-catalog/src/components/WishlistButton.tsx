@@ -5,15 +5,19 @@
 import { useState } from 'react'
 import { Starburst } from './Atomic'
 import { HeartIcon } from './Icons'
+import { effectivePrice } from '../lib/price'
 import { useUiStore, useWishlistStore } from '../stores'
 
+import type { Product } from '../types'
+
 interface Props {
-  productId: string
-  productName: string
+  product: Product
   variant?: 'overlay' | 'outline'
 }
 
-export function WishlistButton({ productId, productName, variant = 'overlay' }: Props) {
+export function WishlistButton({ product, variant = 'overlay' }: Props) {
+  const productId = product.id
+  const productName = product.name
   const saved = useWishlistStore((s) => s.items.some((item) => item.productId === productId))
   const toggle = useWishlistStore((s) => s.toggleItem)
   const notify = useUiStore((s) => s.notify)
@@ -23,7 +27,12 @@ export function WishlistButton({ productId, productName, variant = 'overlay' }: 
   const onClick = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    toggle(productId)
+    toggle(productId, {
+      name: product.name,
+      price: effectivePrice(product),
+      currency: product.priceCurrency,
+      imageUrl: product.images[0],
+    })
     if (!saved) setSaves((n) => n + 1)
     notify(saved ? `Removed ${productName} from your wishlist` : `Saved ${productName} to your wishlist`)
   }

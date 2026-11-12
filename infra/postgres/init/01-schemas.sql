@@ -34,6 +34,26 @@ CREATE ROLE inventory_service WITH LOGIN PASSWORD 'inventory_service_local_pwd';
 CREATE DATABASE inventory_db WITH OWNER inventory_service ENCODING 'UTF8';
 COMMENT ON DATABASE inventory_db IS 'inventory-service: stock levels, event-linked to product.products (no FK - see LLD S4a)';
 
+-- --- user-service ------------------------------------------------------------
+CREATE ROLE user_service WITH LOGIN PASSWORD 'user_service_local_pwd';
+CREATE DATABASE user_db WITH OWNER user_service ENCODING 'UTF8';
+COMMENT ON DATABASE user_db IS 'user-service: customer profiles, addresses';
+
+-- --- cart-service ------------------------------------------------------------
+CREATE ROLE cart_service WITH LOGIN PASSWORD 'cart_service_local_pwd';
+CREATE DATABASE cart_db WITH OWNER cart_service ENCODING 'UTF8';
+COMMENT ON DATABASE cart_db IS 'cart-service: carts, wishlists';
+
+-- --- order-service -----------------------------------------------------------
+CREATE ROLE order_service WITH LOGIN PASSWORD 'order_service_local_pwd';
+CREATE DATABASE order_db WITH OWNER order_service ENCODING 'UTF8';
+COMMENT ON DATABASE order_db IS 'order-service: orders (address and price snapshots)';
+
+-- --- rating-service ----------------------------------------------------------
+CREATE ROLE rating_service WITH LOGIN PASSWORD 'rating_service_local_pwd';
+CREATE DATABASE rating_db WITH OWNER rating_service ENCODING 'UTF8';
+COMMENT ON DATABASE rating_db IS 'rating-service: product ratings, reviews, helpfulness votes';
+
 -- --- lock down the public schema in each database ----------------------------
 -- Postgres 15+ already revokes CREATE on public from PUBLIC, but the grants are
 -- restated explicitly so the intent survives a version change.
@@ -54,16 +74,22 @@ REVOKE ALL ON SCHEMA public FROM PUBLIC;
 GRANT ALL ON SCHEMA public TO inventory_service;
 ALTER DATABASE inventory_db SET search_path TO public;
 
--- --- admin user for local development -----------------------------------------
--- This user is ONLY for local development. Production environments must
--- provision users through proper identity management systems.
+\connect user_db
+REVOKE ALL ON SCHEMA public FROM PUBLIC;
+GRANT ALL ON SCHEMA public TO user_service;
+ALTER DATABASE user_db SET search_path TO public;
 
-\connect auth_db
+\connect cart_db
+REVOKE ALL ON SCHEMA public FROM PUBLIC;
+GRANT ALL ON SCHEMA public TO cart_service;
+ALTER DATABASE cart_db SET search_path TO public;
 
--- Create the admin user in the auth schema
-INSERT INTO auth.users (id, email, email_verified, display_name, status)
-VALUES ('f47ac10b-58cc-4372-a567-0e02b2c3d479'::uuid, 'admin@acme-ecommerce.internal', true, 'Administrator', 'ACTIVE');
+\connect order_db
+REVOKE ALL ON SCHEMA public FROM PUBLIC;
+GRANT ALL ON SCHEMA public TO order_service;
+ALTER DATABASE order_db SET search_path TO public;
 
--- Grant ROLE_ADMIN to the admin user
-INSERT INTO auth.user_roles (user_id, role_id, granted_at)
-VALUES ('f47ac10b-58cc-4372-a567-0e02b2c3d479'::uuid, 1, now());
+\connect rating_db
+REVOKE ALL ON SCHEMA public FROM PUBLIC;
+GRANT ALL ON SCHEMA public TO rating_service;
+ALTER DATABASE rating_db SET search_path TO public;

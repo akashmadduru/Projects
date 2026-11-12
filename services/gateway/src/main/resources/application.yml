@@ -191,6 +191,66 @@ spring:
                     name: inventoryCb
                     fallbackUri: forward:/__fallback/inventory
 
+            # --- user-service: profile + addresses -------------------------------
+            - id: user
+              uri: lb://USER-SERVICE
+              predicates:
+                - Path=/api/users/**
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: userCb
+                    fallbackUri: forward:/__fallback/user
+              metadata:
+                response-timeout: 10000
+                connect-timeout: 2000
+
+            # --- cart-service: cart + wishlist -----------------------------------
+            - id: cart
+              uri: lb://CART-SERVICE
+              predicates:
+                - Path=/api/cart/**,/api/cart,/api/wishlist/**,/api/wishlist
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: cartCb
+                    fallbackUri: forward:/__fallback/cart
+              metadata:
+                response-timeout: 10000
+                connect-timeout: 2000
+
+            # --- order-service: checkout + order history -------------------------
+            # Placing an order makes three synchronous downstream calls, so it gets
+            # the longest slow-call threshold and time limiter of the customer routes.
+            - id: order
+              uri: lb://ORDER-SERVICE
+              predicates:
+                - Path=/api/orders/**,/api/orders
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: orderCb
+                    fallbackUri: forward:/__fallback/order
+              metadata:
+                response-timeout: 10000
+                connect-timeout: 2000
+
+            # --- rating-service: product ratings + reviews ------------------------
+            # Public GETs (list, summary) are opened in SecurityConfig; writes and
+            # /products/{id}/me stay authenticated.
+            - id: rating
+              uri: lb://RATING-SERVICE
+              predicates:
+                - Path=/api/ratings/**
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: ratingCb
+                    fallbackUri: forward:/__fallback/rating
+              metadata:
+                response-timeout: 10000
+                connect-timeout: 2000
+
 # -----------------------------------------------------------------------------
 # The gateway's own settings. Every one is documented on
 # com.acme.ecommerce.gateway.config.GatewayProperties.
@@ -232,7 +292,7 @@ gateway:
     # allow-credentials is required for the refresh cookie.
     allowed-origins: ${GATEWAY_CORS_ALLOWED_ORIGINS:http://localhost:5173}
     allowed-methods: GET,POST,PUT,PATCH,DELETE,OPTIONS
-    allowed-headers: Authorization,Content-Type,X-Correlation-Id
+    allowed-headers: Authorization,Content-Type,X-Correlation-Id,Idempotency-Key
     exposed-headers: X-Correlation-Id
     max-age: 1h
 
@@ -286,6 +346,19 @@ resilience4j:
         # be able to trip each other's circuit, even though the threshold
         # happens to match today.
         slow-call-duration-threshold: 1s
+      userCb:
+        base-config: default
+        slow-call-duration-threshold: 1s
+      cartCb:
+        base-config: default
+        slow-call-duration-threshold: 1s
+      orderCb:
+        base-config: default
+        # Order placement fans out to cart, user and product services.
+        slow-call-duration-threshold: 4s
+      ratingCb:
+        base-config: default
+        slow-call-duration-threshold: 2s
 
   timelimiter:
     configs:
@@ -309,6 +382,19 @@ resilience4j:
       inventoryCb:
         base-config: default
         timeout-duration: 6s
+      userCb:
+        base-config: default
+        timeout-duration: 6s
+      cartCb:
+        base-config: default
+        timeout-duration: 6s
+      orderCb:
+        base-config: default
+        # Above the route's 10s response-timeout so the httpclient reports it.
+        timeout-duration: 11s
+      ratingCb:
+        base-config: default
+        timeout-duration: 8s
 
 server:
   port: ${SERVER_PORT:8080}

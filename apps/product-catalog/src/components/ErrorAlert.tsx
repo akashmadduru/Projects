@@ -48,7 +48,7 @@ export function ErrorAlert({ error, message, onDismiss }: Props) {
         {onDismiss && (
           <button
             onClick={onDismiss}
-            className="flex-shrink-0 text-on-surface hover:text-on-surface/60 font-semibold text-xl transition-colors duration-200 hover:bg-outline/10 rounded-lg p-1"
+            className="flex-shrink-0 text-on-surface hover:text-on-surface/60 font-semibold text-xl transition-colors duration-300 hover:bg-outline/10 rounded-lg p-1"
             aria-label="Dismiss error"
           >
             ×

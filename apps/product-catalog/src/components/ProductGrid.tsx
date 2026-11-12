@@ -34,7 +34,7 @@ export function ProductGrid({ products, showMetadata = false }: Props) {
           <div
             key={product.id}
             style={{
-              animation: `slideUpStagger 0.6s ease-out ${index * 0.05}s both`,
+              animation: `slideUpStagger 0.9s cubic-bezier(0.22,1,0.36,1) ${index * 0.07}s both`,
               transform: 'translateY(0)',
             }}
             className="will-change-transform"

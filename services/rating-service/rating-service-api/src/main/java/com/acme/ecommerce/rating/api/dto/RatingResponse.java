@@ -7,7 +7,14 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/** A product rating/review as exposed to callers. */
+/**
+ * A public rating/review. Deliberately carries NO author user id: the reviewer is identified to the
+ * public only by {@code userDisplayName}.
+ *
+ * <p>{@code isVerifiedPurchase} is a boxed {@code Boolean} so Lombok's getter is {@code
+ * getIsVerifiedPurchase()} and the JSON property is literally {@code isVerifiedPurchase} (a
+ * primitive would serialise as {@code verifiedPurchase}).
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -15,12 +22,11 @@ import lombok.NoArgsConstructor;
 public class RatingResponse {
   private UUID id;
   private UUID productId;
-  private UUID userId;
   private String userDisplayName;
   private int ratingValue;
   private String reviewTitle;
   private String reviewText;
-  private boolean isVerifiedPurchase;
+  private Boolean isVerifiedPurchase;
   private int helpfulCount;
   private int unhelpfulCount;
   private Long version;

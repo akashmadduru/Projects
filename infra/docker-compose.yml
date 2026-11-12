@@ -257,8 +257,12 @@ services:
       # installed and every other endpoint works normally.
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
-      # Registration is OFF by default; this is an internal console.
-      AUTH_REGISTRATION_ENABLED: ${AUTH_REGISTRATION_ENABLED:-false}
+      # EXACT-MATCH allow-list for where Google login may land (comma-separated).
+      # 5173 = admin SPA, 3000 = storefront (product-catalog: `npm run dev` and Docker image). The default must be in the list.
+      AUTH_ALLOWED_REDIRECT_URIS: ${AUTH_ALLOWED_REDIRECT_URIS:-http://localhost:5173/auth/callback,http://localhost:3000/auth/callback}
+      AUTH_DEFAULT_REDIRECT_URI: ${AUTH_DEFAULT_REDIRECT_URI:-http://localhost:5173/auth/callback}
+      # Registration is ON by default: the storefront (product-catalog) lets customers sign up.
+      AUTH_REGISTRATION_ENABLED: ${AUTH_REGISTRATION_ENABLED:-true}
       # UserSessionCache's connection (Phase 2). Resolved on the compose network,
       # not localhost - see the depends_on note above for why this is not a
       # startup gate.
@@ -540,6 +544,143 @@ services:
       timeout: 5s
       retries: 6
       # Boot + Hibernate + Flyway is slower to start than the registry.
+      start_period: 60s
+
+  # ---------------------------------------------------------------------------
+  # user-service - own database (user_db), own least-privileged role (user_service), JWT-validated like
+  # product/inventory-service. DB + role come from postgres/init/01-schemas.sql on
+  # a fresh volume, or scripts/create-customer-dbs.sql on an existing one.
+  # Not gated on auth-service (JWKS is fetched lazily) nor on Kafka (unused).
+  # ---------------------------------------------------------------------------
+  user-service:
+    build:
+      context: ..
+      dockerfile: services/user-service/user-service-app/Dockerfile
+    container_name: ecommerce-user
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: default
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/user_db
+      SPRING_DATASOURCE_USERNAME: user_service
+      SPRING_DATASOURCE_PASSWORD: ${USER_DB_PASSWORD:?set USER_DB_PASSWORD in infra/.env}
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      AUTH_JWT_ISSUER: ${AUTH_JWT_ISSUER:-https://auth.acme-ecommerce.internal}
+      AUTH_JWT_AUDIENCES: ${AUTH_JWT_AUDIENCES:-ecommerce-platform}
+    ports:
+      - "127.0.0.1:${USER_PORT:-8085}:8085"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8085/actuator/health | grep -q '\"status\":\"UP\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 60s
+
+  # ---------------------------------------------------------------------------
+  # cart-service - own database (cart_db), own least-privileged role (cart_service), JWT-validated like
+  # product/inventory-service. DB + role come from postgres/init/01-schemas.sql on
+  # a fresh volume, or scripts/create-customer-dbs.sql on an existing one.
+  # Not gated on auth-service (JWKS is fetched lazily) nor on Kafka (unused).
+  # ---------------------------------------------------------------------------
+  cart-service:
+    build:
+      context: ..
+      dockerfile: services/cart-service/cart-service-app/Dockerfile
+    container_name: ecommerce-cart
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: default
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/cart_db
+      SPRING_DATASOURCE_USERNAME: cart_service
+      SPRING_DATASOURCE_PASSWORD: ${CART_DB_PASSWORD:?set CART_DB_PASSWORD in infra/.env}
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      AUTH_JWT_ISSUER: ${AUTH_JWT_ISSUER:-https://auth.acme-ecommerce.internal}
+      AUTH_JWT_AUDIENCES: ${AUTH_JWT_AUDIENCES:-ecommerce-platform}
+    ports:
+      - "127.0.0.1:${CART_PORT:-8086}:8086"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8086/actuator/health | grep -q '\"status\":\"UP\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 60s
+
+  # ---------------------------------------------------------------------------
+  # order-service - own database (order_db), own least-privileged role (order_service), JWT-validated like
+  # product/inventory-service. DB + role come from postgres/init/01-schemas.sql on
+  # a fresh volume, or scripts/create-customer-dbs.sql on an existing one.
+  # Not gated on auth-service (JWKS is fetched lazily) nor on Kafka (unused).
+  # ---------------------------------------------------------------------------
+  order-service:
+    build:
+      context: ..
+      dockerfile: services/order-service/order-service-app/Dockerfile
+    container_name: ecommerce-order
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: default
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/order_db
+      SPRING_DATASOURCE_USERNAME: order_service
+      SPRING_DATASOURCE_PASSWORD: ${ORDER_DB_PASSWORD:?set ORDER_DB_PASSWORD in infra/.env}
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      AUTH_JWT_ISSUER: ${AUTH_JWT_ISSUER:-https://auth.acme-ecommerce.internal}
+      AUTH_JWT_AUDIENCES: ${AUTH_JWT_AUDIENCES:-ecommerce-platform}
+    ports:
+      - "127.0.0.1:${ORDER_PORT:-8087}:8087"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8087/actuator/health | grep -q '\"status\":\"UP\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 60s
+
+  # ---------------------------------------------------------------------------
+  # rating-service - own database (rating_db), own least-privileged role (rating_service),
+  # JWT-validated like the other services. Verifies purchases via order-service and display
+  # names via user-service (token relayed). Publishes rating.events to Kafka best-effort
+  # after commit: NOT gated on kafka (a broker outage must not block reviews).
+  # ---------------------------------------------------------------------------
+  rating-service:
+    build:
+      context: ..
+      dockerfile: services/rating-service/rating-service-app/Dockerfile
+    container_name: ecommerce-rating
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: default
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/rating_db
+      SPRING_DATASOURCE_USERNAME: rating_service
+      SPRING_DATASOURCE_PASSWORD: ${RATING_DB_PASSWORD:?set RATING_DB_PASSWORD in infra/.env}
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      AUTH_JWT_ISSUER: ${AUTH_JWT_ISSUER:-https://auth.acme-ecommerce.internal}
+      AUTH_JWT_AUDIENCES: ${AUTH_JWT_AUDIENCES:-ecommerce-platform}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    ports:
+      - "127.0.0.1:${RATING_PORT:-8084}:8084"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8084/actuator/health | grep -q '\"status\":\"UP\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
       start_period: 60s
 
 volumes:

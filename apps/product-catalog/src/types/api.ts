@@ -136,6 +136,54 @@ export interface ProductRating {
   createdAt: string
 }
 
+/** Public review as rating-service returns it (no user id). */
+export interface Review {
+  id: string
+  productId: string
+  userDisplayName: string | null
+  ratingValue: number
+  reviewTitle: string | null
+  reviewText: string | null
+  isVerifiedPurchase: boolean
+  helpfulCount: number
+  unhelpfulCount: number
+  version: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ReviewSummary {
+  productId: string
+  averageRating: number | null
+  ratingCount: number
+  reviewCount: number
+  ratingDistribution: RatingCounts | null
+}
+
+/** GET /api/ratings/products/{id}/me */
+export interface MyReviewStatus {
+  canReview: boolean
+  purchased: boolean
+  review: Review | null
+}
+
+export type ReviewSort = 'createdAt,desc' | 'helpfulCount,desc' | 'ratingValue,desc' | 'ratingValue,asc'
+
+export type ReviewVote = 'HELPFUL' | 'UNHELPFUL'
+
+export interface ReviewInput {
+  ratingValue: number
+  reviewTitle?: string
+  reviewText?: string
+}
+
+export interface ReviewPage {
+  reviews: Review[]
+  page: number
+  totalElements: number
+  totalPages: number
+}
+
 export interface InventoryStatus {
   productId: string
   quantity: number

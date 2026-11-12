@@ -41,6 +41,12 @@ dependencies {
     // spring.kafka.* properties bind but no bean is ever created.
     implementation libs.spring.boot.kafka
 
+    // Purchase verification (order-service) and display name (user-service) over Feign; only the
+    // published -api contracts are depended on, never another service's internals.
+    implementation project(':services:order-service:order-service-api')
+    implementation project(':services:user-service:user-service-api')
+    implementation libs.spring.cloud.starter.openfeign
+
     implementation libs.micrometer.registry.prometheus
 
     // Lombok for DTO generation and configuration properties

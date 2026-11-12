@@ -1,71 +1,154 @@
+# =============================================================================
+# rating-service configuration.
+#
+# The unprofiled document is the DEV/DOCKER-COMPOSE configuration; the `prod`
+# document at the bottom records which knobs must move for a real environment.
+# Same shape as user-service. NOTHING SECRET HAS A WORKING DEFAULT except the
+# throwaway local database password (same value as infra/postgres/init/01-schemas.sql).
+# =============================================================================
+
 spring:
   application:
+    # THIS EXACT STRING IS A CONTRACT: Eureka uppercases it to RATING-SERVICE,
+    # the service id the gateway's `rating` route targets (lb://RATING-SERVICE).
     name: rating-service
 
+  threads:
+    virtual:
+      enabled: true
+
   datasource:
-    url: jdbc:postgresql://postgres:5432/rating_db
-    username: rating_service
-    password: rating_service_password
-    driver-class-name: org.postgresql.Driver
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/rating_db}
+    username: ${SPRING_DATASOURCE_USERNAME:rating_service}
+    password: ${SPRING_DATASOURCE_PASSWORD:rating_service_local_pwd}
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 3000
+      pool-name: rating-hikari
 
   jpa:
+    # Flyway owns the schema.
     hibernate:
-      ddl-auto: validate
+      ddl-auto: none
+    open-in-view: false
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.PostgreSQL13Dialect
-        format_sql: true
+        default_schema: rating
         jdbc:
-          batch_size: 20
-          fetch_size: 50
+          time_zone: UTC
+        enable_lazy_load_no_trans: false
 
+  flyway:
+    enabled: true
+    schemas: rating
+    default-schema: rating
+    locations: classpath:db/migration
+    validate-on-migrate: true
+
+  # Producer only (rating.events, consumed by product-service). NOT a hard
+  # startup dependency: the publish is after-commit and best-effort, and the
+  # short max.block.ms bounds how long a broker outage can stall a write.
   kafka:
-    bootstrap-servers: kafka:9092
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
-      acks: all
-    consumer:
-      bootstrap-servers: kafka:9092
-      group-id: rating-service
-      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       properties:
-        spring.json.type.mapping: "com.acme.ecommerce.rating.event.RatingEvent:com.acme.ecommerce.rating.event.RatingEvent"
+        max.block.ms: 2000
 
-  security:
-    oauth2:
-      resourceserver:
-        jwt:
-          issuer-uri: http://auth-service:8081
-          audiences: rating-service
-          jwk-set-uri: http://auth-service:8081/.well-known/jwks.json
+  web:
+    error:
+      whitelabel:
+        enabled: false
+      include-stacktrace: never
+      include-message: never
 
 server:
-  port: 8084
-  servlet:
-    context-path: /
-    compression:
-      enabled: true
-      min-response-size: 1024
+  port: ${SERVER_PORT:8084}
+  shutdown: graceful
 
-logging:
-  level:
-    root: INFO
-    com.acme: DEBUG
-  pattern:
-    console: "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
-    file: "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+rating:
+  jwt:
+    # SAME ENV VARS AND DEFAULTS AS auth-service / gateway / the other services.
+    issuer: ${AUTH_JWT_ISSUER:https://auth.acme-ecommerce.internal}
+    audience: ${AUTH_JWT_AUDIENCES:ecommerce-platform}
+    jwks-service-id: ${RATING_JWKS_SERVICE_ID:AUTH-SERVICE}
+    jwks-path: /.well-known/jwks.json
+    jwks-uri: ${RATING_JWKS_URI:}
+
+# Outbound Feign clients. Resolved through Eureka by service name; SHORT timeouts
+# and NO retries - a slow dependency must fail the review request quickly.
+feign:
+  client:
+    config:
+      order-service:
+        connect-timeout: 1000
+        read-timeout: 3000
+      user-service:
+        connect-timeout: 1000
+        read-timeout: 3000
+
+eureka:
+  client:
+    enabled: ${EUREKA_CLIENT_ENABLED:true}
+    service-url:
+      defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:http://localhost:8761/eureka/}
+    registry-fetch-interval-seconds: 5
+    healthcheck:
+      enabled: true
+  instance:
+    prefer-ip-address: true
+    lease-renewal-interval-in-seconds: 10
+    lease-expiration-duration-in-seconds: 30
 
 management:
   endpoints:
     web:
       exposure:
         include: health,info,prometheus
-  metrics:
-    export:
-      prometheus:
-        enabled: true
   endpoint:
     health:
       show-details: when-authorized
+      probes:
+        enabled: true
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
+  metrics:
+    tags:
+      application: rating-service
+
+logging:
+  level:
+    root: INFO
+    "[com.acme.ecommerce.rating]": INFO
+    org.springframework.web: INFO
+    org.springframework.security: INFO
+    org.hibernate.SQL: INFO
+    org.hibernate.orm.jdbc.bind: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%X{correlationId:-}] %logger{36} - %msg%n"
+
+---
+# PROFILE: prod
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+  datasource:
+    # No working default in production.
+    password: ${SPRING_DATASOURCE_PASSWORD}
+
+logging:
+  level:
+    root: WARN
+    "[com.acme.ecommerce.rating]": INFO
+
+management:
+  endpoint:
+    health:
+      show-details: never

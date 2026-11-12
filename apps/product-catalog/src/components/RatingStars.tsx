@@ -18,7 +18,7 @@ function RatingBar({ stars, count, total }: { stars: number; count: number; tota
       <span className="w-8 text-right text-on-surface-muted">{stars}★</span>
       <div className="flex-1 h-1 bg-surface-variant rounded-full overflow-hidden">
         <div
-          className="h-full bg-on-surface transition-all duration-300"
+          className="h-full bg-on-surface transition-all duration-450"
           style={{ width: `${percentage}%` }}
         />
       </div>

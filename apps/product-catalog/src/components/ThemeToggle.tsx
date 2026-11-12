@@ -16,7 +16,7 @@ export function ThemeToggle() {
       aria-label={`Switch to ${next} mode`}
       title={`Switch to ${next} mode`}
     >
-      <span key={mode} className="block animate-[pop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]">
+      <span key={mode} className="block animate-[pop_0.7s_cubic-bezier(0.34,1.56,0.64,1)]">
         {mode === 'light' ? (
           <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true">
             <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z" strokeLinecap="round" strokeLinejoin="round" />

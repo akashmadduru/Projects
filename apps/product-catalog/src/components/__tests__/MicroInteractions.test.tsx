@@ -61,7 +61,7 @@ describe('Drawer exit transition', () => {
     )
     expect(screen.getByText('contents')).toBeInTheDocument()
 
-    act(() => vi.advanceTimersByTime(220))
+    act(() => vi.advanceTimersByTime(350))
     expect(screen.queryByText('contents')).not.toBeInTheDocument()
   })
 

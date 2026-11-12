@@ -1,0 +1,48 @@
+-- =============================================================================
+-- One-off bootstrap of the customer-facing service databases for an EXISTING
+-- postgres volume (the init scripts only run on an empty volume).
+--
+--   docker exec -i ecommerce-postgres psql -U postgres -v ON_ERROR_STOP=0 < infra/scripts/create-customer-dbs.sql
+--
+-- Re-runnable: roles/databases that already exist are skipped. Passwords are the
+-- local-dev throwaway values that match infra/.env. Mirrors the user_db/cart_db/
+-- order_db blocks in infra/postgres/init/01-schemas.sql.
+-- =============================================================================
+
+SELECT 'CREATE ROLE user_service WITH LOGIN PASSWORD ''user_service_local_pwd'''
+WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'user_service')\gexec
+SELECT 'CREATE ROLE cart_service WITH LOGIN PASSWORD ''cart_service_local_pwd'''
+WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'cart_service')\gexec
+SELECT 'CREATE ROLE order_service WITH LOGIN PASSWORD ''order_service_local_pwd'''
+WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'order_service')\gexec
+SELECT 'CREATE ROLE rating_service WITH LOGIN PASSWORD ''rating_service_local_pwd'''
+WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'rating_service')\gexec
+
+SELECT 'CREATE DATABASE user_db WITH OWNER user_service ENCODING ''UTF8'' TEMPLATE template0'
+WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'user_db')\gexec
+SELECT 'CREATE DATABASE cart_db WITH OWNER cart_service ENCODING ''UTF8'' TEMPLATE template0'
+WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'cart_db')\gexec
+SELECT 'CREATE DATABASE order_db WITH OWNER order_service ENCODING ''UTF8'' TEMPLATE template0'
+WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'order_db')\gexec
+SELECT 'CREATE DATABASE rating_db WITH OWNER rating_service ENCODING ''UTF8'' TEMPLATE template0'
+WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'rating_db')\gexec
+
+\connect user_db
+REVOKE ALL ON SCHEMA public FROM PUBLIC;
+GRANT ALL ON SCHEMA public TO user_service;
+ALTER DATABASE user_db SET search_path TO public;
+
+\connect cart_db
+REVOKE ALL ON SCHEMA public FROM PUBLIC;
+GRANT ALL ON SCHEMA public TO cart_service;
+ALTER DATABASE cart_db SET search_path TO public;
+
+\connect order_db
+REVOKE ALL ON SCHEMA public FROM PUBLIC;
+GRANT ALL ON SCHEMA public TO order_service;
+ALTER DATABASE order_db SET search_path TO public;
+
+\connect rating_db
+REVOKE ALL ON SCHEMA public FROM PUBLIC;
+GRANT ALL ON SCHEMA public TO rating_service;
+ALTER DATABASE rating_db SET search_path TO public;

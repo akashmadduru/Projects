@@ -30,7 +30,7 @@ export function SearchBar() {
         e.preventDefault()
         search(text)
       }}
-      className="group flex w-full items-stretch overflow-hidden rounded-full border-2 border-ink bg-surface shadow-[3px_3px_0_hsl(var(--color-ink))] transition-all duration-200 focus-within:-translate-y-0.5 focus-within:shadow-[5px_5px_0_hsl(var(--color-ink))]"
+      className="group flex w-full items-stretch overflow-hidden rounded-full border-2 border-ink bg-surface shadow-[3px_3px_0_hsl(var(--color-ink))] transition-all duration-300 focus-within:-translate-y-0.5 focus-within:shadow-[5px_5px_0_hsl(var(--color-ink))]"
     >
       <label htmlFor="site-search" className="sr-only">
         Search Cartwise
@@ -62,7 +62,7 @@ export function SearchBar() {
         className="press shine bg-cta-gradient flex items-center border-l-2 border-ink px-5 text-on-accent"
         aria-label="Search"
       >
-        <SearchIcon className="w-5 h-5 transition-transform duration-300 group-focus-within:scale-110" />
+        <SearchIcon className="w-5 h-5 transition-transform duration-450 group-focus-within:scale-110" />
       </button>
     </form>
   )

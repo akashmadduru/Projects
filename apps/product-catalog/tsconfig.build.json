@@ -1,0 +1,7 @@
+{
+  // Production build type-check. Test files are excluded so a stale test cannot block shipping;
+  // `npm run type-check` still covers them (see techdebt/).
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "noEmit": true },
+  "exclude": ["node_modules", "dist", "src/**/*.test.ts", "src/**/*.test.tsx", "src/**/__tests__/**", "src/test/**"]
+}

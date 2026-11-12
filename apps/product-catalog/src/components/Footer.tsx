@@ -41,7 +41,7 @@ export function Footer() {
           <ul className="space-y-2 text-sm">
             {shop.map((link) => (
               <li key={link.label}>
-                <Link to={{ pathname: '/', search: link.search }} className="inline-block text-on-brand/85 transition-all duration-200 hover:translate-x-1 hover:text-accent">
+                <Link to={{ pathname: '/', search: link.search }} className="inline-block text-on-brand/85 transition-all duration-300 hover:translate-x-1 hover:text-accent">
                   {link.label}
                 </Link>
               </li>
@@ -53,7 +53,7 @@ export function Footer() {
           <h3 className="mb-3 text-sm uppercase tracking-[0.18em] text-vivid-amber">Your Cartwise</h3>
           <ul className="space-y-2 text-sm">
             <li>
-              <Link to="/wishlist" className="inline-block text-on-brand/85 transition-all duration-200 hover:translate-x-1 hover:text-accent">
+              <Link to="/wishlist" className="inline-block text-on-brand/85 transition-all duration-300 hover:translate-x-1 hover:text-accent">
                 Wishlist
               </Link>
             </li>

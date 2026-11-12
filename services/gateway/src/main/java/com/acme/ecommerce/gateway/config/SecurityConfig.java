@@ -122,6 +122,11 @@ public class SecurityConfig {
                         "/api/categories",
                         "/api/categories/**")
                     .permitAll()
+                    // Ratings: the review list and summary are public reads. The caller's own
+                    // eligibility endpoint (/products/{id}/me) and every write stay authenticated.
+                    .pathMatchers(
+                        HttpMethod.GET, "/api/ratings/products/*", "/api/ratings/products/*/summary")
+                    .permitAll()
                     // /api/auth/me, /api/auth/validate, /api/products POST/PUT/DELETE and anything
                     // added later.
                     .anyExchange()

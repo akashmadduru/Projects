@@ -15,7 +15,7 @@ interface Props {
   footer?: React.ReactNode
 }
 
-const EXIT_MS = 220
+const EXIT_MS = 350
 
 export function Drawer({ open, onClose, title, side = 'right', children, footer }: Props) {
   const titleId = useId()
