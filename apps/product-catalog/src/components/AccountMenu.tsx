@@ -8,6 +8,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Avatar } from './account/Avatar'
 import {
   ChevronDownIcon,
+  ClockIcon,
   DashboardIcon,
   HeartIcon,
   LogoutIcon,
@@ -124,6 +125,10 @@ export function AccountMenu() {
             <Link role="menuitem" to="/account/addresses" onClick={close} className={menuItem}>
               <MapPinIcon className="h-5 w-5 text-vivid-amber" />
               Addresses
+            </Link>
+            <Link role="menuitem" to="/account/recent" onClick={close} className={menuItem}>
+              <ClockIcon className="h-5 w-5 text-vivid-violet" />
+              Recently viewed
             </Link>
             <Link role="menuitem" to="/wishlist" onClick={close} className={menuItem}>
               <HeartIcon className="h-5 w-5 text-vivid-pink" />

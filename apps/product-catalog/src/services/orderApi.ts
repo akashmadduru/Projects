@@ -39,6 +39,10 @@ export class OrderApiClient {
     return apiDownload(`/api/orders/${id}/invoice.pdf`)
   }
 
+  shipmentInvoice(orderId: string, shipmentId: string): Promise<Blob> {
+    return apiDownload(`/api/orders/${orderId}/shipments/${shipmentId}/invoice.pdf`)
+  }
+
   deliveryEstimate(pincode: string, subtotal: number, currency: string): Promise<DeliveryEstimate> {
     return apiFetch<DeliveryEstimate>('/api/orders/delivery-estimate', { params: { pincode, subtotal, currency } })
   }

@@ -17,6 +17,8 @@ import type { PaymentInfo } from '../types'
 
 interface Props {
   orderId: string
+  /** Where Stripe returns after a redirect-based payment; defaults to the order page. */
+  returnUrl?: string
   payment: PaymentInfo
   onSubmitted: () => void
 }
@@ -53,7 +55,7 @@ function appearance(): Appearance {
   }
 }
 
-function StripeForm({ orderId, onSubmitted }: { orderId: string; onSubmitted: () => void }) {
+function StripeForm({ orderId, returnUrl, onSubmitted }: { orderId: string; returnUrl?: string; onSubmitted: () => void }) {
   const stripe = useStripe()
   const elements = useElements()
   const [busy, setBusy] = useState(false)
@@ -66,7 +68,7 @@ function StripeForm({ orderId, onSubmitted }: { orderId: string; onSubmitted: ()
     setError(undefined)
     const result = await stripe.confirmPayment({
       elements,
-      confirmParams: { return_url: `${window.location.origin}/orders/${orderId}?payment=return` },
+      confirmParams: { return_url: returnUrl ?? `${window.location.origin}/orders/${orderId}?payment=return` },
       redirect: 'if_required',
     })
     if (result.error) {
@@ -127,7 +129,7 @@ function SimulatedForm({ payment, onSubmitted }: { payment: PaymentInfo; onSubmi
   )
 }
 
-export function PaymentPanel({ orderId, payment, onSubmitted }: Props) {
+export function PaymentPanel({ orderId, returnUrl, payment, onSubmitted }: Props) {
   const stripeReady = payment.mode === 'STRIPE' && !!payment.clientSecret && !!payment.publishableKey
   const options = useMemo(
     () => ({ clientSecret: payment.clientSecret ?? '', appearance: appearance() }),
@@ -141,7 +143,7 @@ export function PaymentPanel({ orderId, payment, onSubmitted }: Props) {
       </h2>
       {stripeReady ? (
         <Elements stripe={stripeFor(payment.publishableKey as string)} options={options}>
-          <StripeForm orderId={orderId} onSubmitted={onSubmitted} />
+          <StripeForm orderId={orderId} returnUrl={returnUrl} onSubmitted={onSubmitted} />
         </Elements>
       ) : payment.mode === 'SIMULATED' ? (
         <SimulatedForm payment={payment} onSubmitted={onSubmitted} />

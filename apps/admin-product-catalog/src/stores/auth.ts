@@ -98,6 +98,14 @@ export const useAuthStore = defineStore('auth', () => {
   /** Phase 6 order/returns/coupon admin screens: ADMIN only. */
   const isAdmin = computed<boolean>(() => user.value?.roles.includes('ADMIN') ?? false);
 
+  /** Phase 9: marketplace seller portal. */
+  const isSeller = computed<boolean>(() => user.value?.roles.includes('SELLER') ?? false);
+
+  /** Back-office staff: may see the admin catalog screens. */
+  const isStaff = computed<boolean>(
+    () => user.value?.roles.some((role) => role === 'ADMIN' || role === 'CATALOG_MANAGER') ?? false,
+  );
+
   function clearSession(): void {
     accessToken.value = null;
     user.value = null;
@@ -238,6 +246,8 @@ export const useAuthStore = defineStore('auth', () => {
     displayName,
     canManageCatalog,
     isAdmin,
+    isSeller,
+    isStaff,
     login,
     register,
     logout,

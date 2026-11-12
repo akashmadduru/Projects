@@ -31,32 +31,50 @@ public class WishlistService {
   @Transactional
   public WishlistItemResponse put(UUID userId, UUID productId, WishlistItemRequest r) {
     wishlist.lockUser(userId);
-    ensureRoom(userId, productId);
-    wishlist.upsert(userId, productId, r.name(), r.price(), r.currency(), r.imageUrl());
+    ensureRoom(userId, productId, r.variantId());
+    wishlist.upsert(
+        userId,
+        productId,
+        r.variantId(),
+        r.variantLabel(),
+        r.name(),
+        r.price(),
+        r.currency(),
+        r.imageUrl());
     return wishlist.findAll(userId).stream()
-        .filter(i -> i.productId().equals(productId))
+        .filter(
+            i ->
+                i.productId().equals(productId)
+                    && java.util.Objects.equals(i.variantId(), r.variantId()))
         .findFirst()
         .orElseThrow();
   }
 
   @Transactional
-  public void remove(UUID userId, UUID productId) {
-    wishlist.delete(userId, productId);
+  public void remove(UUID userId, UUID productId, UUID variantId) {
+    wishlist.delete(userId, productId, variantId);
   }
 
   @Transactional
   public List<WishlistItemResponse> merge(UUID userId, List<WishlistMergeItem> items) {
     wishlist.lockUser(userId);
     for (WishlistMergeItem i : items) {
-      ensureRoom(userId, i.productId());
+      ensureRoom(userId, i.productId(), i.variantId());
       wishlist.insertIfAbsent(
-          userId, i.productId(), i.name(), i.price(), i.currency(), i.imageUrl());
+          userId,
+          i.productId(),
+          i.variantId(),
+          i.variantLabel(),
+          i.name(),
+          i.price(),
+          i.currency(),
+          i.imageUrl());
     }
     return wishlist.findAll(userId);
   }
 
-  private void ensureRoom(UUID userId, UUID productId) {
-    if (!wishlist.exists(userId, productId) && wishlist.count(userId) >= MAX_ITEMS) {
+  private void ensureRoom(UUID userId, UUID productId, UUID variantId) {
+    if (!wishlist.exists(userId, productId, variantId) && wishlist.count(userId) >= MAX_ITEMS) {
       throw new CodedException(
           ErrorCode.WISHLIST_LIMIT, "Wishlist is limited to " + MAX_ITEMS + " items");
     }

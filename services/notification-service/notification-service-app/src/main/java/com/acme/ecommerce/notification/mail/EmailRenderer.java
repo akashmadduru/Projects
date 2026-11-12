@@ -44,6 +44,117 @@ public class EmailRenderer {
                   + " minutes. Never share it with anyone.",
               null,
               null);
+      case ALERT_PRICE_DROP ->
+          layout(
+              "Price drop: " + d.getOrDefault("productName", "an item you are watching"),
+              "Hi " + name + ",",
+              d.getOrDefault("productName", "An item you are watching")
+                  + " is now "
+                  + d.getOrDefault("currency", "")
+                  + " "
+                  + d.getOrDefault("price", "")
+                  + (d.get("oldPrice") == null ? "" : " (was " + d.get("oldPrice") + ")")
+                  + ". Grab it before the price changes again.",
+              "View product",
+              d.get("link"));
+      case ALERT_BACK_IN_STOCK ->
+          layout(
+              "Back in stock: " + d.getOrDefault("productName", "an item you wanted"),
+              "Hi " + name + ",",
+              d.getOrDefault("productName", "An item you wanted")
+                  + " is back in stock. Stock may be limited, so order soon.",
+              "View product",
+              d.get("link"));
+      case GIFT_CARD ->
+          layout(
+              "You received a gift card",
+              (d.get("from") == null ? "Hi " + name + "," : d.get("from") + " sent you a gift card"),
+              "Gift card value: "
+                  + d.getOrDefault("currency", "")
+                  + " "
+                  + d.getOrDefault("amount", "")
+                  + "\nYour code: "
+                  + d.getOrDefault("code", "")
+                  + (d.get("message") == null ? "" : "\n\n\"" + d.get("message") + "\"")
+                  + "\n\nRedeem it in your account under Wallet. It is valid for one year.",
+              "Redeem gift card",
+              d.get("link"));
+      case CART_REMINDER ->
+          layout(
+              "You left something in your cart",
+              "Hi " + name + ",",
+              "These items are still waiting for you:\n"
+                  + d.getOrDefault("items", "")
+                  + "\n\nStock and prices can change, so check out soon.",
+              "Return to cart",
+              d.get("link"));
+      case SUBSCRIPTION_ORDER_PLACED ->
+          layout(
+              "Your subscription order was placed",
+              "Hi " + name + ",",
+              "We placed your scheduled order for "
+                  + d.getOrDefault("productName", "your subscribed item")
+                  + ". Manage, skip or pause it any time from your account.",
+              "Manage subscriptions",
+              d.get("link"));
+      case SUBSCRIPTION_FAILED ->
+          layout(
+              "We could not place your subscription order",
+              "Hi " + name + ",",
+              "Your scheduled order for "
+                  + d.getOrDefault("productName", "your subscribed item")
+                  + " failed"
+                  + (d.get("reason") == null ? "" : " (" + d.get("reason") + ")")
+                  + ". We will retry tomorrow; the subscription pauses after repeated failures.",
+              "Manage subscriptions",
+              d.get("link"));
+      case MEMBERSHIP_WELCOME ->
+          layout(
+              "Welcome to Plus",
+              "Hi " + name + ",",
+              "Your "
+                  + d.getOrDefault("plan", "Plus")
+                  + " membership is active until "
+                  + d.getOrDefault("endsAt", "")
+                  + ". Enjoy free shipping, 2x coins and early access to deals.",
+              "View membership",
+              d.get("link"));
+      case MEMBERSHIP_EXPIRED ->
+          layout(
+              "Your Plus membership has ended",
+              "Hi " + name + ",",
+              "Your membership has expired. Renew to keep free shipping, 2x coins and early deal"
+                  + " access.",
+              "Renew membership",
+              d.get("link"));
+      case REFERRAL_REWARD ->
+          layout(
+              "You earned referral coins",
+              "Hi " + name + ",",
+              "A friend you invited completed their first order. We added "
+                  + d.getOrDefault("coins", "")
+                  + " coins to your account.",
+              "View coins",
+              d.get("link"));
+      case SELLER_APPROVED ->
+          layout(
+              "Your seller account is approved",
+              "Hi " + name + ",",
+              "Congratulations - "
+                  + d.getOrDefault("storeName", "your store")
+                  + " has been approved. You can now list products and receive orders.",
+              "Open seller dashboard",
+              d.get("link"));
+      case SELLER_REJECTED ->
+          layout(
+              "Your seller application was not approved",
+              "Hi " + name + ",",
+              "We could not approve the application for "
+                  + d.getOrDefault("storeName", "your store")
+                  + (d.get("reason") == null ? "." : ": " + d.get("reason") + ".")
+                  + " You can fix the details and apply again.",
+              "Update application",
+              d.get("link"));
     };
   }
 

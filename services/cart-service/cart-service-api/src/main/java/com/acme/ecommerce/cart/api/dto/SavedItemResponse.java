@@ -11,4 +11,8 @@ public record SavedItemResponse(
     BigDecimal unitPrice,
     String currency,
     String imageUrl,
-    Instant savedAt) {}
+    Instant savedAt,
+    UUID variantId,
+    String variantLabel,
+    UUID offerId,
+    UUID sellerId) {}

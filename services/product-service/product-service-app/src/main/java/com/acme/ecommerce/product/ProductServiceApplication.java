@@ -30,6 +30,7 @@ import org.springframework.cloud.openfeign.EnableFeignClients;
 @SpringBootApplication
 @EnableDiscoveryClient
 @EnableFeignClients
+@org.springframework.scheduling.annotation.EnableScheduling
 @EnableConfigurationProperties(ProductProperties.class)
 public class ProductServiceApplication {
 

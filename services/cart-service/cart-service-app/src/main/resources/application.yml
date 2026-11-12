@@ -97,6 +97,17 @@ spring:
       include-stacktrace: never
       include-message: never
 
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+
+  cloud:
+    openfeign:
+      client:
+        config:
+          notificationClient:
+            connect-timeout: 1000
+            read-timeout: 3000
+
 server:
   port: ${SERVER_PORT:8086}
   shutdown: graceful
@@ -106,6 +117,8 @@ server:
 # com.acme.ecommerce.cart.config.CartProperties.
 # -----------------------------------------------------------------------------
 cart:
+  internal-token: ${INTERNAL_API_TOKEN:}
+  storefront-url: ${STOREFRONT_BASE_URL:http://localhost:3000}
   jwt:
     # SAME ENV VARS AND SAME DEFAULTS AS auth-service's `auth.jwt.*`, the
     # gateway's `gateway.jwt.*` and product-service's `product.jwt.*`. Any of

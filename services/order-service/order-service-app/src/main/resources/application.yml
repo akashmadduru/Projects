@@ -243,6 +243,9 @@ spring.cloud.openfeign:
       productClient:
         connect-timeout: 1000
         read-timeout: 3000
+      productViewClient:
+        connect-timeout: 1000
+        read-timeout: 3000
       inventoryReservations:
         connect-timeout: 1000
         read-timeout: 3000

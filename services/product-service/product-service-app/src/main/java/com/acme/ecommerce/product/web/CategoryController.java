@@ -70,7 +70,7 @@ public class CategoryController {
    */
   @PostMapping
   @ResponseStatus(HttpStatus.CREATED)
-  @PreAuthorize("hasAnyAuthority('CATALOG_MANAGER', 'ADMIN')")
+  @PreAuthorize("hasAnyRole('CATALOG_MANAGER', 'ADMIN')")
   public CategoryResponse create(@Valid @RequestBody CreateCategoryRequest request) {
     return categories.create(request);
   }
@@ -83,7 +83,7 @@ public class CategoryController {
    * @return the updated category
    */
   @PutMapping("/{id}")
-  @PreAuthorize("hasAnyAuthority('CATALOG_MANAGER', 'ADMIN')")
+  @PreAuthorize("hasAnyRole('CATALOG_MANAGER', 'ADMIN')")
   public CategoryResponse update(
       @PathVariable UUID id, @Valid @RequestBody UpdateCategoryRequest request) {
     return categories.update(id, request);
@@ -96,7 +96,7 @@ public class CategoryController {
    */
   @DeleteMapping("/{id}")
   @ResponseStatus(HttpStatus.NO_CONTENT)
-  @PreAuthorize("hasAnyAuthority('CATALOG_MANAGER', 'ADMIN')")
+  @PreAuthorize("hasAnyRole('CATALOG_MANAGER', 'ADMIN')")
   public void delete(@PathVariable UUID id) {
     categories.delete(id);
   }

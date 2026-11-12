@@ -15,9 +15,29 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "promotion")
 public class PromotionProperties {
   @Builder.Default private Jwt jwt = new Jwt();
+  @Builder.Default private Coins coins = new Coins();
 
   /** Shared secret for /internal/** (header X-Internal-Token). */
   @Builder.Default private String internalToken = "";
+
+  /** Loyalty coins. */
+  @Data
+  @NoArgsConstructor
+  @AllArgsConstructor
+  @Builder
+  public static class Coins {
+    /** One coin per this many currency units of paid total (INR). */
+    @Builder.Default private int earnUnitInr = 100;
+
+    /** Same for every other currency (1 coin per 1 unit, i.e. 1% back at 0.01 per coin). */
+    @Builder.Default private int earnUnitOther = 1;
+
+    @Builder.Default private int referralReward = 100;
+    @Builder.Default private int expiryDays = 365;
+
+    /** Order events older than this are ignored (the consumer group replays the topic). */
+    @Builder.Default private int maxEventAgeDays = 2;
+  }
 
   /** Token validation contract. */
   @Data

@@ -6,6 +6,7 @@ import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Subquery;
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
@@ -25,6 +26,14 @@ public final class ProductSpecifications {
   private ProductSpecifications() {}
 
   public static Specification<Product> matching(ProductFilter filter) {
+    return matching(filter, null);
+  }
+
+  /**
+   * @param searchIds when non-null, the free-text query is satisfied by id membership (ids computed
+   *     by the full-text + trigram search) instead of the legacy substring match
+   */
+  public static Specification<Product> matching(ProductFilter filter, Collection<UUID> searchIds) {
     return (root, query, cb) -> {
       List<Predicate> predicates = new ArrayList<>();
 
@@ -42,7 +51,10 @@ public final class ProductSpecifications {
                 root.get("categoryId").in(children)));
       }
 
-      if (filter.query() != null && !filter.query().isBlank()) {
+      if (searchIds != null && filter.query() != null && !filter.query().isBlank()) {
+        predicates.add(
+            searchIds.isEmpty() ? cb.disjunction() : root.get("id").in(searchIds));
+      } else if (filter.query() != null && !filter.query().isBlank()) {
         String pattern = "%" + escapeLike(filter.query().trim().toLowerCase(Locale.ROOT)) + "%";
         predicates.add(
             cb.or(
@@ -67,6 +79,17 @@ public final class ProductSpecifications {
         String pattern = "%" + escapeLike(filter.seller().trim().toLowerCase(Locale.ROOT)) + "%";
         predicates.add(cb.like(cb.lower(root.get("sellerName")), pattern, LIKE_ESCAPE));
       }
+      if (filter.sellerId() != null) {
+        Subquery<UUID> offered = query.subquery(UUID.class);
+        var offer = offered.from(com.acme.ecommerce.product.domain.Offer.class);
+        offered
+            .select(offer.get("id"))
+            .where(
+                cb.equal(offer.get("productId"), root.get("id")),
+                cb.equal(offer.get("sellerId"), filter.sellerId()),
+                cb.isTrue(offer.get("active")));
+        predicates.add(cb.exists(offered));
+      }
       if (filter.inStock()) {
         // Unknown quantity (null) is kept - see ProductFilter#inStock.
         predicates.add(
@@ -82,6 +105,26 @@ public final class ProductSpecifications {
       }
       if (filter.verifiedSeller()) {
         predicates.add(cb.isTrue(root.get("isSellerVerified")));
+      }
+
+      if (filter.brands() != null && !filter.brands().isEmpty()) {
+        predicates.add(
+            cb.lower(root.<String>get("brand"))
+                .in(filter.brands().stream().map(b -> b.toLowerCase(Locale.ROOT)).toList()));
+      }
+      if (filter.attributes() != null) {
+        for (var entry : filter.attributes().entrySet()) {
+          if (entry.getValue().isEmpty()) {
+            continue;
+          }
+          predicates.add(
+              cb.function(
+                      "jsonb_extract_path_text",
+                      String.class,
+                      root.get("attributes"),
+                      cb.literal(entry.getKey()))
+                  .in(entry.getValue()));
+        }
       }
 
       return cb.and(predicates.toArray(Predicate[]::new));

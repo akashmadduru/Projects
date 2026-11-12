@@ -4,11 +4,14 @@ import com.acme.ecommerce.common.core.error.CodedException;
 import com.acme.ecommerce.common.core.error.DomainRuleViolationException;
 import com.acme.ecommerce.common.core.error.ErrorCode;
 import com.acme.ecommerce.common.core.error.ResourceNotFoundException;
+import com.acme.ecommerce.order.api.dto.AdminOrderStats;
 import com.acme.ecommerce.order.api.dto.AdminOrderSummary;
 import com.acme.ecommerce.order.api.dto.OrderResponse;
 import com.acme.ecommerce.order.api.dto.OrderSummaryResponse;
 import com.acme.ecommerce.order.api.dto.PurchaseStatusResponse;
 import com.acme.ecommerce.order.api.dto.ReturnResponse;
+import com.acme.ecommerce.order.api.dto.SellerShipmentResponse;
+import com.acme.ecommerce.order.api.dto.ShipmentResponse;
 import com.acme.ecommerce.order.config.OrderProperties;
 import com.acme.ecommerce.order.domain.HistoryActor;
 import com.acme.ecommerce.order.domain.Order;
@@ -16,6 +19,7 @@ import com.acme.ecommerce.order.domain.Order.ReturnLine;
 import com.acme.ecommerce.order.domain.OrderItem;
 import com.acme.ecommerce.order.domain.OrderReturn;
 import com.acme.ecommerce.order.domain.OrderReturnItem;
+import com.acme.ecommerce.order.domain.OrderShipment;
 import com.acme.ecommerce.order.domain.OrderStatus;
 import com.acme.ecommerce.order.domain.PaymentMethod;
 import com.acme.ecommerce.order.domain.PaymentStatus;
@@ -23,13 +27,19 @@ import com.acme.ecommerce.order.domain.ReturnReason;
 import com.acme.ecommerce.order.domain.ReturnStatus;
 import com.acme.ecommerce.order.repository.OrderRepository;
 import com.acme.ecommerce.order.repository.OrderReturnRepository;
+import com.acme.ecommerce.order.repository.OrderShipmentRepository;
 import jakarta.persistence.criteria.Predicate;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Function;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -48,6 +58,14 @@ public class OrderStore {
   /** A state change plus whether this call actually changed anything (idempotency signal). */
   public record Result(OrderResponse order, boolean changed) {}
 
+  /** An advanced shipment (null for legacy orders without shipments) plus the order status before. */
+  public record ShipmentAdvance(
+      OrderResponse order, ShipmentResponse shipment, String previousOrderStatus) {}
+
+  /** Who owns a shipment (internal lookup for seller-service). */
+  public record ShipmentRef(
+      UUID shipmentId, UUID orderId, UUID userId, UUID sellerId, String status) {}
+
   /** What a cancel needs to know up front. */
   public record CancelPlan(
       boolean alreadyCancelled, boolean refundNeeded, BigDecimal amount, String currency) {}
@@ -60,20 +78,28 @@ public class OrderStore {
       String currency,
       boolean card,
       boolean paid,
-      List<ReturnLine> lines) {}
+      List<ReturnLine> lines,
+      UUID userId,
+      BigDecimal orderTotal,
+      BigDecimal walletAmount,
+      String method,
+      String refundTo) {}
 
   private final OrderRepository orders;
   private final OrderReturnRepository returns;
+  private final OrderShipmentRepository shipments;
   private final OrderMapper mapper;
   private final OrderProperties props;
 
   public OrderStore(
       OrderRepository orders,
       OrderReturnRepository returns,
+      OrderShipmentRepository shipments,
       OrderMapper mapper,
       OrderProperties props) {
     this.orders = orders;
     this.returns = returns;
+    this.shipments = shipments;
     this.mapper = mapper;
     this.props = props;
   }
@@ -99,6 +125,19 @@ public class OrderStore {
   @Transactional
   public OrderResponse save(Order order) {
     return mapper.toResponse(orders.saveAndFlush(order));
+  }
+
+  /** Splits the lines into shipments by seller/warehouse from the reservation result. */
+  @Transactional
+  public OrderResponse assignShipments(
+      UUID orderId,
+      List<Order.Allocation> allocations,
+      Map<UUID, String> sellerNames,
+      Function<String, LocalDate> etaFor) {
+    Order o = findAny(orderId);
+    o.assignShipments(allocations, sellerNames, etaFor, Instant.now());
+    orders.flush();
+    return mapper.toResponse(o);
   }
 
   @Transactional
@@ -146,12 +185,21 @@ public class OrderStore {
 
   @Transactional(readOnly = true)
   public Page<AdminOrderSummary> adminList(OrderStatus status, String term, Pageable pageable) {
+    return adminList(status, term, null, pageable);
+  }
+
+  @Transactional(readOnly = true)
+  public Page<AdminOrderSummary> adminList(
+      OrderStatus status, String term, UUID userId, Pageable pageable) {
     String q = term == null ? "" : term.trim().toLowerCase().replaceAll("[%_\\\\]", "");
     Specification<Order> spec =
         (root, query, cb) -> {
           List<Predicate> ps = new ArrayList<>();
           if (status != null) {
             ps.add(cb.equal(root.get("status"), status));
+          }
+          if (userId != null) {
+            ps.add(cb.equal(root.get("userId"), userId));
           }
           if (!q.isEmpty()) {
             ps.add(
@@ -175,6 +223,51 @@ public class OrderStore {
                     o.getCurrency(),
                     o.getItems().stream().mapToLong(OrderItem::getQuantity).sum(),
                     o.getPlacedAt()));
+  }
+
+  /** Dashboard aggregates: three grouped queries, no row materialisation. */
+  @Transactional(readOnly = true)
+  public AdminOrderStats adminStats(Instant now) {
+    Map<String, Long> byStatus = new LinkedHashMap<>();
+    for (OrderStatus s : OrderStatus.values()) {
+      byStatus.put(s.name(), 0L);
+    }
+    for (Object[] row : orders.countGroupedByStatus()) {
+      byStatus.put(((OrderStatus) row[0]).name(), (Long) row[1]);
+    }
+    Map<String, Long> byReturnStatus = new LinkedHashMap<>();
+    for (ReturnStatus s : ReturnStatus.values()) {
+      byReturnStatus.put(s.name(), 0L);
+    }
+    for (Object[] row : returns.countGroupedByStatus()) {
+      byReturnStatus.put(((ReturnStatus) row[0]).name(), (Long) row[1]);
+    }
+    List<OrderStatus> excluded = List.of(OrderStatus.PENDING_PAYMENT, OrderStatus.CANCELLED);
+    Instant startOfToday = now.truncatedTo(ChronoUnit.DAYS);
+    return new AdminOrderStats(
+        now,
+        byStatus,
+        byReturnStatus,
+        revenue(orders.revenueSince(startOfToday, excluded)),
+        revenue(orders.revenueSince(now.minus(30, ChronoUnit.DAYS), excluded)));
+  }
+
+  private static List<AdminOrderStats.CurrencyRevenue> revenue(List<Object[]> rows) {
+    return rows.stream()
+        .map(
+            r ->
+                new AdminOrderStats.CurrencyRevenue(
+                    (String) r[0],
+                    toBigDecimal(r[1]).subtract(toBigDecimal(r[2])),
+                    ((Number) r[3]).longValue()))
+        .toList();
+  }
+
+  private static BigDecimal toBigDecimal(Object value) {
+    if (value instanceof BigDecimal bd) {
+      return bd;
+    }
+    return value == null ? BigDecimal.ZERO : new BigDecimal(value.toString());
   }
 
   @Transactional(readOnly = true)
@@ -212,8 +305,11 @@ public class OrderStore {
           ErrorCode.ORDER_NOT_CANCELLABLE,
           "Order cannot be cancelled in status " + o.getStatus());
     }
-    boolean refund = o.getPaymentStatus() == PaymentStatus.PAID && o.getPaymentId() != null;
-    return new CancelPlan(false, refund, o.getTotalAmount(), o.getCurrency());
+    boolean refund =
+        o.getPaymentStatus() == PaymentStatus.PAID
+            && (o.getPaymentId() != null || o.getWalletAmount().signum() > 0);
+    return new CancelPlan(
+        false, refund, o.getTotalAmount().subtract(o.getWalletAmount()), o.getCurrency());
   }
 
   @Transactional
@@ -235,15 +331,99 @@ public class OrderStore {
     return new Result(mapper.toResponse(o), changed);
   }
 
+  /** Order-level admin move: applies to the order's only shipment (409 with several). */
   @Transactional
-  public OrderResponse advance(
+  public ShipmentAdvance advance(
       UUID id, OrderStatus target, String note, String tracking, String carrier) {
     Order o = findAny(id);
-    if (target == OrderStatus.SHIPPED && (tracking == null || tracking.isBlank())) {
+    if (target == OrderStatus.SHIPPED
+        && (tracking == null || tracking.isBlank())
+        && !hasTracking(o)) {
       throw new DomainRuleViolationException("trackingNumber is required when shipping");
     }
-    o.advance(target, note, tracking, carrier, Instant.now());
-    return mapper.toResponse(o);
+    String previous = o.getStatus().name();
+    Instant now = Instant.now();
+    o.advance(target, note, tracking, carrier, now);
+    orders.flush();
+    OrderShipment only = o.getShipments().size() == 1 ? o.getShipments().get(0) : null;
+    return new ShipmentAdvance(
+        mapper.toResponse(o),
+        only == null ? null : mapper.toShipment(o, only, now, props.getReturns().getWindowDays()),
+        previous);
+  }
+
+  private static boolean hasTracking(Order o) {
+    if (o.getShipments().size() == 1) {
+      String t = o.getShipments().get(0).getTrackingNumber();
+      return t != null && !t.isBlank();
+    }
+    return o.getTrackingNumber() != null && !o.getTrackingNumber().isBlank();
+  }
+
+  /**
+   * Moves one shipment. {@code sellerOrNull}: seller callers may only touch their own shipments
+   * (anything else is a 404); {@code orderOrNull} pins the shipment to an order (admin route).
+   */
+  @Transactional
+  public ShipmentAdvance advanceShipment(
+      UUID orderOrNull,
+      UUID sellerOrNull,
+      UUID shipmentId,
+      OrderStatus target,
+      String note,
+      String tracking,
+      String carrier,
+      HistoryActor actor) {
+    OrderShipment s = findShipment(shipmentId);
+    Order o = s.getOrder();
+    if ((sellerOrNull != null && !sellerOrNull.equals(s.getSellerId()))
+        || (orderOrNull != null && !orderOrNull.equals(o.getId()))) {
+      throw new ResourceNotFoundException("Shipment", shipmentId);
+    }
+    if (target == OrderStatus.SHIPPED
+        && (tracking == null || tracking.isBlank())
+        && (s.getTrackingNumber() == null || s.getTrackingNumber().isBlank())) {
+      throw new DomainRuleViolationException("trackingNumber is required when shipping");
+    }
+    String previous = o.getStatus().name();
+    Instant now = Instant.now();
+    o.advanceShipment(shipmentId, target, note, tracking, carrier, actor, now);
+    orders.flush();
+    return new ShipmentAdvance(
+        mapper.toResponse(o),
+        mapper.toShipment(o, s, now, props.getReturns().getWindowDays()),
+        previous);
+  }
+
+  /** The seller's shipments, newest first; PENDING_PAYMENT ones are never shown. */
+  @Transactional(readOnly = true)
+  public Page<SellerShipmentResponse> sellerShipments(
+      UUID sellerId, OrderStatus status, Pageable pageable) {
+    Page<OrderShipment> page =
+        status == null
+            ? shipments.findBySellerIdAndStatusNot(sellerId, OrderStatus.PENDING_PAYMENT, pageable)
+            : shipments.findBySellerIdAndStatus(sellerId, status, pageable);
+    return page.map(mapper::toSellerView);
+  }
+
+  @Transactional(readOnly = true)
+  public SellerShipmentResponse sellerShipment(UUID sellerId, UUID shipmentId) {
+    OrderShipment s = findShipment(shipmentId);
+    if (!sellerId.equals(s.getSellerId())) {
+      throw new ResourceNotFoundException("Shipment", shipmentId);
+    }
+    return mapper.toSellerView(s);
+  }
+
+  @Transactional(readOnly = true)
+  public ShipmentRef shipmentRef(UUID shipmentId) {
+    OrderShipment s = findShipment(shipmentId);
+    return new ShipmentRef(
+        s.getId(), s.getOrder().getId(), s.getOrder().getUserId(), s.getSellerId(), s.getStatus().name());
+  }
+
+  private OrderShipment findShipment(UUID id) {
+    return shipments.findById(id).orElseThrow(() -> new ResourceNotFoundException("Shipment", id));
   }
 
   /** Marks a late-succeeded payment on an already cancelled order as refunded. */
@@ -263,11 +443,19 @@ public class OrderStore {
       UUID orderId,
       List<ReturnLine> lines,
       ReturnReason reason,
-      String comment) {
+      String comment,
+      String refundTo,
+      UUID shipmentId) {
     Order o = find(userId, orderId);
     OrderReturn r =
         o.requestReturn(
-            lines, reason, comment, props.getReturns().getWindowDays(), Instant.now());
+            lines,
+            reason,
+            comment,
+            refundTo,
+            shipmentId,
+            props.getReturns().getWindowDays(),
+            Instant.now());
     orders.flush();
     return new ReturnOutcome(mapper.toResponse(r), mapper.toResponse(o));
   }
@@ -298,6 +486,20 @@ public class OrderStore {
     return mapper.toResponse(r);
   }
 
+  /** The offer a returned line was bought on (so inventory restocks that seller's warehouse). */
+  private static UUID offerOf(Order o, UUID shipmentId, OrderReturnItem ri) {
+    return o.getItems().stream()
+        .filter(
+            oi ->
+                oi.getProductId().equals(ri.getProductId())
+                    && java.util.Objects.equals(oi.getVariantId(), ri.getVariantId())
+                    && (shipmentId == null || shipmentId.equals(oi.getShipmentId())))
+        .map(oi -> oi.getOfferId())
+        .filter(java.util.Objects::nonNull)
+        .findFirst()
+        .orElse(null);
+  }
+
   /** Validates the return is ready to be refunded and describes the refund. */
   @Transactional(readOnly = true)
   public ReturnRefundPlan refundPlan(UUID returnId) {
@@ -315,10 +517,22 @@ public class OrderStore {
         o.getCurrency(),
         o.getPaymentMethod() == PaymentMethod.CARD && o.getPaymentId() != null,
         o.getPaymentStatus() == PaymentStatus.PAID
+            || o.getPaymentStatus() == PaymentStatus.COD_COLLECTED
             || o.getPaymentStatus() == PaymentStatus.PARTIALLY_REFUNDED,
         r.getItems().stream()
-            .map((OrderReturnItem i) -> new ReturnLine(i.getProductId(), i.getQuantity()))
-            .toList());
+            .map(
+                (OrderReturnItem i) ->
+                    new ReturnLine(
+                        i.getProductId(),
+                        i.getVariantId(),
+                        i.getQuantity(),
+                        offerOf(o, r.getShipmentId(), i)))
+            .toList(),
+        o.getUserId(),
+        o.getTotalAmount(),
+        o.getWalletAmount(),
+        o.getPaymentMethod().name(),
+        r.getRefundTo());
   }
 
   @Transactional
@@ -326,7 +540,7 @@ public class OrderStore {
     OrderReturn r = findReturn(returnId);
     r.markRefunded(Instant.now());
     Order o = r.getOrder();
-    BigDecimal itemsValue = o.getSubtotalAmount().subtract(o.getDiscountAmount());
+    BigDecimal itemsValue = o.paidItemsValue();
     boolean full = o.getRefundedAmount().add(r.getRefundAmount()).compareTo(itemsValue) >= 0;
     o.recordRefund(r.getRefundAmount(), full);
     return new ReturnOutcome(mapper.toResponse(r), mapper.toResponse(o));

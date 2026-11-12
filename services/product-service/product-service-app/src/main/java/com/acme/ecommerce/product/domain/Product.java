@@ -237,6 +237,29 @@ public class Product {
   @Column(name = "is_seller_verified", nullable = false)
   private boolean isSellerVerified = false;
 
+  /** Nullable brand (facet). */
+  @Column(name = "brand", length = 120)
+  private String brand;
+
+  /** Nullable filterable key/values as JSON (e.g. {"RAM":"8 GB"}). */
+  @JdbcTypeCode(SqlTypes.JSON)
+  @Column(name = "attributes", columnDefinition = "jsonb")
+  private String attributes;
+
+  /** URL slug; unique. Set on create; a DB trigger covers raw inserts. */
+  @Column(name = "slug", length = 240)
+  private String slug;
+
+  /** Owning seller (platform seller for catalog products). */
+  @Builder.Default
+  @Column(name = "seller_id", nullable = false)
+  private UUID sellerId = UUID.fromString("00000000-0000-0000-0000-00000000a11e");
+
+  /** PLATFORM or SELLER. */
+  @Builder.Default
+  @Column(name = "listed_by", nullable = false, length = 20)
+  private String listedBy = "PLATFORM";
+
   /**
    * Applies a denormalized inventory signal, deliberately narrow - cannot re-trigger {@code
    * product.events} publication. This method has no access to {@code ProductEventPublisher} at all

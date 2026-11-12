@@ -155,6 +155,16 @@ public class CategoryService {
   public void delete(UUID id) {
     Category category =
         categories.findById(id).orElseThrow(() -> new ResourceNotFoundException("Category", id));
+    // Both are FKs; without these checks the delete fails at flush as a raw integrity error.
+    if (categories.existsByParentCategoryId(id)) {
+      throw new ResourceConflictException(
+          "Category has subcategories; delete or move them first, or deactivate it instead.");
+    }
+    long products = categories.countProductsInCategory(id);
+    if (products > 0) {
+      throw new ResourceConflictException(
+          "Category is used by " + products + " product(s); deactivate it instead.");
+    }
     categories.delete(category);
     log.info("Deleted category categoryId={}", id);
   }

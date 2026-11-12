@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { computed, reactive } from 'vue';
+import { computed, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
 import ProblemAlert from '@/components/ProblemAlert.vue';
 import { useProductMutations } from '@/composables/useProductMutations';
+import { isCategoryActive, listCategories } from '@/lib/adminApi';
 import type { ProductImageRequest } from '@/types/api';
+import type { Category } from '@/types/commerce';
 
 /**
  * A dedicated page for creating a product (as opposed to `ProductFormModal.vue`,
@@ -34,6 +36,7 @@ interface FormState {
   active: boolean;
   initialQuantity: string;
   sellerName: string;
+  categoryId: string;
   specifications: string;
   images: ImageRow[];
 }
@@ -46,9 +49,35 @@ const form = reactive<FormState>({
   active: true,
   initialQuantity: '',
   sellerName: '',
+  categoryId: '',
   specifications: '',
   images: [],
 });
+
+/** Active categories only; a failed load just leaves "No category" (the field is optional). */
+const categories = ref<readonly Category[]>([]);
+const categoryOptions = computed(() => {
+  const byId = new Map(categories.value.map((c) => [c.id, c]));
+  return categories.value
+    .filter(isCategoryActive)
+    .map((c) => {
+      const parent = c.parentCategoryId ? byId.get(c.parentCategoryId) : undefined;
+      return { id: c.id, label: parent ? `${parent.name} › ${c.name}` : c.name };
+    })
+    .sort((a, b) => a.label.localeCompare(b.label));
+});
+/** Lazy: fetched on first focus of the picker, so mounting the page issues no request. */
+let categoriesRequested = false;
+async function loadCategories(): Promise<void> {
+  if (categoriesRequested) return;
+  categoriesRequested = true;
+  try {
+    categories.value = (await listCategories()).content;
+  } catch {
+    categories.value = [];
+    categoriesRequested = false;
+  }
+}
 const touched = reactive({
   sku: false,
   name: false,
@@ -191,6 +220,7 @@ async function submit(): Promise<void> {
     // "no starting stock" rather than "not applicable".
     initialQuantity: form.active ? Number(form.initialQuantity) : undefined,
     sellerName: sellerName.length === 0 ? undefined : sellerName,
+    categoryId: form.categoryId || undefined,
     specifications,
     images,
   });
@@ -383,6 +413,23 @@ function cancel(): void {
             type="text"
             data-test="new-product-seller-name"
           />
+        </div>
+
+        <div class="form-control">
+          <label class="label" for="new-product-category">
+            <span class="label-text">Category <span class="opacity-60">(optional)</span></span>
+          </label>
+          <select
+            id="new-product-category"
+            v-model="form.categoryId"
+            class="select select-bordered w-full"
+            data-test="new-product-category"
+            @focus="loadCategories"
+            @pointerdown="loadCategories"
+          >
+            <option value="">No category</option>
+            <option v-for="c in categoryOptions" :key="c.id" :value="c.id">{{ c.label }}</option>
+          </select>
         </div>
 
         <div class="form-control">

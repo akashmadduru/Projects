@@ -34,7 +34,12 @@ public record OrderResponse(
     boolean returnable,
     Instant returnWindowEndsAt,
     List<TimelineEntryResponse> timeline,
-    PaymentBlockResponse payment) {
+    PaymentBlockResponse payment,
+    int coinsRedeemed,
+    BigDecimal coinsValue,
+    BigDecimal walletAmount,
+    boolean membershipFreeShipping,
+    List<ShipmentResponse> shipments) {
 
   /** Copy with the payment block (CARD placement / replay) filled in. */
   public OrderResponse withPayment(PaymentBlockResponse block) {
@@ -66,6 +71,11 @@ public record OrderResponse(
         returnable,
         returnWindowEndsAt,
         timeline,
-        block);
+        block,
+        coinsRedeemed,
+        coinsValue,
+        walletAmount,
+        membershipFreeShipping,
+        shipments);
   }
 }

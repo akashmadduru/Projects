@@ -26,7 +26,21 @@ public interface PaymentFeignClient {
       String clientSecret,
       String publishableKey) {}
 
-  record RefundRequest(BigDecimal amount, String reason, String idempotencyKey) {}
+  record RefundRequest(
+      BigDecimal amount, String reason, String idempotencyKey, String destination) {}
+
+  record WalletBalance(BigDecimal balance, String currency) {}
+
+  record WalletDebit(
+      UUID userId, BigDecimal amount, String currency, UUID orderId, String idempotencyKey) {}
+
+  record WalletCredit(
+      UUID userId,
+      BigDecimal amount,
+      String currency,
+      String reason,
+      String referenceId,
+      String idempotencyKey) {}
 
   record RefundResult(String status, BigDecimal refundedAmount) {}
 
@@ -35,6 +49,15 @@ public interface PaymentFeignClient {
 
   @PostMapping("/internal/payments/orders/{orderId}/refunds")
   RefundResult refund(@PathVariable("orderId") UUID orderId, @RequestBody RefundRequest request);
+
+  @org.springframework.web.bind.annotation.GetMapping("/internal/wallet/{userId}")
+  WalletBalance walletBalance(@PathVariable("userId") UUID userId);
+
+  @PostMapping("/internal/wallet/debit")
+  WalletBalance walletDebit(@RequestBody WalletDebit request);
+
+  @PostMapping("/internal/wallet/credit")
+  WalletBalance walletCredit(@RequestBody WalletCredit request);
 
   @PostMapping("/internal/payments/orders/{orderId}/cod-collected")
   void codCollected(@PathVariable("orderId") UUID orderId);

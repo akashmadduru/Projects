@@ -1,5 +1,6 @@
 package com.acme.ecommerce.order.web;
 
+import com.acme.ecommerce.order.api.dto.AdminOrderStats;
 import com.acme.ecommerce.order.api.dto.AdminOrderSummary;
 import com.acme.ecommerce.order.api.dto.AdminRequests.CancelOrder;
 import com.acme.ecommerce.order.api.dto.AdminRequests.ReturnDecision;
@@ -13,6 +14,7 @@ import com.acme.ecommerce.order.service.OrderLifecycleService;
 import com.acme.ecommerce.order.service.OrderStore;
 import com.acme.ecommerce.order.service.ReturnService;
 import jakarta.validation.Valid;
+import java.time.Instant;
 import java.util.UUID;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -49,9 +51,16 @@ public class AdminOrderController {
   public PagedModel<AdminOrderSummary> list(
       @RequestParam(required = false) OrderStatus status,
       @RequestParam(required = false) String q,
+      @RequestParam(required = false) UUID userId,
       @RequestParam(defaultValue = "0") int page,
       @RequestParam(defaultValue = "20") int size) {
-    return new PagedModel<>(store.adminList(status, q, pageable(page, size, "placedAt")));
+    return new PagedModel<>(store.adminList(status, q, userId, pageable(page, size, "placedAt")));
+  }
+
+  /** Dashboard counters. Declared before /orders/{id} only for readability; paths do not clash. */
+  @GetMapping("/orders/stats")
+  public AdminOrderStats stats() {
+    return store.adminStats(Instant.now());
   }
 
   @GetMapping("/orders/{id}")
@@ -63,6 +72,15 @@ public class AdminOrderController {
   public OrderResponse updateStatus(
       @PathVariable UUID id, @Valid @RequestBody StatusUpdate request) {
     return lifecycle.adminAdvance(id, request);
+  }
+
+  /** Moves one shipment of a split order (works for single-shipment orders too). */
+  @PostMapping("/orders/{id}/shipments/{shipmentId}/status")
+  public OrderResponse updateShipmentStatus(
+      @PathVariable UUID id,
+      @PathVariable UUID shipmentId,
+      @Valid @RequestBody StatusUpdate request) {
+    return lifecycle.adminAdvanceShipment(id, shipmentId, request);
   }
 
   @PostMapping("/orders/{id}/cancel")

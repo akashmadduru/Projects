@@ -113,6 +113,36 @@ export interface Product {
    * Display as a soft hint only; `Inventory.quantity` is the source of truth.
    */
   readonly lastKnownQuantity: number | null;
+  /** Phase 7. Optional: older responses / list endpoint may omit them. */
+  readonly brand?: string | null;
+  readonly attributes?: Readonly<Record<string, string>> | null;
+  /** Only authoritative on `GET /api/products/{id}`. */
+  readonly variants?: readonly ProductVariant[];
+}
+
+/** Phase 7 variant as returned by product-service. */
+export interface ProductVariant {
+  readonly id: string;
+  readonly sku: string;
+  readonly attributes: Readonly<Record<string, string>>;
+  readonly priceAmount: number | null;
+  readonly salePrice: number | null;
+  readonly imageUrl: string | null;
+  readonly active: boolean;
+  readonly sortOrder?: number;
+  readonly availableQuantity?: number | null;
+}
+
+/** One row of `PUT /api/products/{id}/variants` (full replace). */
+export interface ProductVariantRequest {
+  readonly id?: string;
+  readonly sku: string;
+  readonly attributes: Readonly<Record<string, string>>;
+  readonly priceAmount?: number | null;
+  readonly salePrice?: number | null;
+  readonly imageUrl?: string | null;
+  readonly active: boolean;
+  readonly sortOrder: number;
 }
 
 /** The `page` member of Spring's `PagedModel` envelope. */
@@ -160,6 +190,8 @@ export interface CreateProductRequest {
   readonly sellerName?: string | null;
   readonly specifications?: Record<string, unknown> | null;
   readonly images?: readonly ProductImageRequest[];
+  readonly brand?: string | null;
+  readonly attributes?: Readonly<Record<string, string>> | null;
 }
 
 /**
@@ -182,6 +214,8 @@ export interface UpdateProductRequest {
   readonly sellerName?: string | null;
   readonly specifications?: Record<string, unknown> | null;
   readonly images?: readonly ProductImageRequest[];
+  readonly brand?: string | null;
+  readonly attributes?: Readonly<Record<string, string>> | null;
 }
 
 /**

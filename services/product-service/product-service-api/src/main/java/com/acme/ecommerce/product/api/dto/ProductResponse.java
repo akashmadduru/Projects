@@ -50,4 +50,27 @@ public class ProductResponse {
   private boolean isFeatured;
   private BigDecimal sellerRating;
   private boolean isSellerVerified;
+  private String brand;
+  private Map<String, Object> attributes;
+  private String slug;
+  private boolean hasVariants;
+  private List<ProductVariantResponse> variants;
+  private Map<String, List<String>> variantOptions;
+
+  /** Phase 9: every active offer on the product (detail endpoints only). */
+  private List<OfferResponse> offers;
+
+  /** Phase 9: winning product-level offer. */
+  private OfferResponse buyBox;
+
+  /** Phase 9: winning offer per variant id. */
+  private Map<UUID, OfferResponse> variantBuyBoxes;
+
+  private UUID sellerId;
+  private String listedBy;
+
+  /** Set on sponsored placements injected into list responses. */
+  private Boolean sponsored;
+
+  private UUID adId;
 }

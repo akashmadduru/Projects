@@ -5,12 +5,65 @@
 import { useEffect, useState } from 'react'
 import { StarIcon } from './Icons'
 import type { CategoryNode } from '../hooks'
-import type { ProductQuery } from '../types'
+import type { FacetValue, FacetsResponse, ProductQuery } from '../types'
 
 interface Props {
   query: ProductQuery
   categories: CategoryNode[]
   onChange: (patch: Partial<ProductQuery>) => void
+  /** Brand / attribute counts for the current result set; sections are hidden until it loads. */
+  facets?: FacetsResponse
+}
+
+/** Checkbox group for a facet. Selected values stay listed even when the current counts drop them. */
+function FacetGroup({
+  title,
+  values,
+  selected,
+  onToggle,
+}: {
+  title: string
+  values: FacetValue[]
+  selected: string[]
+  onToggle: (value: string, on: boolean) => void
+}) {
+  const [showAll, setShowAll] = useState(false)
+  const merged = [...values, ...selected.filter((s) => !values.some((v) => v.value === s)).map((value) => ({ value, count: 0 }))]
+  if (merged.length === 0) return null
+  const visible = showAll ? merged : merged.slice(0, 6)
+  return (
+    <Section title={title}>
+      <fieldset>
+        <legend className="sr-only">{title}</legend>
+        <div className="space-y-1">
+          {visible.map((v) => {
+            const checked = selected.includes(v.value)
+            return (
+              <label key={v.value} className="flex cursor-pointer items-center gap-2 rounded-full px-2 py-1 text-sm text-on-surface hover:bg-vivid-amber/20">
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={(e) => onToggle(v.value, e.target.checked)}
+                  className="h-4 w-4 shrink-0 accent-[hsl(var(--color-primary))]"
+                />
+                <span className="flex-1 truncate">{v.value}</span>
+                <span className="text-xs text-on-surface-muted">({v.count})</span>
+              </label>
+            )
+          })}
+        </div>
+        {merged.length > 6 && (
+          <button
+            type="button"
+            onClick={() => setShowAll((s) => !s)}
+            className="mt-1 px-2 text-xs font-semibold text-primary hover:underline"
+          >
+            {showAll ? 'Show less' : `Show all ${merged.length}`}
+          </button>
+        )}
+      </fieldset>
+    </Section>
+  )
 }
 
 export const PRICE_PRESETS: { label: string; min?: number; max?: number }[] = [
@@ -113,7 +166,7 @@ function Switch({
   )
 }
 
-export function FilterPanel({ query, categories, onChange }: Props) {
+export function FilterPanel({ query, categories, onChange, facets }: Props) {
   const [minText, setMinText] = useState(query.minPrice?.toString() ?? '')
   const [maxText, setMaxText] = useState(query.maxPrice?.toString() ?? '')
   const [sellerText, setSellerText] = useState(query.seller ?? '')
@@ -226,6 +279,34 @@ export function FilterPanel({ query, categories, onChange }: Props) {
           )}
         </form>
       </Section>
+
+      {facets && (
+        <FacetGroup
+          title="Brand"
+          values={facets.brands}
+          selected={query.brand ?? []}
+          onToggle={(value, on) => {
+            const next = on ? [...(query.brand ?? []), value] : (query.brand ?? []).filter((b) => b !== value)
+            onChange({ brand: next.length ? next : undefined })
+          }}
+        />
+      )}
+      {facets?.attributes.map((attr) => (
+        <FacetGroup
+          key={attr.key}
+          title={attr.key}
+          values={attr.values}
+          selected={query.attrs?.[attr.key] ?? []}
+          onToggle={(value, on) => {
+            const current = query.attrs?.[attr.key] ?? []
+            const nextValues = on ? [...current, value] : current.filter((v) => v !== value)
+            const attrs = { ...(query.attrs ?? {}) }
+            if (nextValues.length) attrs[attr.key] = nextValues
+            else delete attrs[attr.key]
+            onChange({ attrs: Object.keys(attrs).length ? attrs : undefined })
+          }}
+        />
+      ))}
 
       <Section title="Customer rating">
         <div className="space-y-0.5">

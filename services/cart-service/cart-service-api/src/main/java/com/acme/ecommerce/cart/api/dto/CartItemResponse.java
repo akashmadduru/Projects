@@ -12,4 +12,8 @@ public record CartItemResponse(
     String currency,
     String imageUrl,
     BigDecimal lineTotal,
-    Instant addedAt) {}
+    Instant addedAt,
+    UUID variantId,
+    String variantLabel,
+    UUID offerId,
+    UUID sellerId) {}

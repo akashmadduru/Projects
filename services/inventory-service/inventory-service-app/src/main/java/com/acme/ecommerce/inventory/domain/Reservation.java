@@ -29,6 +29,18 @@ public class Reservation {
   @Column(name = "product_id", nullable = false, updatable = false)
   private UUID productId;
 
+  @Column(name = "variant_id", updatable = false)
+  private UUID variantId;
+
+  @Column(name = "offer_id", updatable = false)
+  private UUID offerId;
+
+  @Column(name = "seller_id", updatable = false)
+  private UUID sellerId;
+
+  @Column(name = "warehouse_id", updatable = false)
+  private UUID warehouseId;
+
   @Column(name = "quantity", nullable = false, updatable = false)
   private int quantity;
 
@@ -38,10 +50,22 @@ public class Reservation {
   @Column(name = "created_at", nullable = false, updatable = false)
   private Instant createdAt;
 
-  public static Reservation of(UUID orderId, UUID productId, int quantity, Instant now) {
+  public static Reservation of(
+      UUID orderId,
+      UUID productId,
+      UUID variantId,
+      UUID offerId,
+      UUID sellerId,
+      UUID warehouseId,
+      int quantity,
+      Instant now) {
     Reservation r = new Reservation();
+    r.offerId = offerId;
+    r.sellerId = sellerId;
+    r.warehouseId = warehouseId;
     r.orderId = orderId;
     r.productId = productId;
+    r.variantId = variantId;
     r.quantity = quantity;
     r.createdAt = now;
     return r;

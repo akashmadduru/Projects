@@ -11,6 +11,7 @@ import com.acme.ecommerce.order.event.OrderEventPublisher;
 import com.acme.ecommerce.order.event.OrderEventType;
 import com.acme.ecommerce.order.service.OrderStore.CancelPlan;
 import com.acme.ecommerce.order.service.OrderStore.Result;
+import com.acme.ecommerce.order.service.OrderStore.ShipmentAdvance;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -60,7 +61,9 @@ public class OrderLifecycleService {
     boolean refunded = false;
     if (plan.refundNeeded()) {
       // Money first: if payment-service is down the order stays as it was and the caller gets 503.
-      remote.refund(id, plan.amount(), "Order cancelled", "cancel-" + id);
+      if (plan.amount().signum() > 0) {
+        remote.refund(id, plan.amount(), "Order cancelled", "cancel-" + id);
+      }
       refunded = true;
     }
     Result result = store.cancel(ownerOrNull, id, actor, note, refunded);
@@ -75,17 +78,70 @@ public class OrderLifecycleService {
     if (order.couponCode() != null) {
       remote.releaseCouponBestEffort(order.id());
     }
+    if (order.coinsRedeemed() > 0) {
+      remote.releaseCoinsBestEffort(order.id());
+    }
+    if (order.walletAmount().signum() > 0) {
+      remote.creditWalletBackBestEffort(
+          order.userId(), order.walletAmount(), order.currency(), order.id());
+    }
     events.publish(OrderEventType.ORDER_CANCELLED, order);
   }
 
   public OrderResponse adminAdvance(UUID id, StatusUpdate update) {
     OrderStatus target = OrderStatus.valueOf(update.status().name());
-    OrderResponse order =
+    ShipmentAdvance adv =
         store.advance(id, target, update.note(), update.trackingNumber(), update.carrier());
-    if (target == OrderStatus.DELIVERED && "COD".equals(order.paymentMethod())) {
-      remote.codCollectedBestEffort(id);
+    return afterAdvance(adv);
+  }
+
+  /** Admin: move one shipment of an order. */
+  public OrderResponse adminAdvanceShipment(UUID orderId, UUID shipmentId, StatusUpdate update) {
+    return afterAdvance(
+        store.advanceShipment(
+            orderId,
+            null,
+            shipmentId,
+            OrderStatus.valueOf(update.status().name()),
+            update.note(),
+            update.trackingNumber(),
+            update.carrier(),
+            HistoryActor.ADMIN));
+  }
+
+  /** Seller: move one of their own shipments (anything else is a 404). */
+  public OrderResponse sellerAdvanceShipment(UUID userId, UUID shipmentId, StatusUpdate update) {
+    UUID sellerId = remote.approvedSellerId(userId);
+    if (sellerId == null) {
+      throw new CodedException(ErrorCode.FORBIDDEN, "An approved seller account is required");
     }
-    events.publish(OrderEventType.ORDER_STATUS_CHANGED, order);
+    String note =
+        update.note() == null || update.note().isBlank() ? "Updated by seller" : update.note();
+    return afterAdvance(
+        store.advanceShipment(
+            null,
+            sellerId,
+            shipmentId,
+            OrderStatus.valueOf(update.status().name()),
+            note,
+            update.trackingNumber(),
+            update.carrier(),
+            HistoryActor.SELLER));
+  }
+
+  /** COD collection on order DELIVERED, then SHIPMENT_STATUS_CHANGED (+ ORDER_STATUS_CHANGED if derived status moved). */
+  private OrderResponse afterAdvance(ShipmentAdvance adv) {
+    OrderResponse order = adv.order();
+    boolean orderMoved = !order.status().equals(adv.previousOrderStatus());
+    if (orderMoved && "DELIVERED".equals(order.status()) && "COD".equals(order.paymentMethod())) {
+      remote.codCollectedBestEffort(order.id());
+    }
+    if (adv.shipment() != null) {
+      events.publishShipment(OrderEventType.SHIPMENT_STATUS_CHANGED, order, adv.shipment());
+    }
+    if (orderMoved || adv.shipment() == null) {
+      events.publish(OrderEventType.ORDER_STATUS_CHANGED, order);
+    }
     return order;
   }
 
@@ -99,7 +155,11 @@ public class OrderLifecycleService {
           && !"REFUNDED".equals(r.order().paymentStatus())) {
         // Paid after the order was cancelled/expired: give the money back.
         try {
-          remote.refund(orderId, r.order().totalAmount(), "Paid after cancellation", "late-success-" + orderId);
+          remote.refund(
+              orderId,
+              r.order().totalAmount().subtract(r.order().walletAmount()),
+              "Paid after cancellation",
+              "late-success-" + orderId);
           store.markLateRefund(orderId);
         } catch (RuntimeException e) {
           log.error("Order {} was paid after cancellation and the refund failed: {}", orderId, e.toString());

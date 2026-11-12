@@ -25,11 +25,13 @@ public class PaymentRepository {
       String status,
       String intentId,
       BigDecimal refundedAmount,
-      boolean reported) {}
+      boolean reported,
+      String purpose,
+      UUID referenceId) {}
 
   private static final String COLS =
       "id, order_id, user_id, method, mode, amount, currency, status, "
-          + "stripe_payment_intent_id, refunded_amount, reported";
+          + "stripe_payment_intent_id, refunded_amount, reported, purpose, reference_id";
 
   private final JdbcClient jdbc;
 
@@ -49,7 +51,9 @@ public class PaymentRepository {
         rs.getString("status"),
         rs.getString("stripe_payment_intent_id"),
         rs.getBigDecimal("refunded_amount"),
-        rs.getBoolean("reported"));
+        rs.getBoolean("reported"),
+        rs.getString("purpose"),
+        rs.getObject("reference_id", UUID.class));
   }
 
   public Optional<Payment> findByOrderId(UUID orderId) {
@@ -90,10 +94,12 @@ public class PaymentRepository {
       BigDecimal amount,
       String currency,
       String status,
-      String intentId) {
+      String intentId,
+      String purpose) {
     return jdbc.sql(
             "INSERT INTO payment.payments (order_id, user_id, method, mode, amount, currency, "
-                + "status, stripe_payment_intent_id) VALUES (:o, :u, :m, :mode, :a, :c, :s, :i) "
+                + "status, stripe_payment_intent_id, purpose, reference_id) "
+                + "VALUES (:o, :u, :m, :mode, :a, :c, :s, :i, :p, :o) "
                 + "ON CONFLICT (order_id) DO NOTHING")
         .param("o", orderId)
         .param("u", userId)
@@ -102,6 +108,7 @@ public class PaymentRepository {
         .param("a", amount)
         .param("c", currency)
         .param("s", status)
+        .param("p", purpose)
         .param("i", intentId)
         .update();
   }

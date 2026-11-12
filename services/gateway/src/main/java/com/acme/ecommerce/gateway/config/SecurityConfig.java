@@ -129,13 +129,33 @@ public class SecurityConfig {
                         "/api/categories",
                         "/api/categories/**")
                     .permitAll()
+                    // Phase 7: product view tracking (anonymous session id) and the SEO sitemap are public.
+                    .pathMatchers(HttpMethod.POST, "/api/products/*/views")
+                    .permitAll()
+                    .pathMatchers(HttpMethod.GET, "/sitemap.xml")
+                    .permitAll()
                     // Ratings: the review list and summary are public reads. The caller's own
                     // eligibility endpoint (/products/{id}/me) and every write stay authenticated.
                     .pathMatchers(
-                        HttpMethod.GET, "/api/ratings/products/*", "/api/ratings/products/*/summary")
+                        HttpMethod.GET,
+                        "/api/ratings/products/*",
+                        "/api/ratings/products/*/summary",
+                        "/api/ratings/products/*/questions",
+                        "/api/ratings/questions/*/answers",
+                        "/api/ratings/media/*")
                     .permitAll()
                     // Orders (Phase 6): the pincode delivery estimate is a public read.
+                    .pathMatchers(
+                        HttpMethod.GET,
+                        "/api/promotions/offers",
+                        "/api/promotions/deals/active",
+                        "/api/recommendations/products/*/bought-together")
+                    .permitAll()
                     .pathMatchers(HttpMethod.GET, "/api/orders/delivery-estimate")
+                    .permitAll()
+                    // Phase 8: VAPID public key and the shared-list public view.
+                    .pathMatchers(
+                        HttpMethod.GET, "/api/push/vapid-public-key", "/api/lists/shared/*")
                     .permitAll()
                     // Payments (Phase 6): the mode/publishable-key config is public; the Stripe
                     // webhook carries no JWT (it is authenticated by its Stripe-Signature header,
@@ -144,6 +164,20 @@ public class SecurityConfig {
                     .permitAll()
                     .pathMatchers(HttpMethod.POST, "/api/payments/webhook")
                     .permitAll()
+                    // Phase 9 marketplace: /api/sellers/me is the caller's own record; the seller
+                    // public profile, public feedback list and the ad click/impression beacons
+                    // carry no JWT.
+                    .pathMatchers(HttpMethod.GET, "/api/sellers/me")
+                    .authenticated()
+                    .pathMatchers(HttpMethod.GET, "/api/sellers/*", "/api/sellers/*/feedback")
+                    .permitAll()
+                    .pathMatchers(HttpMethod.POST, "/api/ads/*/click", "/api/ads/impressions")
+                    .permitAll()
+                    // Back-office APIs: ADMIN only at the edge as defence in depth. Every
+                    // owning service enforces the same rule itself; this stops a service
+                    // that forgets from being reachable by a customer token.
+                    .pathMatchers("/api/admin/**")
+                    .hasAuthority("ROLE_ADMIN")
                     // /api/auth/me, /api/auth/validate, /api/products POST/PUT/DELETE and anything
                     // added later.
                     .anyExchange()

@@ -11,31 +11,47 @@ import type { Product } from '../types'
 
 interface Props {
   product: Product
+  /** Unit price override (deal or variant price). Defaults to the product's effective price. */
+  price?: number
+  /** Selected variant; when given, the line is keyed by it. */
+  variant?: { id: string; label: string; image?: string | null }
+  /** Extra reason to disable (e.g. variant out of stock). */
+  unavailable?: boolean
   quantity?: number
+  /** Specific marketplace offer to buy; omitted = the buy box offer. */
+  offerId?: string
+  /** Label override (default "Add to cart"). */
+  label?: string
   size?: 'sm' | 'lg'
   className?: string
 }
 
 const ADDED_MS = 1400
 
-export function AddToCartButton({ product, quantity = 1, size = 'sm', className = '' }: Props) {
+export function AddToCartButton({ product, price, variant, unavailable = false, quantity = 1, offerId, label = 'Add to cart', size = 'sm', className = '' }: Props) {
   const addItem = useCartStore((s) => s.addItem)
   const notify = useUiStore((s) => s.notify)
   const [added, setAdded] = useState(false)
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
-  const outOfStock = product.lastKnownQuantity === 0 || !product.active
+  const outOfStock = product.lastKnownQuantity === 0 || !product.active || unavailable
 
   useEffect(() => () => clearTimeout(timer.current), [])
 
   const onClick = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    addItem(product.id, quantity, {
-      name: product.name,
-      priceAmount: effectivePrice(product),
-      priceCurrency: product.priceCurrency,
-      image: product.images[0],
-    })
+    addItem(
+      product.id,
+      quantity,
+      {
+        name: product.name,
+        priceAmount: price ?? effectivePrice(product),
+        priceCurrency: product.priceCurrency,
+        image: variant?.image ?? product.images[0],
+      },
+      variant ? { variantId: variant.id, variantLabel: variant.label } : undefined,
+      offerId,
+    )
     notify(`Added ${quantity > 1 ? `${quantity} × ` : ''}${product.name} to your cart`)
     setAdded(true)
     clearTimeout(timer.current)
@@ -64,7 +80,7 @@ export function AddToCartButton({ product, quantity = 1, size = 'sm', className 
       ) : (
         <>
           <CartIcon className={`transition-transform duration-700 group-hover/btn:-rotate-12 group-hover/btn:scale-110 ${size === 'lg' ? 'w-5 h-5' : 'w-4 h-4'}`} />
-          {outOfStock ? 'Unavailable' : 'Add to cart'}
+          {outOfStock ? 'Unavailable' : label}
         </>
       )}
     </button>

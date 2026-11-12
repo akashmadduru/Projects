@@ -9,9 +9,21 @@ import { secondaryButtonClass } from './Form'
 import { ThemedSelect } from './ThemedSelect'
 import { CheckBadgeIcon } from './Icons'
 import { ReviewStars } from './ReviewStars'
+import { Suspense, lazy } from 'react'
 import { errorMessage } from '../lib/errors'
 import { ratingApi } from '../services/ratingApi'
-import type { Review, ReviewSort, ReviewVote } from '../types'
+import type { Review, ReviewFilters, ReviewSort, ReviewVote } from '../types'
+
+const Lightbox = lazy(() => import('./Lightbox').then((m) => ({ default: m.Lightbox })))
+
+const STAR_FILTERS: { value: string; label: string }[] = [
+  { value: '0', label: 'All stars' },
+  { value: '5', label: '5 stars' },
+  { value: '4', label: '4 stars' },
+  { value: '3', label: '3 stars' },
+  { value: '2', label: '2 stars' },
+  { value: '1', label: '1 star' },
+]
 
 const SORTS: { value: ReviewSort; label: string }[] = [
   { value: 'createdAt,desc', label: 'Newest' },
@@ -39,13 +51,23 @@ export function ReviewList({ productId, refreshKey, authenticated, ownReviewId }
   const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState<string | undefined>()
   const [votingId, setVotingId] = useState<string | undefined>()
+  const [stars, setStars] = useState('0')
+  const [verified, setVerified] = useState(false)
+  const [withMedia, setWithMedia] = useState(false)
+  const [viewer, setViewer] = useState<{ urls: string[]; index: number } | undefined>()
+  const filters: ReviewFilters = {
+    ...(stars !== '0' ? { stars: Number(stars) } : {}),
+    ...(verified ? { verified: true as const } : {}),
+    ...(withMedia ? { withMedia: true as const } : {}),
+  }
+  const filterKey = JSON.stringify(filters)
 
   useEffect(() => {
     let active = true
     setLoading(true)
     setError(undefined)
     ratingApi
-      .list(productId, 0, sort)
+      .list(productId, 0, sort, undefined, JSON.parse(filterKey) as ReviewFilters)
       .then((result) => {
         if (!active) return
         setReviews(result.reviews)
@@ -62,13 +84,13 @@ export function ReviewList({ productId, refreshKey, authenticated, ownReviewId }
     return () => {
       active = false
     }
-  }, [productId, sort, refreshKey])
+  }, [productId, sort, refreshKey, filterKey])
 
   const loadMore = async () => {
     setLoadingMore(true)
     setError(undefined)
     try {
-      const result = await ratingApi.list(productId, pagesLoaded, sort)
+      const result = await ratingApi.list(productId, pagesLoaded, sort, undefined, filters)
       setReviews((prev) => [...prev, ...result.reviews.filter((r) => !prev.some((p) => p.id === r.id))])
       setPagesLoaded((n) => n + 1)
       setTotalPages(result.totalPages)
@@ -90,7 +112,7 @@ export function ReviewList({ productId, refreshKey, authenticated, ownReviewId }
       await ratingApi.vote(review.id, value)
       // The vote response may be empty (204), so re-read everything loaded so far for fresh counts.
       const pages = await Promise.all(
-        Array.from({ length: Math.max(1, pagesLoaded) }, (_, i) => ratingApi.list(productId, i, sort)),
+        Array.from({ length: Math.max(1, pagesLoaded) }, (_, i) => ratingApi.list(productId, i, sort, undefined, filters)),
       )
       setReviews(pages.flatMap((p) => p.reviews))
     } catch (e) {
@@ -110,6 +132,18 @@ export function ReviewList({ productId, refreshKey, authenticated, ownReviewId }
         <ThemedSelect id="review-sort" label="Sort by" value={sort} options={SORTS} onChange={setSort} />
       </div>
 
+      <div className="flex flex-wrap items-center gap-3">
+        <ThemedSelect id="review-stars" label="Rating" value={stars} options={STAR_FILTERS} onChange={setStars} />
+        <label className="flex cursor-pointer items-center gap-1.5 text-sm font-semibold text-on-surface">
+          <input type="checkbox" checked={verified} onChange={(e) => setVerified(e.target.checked)} className="accent-[hsl(var(--color-primary))]" />
+          Verified purchases
+        </label>
+        <label className="flex cursor-pointer items-center gap-1.5 text-sm font-semibold text-on-surface">
+          <input type="checkbox" checked={withMedia} onChange={(e) => setWithMedia(e.target.checked)} className="accent-[hsl(var(--color-primary))]" />
+          With photos
+        </label>
+      </div>
+
       {error && <ErrorAlert message={error} onDismiss={() => setError(undefined)} />}
 
       {loading ? (
@@ -118,7 +152,11 @@ export function ReviewList({ productId, refreshKey, authenticated, ownReviewId }
           <div className="h-24 w-full rounded-2xl skeleton-loading" />
         </div>
       ) : reviews.length === 0 ? (
-        !error && <p className="text-sm text-on-surface-muted">No reviews yet.</p>
+        !error && (
+          <p className="text-sm text-on-surface-muted">
+            {stars !== '0' || verified || withMedia ? 'No reviews match these filters.' : 'No reviews yet.'}
+          </p>
+        )
       ) : (
         <ul className="divide-y divide-outline">
           {reviews.map((review) => {
@@ -141,6 +179,22 @@ export function ReviewList({ productId, refreshKey, authenticated, ownReviewId }
                 </p>
                 {review.reviewText && (
                   <p className="whitespace-pre-line break-words leading-relaxed text-on-surface">{review.reviewText}</p>
+                )}
+                {review.media && review.media.length > 0 && (
+                  <ul className="flex flex-wrap gap-2">
+                    {review.media.map((m, mi) => (
+                      <li key={m.id}>
+                        <button
+                          type="button"
+                          onClick={() => setViewer({ urls: review.media?.map((x) => x.url) ?? [], index: mi })}
+                          aria-label={`View review photo ${mi + 1} of ${review.media?.length ?? 0}`}
+                          className="press h-20 w-20 overflow-hidden rounded-lg border-2 border-outline"
+                        >
+                          <img src={m.url} alt="" loading="lazy" className="h-full w-full object-cover" />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
                 )}
                 {!own && (
                   <div className="flex flex-wrap items-center gap-2 pt-1">
@@ -180,6 +234,17 @@ export function ReviewList({ productId, refreshKey, authenticated, ownReviewId }
         >
           {loadingMore ? 'Loading...' : 'Load more reviews'}
         </button>
+      )}
+      {viewer && (
+        <Suspense fallback={null}>
+          <Lightbox
+            images={viewer.urls}
+            index={viewer.index}
+            alt="Customer review photo"
+            onIndexChange={(index) => setViewer({ ...viewer, index })}
+            onClose={() => setViewer(undefined)}
+          />
+        </Suspense>
       )}
     </div>
   )

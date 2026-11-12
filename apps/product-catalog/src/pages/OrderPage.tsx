@@ -3,7 +3,7 @@
  * card payment (?payment=return polls until the order leaves PENDING_PAYMENT).
  */
 
-import { useCallback, useEffect, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
 import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom'
 import { formatAddressLines } from '../components/AddressForm'
 import { ErrorAlert } from '../components/ErrorAlert'
@@ -16,7 +16,9 @@ import { formatMoney } from '../lib/format'
 import { orderApi } from '../services/orderApi'
 import { paymentApi } from '../services/paymentApi'
 import { useUiStore } from '../stores'
-import type { Order, OrderStatus, PaymentInfo, PaymentStatus, ReturnReason, ReturnResponse } from '../types'
+import type { Order, OrderShipment, OrderStatus, PaymentInfo, PaymentStatus, ReturnReason, ReturnResponse } from '../types'
+
+const SellerFeedbackForm = lazy(() => import('../components/SellerFeedbackForm'))
 
 const POLL_MS = 2000
 const POLL_MAX = 15
@@ -71,18 +73,26 @@ function formatWhen(iso: string): string {
   return new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
 }
 
-function Timeline({ order }: { order: Order }) {
-  const at = new Map(order.timeline.map((t) => [t.status, t]))
-  const cancelled = order.status === 'CANCELLED'
+function Timeline({
+  status,
+  timeline,
+  label = 'Order tracking',
+}: {
+  status: OrderStatus
+  timeline: Order['timeline']
+  label?: string
+}) {
+  const at = new Map(timeline.map((t) => [t.status, t]))
+  const cancelled = status === 'CANCELLED'
   const steps = cancelled
-    ? order.timeline.map((t) => ({ status: t.status, label: STATUS_LABEL[t.status] }))
+    ? timeline.map((t) => ({ status: t.status, label: STATUS_LABEL[t.status] }))
     : STEPS
   return (
-    <ol className="space-y-0" aria-label="Order tracking">
+    <ol className="space-y-0" aria-label={label}>
       {steps.map((step, index) => {
         const entry = at.get(step.status)
         const reached = !!entry
-        const current = order.status === step.status
+        const current = status === step.status
         const bad = step.status === 'CANCELLED'
         return (
           <li key={`${step.status}-${index}`} className="relative flex gap-3 pb-5 last:pb-0" aria-current={current ? 'step' : undefined}>
@@ -113,14 +123,136 @@ function Timeline({ order }: { order: Order }) {
   )
 }
 
+function ShipmentCard({
+  order,
+  shipment,
+  index,
+  total,
+  onInvoice,
+  invoiceBusy,
+  invoiceReady,
+}: {
+  order: Order
+  shipment: OrderShipment
+  index: number
+  total: number
+  onInvoice: (shipment: OrderShipment) => void
+  invoiceBusy: boolean
+  invoiceReady: boolean
+}) {
+  const [rating, setRating] = useState(false)
+  const [rated, setRated] = useState(false)
+  const items = order.items.filter(
+    (i) => (i.shipmentId ? i.shipmentId === shipment.id : shipment.items.includes(i.productId)),
+  )
+  const active = shipment.status !== 'DELIVERED' && shipment.status !== 'CANCELLED'
+
+  return (
+    <section className={`${cardClass} space-y-3`} aria-label={`Shipment ${index + 1} of ${total}`}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="font-bold text-on-surface">
+          Shipment {index + 1} of {total}
+          <span className="font-normal text-on-surface-muted"> · Sold by {shipment.sellerName}</span>
+        </h2>
+        <span className="rounded-full border-2 border-ink bg-surface-variant px-3 py-1 text-sm font-bold text-on-surface">
+          {STATUS_LABEL[shipment.status]}
+        </span>
+      </div>
+
+      <ul className="divide-y divide-outline/40">
+        {items.map((item) => (
+          <li key={`${item.productId}:${item.variantId ?? ''}`} className="flex gap-3 py-2 first:pt-0 last:pb-0">
+            <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-surface-variant">
+              <ProductImage src={item.imageUrl ?? undefined} alt={item.name} productId={item.productId} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <Link to={`/products/${item.productId}`} className="line-clamp-2 text-sm font-medium text-on-surface hover:text-primary">
+                {item.name}
+              </Link>
+              {item.variantLabel && <p className="text-xs text-on-surface-muted">{item.variantLabel}</p>}
+              <p className="text-xs text-on-surface-muted">
+                {item.quantity} x {formatMoney(Number(item.unitPrice), order.currency)}
+              </p>
+              {shipment.status === 'DELIVERED' && (
+                <Link
+                  to={`/products/${item.productId}#write-review`}
+                  aria-label={`Rate and review ${item.name}`}
+                  className="mt-1 inline-block text-xs font-semibold text-primary hover:underline"
+                >
+                  Rate &amp; review
+                </Link>
+              )}
+            </div>
+            <span className="font-bold text-on-surface">{formatMoney(Number(item.lineTotal), order.currency)}</span>
+          </li>
+        ))}
+      </ul>
+
+      <Timeline status={shipment.status} timeline={shipment.timeline} label={`Shipment ${index + 1} tracking`} />
+
+      <dl className="grid gap-2 border-t-2 border-outline/30 pt-3 text-sm sm:grid-cols-3">
+        {shipment.estimatedDeliveryDate && active && (
+          <div>
+            <dt className="text-on-surface-muted">Estimated delivery</dt>
+            <dd className="font-semibold text-on-surface">
+              {new Date(`${shipment.estimatedDeliveryDate}T00:00:00`).toLocaleDateString(undefined, { dateStyle: 'medium' })}
+            </dd>
+          </div>
+        )}
+        {shipment.carrier && (
+          <div>
+            <dt className="text-on-surface-muted">Carrier</dt>
+            <dd className="font-semibold text-on-surface">{shipment.carrier}</dd>
+          </div>
+        )}
+        {shipment.trackingNumber && (
+          <div>
+            <dt className="text-on-surface-muted">Tracking number</dt>
+            <dd className="font-mono font-semibold text-on-surface">{shipment.trackingNumber}</dd>
+          </div>
+        )}
+      </dl>
+
+      <div className="flex flex-wrap gap-2">
+        {invoiceReady && shipment.status !== 'CANCELLED' && (
+          <button type="button" onClick={() => onInvoice(shipment)} disabled={invoiceBusy} className={secondaryButtonClass}>
+            {invoiceBusy ? 'Preparing...' : 'Download invoice'}
+          </button>
+        )}
+        {shipment.status === 'DELIVERED' && !rated && !rating && (
+          <button type="button" onClick={() => setRating(true)} className={secondaryButtonClass}>
+            Rate seller
+          </button>
+        )}
+      </div>
+      {rated && <p className="text-sm font-semibold text-success">Thanks for rating {shipment.sellerName}.</p>}
+      {rating && !rated && (
+        <Suspense fallback={<LoadingBlock label="Loading form" />}>
+          <SellerFeedbackForm
+            sellerId={shipment.sellerId}
+            sellerName={shipment.sellerName}
+            shipmentId={shipment.id}
+            onDone={() => {
+              setRating(false)
+              setRated(true)
+            }}
+          />
+        </Suspense>
+      )}
+    </section>
+  )
+}
+
 function ReturnForm({ order, onCreated }: { order: Order; onCreated: (created: ReturnResponse) => void }) {
   const [quantities, setQuantities] = useState<Record<string, number>>({})
   const [reason, setReason] = useState<ReturnReason>('NO_LONGER_NEEDED')
   const [comment, setComment] = useState('')
+  const [refundTo, setRefundTo] = useState<'SOURCE' | 'WALLET'>(order.paymentMethod === 'COD' ? 'WALLET' : 'SOURCE')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | undefined>()
 
-  const chosen = order.items.filter((i) => (quantities[i.productId] ?? 0) > 0)
+  const lineKey = (i: Order['items'][number]) => `${i.productId}:${i.variantId ?? ''}`
+  const chosen = order.items.filter((i) => (quantities[lineKey(i)] ?? 0) > 0)
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -128,8 +260,13 @@ function ReturnForm({ order, onCreated }: { order: Order; onCreated: (created: R
     setError(undefined)
     try {
       const created = await orderApi.requestReturn(order.id, {
-        items: chosen.map((i) => ({ productId: i.productId, quantity: quantities[i.productId] ?? 0 })),
+        items: chosen.map((i) => ({
+          productId: i.productId,
+          ...(i.variantId ? { variantId: i.variantId } : {}),
+          quantity: quantities[lineKey(i)] ?? 0,
+        })),
         reason,
+        refundTo: order.paymentMethod === 'COD' ? 'WALLET' : refundTo,
         ...(comment.trim() ? { comment: comment.trim() } : {}),
       })
       onCreated(created)
@@ -146,20 +283,21 @@ function ReturnForm({ order, onCreated }: { order: Order; onCreated: (created: R
       <fieldset className="space-y-2">
         <legend className="mb-1 text-sm font-semibold text-on-surface">Items to return</legend>
         {order.items.map((item) => (
-          <div key={item.productId} className="flex items-center gap-3">
-            <label htmlFor={`ret-${item.productId}`} className="min-w-0 flex-1 truncate text-sm text-on-surface">
-              {item.name} <span className="text-on-surface-muted">(bought {item.quantity})</span>
+          <div key={lineKey(item)} className="flex items-center gap-3">
+            <label htmlFor={`ret-${lineKey(item)}`} className="min-w-0 flex-1 truncate text-sm text-on-surface">
+              {item.name}
+              {item.variantLabel ? ` (${item.variantLabel})` : ''} <span className="text-on-surface-muted">(bought {item.quantity})</span>
             </label>
             <input
-              id={`ret-${item.productId}`}
+              id={`ret-${lineKey(item)}`}
               type="number"
               min={0}
               max={item.quantity}
-              value={quantities[item.productId] ?? 0}
+              value={quantities[lineKey(item)] ?? 0}
               onChange={(e) =>
                 setQuantities((q) => ({
                   ...q,
-                  [item.productId]: Math.min(Math.max(Number.parseInt(e.target.value, 10) || 0, 0), item.quantity),
+                  [lineKey(item)]: Math.min(Math.max(Number.parseInt(e.target.value, 10) || 0, 0), item.quantity),
                 }))
               }
               className={`${inputClass} !w-20`}
@@ -195,6 +333,21 @@ function ReturnForm({ order, onCreated }: { order: Order; onCreated: (created: R
           />
         )}
       </Field>
+      {order.paymentMethod === 'COD' ? (
+        <p className="text-sm text-on-surface-muted">Refunds for Cash on Delivery orders go to your wallet.</p>
+      ) : (
+        <fieldset>
+          <legend className="mb-1 text-sm font-semibold text-on-surface">Refund to</legend>
+          <div role="radiogroup" aria-label="Refund destination" className="space-y-1">
+            {(['SOURCE', 'WALLET'] as const).map((v) => (
+              <label key={v} className="flex items-center gap-2 text-sm text-on-surface">
+                <input type="radio" name="refundTo" checked={refundTo === v} onChange={() => setRefundTo(v)} />
+                {v === 'SOURCE' ? 'Original payment method' : 'Wallet (instant)'}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      )}
       <button type="submit" disabled={busy || chosen.length === 0} className={primaryButtonClass}>
         {busy ? 'Submitting...' : 'Request return'}
       </button>
@@ -216,6 +369,7 @@ export function OrderPage() {
   const [cancelling, setCancelling] = useState(false)
   const [actionError, setActionError] = useState<string | undefined>()
   const [downloading, setDownloading] = useState(false)
+  const [downloadingShipment, setDownloadingShipment] = useState<string | undefined>()
   const [payment, setPayment] = useState<PaymentInfo | null>(null)
   const [resuming, setResuming] = useState(false)
   const [showReturn, setShowReturn] = useState(false)
@@ -286,6 +440,26 @@ export function OrderPage() {
     }
   }
 
+  const downloadShipmentInvoice = async (shipment: OrderShipment) => {
+    setDownloadingShipment(shipment.id)
+    setActionError(undefined)
+    try {
+      const blob = await orderApi.shipmentInvoice(order.id, shipment.id)
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `invoice-${order.id.slice(0, 8)}-${shipment.id.slice(0, 8)}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      setTimeout(() => URL.revokeObjectURL(url), 10_000)
+    } catch (err) {
+      setActionError(errorMessage(err))
+    } finally {
+      setDownloadingShipment(undefined)
+    }
+  }
+
   const resumePayment = async () => {
     setResuming(true)
     setActionError(undefined)
@@ -299,6 +473,7 @@ export function OrderPage() {
   }
 
   const invoiceReady = order.status !== 'PENDING_PAYMENT' && order.status !== 'CANCELLED'
+  const shipments = order.shipments ?? []
   const money = (value: number | null | undefined) => formatMoney(Number(value ?? 0), order.currency)
 
   return (
@@ -368,9 +543,23 @@ export function OrderPage() {
         </div>
       )}
 
+      {shipments.map((shipment, index) => (
+        <ShipmentCard
+          key={shipment.id}
+          order={order}
+          shipment={shipment}
+          index={index}
+          total={shipments.length}
+          onInvoice={(s) => void downloadShipmentInvoice(s)}
+          invoiceBusy={downloadingShipment === shipment.id}
+          invoiceReady={invoiceReady}
+        />
+      ))}
+
+      {shipments.length === 0 && (
       <div className={cardClass}>
         <h2 className="mb-3 font-bold text-on-surface">Tracking</h2>
-        <Timeline order={order} />
+        <Timeline status={order.status} timeline={order.timeline} />
         <dl className="mt-4 grid gap-2 border-t-2 border-outline/30 pt-3 text-sm sm:grid-cols-2">
           {order.estimatedDeliveryDate && order.status !== 'DELIVERED' && order.status !== 'CANCELLED' && (
             <div>
@@ -394,9 +583,10 @@ export function OrderPage() {
           )}
         </dl>
       </div>
+      )}
 
       <ul className={`${cardClass} divide-y divide-outline`}>
-        {order.items.map((item) => (
+        {(shipments.length > 0 ? [] : order.items).map((item) => (
           <li key={item.productId} className="flex gap-3 py-3 first:pt-0">
             <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-surface-variant">
               <ProductImage src={item.imageUrl ?? undefined} alt={item.name} productId={item.productId} />
@@ -405,6 +595,7 @@ export function OrderPage() {
               <Link to={`/products/${item.productId}`} className="line-clamp-2 text-sm font-medium text-on-surface hover:text-primary">
                 {item.name}
               </Link>
+              {item.variantLabel && <p className="text-xs text-on-surface-muted">{item.variantLabel}</p>}
               <p className="text-xs text-on-surface-muted">
                 {item.quantity} x {formatMoney(Number(item.unitPrice), order.currency)}
               </p>
@@ -432,8 +623,14 @@ export function OrderPage() {
               <span className="text-success">-{money(order.discountAmount)}</span>
             </div>
           )}
+          {Number(order.coinsValue) > 0 && (
+            <div className="flex justify-between">
+              <span className="text-on-surface-muted">Coins ({order.coinsRedeemed})</span>
+              <span className="text-success">-{money(order.coinsValue)}</span>
+            </div>
+          )}
           <div className="flex justify-between">
-            <span className="text-on-surface-muted">Shipping</span>
+            <span className="text-on-surface-muted">Shipping{order.membershipFreeShipping ? ' (Plus)' : ''}</span>
             <span className="text-on-surface">{Number(order.shippingAmount) > 0 ? money(order.shippingAmount) : 'Free'}</span>
           </div>
           {order.taxLabel && (
@@ -530,7 +727,7 @@ export function OrderPage() {
         <Link to="/account/orders" className={secondaryButtonClass}>
           All orders
         </Link>
-        {invoiceReady && (
+        {invoiceReady && shipments.length === 0 && (
           <button type="button" onClick={() => void downloadInvoice()} disabled={downloading} className={secondaryButtonClass}>
             {downloading ? 'Preparing...' : 'Download invoice'}
           </button>

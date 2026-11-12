@@ -124,7 +124,7 @@ spring:
             - id: auth-secured
               uri: lb://AUTH-SERVICE
               predicates:
-                - Path=/api/auth/me,/api/auth/validate,/api/auth/me/**,/api/auth/email/verify/resend
+                - Path=/api/auth/me,/api/auth/validate,/api/auth/me/**,/api/auth/email/verify/resend,/api/admin/users/**
               filters:
                 - name: CircuitBreaker
                   args:
@@ -169,7 +169,7 @@ spring:
             - id: product
               uri: lb://PRODUCT-SERVICE
               predicates:
-                - Path=/api/products/**,/api/categories/**
+                - Path=/api/products/**,/api/categories/**,/sitemap.xml,/api/seller/offers,/api/seller/offers/**,/api/seller/products,/api/seller/products/**
               filters:
                 - name: CircuitBreaker
                   args:
@@ -184,7 +184,7 @@ spring:
             - id: inventory
               uri: lb://INVENTORY-SERVICE
               predicates:
-                - Path=/api/inventory/**
+                - Path=/api/inventory/**,/api/seller/stock,/api/seller/warehouses,/api/admin/warehouses,/api/admin/warehouses/**,/api/admin/stock
               filters:
                 - name: CircuitBreaker
                   args:
@@ -195,7 +195,7 @@ spring:
             - id: user
               uri: lb://USER-SERVICE
               predicates:
-                - Path=/api/users/**
+                - Path=/api/users/**,/api/membership,/api/membership/**,/api/referrals,/api/referrals/**
               filters:
                 - name: CircuitBreaker
                   args:
@@ -209,7 +209,7 @@ spring:
             - id: cart
               uri: lb://CART-SERVICE
               predicates:
-                - Path=/api/cart/**,/api/cart,/api/wishlist/**,/api/wishlist
+                - Path=/api/cart/**,/api/cart,/api/wishlist/**,/api/wishlist,/api/alerts/**,/api/alerts,/api/lists,/api/lists/**
               filters:
                 - name: CircuitBreaker
                   args:
@@ -225,7 +225,7 @@ spring:
             - id: order
               uri: lb://ORDER-SERVICE
               predicates:
-                - Path=/api/orders/**,/api/orders,/api/admin/orders/**,/api/admin/returns/**
+                - Path=/api/orders/**,/api/orders,/api/admin/orders/**,/api/admin/returns/**,/api/recommendations/**,/api/subscriptions/**,/api/subscriptions,/api/seller/shipments,/api/seller/shipments/**
               filters:
                 - name: CircuitBreaker
                   args:
@@ -241,7 +241,7 @@ spring:
             - id: rating
               uri: lb://RATING-SERVICE
               predicates:
-                - Path=/api/ratings/**
+                - Path=/api/ratings/**,/api/admin/ratings/**
               filters:
                 - name: CircuitBreaker
                   args:
@@ -255,7 +255,7 @@ spring:
             - id: payment
               uri: lb://PAYMENT-SERVICE
               predicates:
-                - Path=/api/payments/**
+                - Path=/api/payments/**,/api/admin/payments/**,/api/wallet,/api/wallet/**,/api/gift-cards,/api/gift-cards/**
               filters:
                 - name: CircuitBreaker
                   args:
@@ -269,12 +269,42 @@ spring:
             - id: promotion
               uri: lb://PROMOTION-SERVICE
               predicates:
-                - Path=/api/promotions/**,/api/admin/coupons/**,/api/admin/coupons
+                - Path=/api/promotions/**,/api/admin/coupons/**,/api/admin/coupons,/api/admin/deals/**,/api/admin/deals,/api/coins,/api/coins/**
               filters:
                 - name: CircuitBreaker
                   args:
                     name: promotionCb
                     fallbackUri: forward:/__fallback/promotion
+              metadata:
+                response-timeout: 10000
+                connect-timeout: 2000
+
+            # --- notification-service (Phase 8): inbox, web push, campaigns ------------------
+            - id: notification
+              uri: lb://NOTIFICATION-SERVICE
+              predicates:
+                - Path=/api/notifications,/api/notifications/**,/api/push/**,/api/admin/campaigns,/api/admin/campaigns/**
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: notificationCb
+                    fallbackUri: forward:/__fallback/notification
+              metadata:
+                response-timeout: 10000
+                connect-timeout: 2000
+
+            # --- seller-service (Phase 9): onboarding/KYC, feedback, ledger, payouts, analytics, ads ---
+            # Explicit paths (not /api/seller/**): /api/seller/offers|products|stock|warehouses belong
+            # to catalog services and /api/seller/shipments to order-service.
+            - id: seller
+              uri: lb://SELLER-SERVICE
+              predicates:
+                - Path=/api/sellers,/api/sellers/**,/api/seller/ledger,/api/seller/ledger/**,/api/seller/payouts,/api/seller/payouts/**,/api/seller/analytics,/api/seller/analytics/**,/api/seller/feedback,/api/seller/ads,/api/seller/ads/**,/api/admin/sellers,/api/admin/sellers/**,/api/admin/payouts,/api/admin/payouts/**,/api/ads/**
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: sellerCb
+                    fallbackUri: forward:/__fallback/seller
               metadata:
                 response-timeout: 10000
                 connect-timeout: 2000
@@ -394,6 +424,9 @@ resilience4j:
       promotionCb:
         base-config: default
         slow-call-duration-threshold: 1s
+      sellerCb:
+        base-config: default
+        slow-call-duration-threshold: 2s
 
   timelimiter:
     configs:
@@ -436,6 +469,9 @@ resilience4j:
       promotionCb:
         base-config: default
         timeout-duration: 6s
+      sellerCb:
+        base-config: default
+        timeout-duration: 11s
 
 server:
   port: ${SERVER_PORT:8080}

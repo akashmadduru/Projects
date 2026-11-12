@@ -80,7 +80,7 @@ export function CartDrawer() {
         {items.length === 0 && <p className="py-6 text-center text-sm text-on-surface-muted">Your cart is empty.</p>}
         <ul className="divide-y divide-outline">
           {items.map((item) => (
-            <li key={item.productId} className="flex gap-3 py-4">
+            <li key={`${item.productId}:${item.variantId ?? ''}`} className="flex gap-3 py-4">
               <Link
                 to={`/products/${item.productId}`}
                 onClick={close}
@@ -96,6 +96,7 @@ export function CartDrawer() {
                 >
                   {item.snapshot?.name ?? 'Product'}
                 </Link>
+                {item.variantLabel && <p className="text-xs text-on-surface-muted">{item.variantLabel}</p>}
                 {item.snapshot && (
                   <span className="text-sm font-bold text-on-surface">
                     {formatMoney(item.snapshot.priceAmount * item.quantity, item.snapshot.priceCurrency)}
@@ -105,7 +106,7 @@ export function CartDrawer() {
                   <div className="flex items-center rounded-lg border border-outline">
                     <button
                       type="button"
-                      onClick={() => updateQuantity(item.productId, item.quantity - 1)}
+                      onClick={() => updateQuantity(item.productId, item.quantity - 1, item.variantId)}
                       className="p-1.5 text-on-surface hover:bg-surface-variant"
                       aria-label={`Decrease quantity of ${item.snapshot?.name ?? 'product'}`}
                     >
@@ -116,7 +117,7 @@ export function CartDrawer() {
                     </span>
                     <button
                       type="button"
-                      onClick={() => updateQuantity(item.productId, item.quantity + 1)}
+                      onClick={() => updateQuantity(item.productId, item.quantity + 1, item.variantId)}
                       className="p-1.5 text-on-surface hover:bg-surface-variant"
                       aria-label={`Increase quantity of ${item.snapshot?.name ?? 'product'}`}
                     >
@@ -126,7 +127,7 @@ export function CartDrawer() {
                   {serverBacked && (
                     <button
                       type="button"
-                      onClick={() => void saveForLater(item.productId)}
+                      onClick={() => void saveForLater(item.productId, item.variantId)}
                       className="text-xs font-semibold text-primary hover:underline"
                       aria-label={`Save ${item.snapshot?.name ?? "product"} for later`}
                     >
@@ -135,7 +136,7 @@ export function CartDrawer() {
                   )}
                   <button
                     type="button"
-                    onClick={() => removeItem(item.productId)}
+                    onClick={() => removeItem(item.productId, item.variantId)}
                     className="rounded-lg p-1.5 text-on-surface-muted hover:bg-surface-variant hover:text-error"
                     aria-label={`Remove ${item.snapshot?.name ?? 'product'} from cart`}
                   >
@@ -151,7 +152,7 @@ export function CartDrawer() {
             <h3 className="font-bold text-on-surface">Saved for later ({saved.length})</h3>
             <ul className="divide-y divide-outline">
               {saved.map((item) => (
-                <li key={item.productId} className="flex gap-3 py-3">
+                <li key={`${item.productId}:${item.variantId ?? ''}`} className="flex gap-3 py-3">
                   <Link
                     to={`/products/${item.productId}`}
                     onClick={close}
@@ -161,11 +162,12 @@ export function CartDrawer() {
                   </Link>
                   <div className="min-w-0 flex-1 space-y-1">
                     <p className="line-clamp-2 text-sm font-medium text-on-surface">{item.name}</p>
+                    {item.variantLabel && <p className="text-xs text-on-surface-muted">{item.variantLabel}</p>}
                     <p className="text-sm font-bold text-on-surface">{formatMoney(Number(item.unitPrice), item.currency)}</p>
                     <div className="flex gap-3">
                       <button
                         type="button"
-                        onClick={() => void moveSavedToCart(item.productId)}
+                        onClick={() => void moveSavedToCart(item.productId, item.variantId ?? undefined)}
                         className="text-xs font-semibold text-primary hover:underline"
                         aria-label={`Move ${item.name} to cart`}
                       >
@@ -173,7 +175,7 @@ export function CartDrawer() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => void removeSaved(item.productId)}
+                        onClick={() => void removeSaved(item.productId, item.variantId ?? undefined)}
                         className="text-xs font-semibold text-on-surface-muted hover:text-error"
                         aria-label={`Remove ${item.name} from saved items`}
                       >

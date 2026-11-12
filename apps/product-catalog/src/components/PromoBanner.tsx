@@ -15,6 +15,9 @@ export function PromoBanner() {
       {/* Decorative motifs. */}
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
         <div className="bg-atomic-pattern absolute inset-0 !opacity-20" />
+        <div className="searchlight" />
+        <div className="bulb-string absolute inset-x-8 top-3" />
+        <div className="bulb-string absolute inset-x-8 bottom-3" />
         <div className="absolute -right-10 top-1/2 hidden -translate-y-1/2 text-on-brand/90 md:block">
           <Atom className="h-80 w-80 drop-shadow-[4px_4px_0_hsl(var(--color-ink))]" />
         </div>

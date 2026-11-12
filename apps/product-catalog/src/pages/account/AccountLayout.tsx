@@ -6,10 +6,17 @@ import { NavLink, Outlet } from 'react-router-dom'
 import { Atom, Starburst } from '../../components/Atomic'
 import { Avatar } from '../../components/account/Avatar'
 import {
+  BellIcon,
+  GiftIcon,
+  SparkleIcon,
+  TagIcon,
+  WalletIcon,
   CalendarIcon,
   CheckBadgeIcon,
+  ClockIcon,
   DashboardIcon,
   HeartIcon,
+  MailIcon,
   MapPinIcon,
   PackageIcon,
   SettingsIcon,
@@ -99,7 +106,7 @@ export function AccountLayout() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[250px_minmax(0,1fr)]">
         <nav
           aria-label="Account sections"
-          className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-2 [scrollbar-width:none] sm:-mx-6 sm:px-6 lg:sticky lg:top-28 lg:mx-0 lg:flex-col lg:self-start lg:overflow-visible lg:rounded-[1.75rem] lg:border-2 lg:border-outline lg:bg-surface lg:p-3 lg:shadow-card"
+          className="flex flex-wrap gap-2 lg:sticky lg:top-28 lg:flex-col lg:flex-nowrap lg:self-start lg:rounded-[1.75rem] lg:border-2 lg:border-outline lg:bg-surface lg:p-3 lg:shadow-card"
         >
           <NavLink to="/account" end className={navLink}>
             <DashboardIcon className="h-5 w-5" />
@@ -117,6 +124,10 @@ export function AccountLayout() {
             <MapPinIcon className="h-5 w-5" />
             Addresses
           </NavLink>
+          <NavLink to="/account/recent" className={navLink}>
+            <ClockIcon className="h-5 w-5" />
+            Recently viewed
+          </NavLink>
           <NavLink to="/wishlist" className={navLink}>
             <HeartIcon className="h-5 w-5" />
             Wishlist
@@ -125,6 +136,46 @@ export function AccountLayout() {
                 {wishlistCount}
               </span>
             )}
+          </NavLink>
+          <NavLink to="/account/alerts" className={navLink}>
+            <MailIcon className="h-5 w-5" />
+            Alerts
+          </NavLink>
+          <NavLink to="/account/buy-again" className={navLink}>
+            <PackageIcon className="h-5 w-5" />
+            Buy again
+          </NavLink>
+          <NavLink to="/account/subscriptions" className={navLink}>
+            <ClockIcon className="h-5 w-5" />
+            Subscriptions
+          </NavLink>
+          <NavLink to="/account/lists" className={navLink}>
+            <HeartIcon className="h-5 w-5" />
+            Lists
+          </NavLink>
+          <NavLink to="/account/wallet" className={navLink}>
+            <WalletIcon className="h-5 w-5" />
+            Wallet
+          </NavLink>
+          <NavLink to="/account/gift-cards" className={navLink}>
+            <GiftIcon className="h-5 w-5" />
+            Gift cards
+          </NavLink>
+          <NavLink to="/account/coins" className={navLink}>
+            <TagIcon className="h-5 w-5" />
+            Coins
+          </NavLink>
+          <NavLink to="/account/membership" className={navLink}>
+            <SparkleIcon className="h-5 w-5" />
+            Plus membership
+          </NavLink>
+          <NavLink to="/account/referrals" className={navLink}>
+            <UserIcon className="h-5 w-5" />
+            Refer a friend
+          </NavLink>
+          <NavLink to="/account/notifications" className={navLink}>
+            <BellIcon className="h-5 w-5" />
+            Notifications
           </NavLink>
           <NavLink to="/account/settings" className={navLink}>
             <SettingsIcon className="h-5 w-5" />

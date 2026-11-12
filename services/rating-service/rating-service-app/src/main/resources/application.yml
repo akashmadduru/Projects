@@ -17,6 +17,12 @@ spring:
     virtual:
       enabled: true
 
+  servlet:
+    multipart:
+      # 5 MB is enforced in code (clean 400); the container limit sits just above it.
+      max-file-size: 6MB
+      max-request-size: 6MB
+
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/rating_db}
     username: ${SPRING_DATASOURCE_USERNAME:rating_service}
@@ -69,6 +75,8 @@ server:
   shutdown: graceful
 
 rating:
+  media:
+    dir: ${RATING_MEDIA_DIR:/data/media}
   jwt:
     # SAME ENV VARS AND DEFAULTS AS auth-service / gateway / the other services.
     issuer: ${AUTH_JWT_ISSUER:https://auth.acme-ecommerce.internal}

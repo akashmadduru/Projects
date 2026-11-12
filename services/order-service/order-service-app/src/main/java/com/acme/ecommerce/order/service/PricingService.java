@@ -32,15 +32,42 @@ public class PricingService {
 
   public Pricing price(
       BigDecimal subtotal, BigDecimal discount, String currency, String shipState) {
+    return price(subtotal, discount, BigDecimal.ZERO, false, currency, shipState);
+  }
+
+  /**
+   * subtotal - discount - coins + shipping (free for members, else by the post-discount threshold),
+   * then the inclusive tax portion of the total.
+   */
+  public Pricing price(
+      BigDecimal subtotal,
+      BigDecimal discount,
+      BigDecimal coinsValue,
+      boolean freeShipping,
+      String currency,
+      String shipState) {
     BigDecimal sub = subtotal.setScale(2, RoundingMode.HALF_UP);
     BigDecimal disc = discount.min(sub).max(BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP);
     BigDecimal afterDiscount = sub.subtract(disc);
-    BigDecimal shipping = shippingFee(afterDiscount, currency);
-    BigDecimal total = afterDiscount.add(shipping);
+    BigDecimal coins =
+        coinsValue.min(afterDiscount).max(BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP);
+    BigDecimal shipping =
+        freeShipping ? BigDecimal.ZERO.setScale(2) : shippingFee(afterDiscount, currency);
+    BigDecimal total = afterDiscount.subtract(coins).add(shipping);
 
     if (!isInr(currency)) {
       return new Pricing(
-          sub, disc, shipping, total, BigDecimal.ZERO.setScale(2), "Tax included", null, null, null);
+          sub,
+          disc,
+          shipping,
+          total,
+          BigDecimal.ZERO.setScale(2),
+          "Tax included",
+          null,
+          null,
+          null,
+          coins,
+          freeShipping);
     }
     BigDecimal rate = props.getTax().getGstPercent();
     BigDecimal tax =
@@ -48,9 +75,11 @@ public class PricingService {
     String label = "GST " + rate.stripTrailingZeros().toPlainString() + "% (incl.)";
     if (isWarehouseState(shipState)) {
       BigDecimal cgst = tax.divide(new BigDecimal("2"), 2, RoundingMode.HALF_UP);
-      return new Pricing(sub, disc, shipping, total, tax, label, cgst, tax.subtract(cgst), null);
+      return new Pricing(
+          sub, disc, shipping, total, tax, label, cgst, tax.subtract(cgst), null, coins, freeShipping);
     }
-    return new Pricing(sub, disc, shipping, total, tax, label, null, null, tax);
+    return new Pricing(
+        sub, disc, shipping, total, tax, label, null, null, tax, coins, freeShipping);
   }
 
   public BigDecimal shippingFee(BigDecimal afterDiscount, String currency) {
@@ -97,6 +126,25 @@ public class PricingService {
         threshold,
         cur,
         cod);
+  }
+
+  /**
+   * Delivery date from a specific warehouse: same 3-digit pincode prefix 2 days, same first digit
+   * 3 days, else 5 (non-Indian destinations 7).
+   */
+  public LocalDate estimateDate(String shipPincode, String warehousePincode) {
+    String pin = shipPincode == null ? "" : shipPincode.trim();
+    int days;
+    if (INDIAN_PINCODE.matcher(pin).matches()) {
+      String wh =
+          warehousePincode == null || warehousePincode.length() < 3
+              ? props.getDelivery().getWarehousePincodePrefix()
+              : warehousePincode;
+      days = pin.regionMatches(0, wh, 0, 3) ? 2 : pin.charAt(0) == wh.charAt(0) ? 3 : 5;
+    } else {
+      days = 7;
+    }
+    return today().plusDays(days);
   }
 
   public LocalDate today() {

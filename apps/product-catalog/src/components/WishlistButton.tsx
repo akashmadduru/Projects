@@ -13,12 +13,18 @@ import type { Product } from '../types'
 interface Props {
   product: Product
   variant?: 'overlay' | 'outline'
+  /** Selected variant (PDP): the wishlist row is then keyed by product + variant. */
+  variantId?: string
+  variantLabel?: string
+  variantImage?: string | null
 }
 
-export function WishlistButton({ product, variant = 'overlay' }: Props) {
+export function WishlistButton({ product, variant = 'overlay', variantId, variantLabel, variantImage }: Props) {
   const productId = product.id
   const productName = product.name
-  const saved = useWishlistStore((s) => s.items.some((item) => item.productId === productId))
+  const saved = useWishlistStore((s) =>
+    s.items.some((item) => item.productId === productId && (item.variantId ?? undefined) === variantId),
+  )
   const toggle = useWishlistStore((s) => s.toggleItem)
   const notify = useUiStore((s) => s.notify)
   // Incremented on each save so the pop/burst animation replays.
@@ -27,12 +33,17 @@ export function WishlistButton({ product, variant = 'overlay' }: Props) {
   const onClick = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    toggle(productId, {
-      name: product.name,
-      price: effectivePrice(product),
-      currency: product.priceCurrency,
-      imageUrl: product.images[0],
-    })
+    toggle(
+      productId,
+      {
+        name: product.name,
+        price: effectivePrice(product),
+        currency: product.priceCurrency,
+        imageUrl: variantImage ?? product.images[0],
+        variantLabel,
+      },
+      variantId,
+    )
     if (!saved) setSaves((n) => n + 1)
     notify(saved ? `Removed ${productName} from your wishlist` : `Saved ${productName} to your wishlist`)
   }

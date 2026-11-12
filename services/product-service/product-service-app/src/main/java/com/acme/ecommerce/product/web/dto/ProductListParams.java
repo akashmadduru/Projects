@@ -22,6 +22,7 @@ import java.util.UUID;
  * @param onSale {@code true} keeps only discounted products
  * @param featured {@code true} keeps only featured ("top pick") products
  * @param verifiedSeller {@code true} keeps only products from verified sellers
+ * @param brand comma-separated brand names (OR)
  */
 public record ProductListParams(
     UUID categoryId,
@@ -34,7 +35,19 @@ public record ProductListParams(
     Boolean inStock,
     Boolean onSale,
     Boolean featured,
-    Boolean verifiedSeller) {
+    Boolean verifiedSeller,
+    String brand,
+    UUID sellerId) {
+
+  public static java.util.List<String> splitCsv(String value) {
+    if (value == null || value.isBlank()) {
+      return java.util.List.of();
+    }
+    return java.util.Arrays.stream(value.split(","))
+        .map(String::trim)
+        .filter(s -> !s.isEmpty())
+        .toList();
+  }
 
   public ProductFilter toFilter() {
     return new ProductFilter(
@@ -48,6 +61,9 @@ public record ProductListParams(
         Boolean.TRUE.equals(inStock),
         Boolean.TRUE.equals(onSale),
         Boolean.TRUE.equals(featured),
-        Boolean.TRUE.equals(verifiedSeller));
+        Boolean.TRUE.equals(verifiedSeller),
+        splitCsv(brand),
+        java.util.Map.of(),
+        sellerId);
   }
 }

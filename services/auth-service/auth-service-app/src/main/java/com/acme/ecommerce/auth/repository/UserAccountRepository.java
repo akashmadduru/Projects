@@ -1,10 +1,16 @@
 package com.acme.ecommerce.auth.repository;
 
 import com.acme.ecommerce.auth.domain.UserAccount;
+import com.acme.ecommerce.auth.domain.UserStatus;
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 /**
  * Persistence for {@link UserAccount}.
@@ -17,7 +23,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
  * extra query per user - the classic way an endpoint that is fine with one user becomes unusable on
  * a list of fifty.
  */
-public interface UserAccountRepository extends JpaRepository<UserAccount, UUID> {
+public interface UserAccountRepository
+    extends JpaRepository<UserAccount, UUID>, JpaSpecificationExecutor<UserAccount> {
 
   /**
    * Looks up by email.
@@ -45,4 +52,23 @@ public interface UserAccountRepository extends JpaRepository<UserAccount, UUID> 
   Optional<UserAccount> findWithRolesByPhoneAndPhoneVerifiedTrue(String phone);
 
   boolean existsByPhoneAndPhoneVerifiedTrueAndIdNot(String phone, UUID id);
+
+  /**
+   * Batch role load for the admin user list: the page itself is fetched without roles (a
+   * collection fetch join cannot be paginated in SQL), then this loads roles for the page's ids
+   * in one query.
+   */
+  @EntityGraph(attributePaths = "roles")
+  List<UserAccount> findWithRolesByIdIn(Collection<UUID> ids);
+
+  /** Active holders of a role (PREFIXED name). Used by the last-admin guard. */
+  @Query(
+      "select count(distinct u) from UserAccount u join u.roles r"
+          + " where r.name = :roleName and u.status = :status")
+  long countByRoleAndStatus(
+      @Param("roleName") String roleName, @Param("status") UserStatus status);
+
+  /** Rows of [UserStatus, Long] for the admin dashboard. */
+  @Query("select u.status, count(u) from UserAccount u group by u.status")
+  List<Object[]> countGroupedByStatus();
 }

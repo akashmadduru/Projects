@@ -5,6 +5,19 @@ import com.acme.ecommerce.product.api.ProductClient;
 import com.acme.ecommerce.product.api.dto.ProductResponse;
 import com.acme.ecommerce.product.service.CatalogAggregateService;
 import com.acme.ecommerce.product.service.ProductCatalogService;
+import com.acme.ecommerce.product.service.ProductDiscoveryService;
+import com.acme.ecommerce.product.api.dto.ProductVariantResponse;
+import com.acme.ecommerce.product.repository.ProductFilter;
+import com.acme.ecommerce.product.web.dto.FacetsResponse;
+import com.acme.ecommerce.product.web.dto.SuggestResponse;
+import com.acme.ecommerce.product.web.dto.VariantRequest;
+import jakarta.servlet.http.HttpServletRequest;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.web.bind.annotation.RequestParam;
 import com.acme.ecommerce.product.web.dto.CreateProductRequest;
 import com.acme.ecommerce.product.web.dto.ProductCatalogAggregateResponse;
 import com.acme.ecommerce.product.web.dto.ProductListParams;
@@ -71,13 +84,16 @@ public class ProductController {
    * let a caller sort on a column nobody indexed.
    */
   private static final Set<String> SORTABLE =
-      Set.of("sku", "name", "priceAmount", "averageRating", "discountPercent", "createdAt");
+      Set.of(
+          "sku", "name", "priceAmount", "averageRating", "discountPercent", "createdAt", "relevance");
 
   /** Longest free-text filter value accepted ({@code product.seller_name} is varchar(200)). */
   private static final int MAX_TEXT_FILTER = 200;
 
   private final ProductCatalogService catalog;
   private final CatalogAggregateService catalogAggregateService;
+  private final ProductDiscoveryService discovery;
+  private final com.acme.ecommerce.product.service.SponsoredService sponsored;
 
   /**
    * One page of the catalog.
@@ -101,6 +117,7 @@ public class ProductController {
   @GetMapping
   public PagedModel<ProductResponse> list(
       @ModelAttribute ProductListParams params,
+      HttpServletRequest request,
       @PageableDefault(size = DEFAULT_PAGE_SIZE, sort = "sku", direction = Sort.Direction.ASC)
           Pageable pageable) {
     BigDecimal minPrice = params.minPrice();
@@ -121,7 +138,21 @@ public class ProductController {
       }
     }
 
-    return new PagedModel<>(catalog.list(params.toFilter(), pageable));
+    Pageable effective = pageable;
+    if (params.q() != null && !params.q().isBlank() && request.getParameter("sort") == null) {
+      effective = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), Sort.by("relevance"));
+    }
+    org.springframework.data.domain.Page<ProductResponse> page =
+        catalog.list(filterOf(params, request), effective);
+    boolean searching = params.q() != null && !params.q().isBlank() || params.categoryId() != null;
+    if (searching && params.sellerId() == null && pageable.getPageNumber() == 0) {
+      page =
+          new org.springframework.data.domain.PageImpl<>(
+              sponsored.inject(page.getContent(), params.q(), params.categoryId()),
+              page.getPageable(),
+              page.getTotalElements());
+    }
+    return new PagedModel<>(page);
   }
 
   private static void requireMaxLength(String field, String value) {
@@ -222,5 +253,97 @@ public class ProductController {
   @PreAuthorize("hasAnyRole('CATALOG_MANAGER','ADMIN')")
   public void delete(@PathVariable UUID id) {
     catalog.delete(id);
+  }
+
+  private static final int MAX_BATCH = 50;
+
+  /** List filters plus the dynamic {@code attr.<Key>=v1,v2} parameters. */
+  private static ProductFilter filterOf(ProductListParams params, HttpServletRequest request) {
+    Map<String, List<String>> attrs = new LinkedHashMap<>();
+    request
+        .getParameterMap()
+        .forEach(
+            (name, values) -> {
+              if (name.startsWith("attr.") && name.length() > 5) {
+                List<String> collected = new ArrayList<>();
+                for (String value : values) {
+                  collected.addAll(ProductListParams.splitCsv(value));
+                }
+                if (!collected.isEmpty()) {
+                  attrs.computeIfAbsent(name.substring(5), k -> new ArrayList<>())
+                      .addAll(collected);
+                }
+              }
+            });
+    return params.toFilter().withBrandsAndAttributes(params.toFilter().brands(), attrs);
+  }
+
+  /** Autocomplete: products, categories and a spelling suggestion. Public. */
+  @GetMapping("/suggest")
+  public SuggestResponse suggest(
+      @RequestParam(name = "q", defaultValue = "") String q,
+      @RequestParam(name = "limit", defaultValue = "8") int limit) {
+    String trimmed = q.trim();
+    if (trimmed.length() < 2) {
+      throw ValidationException.forField("q", "must be at least 2 characters");
+    }
+    requireMaxLength("q", trimmed);
+    return discovery.suggest(trimmed, Math.max(1, Math.min(limit, 20)));
+  }
+
+  /** Brand / attribute / price facets for the same filters as the list. Public. */
+  @GetMapping("/facets")
+  public FacetsResponse facets(@ModelAttribute ProductListParams params, HttpServletRequest request) {
+    requireMaxLength("q", params.q());
+    return discovery.facets(filterOf(params, request));
+  }
+
+  /** Lean products by id, in request order (max 50). Public. */
+  @GetMapping("/batch")
+  public List<ProductResponse> batch(@RequestParam(name = "ids") String ids) {
+    List<UUID> parsed = new ArrayList<>();
+    for (String raw : ProductListParams.splitCsv(ids)) {
+      try {
+        parsed.add(UUID.fromString(raw));
+      } catch (IllegalArgumentException e) {
+        throw ValidationException.forField("ids", "contains an invalid id: " + raw);
+      }
+    }
+    if (parsed.size() > MAX_BATCH) {
+      throw ValidationException.forField("ids", "at most " + MAX_BATCH + " ids");
+    }
+    return catalog.findByIds(parsed);
+  }
+
+  /** One product by slug. Public. */
+  @GetMapping("/slug/{slug}")
+  public ProductResponse findBySlug(@PathVariable String slug) {
+    return catalog.findBySlug(slug);
+  }
+
+  /** Records a product view for recommendations. Public. */
+  @PostMapping("/{id}/views")
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  public void recordView(@PathVariable UUID id, @RequestBody Map<String, String> body) {
+    String session = body == null ? null : body.get("sessionId");
+    if (session == null || session.isBlank() || session.length() > 64) {
+      throw ValidationException.forField("sessionId", "is required (max 64 characters)");
+    }
+    discovery.recordView(id, session.trim());
+  }
+
+  /** Products viewed in the same sessions; falls back to same category by rating. Public. */
+  @GetMapping("/{id}/also-viewed")
+  public List<ProductResponse> alsoViewed(
+      @PathVariable UUID id, @RequestParam(name = "limit", defaultValue = "8") int limit) {
+    return discovery.alsoViewed(id, Math.max(1, Math.min(limit, 24)));
+  }
+
+  /** Replaces all variants of a product (admin). */
+  @PutMapping("/{id}/variants")
+  @PreAuthorize("hasAnyRole('CATALOG_MANAGER','ADMIN')")
+  public List<ProductVariantResponse> replaceVariants(
+      @PathVariable UUID id, @RequestBody List<VariantRequest> variants) {
+    return catalog.replaceVariants(id, variants);
   }
 }

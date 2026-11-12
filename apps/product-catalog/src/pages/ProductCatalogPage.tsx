@@ -2,9 +2,11 @@
  * Catalog listing: promo banner, filter sidebar, sort bar, results grid and pagination
  */
 
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { ActiveFilters } from '../components/ActiveFilters'
 import { CategoryTiles } from '../components/CategoryTiles'
+import { DealsStrip } from '../components/DealsStrip'
+import { useFacets } from '../hooks/useFacets'
 import { Drawer } from '../components/Drawer'
 import { FilterPanel } from '../components/FilterPanel'
 import { FilterIcon } from '../components/Icons'
@@ -16,12 +18,15 @@ import { SortSelect } from '../components/SortSelect'
 import { hasActiveFilters, useCatalogParams, useCategories, useProducts } from '../hooks'
 import { usePaginationStore } from '../stores'
 
+const PersonalisedHome = lazy(() => import('../components/PersonalisedHome'))
+
 export function ProductCatalogPage() {
   const { query, page, update, setPage, clearFilters } = useCatalogParams()
   const { categories, tree } = useCategories()
   const pageSize = usePaginationStore((s) => s.size)
   const state = useProducts(query, page)
   const [filtersOpen, setFiltersOpen] = useState(false)
+  const facets = useFacets(query)
 
   const filtered = hasActiveFilters(query)
   const categoryName = categories.find((c) => c.id === query.categoryId)?.name
@@ -36,9 +41,11 @@ export function ProductCatalogPage() {
     query.onSale,
     query.featured,
     query.verifiedSeller,
+    query.brand?.length ? true : undefined,
+    query.attrs && Object.keys(query.attrs).length ? true : undefined,
   ].filter((v) => v != null).length
 
-  const panel = <FilterPanel query={query} categories={tree} onChange={update} />
+  const panel = <FilterPanel query={query} categories={tree} onChange={update} facets={facets} />
 
   return (
     <div className="space-y-6">
@@ -46,6 +53,10 @@ export function ProductCatalogPage() {
         <>
           <PromoBanner />
           <CategoryTiles categories={tree} />
+          <DealsStrip />
+          <Suspense fallback={null}>
+            <PersonalisedHome />
+          </Suspense>
         </>
       )}
 

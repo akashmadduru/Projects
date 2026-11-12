@@ -13,6 +13,7 @@ dependencies {
     implementation libs.bundles.service.discovery.client
     implementation libs.bundles.persistence.postgres
     implementation libs.bundles.resource.server
+    implementation libs.spring.cloud.starter.openfeign
     implementation libs.micrometer.registry.prometheus
 
     compileOnly libs.lombok

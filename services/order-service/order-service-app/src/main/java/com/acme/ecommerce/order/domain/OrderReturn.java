@@ -57,6 +57,12 @@ public class OrderReturn {
   @Column(name = "refund_amount", nullable = false, updatable = false)
   private BigDecimal refundAmount;
 
+  @Column(name = "refund_to", nullable = false, updatable = false, length = 10)
+  private String refundTo = "SOURCE";
+
+  @Column(name = "shipment_id", updatable = false)
+  private UUID shipmentId;
+
   @Column(name = "admin_note", length = 1000)
   private String adminNote;
 
@@ -74,21 +80,29 @@ public class OrderReturn {
   private List<OrderReturnItem> items = new ArrayList<>();
 
   static OrderReturn request(
-      Order order, ReturnReason reason, String comment, BigDecimal refundAmount, Instant now) {
+      Order order,
+      ReturnReason reason,
+      String comment,
+      BigDecimal refundAmount,
+      String refundTo,
+      UUID shipmentId,
+      Instant now) {
     OrderReturn r = new OrderReturn();
     r.order = order;
     r.userId = order.getUserId();
+    r.shipmentId = shipmentId;
     r.status = ReturnStatus.REQUESTED;
     r.reason = reason;
     r.comment = comment;
     r.refundAmount = refundAmount;
+    r.refundTo = refundTo == null ? "SOURCE" : refundTo;
     r.createdAt = now;
     r.updatedAt = now;
     return r;
   }
 
-  void addItem(UUID productId, String name, int quantity, BigDecimal unitPrice) {
-    items.add(OrderReturnItem.of(this, productId, name, quantity, unitPrice));
+  void addItem(UUID productId, UUID variantId, String name, int quantity, BigDecimal unitPrice) {
+    items.add(OrderReturnItem.of(this, productId, variantId, name, quantity, unitPrice));
   }
 
   public void decide(boolean approve, String note, Instant now) {

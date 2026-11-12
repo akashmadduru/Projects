@@ -136,7 +136,9 @@ async function send(
   token: string | null,
 ): Promise<Response> {
   const headers: Record<string, string> = { Accept: 'application/json', ...options.headers };
-  if (options.body !== undefined) {
+  const isForm = typeof FormData !== 'undefined' && options.body instanceof FormData;
+  // Multipart: the browser must set Content-Type itself (it adds the boundary).
+  if (options.body !== undefined && !isForm) {
     headers['Content-Type'] = 'application/json';
   }
   if (token !== null) {
@@ -152,7 +154,7 @@ async function send(
     credentials: 'include',
   };
   if (options.body !== undefined) {
-    init.body = JSON.stringify(options.body);
+    init.body = isForm ? (options.body as FormData) : JSON.stringify(options.body);
   }
   if (options.signal) {
     init.signal = options.signal;

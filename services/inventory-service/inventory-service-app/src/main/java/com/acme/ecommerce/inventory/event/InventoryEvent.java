@@ -20,4 +20,5 @@ public class InventoryEvent {
   private Integer quantity;
   private Integer reservedQuantity;
   private String status;
+  private UUID variantId;
 }

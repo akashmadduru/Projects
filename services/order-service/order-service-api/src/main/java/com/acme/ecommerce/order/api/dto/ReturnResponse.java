@@ -15,7 +15,9 @@ public record ReturnResponse(
     BigDecimal refundAmount,
     Instant createdAt,
     Instant updatedAt,
-    String adminNote) {
+    String adminNote,
+    UUID shipmentId) {
 
-  public record ReturnItemResponse(UUID productId, String name, int quantity, BigDecimal unitPrice) {}
+  public record ReturnItemResponse(
+      UUID productId, UUID variantId, String name, int quantity, BigDecimal unitPrice) {}
 }

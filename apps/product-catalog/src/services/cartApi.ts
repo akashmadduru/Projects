@@ -14,12 +14,19 @@ export class CartApiClient {
     return apiFetch<CartResponse>('/api/cart/items', { method: 'POST', body: line })
   }
 
-  setQuantity(productId: string, quantity: number): Promise<CartResponse> {
-    return apiFetch<CartResponse>(`/api/cart/items/${productId}`, { method: 'PUT', body: { quantity } })
+  setQuantity(productId: string, quantity: number, variantId?: string): Promise<CartResponse> {
+    return apiFetch<CartResponse>(`/api/cart/items/${productId}`, {
+      method: 'PUT',
+      body: { quantity },
+      params: variantId ? { variantId } : undefined,
+    })
   }
 
-  removeItem(productId: string): Promise<void> {
-    return apiFetch<void>(`/api/cart/items/${productId}`, { method: 'DELETE' })
+  removeItem(productId: string, variantId?: string): Promise<void> {
+    return apiFetch<void>(`/api/cart/items/${productId}`, {
+      method: 'DELETE',
+      params: variantId ? { variantId } : undefined,
+    })
   }
 
   clearCart(): Promise<void> {
@@ -30,16 +37,25 @@ export class CartApiClient {
     return apiFetch<CartResponse>('/api/cart/merge', { method: 'POST', body: { items } })
   }
 
-  saveForLater(productId: string): Promise<CartResponse> {
-    return apiFetch<CartResponse>(`/api/cart/items/${productId}/save-for-later`, { method: 'POST' })
+  saveForLater(productId: string, variantId?: string): Promise<CartResponse> {
+    return apiFetch<CartResponse>(`/api/cart/items/${productId}/save-for-later`, {
+      method: 'POST',
+      params: variantId ? { variantId } : undefined,
+    })
   }
 
-  moveSavedToCart(productId: string): Promise<CartResponse> {
-    return apiFetch<CartResponse>(`/api/cart/saved/${productId}/move-to-cart`, { method: 'POST' })
+  moveSavedToCart(productId: string, variantId?: string): Promise<CartResponse> {
+    return apiFetch<CartResponse>(`/api/cart/saved/${productId}/move-to-cart`, {
+      method: 'POST',
+      params: variantId ? { variantId } : undefined,
+    })
   }
 
-  removeSaved(productId: string): Promise<CartResponse> {
-    return apiFetch<CartResponse>(`/api/cart/saved/${productId}`, { method: 'DELETE' })
+  removeSaved(productId: string, variantId?: string): Promise<CartResponse> {
+    return apiFetch<CartResponse>(`/api/cart/saved/${productId}`, {
+      method: 'DELETE',
+      params: variantId ? { variantId } : undefined,
+    })
   }
 
   getWishlist(): Promise<WishlistItemResponse[]> {
@@ -51,8 +67,11 @@ export class CartApiClient {
     return apiFetch<WishlistItemResponse>(`/api/wishlist/${productId}`, { method: 'PUT', body })
   }
 
-  removeWishlistItem(productId: string): Promise<void> {
-    return apiFetch<void>(`/api/wishlist/${productId}`, { method: 'DELETE' })
+  removeWishlistItem(productId: string, variantId?: string): Promise<void> {
+    return apiFetch<void>(`/api/wishlist/${productId}`, {
+      method: 'DELETE',
+      params: variantId ? { variantId } : undefined,
+    })
   }
 
   mergeWishlist(items: WishlistLine[]): Promise<WishlistItemResponse[]> {

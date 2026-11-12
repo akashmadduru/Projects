@@ -12,4 +12,6 @@ public record Pricing(
     String taxLabel,
     BigDecimal cgst,
     BigDecimal sgst,
-    BigDecimal igst) {}
+    BigDecimal igst,
+    BigDecimal coinsValue,
+    boolean freeShipping) {}

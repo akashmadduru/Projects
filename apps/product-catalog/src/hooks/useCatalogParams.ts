@@ -24,7 +24,14 @@ const KEYS = {
   featured: 'featured',
   verifiedSeller: 'verifiedSeller',
   sort: 'sort',
-} as const satisfies Record<keyof ProductQuery, string>
+} as const satisfies Record<Exclude<keyof ProductQuery, 'brand' | 'attrs' | 'sellerId'>, string>
+
+const KEYS_BRAND = 'brand'
+const ATTR_PREFIX = 'attr.'
+
+function readList(raw: string | null): string[] {
+  return raw ? raw.split(',').map((v) => v.trim()).filter(Boolean) : []
+}
 
 function readNumber(params: URLSearchParams, key: string): number | undefined {
   const raw = params.get(key)
@@ -55,17 +62,31 @@ export function parseCatalogParams(params: URLSearchParams): { query: ProductQue
     verifiedSeller: readFlag(params, KEYS.verifiedSeller),
     sort: sort && SORTS.includes(sort) ? sort : undefined,
   }
+  const brand = readList(params.get(KEYS_BRAND))
+  if (brand.length) query.brand = brand
+  const attrs: Record<string, string[]> = {}
+  params.forEach((value, key) => {
+    if (key.startsWith(ATTR_PREFIX)) {
+      const values = readList(value)
+      if (values.length) attrs[key.slice(ATTR_PREFIX.length)] = values
+    }
+  })
+  if (Object.keys(attrs).length) query.attrs = attrs
   const page = Math.max((readNumber(params, 'page') ?? 1) - 1, 0)
   return { query, page }
 }
 
 export function toSearchString(query: ProductQuery, page = 0): string {
   const params = new URLSearchParams()
-  for (const [field, key] of Object.entries(KEYS) as [keyof ProductQuery, string][]) {
+  for (const [field, key] of Object.entries(KEYS) as [keyof typeof KEYS, string][]) {
     const value = query[field]
     if (value != null && value !== '' && !(field === 'sort' && value === 'relevance')) {
       params.set(key, String(value))
     }
+  }
+  if (query.brand?.length) params.set(KEYS_BRAND, query.brand.join(','))
+  for (const [attr, values] of Object.entries(query.attrs ?? {})) {
+    if (values.length) params.set(ATTR_PREFIX + attr, values.join(','))
   }
   if (page > 0) params.set('page', String(page + 1))
   const search = params.toString()
@@ -84,7 +105,9 @@ export function hasActiveFilters(query: ProductQuery): boolean {
     !!query.inStock ||
     !!query.onSale ||
     !!query.featured ||
-    !!query.verifiedSeller
+    !!query.verifiedSeller ||
+    !!query.brand?.length ||
+    Object.keys(query.attrs ?? {}).length > 0
   )
 }
 

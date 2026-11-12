@@ -7,6 +7,7 @@ import { PhoneSection } from '../../components/account/PhoneSection'
 import { SectionCard } from '../../components/account/SectionCard'
 import { secondaryButtonClass } from '../../components/Form'
 import { CheckBadgeIcon, CheckIcon, LogoutIcon, MoonIcon, SettingsIcon, SunIcon } from '../../components/Icons'
+import { useRetroLights } from '../../lib/retroLights'
 import { useAuthStore, useThemeStore } from '../../stores'
 
 type Mode = 'light' | 'dark'
@@ -87,6 +88,7 @@ export function SettingsPage() {
   const logout = useAuthStore((s) => s.logout)
   const mode = useThemeStore((s) => s.mode)
   const setMode = useThemeStore((s) => s.setMode)
+  const [lightsOn, setLightsOn] = useRetroLights()
   const navigate = useNavigate()
 
   if (!user) return null
@@ -116,6 +118,23 @@ export function SettingsPage() {
           />
         </div>
         <p className="mt-3 text-xs text-on-surface-muted">Saved on this device.</p>
+        <label className="mt-5 flex cursor-pointer items-center justify-between gap-4 rounded-2xl border-2 border-outline p-4">
+          <span>
+            <span className="flex items-center gap-2 font-bold text-on-surface">
+              <span className="lamp" aria-hidden="true" /> Marquee lights
+            </span>
+            <span className="block text-sm text-on-surface-muted">
+              Chasing bulbs and neon signs around the store. Already paused if your device asks for reduced motion.
+            </span>
+          </span>
+          <input
+            type="checkbox"
+            role="switch"
+            checked={lightsOn}
+            onChange={(e) => setLightsOn(e.target.checked)}
+            className="h-6 w-11 shrink-0 cursor-pointer appearance-none rounded-full border-2 border-ink bg-surface-variant transition-colors duration-500 before:block before:h-4 before:w-4 before:translate-x-0.5 before:rounded-full before:bg-ink before:transition-transform before:duration-500 checked:bg-vivid-amber checked:before:translate-x-5"
+          />
+        </label>
       </SectionCard>
 
       <SectionCard id="security" title="Account & security" icon={<CheckBadgeIcon className="h-5 w-5" />}>

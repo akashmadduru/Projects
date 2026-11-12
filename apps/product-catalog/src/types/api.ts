@@ -46,6 +46,44 @@ export interface BackendProductResponse {
   sellerRating: number | null
   featured: boolean
   sellerVerified: boolean
+  // Phase 7 additions (optional so older payloads and demo data still type-check).
+  slug?: string | null
+  brand?: string | null
+  attributes?: Record<string, string> | null
+  hasVariants?: boolean
+  variants?: ProductVariant[] | null
+  variantOptions?: Record<string, string[]> | null
+  // Phase 9 additions (marketplace). Optional: older payloads omit them.
+  offers?: ProductOffer[] | null
+  buyBox?: ProductOffer | null
+  /** Set on sponsored placements injected into list responses (assumed shape; see techdebt). */
+  sponsored?: boolean
+  adId?: string | null
+}
+
+export interface ProductOffer {
+  offerId: string
+  sellerId: string
+  sellerName: string
+  sellerSlug: string | null
+  sellerRating: number | null
+  price: number
+  salePrice: number | null
+  currency: string
+  dispatchDays: number
+  availableQuantity: number | null
+}
+
+export interface ProductVariant {
+  id: string
+  sku: string
+  attributes: Record<string, string>
+  priceAmount: number | null
+  salePrice: number | null
+  imageUrl: string | null
+  active: boolean
+  /** Null when inventory could not be read. */
+  availableQuantity: number | null
 }
 
 /** The backend product with images normalized to ordered URLs (thumbnailUrl as fallback). */
@@ -117,11 +155,17 @@ export interface ProductQuery {
   minDiscount?: number
   /** Case-insensitive substring of the seller name. */
   seller?: string
+  /** Exact seller id (seller storefront page). */
+  sellerId?: string
   /** The switches below only ever narrow: leave them undefined (never false) when off. */
   inStock?: true
   onSale?: true
   featured?: true
   verifiedSeller?: true
+  /** Brand names (OR). */
+  brand?: string[]
+  /** Attribute key -> values (OR within a key, AND across keys). */
+  attrs?: Record<string, string[]>
   sort?: ProductSort
 }
 
@@ -157,6 +201,18 @@ export interface Review {
   version: number
   createdAt: string
   updatedAt: string
+  media?: ReviewMedia[]
+}
+
+export interface ReviewMedia {
+  id: string
+  url: string
+}
+
+export interface ReviewFilters {
+  stars?: number
+  verified?: true
+  withMedia?: true
 }
 
 export interface ReviewSummary {

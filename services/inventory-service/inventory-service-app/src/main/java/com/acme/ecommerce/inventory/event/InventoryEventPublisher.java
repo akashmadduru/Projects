@@ -65,6 +65,11 @@ public class InventoryEventPublisher {
    * @throws IllegalStateException if called outside an active transaction
    */
   public void publishAfterCommit(InventoryEventType type, UUID productId, Integer newQuantity) {
+    publishAfterCommit(type, productId, null, newQuantity);
+  }
+
+  public void publishAfterCommit(
+      InventoryEventType type, UUID productId, UUID variantId, Integer newQuantity) {
     if (!TransactionSynchronizationManager.isSynchronizationActive()) {
       throw new IllegalStateException("publishAfterCommit called outside an active transaction");
     }
@@ -80,7 +85,8 @@ public class InventoryEventPublisher {
                     timeProvider.now(),
                     newQuantity,
                     null,
-                    null);
+                    null,
+                    variantId);
             send(event);
           }
           // afterCompletion(int status) intentionally NOT overridden for
@@ -114,7 +120,8 @@ public class InventoryEventPublisher {
             timeProvider.now(),
             null,
             requestedQuantity,
-            reason);
+            reason,
+            null);
     send(event);
   }
 

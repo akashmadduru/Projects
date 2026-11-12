@@ -22,7 +22,7 @@ Size: **S** = under a day, **M** = a few days, **L** = a week or more.
 | Cart & checkout | Cart + wishlist, anonymous merge, address book, idempotent order placement | **No payment**, no shipping/tax, no coupons, stock never reserved |
 | After purchase | Order list/detail, cancel | No status beyond PLACED/CANCELLED, no tracking, no returns/refunds, no invoice, no emails |
 | Accounts | Email/password, Google SSO, profile, addresses | No password reset, no email/phone verification, no OTP login |
-| Admin | Product CRUD, inventory, dashboard | No order management, no refunds, no customers view, no promotions |
+| Admin | Products, categories, inventory, orders, returns/refunds, payments ledger, customers + roles, review moderation, coupons, KPI dashboard (Phase 7, see [Phase7-Admin-Feature](Phase7-Admin-Feature.md)) | No admin audit log, no reports/exports, no bulk edits ([techdebt/admin.md](../techdebt/admin.md)) |
 | Retention | Wishlist | No notifications, loyalty, recommendations, alerts |
 
 The single most important fact: **the store cannot take money or ship anything yet.** Phase 6 fixes
@@ -32,55 +32,61 @@ that; everything after it grows conversion and retention.
 
 ## Phase 6: Sell for real (must-have before any real customer)
 
-| # | Feature | Why it matters | Today | Touches | Size |
-|---|---|---|---|---|---|
-| 1 | **Online payments** (cards, UPI, net banking, wallets) via Razorpay/Stripe; payment status on the order | No revenue without it | Order is placed with no payment | **new** payment-service, order-service, storefront checkout | L |
-| 2 | **Cash on Delivery** option with COD limits | Large share of Flipkart orders; lowers first-purchase friction | — | payment-service, order-service | S |
-| 3 | **Stock reservation and decrement** at checkout; release on cancel/payment failure | Prevents overselling (TD-BE-01) | Inventory is advisory only | inventory-service, order-service | M |
-| 4 | **Order lifecycle**: PLACED → CONFIRMED → PACKED → SHIPPED → OUT_FOR_DELIVERY → DELIVERED, with a tracking timeline on the order page | Customers' #1 post-purchase question is "where is my order" | PLACED / CANCELLED only | order-service, storefront OrderPage | M |
-| 5 | **Admin order management**: list/search orders, advance status, add tracking number, cancel, refund | Operations cannot fulfil without it | — | admin SPA, order-service | M |
-| 6 | **Shipping charges and delivery-date estimate** by pincode (free above a threshold) | Price transparency; Amazon/Flipkart show "Delivery by Tue" everywhere | — | order-service (+ pincode table), product page, checkout | M |
-| 7 | **Tax (GST) calculation and downloadable invoice PDF** | Legal requirement for selling in India; B2B buyers need invoices | — | order-service | M |
-| 8 | **Order notifications** by email (and SMS hook): placed, shipped, delivered, cancelled, refunded | Trust; reduces support load | — | **new** notification-service (consumes `order.events`) | M |
-| 9 | **Returns and refunds**: return window per product, return request with reason, pickup status, refund to source/wallet | Expected by every Amazon/Flipkart customer; drives purchase confidence | — | order-service, payment-service, admin | L |
-| 10 | **Coupons / promo codes** at checkout (flat, %, min order, first order, per-user limits) | Primary acquisition lever | — | **new** promotion-service (or order-service module), checkout, admin | M |
-| 11 | **Password reset, email verification, phone OTP login** | Account recovery; Flipkart is phone-first | Email/password + Google only | auth-service, storefront | M |
-| 12 | **Buy Now** (skip cart) and **Save for later** in cart | Faster checkout; recovers removed items | Cart only | cart-service, storefront | S |
+**Status (2026-11-12): built, prototype-grade, no automated tests.** Integration run: 98 of 99 end-to-end checks passed (the one failure was a script bug). Only SIMULATED payment mode was exercised. Shortcuts: [techdebt/phase6.md](../techdebt/phase6.md). The "Today" column below is the pre-Phase-6 baseline.
+
+| # | Feature | Why it matters | Today | Touches | Size | Status |
+|---|---|---|---|---|---|---|
+| 1 | **Online payments** (cards, UPI, net banking, wallets) via Razorpay/Stripe; payment status on the order | No revenue without it | Order is placed with no payment | **new** payment-service, order-service, storefront checkout | L | ✅ Built, partial: Stripe path never exercised, only SIMULATED mode verified ([TD-P6-02](../techdebt/phase6.md#td-p6-02)) |
+| 2 | **Cash on Delivery** option with COD limits | Large share of Flipkart orders; lowers first-purchase friction | — | payment-service, order-service | S | ✅ Built; limits also duplicated client-side ([TD-P6-17](../techdebt/phase6.md#td-p6-17)) |
+| 3 | **Stock reservation and decrement** at checkout; release on cancel/payment failure | Prevents overselling (TD-BE-01) | Inventory is advisory only | inventory-service, order-service | M | ✅ Built, partial: products without an inventory row are unlimited ([TD-P6-04](../techdebt/phase6.md#td-p6-04)) |
+| 4 | **Order lifecycle**: PLACED → CONFIRMED → PACKED → SHIPPED → OUT_FOR_DELIVERY → DELIVERED, with a tracking timeline on the order page | Customers' #1 post-purchase question is "where is my order" | PLACED / CANCELLED only | order-service, storefront OrderPage | M | ✅ Built (also PENDING_PAYMENT and expiry job) |
+| 5 | **Admin order management**: list/search orders, advance status, add tracking number, cancel, refund | Operations cannot fulfil without it | — | admin SPA, order-service | M | ✅ Built; admin views are unrefined ([TD-P6-21](../techdebt/phase6.md#td-p6-21)) |
+| 6 | **Shipping charges and delivery-date estimate** by pincode (free above a threshold) | Price transparency; Amazon/Flipkart show "Delivery by Tue" everywhere | — | order-service (+ pincode table), product page, checkout | M | ✅ Built; rules config-driven, no real carrier ([TD-P6-17](../techdebt/phase6.md#td-p6-17)) |
+| 7 | **Tax (GST) calculation and downloadable invoice PDF** | Legal requirement for selling in India; B2B buyers need invoices | — | order-service | M | ✅ Built, partial: invoice is a minimal text-only PDF with no rupee glyph ([TD-P6-15](../techdebt/phase6.md#td-p6-15)) |
+| 8 | **Order notifications** by email (and SMS hook): placed, shipped, delivered, cancelled, refunded | Trust; reduces support load | — | **new** notification-service (consumes `order.events`) | M | ✅ Built, partial: email via Mailpit in dev; SMS is a dev stub that logs; no retry ([TD-P6-07](../techdebt/phase6.md#td-p6-07), [TD-P6-08](../techdebt/phase6.md#td-p6-08)) |
+| 9 | **Returns and refunds**: return window per product, return request with reason, pickup status, refund to source/wallet | Expected by every Amazon/Flipkart customer; drives purchase confidence | — | order-service, payment-service, admin | L | ✅ Built, partial: shipping not refunded, COD refunds only marked ([TD-P6-14](../techdebt/phase6.md#td-p6-14)) |
+| 10 | **Coupons / promo codes** at checkout (flat, %, min order, first order, per-user limits) | Primary acquisition lever | — | **new** promotion-service (or order-service module), checkout, admin | M | ✅ Built (WELCOME10, FLAT100, SAVE5, FESTIVE20 seeded); first-order coupons still shown to returning customers ([TD-P6-16](../techdebt/phase6.md#td-p6-16)) |
+| 11 | **Password reset, email verification, phone OTP login** | Account recovery; Flipkart is phone-first | Email/password + Google only | auth-service, storefront | M | ✅ Built, partial: login not blocked for unverified email; OTP SMS is a dev stub ([TD-P6-08](../techdebt/phase6.md#td-p6-08), [TD-P6-10](../techdebt/phase6.md#td-p6-10)) |
+| 12 | **Buy Now** (skip cart) and **Save for later** in cart | Faster checkout; recovers removed items | Cart only | cart-service, storefront | S | ✅ Built (Buy Now on product page and checkout; Save for later signed-in only) |
 
 ## Phase 7: Discovery and conversion
 
-| # | Feature | Why it matters | Today | Touches | Size |
-|---|---|---|---|---|---|
-| 1 | **Search autocomplete and suggestions** (products, categories, recent searches) | Most sessions start in the search box | Plain keyword box | product-service, SearchBar | M |
-| 2 | **Typo-tolerant, relevance-ranked search** (Postgres full-text + trigram first, OpenSearch later) | "iphnoe" must still find iPhone | Substring match | product-service | M |
-| 3 | **Product variants** (size, colour, storage) with per-variant price, stock and images | Fashion/electronics are unsellable without it | One SKU per product | product-service, inventory-service, PDP, cart | L |
-| 4 | **Brand and attribute facets** (brand, RAM, size, colour…) driven by category | Amazon's left rail; narrows big catalogues fast | 8 fixed filters | product-service, FilterPanel | M |
-| 5 | **Pincode delivery check on the product page** ("Delivery by Fri, free") | Removes the biggest pre-cart doubt | — | product page (reuses Phase 6 #6) | S |
-| 6 | **Offers on the product page**: bank offers, coupons that apply, EMI options | Flipkart's conversion driver | — | promotion-service, PDP | M |
-| 7 | **Deals of the Day / lightning deals** with countdown and limited quantity | Urgency; homepage traffic magnet | Static promo banner | promotion-service, home page, admin | M |
-| 8 | **Recently viewed** and **Customers also viewed / Frequently bought together** | Cross-sell; Amazon attributes a large share of revenue to recommendations | "Related products" only | **new** recommendation-service (start with co-purchase counts from orders) | M |
-| 9 | **Customer Q&A** on product pages (ask, answer, upvote) | Answers pre-purchase questions reviews don't cover | — | rating-service (new module), PDP | M |
-| 10 | **Review photos/videos** and review filters (by stars, verified, with media) | Social proof; more trusted than seller photos | Text reviews only | rating-service, media upload | M |
-| 11 | **Price-drop and back-in-stock alerts** on wishlist items | Brings users back at buying moments | Wishlist without alerts | notification-service, cart-service | S |
-| 12 | **Compare products** side by side (up to 4) | Key for electronics/appliances | — | storefront | S |
-| 13 | **Image zoom, 360° and full-screen gallery** | Replaces touching the product | Basic gallery | storefront | S |
-| 14 | **SEO and shareability**: clean URLs with slugs, breadcrumbs, meta/OG tags, sitemap, share button | Free organic traffic | SPA with id URLs | storefront (SSR/prerender), product-service | M |
+**Status (2026-11-12): built, prototype-grade, no automated tests.** Integration run: 68 of 68 Phase 7 end-to-end checks and 99 of 99 Phase 6 regression checks passed. Not built: SSR/prerender and 360-degree images. Shortcuts: [techdebt/phase7.md](../techdebt/phase7.md). The "Today" column below is the pre-Phase-7 baseline.
+
+| # | Feature | Why it matters | Today | Touches | Size | Status |
+|---|---|---|---|---|---|---|
+| 1 | **Search autocomplete and suggestions** (products, categories, recent searches) | Most sessions start in the search box | Plain keyword box | product-service, SearchBar | M | ✅ Built (`/api/products/suggest`, recent searches, did-you-mean) ([TD-P7-03](../techdebt/phase7.md#td-p7-03)) |
+| 2 | **Typo-tolerant, relevance-ranked search** (Postgres full-text + trigram first, OpenSearch later) | "iphnoe" must still find iPhone | Substring match | product-service | M | ✅ Built, partial: Postgres full-text + trigram; in-memory ranking over a 2000-id cap, trigram index unused ([TD-P7-03](../techdebt/phase7.md#td-p7-03)) |
+| 3 | **Product variants** (size, colour, storage) with per-variant price, stock and images | Fashion/electronics are unsellable without it | One SKU per product | product-service, inventory-service, PDP, cart | L | ✅ Built, partial: variant with no stock row is unlimited; thin variant model ([TD-P7-07](../techdebt/phase7.md#td-p7-07), [TD-P7-06](../techdebt/phase7.md#td-p7-06), [TD-P7-08](../techdebt/phase7.md#td-p7-08)) |
+| 4 | **Brand and attribute facets** (brand, RAM, size, colour…) driven by category | Amazon's left rail; narrows big catalogues fast | 8 fixed filters | product-service, FilterPanel | M | ✅ Built, partial: counts do not exclude a facet's own filter, no caching ([TD-P7-04](../techdebt/phase7.md#td-p7-04)) |
+| 5 | **Pincode delivery check on the product page** ("Delivery by Fri, free") | Removes the biggest pre-cart doubt | — | product page (reuses Phase 6 #6) | S | ✅ Already built in Phase 6 (Phase 6 #6, `PincodeCheck`); kept on the Phase 7 PDP |
+| 6 | **Offers on the product page**: bank offers, coupons that apply, EMI options | Flipkart's conversion driver | — | promotion-service, PDP | M | ✅ Built, partial: bank offers and EMI are display-only, not applied at checkout ([TD-P7-10](../techdebt/phase7.md#td-p7-10)) |
+| 7 | **Deals of the Day / lightning deals** with countdown and limited quantity | Urgency; homepage traffic magnet | Static promo banner | promotion-service, home page, admin | M | ✅ Built; pricing is best-effort if promotion-service is down ([TD-P7-09](../techdebt/phase7.md#td-p7-09)) |
+| 8 | **Recently viewed** and **Customers also viewed / Frequently bought together** | Cross-sell; Amazon attributes a large share of revenue to recommendations | "Related products" only | **new** recommendation-service (start with co-purchase counts from orders) | M | ✅ Built inside product/order/user services (no new recommendation-service); live queries, unauthenticated view tracking ([TD-P7-12](../techdebt/phase7.md#td-p7-12)) |
+| 9 | **Customer Q&A** on product pages (ask, answer, upvote) | Answers pre-purchase questions reviews don't cover | — | rating-service (new module), PDP | M | ✅ Built, partial: no moderation or admin view ([TD-P7-13](../techdebt/phase7.md#td-p7-13)) |
+| 10 | **Review photos/videos** and review filters (by stars, verified, with media) | Social proof; more trusted than seller photos | Text reviews only | rating-service, media upload | M | ✅ Built, partial: photos only (no video); local volume, runs as root ([TD-P7-14](../techdebt/phase7.md#td-p7-14), [TD-P7-15](../techdebt/phase7.md#td-p7-15)) |
+| 11 | **Price-drop and back-in-stock alerts** on wishlist items | Brings users back at buying moments | Wishlist without alerts | notification-service, cart-service | S | ✅ Built, partial: client-supplied prices, consumers start at `latest` ([TD-P7-11](../techdebt/phase7.md#td-p7-11)) |
+| 12 | **Compare products** side by side (up to 4) | Key for electronics/appliances | — | storefront | S | ✅ Built (up to 4 products, `/compare`) |
+| 13 | **Image zoom, 360° and full-screen gallery** | Replaces touching the product | Basic gallery | storefront | S | Partial: hover zoom, lightbox and variant image switch built; 360-degree not built ([TD-P7-17](../techdebt/phase7.md#td-p7-17)) |
+| 14 | **SEO and shareability**: clean URLs with slugs, breadcrumbs, meta/OG tags, sitemap, share button | Free organic traffic | SPA with id URLs | storefront (SSR/prerender), product-service | M | Partial: slugs, breadcrumbs, meta/OG/JSON-LD (client-side), share button, sitemap built; SSR/prerender not built ([TD-P7-16](../techdebt/phase7.md#td-p7-16)) |
 
 ## Phase 8: Retention and loyalty
 
-| # | Feature | Why it matters | Today | Touches | Size |
-|---|---|---|---|---|---|
-| 1 | **Membership programme** (Prime / Flipkart Plus style): free/fast shipping, early deal access | Members buy several times more often | — | **new** membership module in user-service, order-service pricing | L |
-| 2 | **Reward points / coins** earned per order, redeemable at checkout | Repeat-purchase habit | — | **new** loyalty-service, checkout | M |
-| 3 | **Wallet and gift cards** (store credit, refunds to wallet, gift card purchase/redeem) | Faster refunds, gifting revenue | — | payment-service | M |
-| 4 | **Abandoned cart reminders** (email/push after N hours) | Recovers a meaningful share of lost carts | — | notification-service, cart-service | S |
-| 5 | **Order again / Buy it again** list | One-click repeat purchase for consumables | — | order-service, storefront | S |
-| 6 | **Notification centre** in the app (order updates, offers, alerts) | Single place for every message | Toasts only | notification-service, Header | M |
-| 7 | **Personalised home page** (recently viewed, recommended, deals for you) | First screen sells | Same catalog for everyone | recommendation-service, home | M |
-| 8 | **Referral programme** (invite → both get credit) | Cheapest acquisition channel | — | loyalty-service, user-service | M |
-| 9 | **Multiple and shareable lists** (gift lists, wedding registry, public wishlist link) | Gifting and social sharing | One private wishlist | cart-service | S |
-| 10 | **Subscribe & Save** for repeat items (auto-reorder on a schedule, discount) | Predictable recurring revenue | — | order-service scheduler, payment-service | L |
-| 11 | **Web push and email marketing campaigns** with opt-in preferences | Re-engagement at scale | — | notification-service, account settings | M |
+**Status (2026-11-13): built, prototype-grade, no automated tests.** Integration run: 78 of 78 Phase 8 end-to-end checks, 99 of 99 Phase 6 and 68 of 68 Phase 7 regression checks passed. No new services: loyalty lives in promotion-service, membership/referrals in user-service, wallet/gift cards in payment-service. Web push was never delivered to a real push service. Shortcuts: [techdebt/phase8.md](../techdebt/phase8.md). The "Today" column below is the pre-Phase-8 baseline.
+
+| # | Feature | Why it matters | Today | Touches | Size | Status |
+|---|---|---|---|---|---|---|
+| 1 | **Membership programme** (Prime / Flipkart Plus style): free/fast shipping, early deal access | Members buy several times more often | — | **new** membership module in user-service, order-service pricing | L | ✅ Built, partial: monthly/yearly plans, free shipping, 2x coins, members-only deals; no auto-renew or proration, uncached lookups, no admin view ([TD-P8-12](../techdebt/phase8.md#td-p8-12)) |
+| 2 | **Reward points / coins** earned per order, redeemable at checkout | Repeat-purchase habit | — | **new** loyalty-service, checkout | M | ✅ Built in promotion-service (no loyalty-service), partial: earn rate deviates for non-INR, expiry informational ([TD-P8-09](../techdebt/phase8.md#td-p8-09)) |
+| 3 | **Wallet and gift cards** (store credit, refunds to wallet, gift card purchase/redeem) | Faster refunds, gifting revenue | — | payment-service | M | ✅ Built, partial: plaintext codes, no redeem rate limit, best-effort credit-back ([TD-P8-06](../techdebt/phase8.md#td-p8-06), [TD-P8-07](../techdebt/phase8.md#td-p8-07), [TD-P8-08](../techdebt/phase8.md#td-p8-08)) |
+| 4 | **Abandoned cart reminders** (email/push after N hours) | Recovers a meaningful share of lost carts | — | notification-service, cart-service | S | ✅ Built (email + inbox; hourly job and dev trigger) ([TD-P8-17](../techdebt/phase8.md#td-p8-17)) |
+| 5 | **Order again / Buy it again** list | One-click repeat purchase for consumables | — | order-service, storefront | S | ✅ Built (`/api/orders/buy-again`, `/account/buy-again`) |
+| 6 | **Notification centre** in the app (order updates, offers, alerts) | Single place for every message | Toasts only | notification-service, Header | M | ✅ Built (bell, `/account/notifications`); badge polls every 60 s, no retention ([TD-P8-15](../techdebt/phase8.md#td-p8-15), [TD-P8-18](../techdebt/phase8.md#td-p8-18)) |
+| 7 | **Personalised home page** (recently viewed, recommended, deals for you) | First screen sells | Same catalog for everyone | recommendation-service, home | M | ✅ Built in the storefront on existing endpoints (no recommendation-service); about 7 requests on load ([TD-P8-18](../techdebt/phase8.md#td-p8-18)) |
+| 8 | **Referral programme** (invite → both get credit) | Cheapest acquisition channel | — | loyalty-service, user-service | M | ✅ Built, partial: reward not reported back to user-service, no abuse checks ([TD-P8-13](../techdebt/phase8.md#td-p8-13)) |
+| 9 | **Multiple and shareable lists** (gift lists, wedding registry, public wishlist link) | Gifting and social sharing | One private wishlist | cart-service | S | ✅ Built (CRUD, share link, public page); hybrid storage, unpaged ([TD-P8-16](../techdebt/phase8.md#td-p8-16)) |
+| 10 | **Subscribe & Save** for repeat items (auto-reorder on a schedule, discount) | Predictable recurring revenue | — | order-service scheduler, payment-service | L | ✅ Built, partial: 5% discount, COD/WALLET only, daily job with no lock ([TD-P8-11](../techdebt/phase8.md#td-p8-11)) |
+| 11 | **Web push and email marketing campaigns** with opt-in preferences | Re-engagement at scale | — | notification-service, account settings | M | ✅ Built, partial: push never delivered to a real service; campaign audience only users with profiles; send is in-process ([TD-P8-02](../techdebt/phase8.md#td-p8-02), [TD-P8-03](../techdebt/phase8.md#td-p8-03), [TD-P8-04](../techdebt/phase8.md#td-p8-04)) |
 
 ## Phase 9: Marketplace and sellers
 

@@ -102,6 +102,21 @@ public class InventoryController {
    * @param productId the product to look up stock for
    * @return the matching row
    */
+  public record VariantStockRequest(@jakarta.validation.constraints.NotNull UUID productId, @jakarta.validation.constraints.Min(0) int quantity) {}
+
+  @GetMapping("/variants")
+  public java.util.List<InventoryResponse.VariantQuantity> variants(
+      @org.springframework.web.bind.annotation.RequestParam java.util.List<UUID> ids) {
+    return inventory.variantQuantities(ids);
+  }
+
+  @PutMapping("/variants/{variantId}")
+  @PreAuthorize("hasAnyRole('CATALOG_MANAGER','ADMIN')")
+  public void setVariantStock(
+      @PathVariable UUID variantId, @Valid @RequestBody VariantStockRequest request) {
+    inventory.setVariantStock(variantId, request.productId(), request.quantity());
+  }
+
   @GetMapping("/by-product/{productId}")
   public InventoryResponse findByProductId(@PathVariable UUID productId) {
     return inventory.findByProductId(productId);

@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -47,14 +48,20 @@ public class CartController {
   public CartResponse setQuantity(
       @AuthenticationPrincipal Jwt jwt,
       @PathVariable UUID productId,
+      @RequestParam(required = false) UUID variantId,
+      @RequestParam(required = false) UUID offerId,
       @Valid @RequestBody UpdateQuantityRequest request) {
-    return cart.setQuantity(userId(jwt), productId, request.quantity());
+    return cart.setQuantity(userId(jwt), productId, variantId, offerId, request.quantity());
   }
 
   @DeleteMapping("/items/{productId}")
   @ResponseStatus(HttpStatus.NO_CONTENT)
-  public void remove(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID productId) {
-    cart.removeItem(userId(jwt), productId);
+  public void remove(
+      @AuthenticationPrincipal Jwt jwt,
+      @PathVariable UUID productId,
+      @RequestParam(required = false) UUID variantId,
+      @RequestParam(required = false) UUID offerId) {
+    cart.removeItem(userId(jwt), productId, variantId, offerId);
   }
 
   @DeleteMapping
@@ -70,18 +77,30 @@ public class CartController {
   }
 
   @PostMapping("/items/{productId}/save-for-later")
-  public CartResponse saveForLater(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID productId) {
-    return cart.saveForLater(userId(jwt), productId);
+  public CartResponse saveForLater(
+      @AuthenticationPrincipal Jwt jwt,
+      @PathVariable UUID productId,
+      @RequestParam(required = false) UUID variantId,
+      @RequestParam(required = false) UUID offerId) {
+    return cart.saveForLater(userId(jwt), productId, variantId, offerId);
   }
 
   @PostMapping("/saved/{productId}/move-to-cart")
-  public CartResponse moveToCart(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID productId) {
-    return cart.moveSavedToCart(userId(jwt), productId);
+  public CartResponse moveToCart(
+      @AuthenticationPrincipal Jwt jwt,
+      @PathVariable UUID productId,
+      @RequestParam(required = false) UUID variantId,
+      @RequestParam(required = false) UUID offerId) {
+    return cart.moveSavedToCart(userId(jwt), productId, variantId, offerId);
   }
 
   @DeleteMapping("/saved/{productId}")
-  public CartResponse removeSaved(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID productId) {
-    return cart.removeSaved(userId(jwt), productId);
+  public CartResponse removeSaved(
+      @AuthenticationPrincipal Jwt jwt,
+      @PathVariable UUID productId,
+      @RequestParam(required = false) UUID variantId,
+      @RequestParam(required = false) UUID offerId) {
+    return cart.removeSaved(userId(jwt), productId, variantId, offerId);
   }
 
   private static UUID userId(Jwt jwt) {

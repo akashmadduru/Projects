@@ -6,31 +6,50 @@ import com.acme.ecommerce.common.core.error.ValidationException;
 import com.acme.ecommerce.common.core.time.TimeProvider;
 import com.acme.ecommerce.product.api.dto.ProductImageResponse;
 import com.acme.ecommerce.product.api.dto.ProductResponse;
+import com.acme.ecommerce.product.api.dto.ProductVariantResponse;
+import com.acme.ecommerce.product.client.InventoryDto;
+import com.acme.ecommerce.product.client.InventoryServiceClient;
 import com.acme.ecommerce.product.client.RatingSummary;
+import com.acme.ecommerce.product.domain.Offer;
 import com.acme.ecommerce.product.domain.Product;
 import com.acme.ecommerce.product.domain.ProductImage;
+import com.acme.ecommerce.product.domain.ProductVariant;
 import com.acme.ecommerce.product.event.ProductEventPublisher;
 import com.acme.ecommerce.product.event.ProductEventType;
 import com.acme.ecommerce.product.repository.ProductFilter;
 import com.acme.ecommerce.product.repository.ProductImageRepository;
+import com.acme.ecommerce.product.repository.ProductNativeQueries;
 import com.acme.ecommerce.product.repository.ProductRepository;
 import com.acme.ecommerce.product.repository.ProductSpecifications;
+import com.acme.ecommerce.product.repository.ProductVariantRepository;
 import com.acme.ecommerce.product.web.dto.CreateProductRequest;
 import com.acme.ecommerce.product.web.dto.ProductImageRequest;
 import com.acme.ecommerce.product.web.dto.UpdateProductRequest;
+import com.acme.ecommerce.product.web.dto.VariantRequest;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.Locale;
+import java.util.Set;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -71,11 +90,18 @@ public class ProductCatalogService {
 
   private final ProductRepository products;
   private final ProductImageRepository images;
+  private final ProductVariantRepository variantRepo;
+  private final ProductNativeQueries natives;
+  private final InventoryServiceClient inventoryClient;
+
+  @org.springframework.beans.factory.annotation.Value("${INTERNAL_API_TOKEN:}")
+  private String internalToken;
 
   private final ObjectMapper objectMapper;
   private final TimeProvider timeProvider;
 
   private final ProductEventPublisher events;
+  private final OfferService offerService;
 
   /**
    * One page of the catalog.
@@ -97,14 +123,212 @@ public class ProductCatalogService {
    * @return the requested page, already mapped to the published DTO
    */
   public Page<ProductResponse> list(ProductFilter filter, Pageable pageable) {
-    return products
-        .findAll(ProductSpecifications.matching(filter), normalizeSort(pageable))
-        .map(product -> toResponse(product, List.of()));
+    boolean hasQuery = filter.query() != null && !filter.query().isBlank();
+    List<UUID> ranked = hasQuery ? natives.rankedIds(filter.query()) : null;
+    Specification<Product> spec = ProductSpecifications.matching(filter, ranked);
+    boolean relevance =
+        hasQuery
+            && pageable.getSort().stream().anyMatch(o -> o.getProperty().equals("relevance"));
+    Page<Product> page;
+    if (relevance) {
+      Map<UUID, Integer> rank = new HashMap<>();
+      for (int i = 0; i < ranked.size(); i++) {
+        rank.put(ranked.get(i), i);
+      }
+      List<Product> all = new ArrayList<>(products.findAll(spec));
+      all.sort(Comparator.comparingInt(p -> rank.getOrDefault(p.getId(), Integer.MAX_VALUE)));
+      int from = (int) Math.min(all.size(), pageable.getOffset());
+      int to = Math.min(all.size(), from + pageable.getPageSize());
+      page = new PageImpl<>(all.subList(from, to), pageable, all.size());
+    } else {
+      page = products.findAll(spec, normalizeSort(pageable));
+    }
+    Set<UUID> withVariants =
+        page.isEmpty()
+            ? Set.of()
+            : new HashSet<>(
+                variantRepo.findProductIdsWithVariants(
+                    page.getContent().stream().map(Product::getId).toList()));
+    return page.map(
+        product -> toResponse(product, List.of(), null, withVariants.contains(product.getId())));
+  }
+
+  /** Active products by id (lean, request order, unknown ids skipped). */
+  public List<ProductResponse> findByIds(List<UUID> ids) {
+    Map<UUID, Product> byId = new HashMap<>();
+    products.findAllById(ids).forEach(p -> byId.put(p.getId(), p));
+    Set<UUID> withVariants = new HashSet<>(variantRepo.findProductIdsWithVariants(ids));
+    List<ProductResponse> out = new ArrayList<>();
+    for (UUID id : new LinkedHashSet<>(ids)) {
+      Product p = byId.get(id);
+      if (p != null && p.isActive()) {
+        out.add(toResponse(p, List.of(), null, withVariants.contains(id)));
+      }
+    }
+    return out;
+  }
+
+  /** A single product by slug, with images and variants. */
+  public ProductResponse findBySlug(String slug) {
+    Product product =
+        products
+            .findBySlug(slug)
+            .orElseThrow(() -> new ResourceNotFoundException("Product", slug));
+    return detail(product);
+  }
+
+  private ProductResponse detail(Product product) {
+    List<ProductVariantResponse> variants = variantResponses(product.getId(), true);
+    ProductResponse response =
+        toResponse(
+            product,
+            images.findByProductIdOrderByDisplayOrderAsc(product.getId()),
+            variants,
+            !variants.isEmpty());
+    offerService.enrich(response);
+    return response;
+  }
+
+  private List<ProductVariantResponse> variantResponses(UUID productId, boolean withStock) {
+    List<ProductVariant> rows = variantRepo.findByProductIdOrderBySortOrderAscSkuAsc(productId);
+    if (rows.isEmpty()) {
+      return List.of();
+    }
+    Map<UUID, Integer> stock =
+        withStock ? variantStock(rows.stream().map(ProductVariant::getId).toList()) : Map.of();
+    return rows.stream()
+        .map(
+            v ->
+                ProductVariantResponse.builder()
+                    .id(v.getId())
+                    .sku(v.getSku())
+                    .attributes(readSpecifications(v.getAttributes()))
+                    .priceAmount(v.getPriceAmount())
+                    .salePrice(v.getSalePrice())
+                    .imageUrl(v.getImageUrl())
+                    .active(v.isActive())
+                    .sortOrder(v.getSortOrder())
+                    .availableQuantity(stock.get(v.getId()))
+                    .build())
+        .toList();
+  }
+
+  /** Best-effort per-variant stock from inventory-service; empty on any failure. */
+  private Map<UUID, Integer> variantStock(List<UUID> variantIds) {
+    try {
+      Map<UUID, Integer> out = new HashMap<>();
+      List<InventoryDto.VariantStock> rows =
+          inventoryClient.getVariantStock(variantIds, internalToken);
+      if (rows != null) {
+        rows.forEach(v -> out.put(v.getVariantId(), v.getQuantity()));
+      }
+      return out;
+    } catch (RuntimeException e) {
+      return Map.of();
+    }
+  }
+
+  private static Map<String, List<String>> variantOptions(List<ProductVariantResponse> variants) {
+    Map<String, Set<String>> options = new LinkedHashMap<>();
+    for (ProductVariantResponse v : variants) {
+      if (v.getAttributes() == null) {
+        continue;
+      }
+      v.getAttributes()
+          .forEach(
+              (k, val) ->
+                  options.computeIfAbsent(k, x -> new LinkedHashSet<>()).add(String.valueOf(val)));
+    }
+    Map<String, List<String>> out = new LinkedHashMap<>();
+    options.forEach((k, vals) -> out.put(k, List.copyOf(vals)));
+    return out;
+  }
+
+  /**
+   * Full replace of the variants of a product (admin).
+   *
+   * @throws ResourceConflictException on a duplicate sku
+   */
+  @Transactional
+  public List<ProductVariantResponse> replaceVariants(
+      UUID productId, List<VariantRequest> requests) {
+    if (!products.existsById(productId)) {
+      throw new ResourceNotFoundException("Product", productId);
+    }
+    Instant now = timeProvider.now();
+    Map<UUID, ProductVariant> existing = new HashMap<>();
+    variantRepo
+        .findByProductIdOrderBySortOrderAscSkuAsc(productId)
+        .forEach(v -> existing.put(v.getId(), v));
+    Set<String> skus = new HashSet<>();
+    List<ProductVariant> keep = new ArrayList<>();
+    int ord = 0;
+    for (VariantRequest r : requests == null ? List.<VariantRequest>of() : requests) {
+      if (r.getSku() == null || r.getSku().isBlank() || r.getSku().length() > 80) {
+        throw ValidationException.forField("sku", "is required (max 80 characters)");
+      }
+      if (!skus.add(r.getSku().trim())) {
+        throw new ResourceConflictException("Duplicate variant sku: " + r.getSku());
+      }
+      ProductVariant v = r.getId() == null ? null : existing.remove(r.getId());
+      if (v == null) {
+        v =
+            ProductVariant.builder()
+                .id(r.getId() != null ? r.getId() : UUID.randomUUID())
+                .productId(productId)
+                .createdAt(now)
+                .build();
+      }
+      v.setSku(r.getSku().trim());
+      v.setAttributes(r.getAttributes() == null ? "{}" : writeSpecifications(r.getAttributes()));
+      v.setPriceAmount(r.getPriceAmount());
+      v.setSalePrice(r.getSalePrice());
+      v.setImageUrl(r.getImageUrl());
+      v.setActive(r.getActive() == null || r.getActive());
+      v.setSortOrder(r.getSortOrder() != null ? r.getSortOrder() : ord);
+      v.setUpdatedAt(now);
+      keep.add(v);
+      ord++;
+    }
+    // Deletes first so a re-used sku on a different row cannot clash mid-flush.
+    variantRepo.deleteAll(existing.values());
+    variantRepo.flush();
+    try {
+      variantRepo.saveAllAndFlush(keep);
+    } catch (DataIntegrityViolationException e) {
+      throw new ResourceConflictException("Variant sku already exists on another product", e);
+    }
+    return variantResponses(productId, false);
+  }
+
+  private String uniqueSlug(String name) {
+    String base =
+        name == null
+            ? ""
+            : name.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", "-").replaceAll("^-+|-+$", "");
+    if (base.isEmpty()) {
+      base = "product";
+    }
+    if (base.length() > 200) {
+      base = base.substring(0, 200);
+    }
+    String slug = base;
+    while (products.existsBySlug(slug)) {
+      slug = base + "-" + UUID.randomUUID().toString().substring(0, 6);
+    }
+    return slug;
   }
 
   private static Pageable normalizeSort(Pageable pageable) {
     List<Sort.Order> orders = new ArrayList<>();
-    pageable.getSort().forEach(order -> orders.add(order.nullsLast()));
+    pageable
+        .getSort()
+        .forEach(
+            order -> {
+              if (!order.getProperty().equals("relevance")) {
+                orders.add(order.nullsLast());
+              }
+            });
     if (orders.stream().noneMatch(order -> order.getProperty().equals("sku"))) {
       orders.add(Sort.Order.asc("sku"));
     }
@@ -124,7 +348,7 @@ public class ProductCatalogService {
   public ProductResponse findById(UUID id) {
     Product product =
         products.findById(id).orElseThrow(() -> new ResourceNotFoundException("Product", id));
-    return toResponse(product, images.findByProductIdOrderByDisplayOrderAsc(id));
+    return detail(product);
   }
 
   /**
@@ -136,6 +360,12 @@ public class ProductCatalogService {
    */
   @Transactional
   public ProductResponse create(CreateProductRequest request) {
+    return createFor(request, Offer.PLATFORM_SELLER_ID, "PLATFORM");
+  }
+
+  /** Creates a product owned by {@code sellerId}; a platform product also gets the platform offer. */
+  @Transactional
+  public ProductResponse createFor(CreateProductRequest request, UUID sellerId, String listedBy) {
     Instant now = timeProvider.now();
     Product product =
         Product.builder()
@@ -146,6 +376,11 @@ public class ProductCatalogService {
             .active(request.isActive())
             .categoryId(request.getCategoryId())
             .sellerName(request.getSellerName())
+            .brand(blankToNull(request.getBrand()))
+            .attributes(writeSpecifications(request.getAttributes()))
+            .slug(uniqueSlug(request.getName()))
+            .sellerId(sellerId)
+            .listedBy(listedBy)
             .specifications(writeSpecifications(request.getSpecifications()))
             .createdAt(now)
             .updatedAt(now)
@@ -170,6 +405,10 @@ public class ProductCatalogService {
         images.saveAll(toImageEntities(product.getId(), request.getImages(), now));
 
     ProductResponse response = toResponse(product, savedImages);
+    if (Offer.PLATFORM_SELLER_ID.equals(sellerId)) {
+      offerService.upsertPlatformOffer(
+          product.getId(), request.getPriceAmount(), request.getPriceCurrency());
+    }
     // Registered to fire AFTER this @Transactional method's transaction commits -
     // see ProductEventPublisher for the "after commit, never inside" guarantee.
     // initialQuantity rides on the PRODUCT_CREATED payload - the choreographed
@@ -217,10 +456,30 @@ public class ProductCatalogService {
 
     product.setName(request.getName());
     product.setPriceAmount(request.getPriceAmount());
+    if (product.getSalePrice() != null) {
+      // sale_price mirrors the selling price; leaving it stale made the storefront keep showing
+      // the old price after an admin price edit.
+      product.setSalePrice(request.getPriceAmount());
+      if (product.getListPrice() != null && product.getListPrice().signum() > 0) {
+        product.setDiscountPercent(
+            product
+                .getListPrice()
+                .subtract(request.getPriceAmount())
+                .multiply(java.math.BigDecimal.valueOf(100))
+                .divide(product.getListPrice(), 2, RoundingMode.HALF_UP)
+                .max(java.math.BigDecimal.ZERO));
+      }
+    }
     product.setPriceCurrency(request.getPriceCurrency());
     product.setActive(request.isActive());
     product.setCategoryId(request.getCategoryId());
     product.setSellerName(request.getSellerName());
+    if (request.getBrand() != null) {
+      product.setBrand(blankToNull(request.getBrand()));
+    }
+    if (request.getAttributes() != null) {
+      product.setAttributes(writeSpecifications(request.getAttributes()));
+    }
     product.setSpecifications(writeSpecifications(request.getSpecifications()));
     product.setUpdatedAt(now);
 
@@ -233,7 +492,13 @@ public class ProductCatalogService {
     Product saved = products.saveAndFlush(product);
     images.deleteByProductId(id);
     List<ProductImage> savedImages = images.saveAll(toImageEntities(id, request.getImages(), now));
-    ProductResponse response = toResponse(saved, savedImages);
+    if (Offer.PLATFORM_SELLER_ID.equals(saved.getSellerId())) {
+      offerService.upsertPlatformOffer(id, request.getPriceAmount(), request.getPriceCurrency());
+      offerService.syncPrices(id);
+      saved = products.findById(id).orElse(saved);
+    }
+    List<ProductVariantResponse> variantList = variantResponses(id, false);
+    ProductResponse response = toResponse(saved, savedImages, variantList, !variantList.isEmpty());
     events.publishAfterCommit(ProductEventType.PRODUCT_UPDATED, response);
     return response;
   }
@@ -247,6 +512,37 @@ public class ProductCatalogService {
    * @param id the product identifier
    * @throws ResourceNotFoundException when no such product exists
    */
+  /** Writes the buy-box price into the product row (and publishes PRODUCT_UPDATED when it moved). */
+  @Transactional
+  public void applyBuyBoxPrice(UUID id, java.math.BigDecimal effective) {
+    Product p = products.findById(id).orElse(null);
+    if (p == null || p.getPriceAmount() != null && p.getPriceAmount().compareTo(effective) == 0) {
+      return;
+    }
+    p.setPriceAmount(effective);
+    if (p.getSalePrice() != null) {
+      p.setSalePrice(effective);
+      if (p.getListPrice() != null && p.getListPrice().signum() > 0) {
+        p.setDiscountPercent(
+            p.getListPrice()
+                .subtract(effective)
+                .multiply(java.math.BigDecimal.valueOf(100))
+                .divide(p.getListPrice(), 2, RoundingMode.HALF_UP)
+                .max(java.math.BigDecimal.ZERO));
+      }
+    }
+    p.setUpdatedAt(timeProvider.now());
+    Product saved = products.saveAndFlush(p);
+    List<ProductVariantResponse> variantList = variantResponses(id, false);
+    events.publishAfterCommit(
+        ProductEventType.PRODUCT_UPDATED,
+        toResponse(
+            saved,
+            images.findByProductIdOrderByDisplayOrderAsc(id),
+            variantList,
+            !variantList.isEmpty()));
+  }
+
   @Transactional
   public void delete(UUID id) {
     Product product =
@@ -332,7 +628,19 @@ public class ProductCatalogService {
         .toList();
   }
 
+  private static String blankToNull(String value) {
+    return value == null || value.isBlank() ? null : value.trim();
+  }
+
   private ProductResponse toResponse(Product product, List<ProductImage> productImages) {
+    return toResponse(product, productImages, null, false);
+  }
+
+  private ProductResponse toResponse(
+      Product product,
+      List<ProductImage> productImages,
+      List<ProductVariantResponse> variants,
+      boolean hasVariants) {
     return new ProductResponse(
         product.getId(),
         product.getSku(),
@@ -365,7 +673,20 @@ public class ProductCatalogService {
         readRatingDistribution(product.getRatingDistribution()),
         product.isFeatured(),
         product.getSellerRating(),
-        product.isSellerVerified());
+        product.isSellerVerified(),
+        product.getBrand(),
+        readSpecifications(product.getAttributes()),
+        product.getSlug(),
+        hasVariants,
+        variants,
+        variants == null ? null : variantOptions(variants),
+        null,
+        null,
+        null,
+        product.getSellerId(),
+        product.getListedBy(),
+        null,
+        null);
   }
 
   /**

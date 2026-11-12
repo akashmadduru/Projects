@@ -7,6 +7,7 @@ import { CartIcon, HeartIcon } from './Icons'
 import { Logo } from './Logo'
 import { SearchBar } from './SearchBar'
 import { AccountMenu } from './AccountMenu'
+import { NotificationBell } from './NotificationBell'
 import { ThemeToggle } from './ThemeToggle'
 import { useScrolled } from '../hooks/useScrolled'
 import { useCartStore, useUiStore, useWishlistStore } from '../stores'
@@ -65,12 +66,15 @@ export function Header() {
             </span>
             <span className="hidden sm:inline">Cart</span>
           </button>
+          <NotificationBell />
           <AccountMenu />
           <ThemeToggle />
         </div>
       </div>
       {/* Diner stripe - mustard, tangerine, cherry. */}
       <div aria-hidden="true" className="retro-stripes h-1.5 border-t-2 border-ink" />
+      {/* Marquee light string hanging under the stripe; decorative, see .bulb-string. */}
+      <div aria-hidden="true" className="bulb-string absolute inset-x-0 -bottom-3 h-3" />
     </header>
   )
 }

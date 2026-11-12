@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Vue 3 admin SPA for the e-commerce platform catalog (Phase 1F).",
+  "description": "Cartwise Admin: Vue 3 back-office console for the Cartwise e-commerce platform.",
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc --noEmit && vite build",

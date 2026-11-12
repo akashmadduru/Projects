@@ -80,7 +80,7 @@ public class SecurityConfig {
   public SecurityFilterChain internalFilterChain(
       HttpSecurity http, OrderProperties properties, ProblemResponseWriter problems)
       throws Exception {
-    http.securityMatcher("/internal/**", "/api/orders/delivery-estimate")
+    http.securityMatcher("/internal/**", "/api/orders/delivery-estimate", "/api/recommendations/**")
         .csrf(AbstractHttpConfigurer::disable)
         .sessionManagement(
             session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

@@ -157,6 +157,16 @@ public class UserAccount {
     this.status = UserStatus.DISABLED;
   }
 
+  /** Re-activates a DISABLED or LOCKED account (admin action). */
+  public void enable() {
+    this.status = UserStatus.ACTIVE;
+  }
+
+  /** Removes a role. Idempotent. */
+  public void revoke(RoleEntity role) {
+    roles.remove(Objects.requireNonNull(role, "role"));
+  }
+
   /** Whether this identity is permitted to authenticate at all. */
   public boolean canAuthenticate() {
     return status == UserStatus.ACTIVE;

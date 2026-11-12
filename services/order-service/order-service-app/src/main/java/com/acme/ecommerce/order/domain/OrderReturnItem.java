@@ -32,6 +32,9 @@ public class OrderReturnItem {
   @Column(name = "product_id", nullable = false, updatable = false)
   private UUID productId;
 
+  @Column(name = "variant_id", updatable = false)
+  private UUID variantId;
+
   @Column(name = "name", nullable = false, updatable = false, length = 300)
   private String name;
 
@@ -42,10 +45,16 @@ public class OrderReturnItem {
   private BigDecimal unitPrice;
 
   static OrderReturnItem of(
-      OrderReturn parent, UUID productId, String name, int quantity, BigDecimal unitPrice) {
+      OrderReturn parent,
+      UUID productId,
+      UUID variantId,
+      String name,
+      int quantity,
+      BigDecimal unitPrice) {
     OrderReturnItem i = new OrderReturnItem();
     i.orderReturn = parent;
     i.productId = productId;
+    i.variantId = variantId;
     i.name = name;
     i.quantity = quantity;
     i.unitPrice = unitPrice;

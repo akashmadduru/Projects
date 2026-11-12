@@ -275,6 +275,36 @@ Allow ~30–40 s after a restart before the gateway stops answering 503 (TD-BE-0
 console redirect URI must be `http://localhost:8081/login/oauth2/code/google`. Knobs:
 `VITE_AUTH_BASE_URL`, `VITE_GOOGLE_SSO_ENABLED=false`, `AUTH_REGISTRATION_ENABLED`.
 
+### Phase 6 run notes
+
+- New services: payment-service `8088`, promotion-service `8089`, notification-service `8090`; Mailpit (dev mail catcher) UI at http://127.0.0.1:8025.
+- New env vars in `infra/.env`: `INTERNAL_API_TOKEN` (shared service-to-service secret), `PAYMENT_DB_PASSWORD`, `PROMOTION_DB_PASSWORD`, `STRIPE_SECRET_KEY` / `STRIPE_PUBLISHABLE_KEY` / `STRIPE_WEBHOOK_SECRET`, `STOREFRONT_BASE_URL`.
+- Existing Postgres volume: create the new databases with `docker exec -i ecommerce-postgres psql -U postgres < infra/scripts/create-customer-dbs.sql`.
+- Payments run in **SIMULATED** mode until Stripe keys are set; the Stripe path has never been exercised ([TD-P6-02](techdebt/phase6.md#td-p6-02)).
+- Seeded coupons: `WELCOME10`, `FLAT100`, `SAVE5`, `FESTIVE20`.
+- Integration run: 98 of 99 e2e checks passed (the failure was a script bug). Images were built offline because Maven Central returned 403; run `docker compose -f infra/docker-compose.yml up --build` once it is reachable ([TD-P6-06](techdebt/phase6.md#td-p6-06)).
+- The dev DB still holds test data (an admin user, `p6e2e-*` users, a deactivated test product and coupons); see [TD-P6-25](techdebt/phase6.md#td-p6-25).
+
+### Phase 7 notes
+
+- No new services. New endpoint families: product-service `/api/products/suggest`, `/facets`, `/batch`, `/slug/{slug}`, `/{id}/variants` (admin PUT), `/{id}/views`, `/{id}/also-viewed`, and public `/sitemap.xml`; promotion-service `/api/promotions/offers`, `/deals/active` and admin `/api/admin/deals` (plus `/internal/promotions/deals/*`); rating-service questions/answers/upvotes, review media (`/api/ratings/{id}/media`) and review filters (`stars`, `verified`, `withMedia`); cart-service `/api/alerts`; order-service `/api/recommendations/products/{id}/bought-together`; user-service `/api/users/me/recently-viewed`; inventory-service variant stock (`/api/inventory/variants/{id}`, internal `/internal/inventory/variants`).
+- Seeded demo data: 3 products with 4-6 variants each, 4 active deals ending in 1-3 days, 3 bank offers (HDFC, ICICI, Axis) and EMI plans (display-only).
+- Sitemap: `GET http://localhost:8080/sitemap.xml`; its URLs use `product.storefront-base-url` (default `http://localhost:3000`).
+- Review photos are stored on the `rating-media` docker volume (`/data/media`); rating-service runs as root so the fresh volume is writable ([TD-P7-15](techdebt/phase7.md#td-p7-15)). `INTERNAL_API_TOKEN` is now also set for product-service.
+- Not built: SSR/prerender and 360-degree images ([TD-P7-16](techdebt/phase7.md#td-p7-16), [TD-P7-17](techdebt/phase7.md#td-p7-17)). Search, facets and relevance run in memory over capped id lists ([TD-P7-03](techdebt/phase7.md#td-p7-03)); storefront main chunk is 584 kB ([TD-P7-18](techdebt/phase7.md#td-p7-18)).
+- Integration run: 68 of 68 Phase 7 e2e checks and 99 of 99 Phase 6 regression checks passed. The dev DB still holds test data ([TD-P7-20](techdebt/phase7.md#td-p7-20)).
+- Process risk: a `git stash` by an unknown actor swept uncommitted work and was restored by a 3-way merge; `stash@{0}` is kept as a backup ([TD-P7-02](techdebt/phase7.md#td-p7-02)). Much of the Phase 6-7 work is still uncommitted, so avoid state-changing git commands until it is.
+
+### Phase 8 notes
+
+- No new services. payment-service: wallet (`/api/wallet`), gift cards (`/api/gift-cards`, redeem), payment purposes `ORDER|MEMBERSHIP|GIFT_CARD`, internal `/internal/wallet/debit|credit`. promotion-service: reward coins ledger (`/api/coins`, earned on DELIVERED from `order.events`, 20% of subtotal redeemable at checkout, members earn 2x), members-only deals. order-service: checkout `useWallet`/`coinsToRedeem` and `WALLET` method, member free shipping, `/api/orders/buy-again`, Subscribe & Save (`/api/subscriptions`, 5% off, daily job).
+- user-service: membership plans (`PLUS_MONTHLY`, `PLUS_YEARLY`; `/api/membership`), notification preferences, referrals (`/api/referrals`, claim with `?ref=`). cart-service: lists with share links (`/api/lists`, public `/api/lists/shared/{token}`), hourly abandoned-cart reminders. notification-service: in-app inbox (`/api/notifications`), web push (`/api/push/**`), admin campaigns (`/api/admin/campaigns`); it now has its own database.
+- Dev triggers (need `X-Internal-Token`): `POST /internal/subscriptions/run-due` (accepts `?date=` to simulate days) and `POST /internal/cart/reminders/run`.
+- New env vars in `infra/.env`: `NOTIFICATION_DB_PASSWORD`, and optional `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` (VAPID keys are generated and stored in `notification_db` on first start if unset). Existing Postgres volume: re-run `infra/scripts/create-customer-dbs.sql` to create `notification_db`.
+- Storefront: Account has Wallet, Gift cards, Coins, Membership, Referrals, Subscriptions, Lists, Notifications and preferences, Buy again; header bell; checkout wallet/coins controls; shared list page `/lists/shared/:token`. Admin: Campaigns view.
+- Known gaps: web push never reached a real push service ([TD-P8-04](techdebt/phase8.md#td-p8-04)); campaign audience covers only users with a profile row and sends in-process ([TD-P8-02](techdebt/phase8.md#td-p8-02), [TD-P8-03](techdebt/phase8.md#td-p8-03)); gift card codes are plaintext with no redeem rate limit ([TD-P8-06](techdebt/phase8.md#td-p8-06)); wallet credit-back is best effort ([TD-P8-07](techdebt/phase8.md#td-p8-07)); coins never actually expire ([TD-P8-09](techdebt/phase8.md#td-p8-09)).
+- Integration run: 78 of 78 Phase 8 e2e checks, 99 of 99 Phase 6 and 68 of 68 Phase 7 regression checks passed. The dev DB still holds `p8-*` test data and about 230 Mailpit messages ([TD-P8-19](techdebt/phase8.md#td-p8-19)).
+
 ### Service registry (Phase 1B)
 
 ```bash
@@ -374,9 +404,9 @@ never from a file on a developer machine.
 | 3 | Catalog enrichment and choreographed saga | ✅ Implemented — [HLD](docs/HLD-catalog-enrichment-and-saga.md), [ADR 0003](docs/adr/0003-choreographed-catalog-saga-and-narrow-read-only-cross-service-call.md) |
 | 4 | rating-service (reviews, summaries; storefront review UI) | ✅ Implemented |
 | 5 | Customer accounts: login/register, Google SSO, user/cart/order services, storefront checkout | ✅ Implemented, **no automated tests** — see [Phase5-Feature](docs/Phase5-Feature.md) |
-| 6 | Sell for real: payments + COD, stock reservation, order lifecycle & tracking, admin orders, shipping, GST invoice, notifications, returns, coupons, OTP/password reset | ⏳ Planned — [Product Roadmap](docs/Product-Roadmap.md#phase-6-sell-for-real-must-have-before-any-real-customer) |
-| 7 | Discovery & conversion: autocomplete, typo-tolerant search, variants, facets, offers, deals, recommendations, Q&A, alerts | ⏳ Planned |
-| 8 | Retention & loyalty: membership, rewards, wallet/gift cards, abandoned-cart reminders, personalised home | ⏳ Planned |
+| 6 | Sell for real: payments + COD, stock reservation, order lifecycle & tracking, admin orders, shipping, GST invoice, notifications, returns, coupons, OTP/password reset | ✅ Implemented (prototype-grade, no tests) — [Product Roadmap](docs/Product-Roadmap.md#phase-6-sell-for-real-must-have-before-any-real-customer), debt in [techdebt/phase6.md](techdebt/phase6.md) |
+| 7 | Discovery & conversion: autocomplete, typo-tolerant search, variants, facets, offers, deals, recommendations, Q&A, alerts | ✅ Implemented (prototype-grade, no tests) — [Product Roadmap](docs/Product-Roadmap.md#phase-7-discovery-and-conversion), debt in [techdebt/phase7.md](techdebt/phase7.md) |
+| 8 | Retention & loyalty: membership, coins, wallet/gift cards, subscriptions, referrals, notification centre + push + campaigns, lists, abandoned-cart reminders, personalised home | ✅ Implemented (prototype-grade, no tests) — [Product Roadmap](docs/Product-Roadmap.md#phase-8-retention-and-loyalty), debt in [techdebt/phase8.md](techdebt/phase8.md) |
 | 9 | Marketplace & sellers: onboarding/KYC, seller portal, buy box, payouts, ads, warehouses | ⏳ Planned |
 | 10 | Trust, support & scale: help desk, 2FA, fraud checks, privacy controls, i18n, PWA, observability | ⏳ Planned |
 
@@ -387,11 +417,13 @@ without tests or per-feature HLD/LLD; every shortcut is logged in the
 
 ## Known gaps
 
-Highest-severity items from the [Tech Debt Register](techdebt/README.md): no inventory reservation at
-checkout / oversell (TD-BE-01), no payment/shipping/tax (TD-BE-02), no tests for the Phase 5 services
-and storefront flows (TD-TEST-01/02), a real Google client secret in local `infra/.env` to rotate
-(TD-SEC-01), admin SPA Google login broken (TD-SEC-02), and a stale `http.test.ts` that makes
-`npm run type-check` fail (TD-TEST-03). Phase 5 backend builds use `-x test`.
+Highest-severity items from the [Tech Debt Register](techdebt/README.md): no outbox, so stock/coupon/event
+side effects after an order commit can be lost (TD-P6-01); Stripe live mode never exercised, only
+SIMULATED (TD-P6-02); a late payment on a cancelled order is not reliably refunded (TD-P6-03); products
+without an inventory row are treated as unlimited (TD-P6-04); no tests for Phase 5/6 services and
+storefront flows, and existing auth-service tests no longer compile (TD-P6-05, TD-TEST-01/02); a real
+Google client secret in local `infra/.env` to rotate (TD-SEC-01); admin SPA Google login broken
+(TD-SEC-02). Phase 5/6 backend builds use `-x test`.
 
 ## Future work
 

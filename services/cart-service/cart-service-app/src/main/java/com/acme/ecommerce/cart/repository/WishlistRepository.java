@@ -9,14 +9,17 @@ import java.util.UUID;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
-/** Wishlist persistence; all writes are idempotent upserts. */
+/** Wishlist persistence; all writes are idempotent upserts. Lines are keyed by (product, variant). */
 @Repository
 public class WishlistRepository {
 
+  private static final UUID NIL = new UUID(0L, 0L);
+
   private static final String INSERT =
-      "INSERT INTO cart.wishlist_items (user_id, product_id, name, price, currency, image_url) "
-          + "VALUES (:userId, :productId, :name, :price, :currency, :imageUrl) "
-          + "ON CONFLICT (user_id, product_id) DO ";
+      "INSERT INTO cart.wishlist_items (user_id, product_id, variant_id, variant_label, name, "
+          + "price, currency, image_url) VALUES (:userId, :productId, :variantId, :variantLabel, "
+          + ":name, :price, :currency, :imageUrl) "
+          + "ON CONFLICT (user_id, product_id, variant_key) DO ";
 
   private final JdbcClient jdbc;
 
@@ -24,10 +27,15 @@ public class WishlistRepository {
     this.jdbc = jdbc;
   }
 
+  private static UUID key(UUID variantId) {
+    return variantId == null ? NIL : variantId;
+  }
+
   public List<WishlistItemResponse> findAll(UUID userId) {
     return jdbc.sql(
-            "SELECT product_id, name, price, currency, image_url, added_at "
-                + "FROM cart.wishlist_items WHERE user_id = :userId ORDER BY added_at DESC, id")
+            "SELECT product_id, variant_id, variant_label, name, price, currency, image_url, "
+                + "added_at FROM cart.wishlist_items WHERE user_id = :userId "
+                + "ORDER BY added_at DESC, id")
         .param("userId", userId)
         .query(
             (rs, n) ->
@@ -37,7 +45,9 @@ public class WishlistRepository {
                     rs.getBigDecimal("price"),
                     rs.getString("currency"),
                     rs.getString("image_url"),
-                    rs.getObject("added_at", OffsetDateTime.class).toInstant()))
+                    rs.getObject("added_at", OffsetDateTime.class).toInstant(),
+                    rs.getObject("variant_id", UUID.class),
+                    rs.getString("variant_label")))
         .list();
   }
 
@@ -45,6 +55,8 @@ public class WishlistRepository {
   public void upsert(
       UUID userId,
       UUID productId,
+      UUID variantId,
+      String variantLabel,
       String name,
       BigDecimal price,
       String currency,
@@ -52,9 +64,12 @@ public class WishlistRepository {
     write(
         INSERT
             + "UPDATE SET name = EXCLUDED.name, price = EXCLUDED.price, "
-            + "currency = EXCLUDED.currency, image_url = EXCLUDED.image_url",
+            + "currency = EXCLUDED.currency, image_url = EXCLUDED.image_url, "
+            + "variant_label = EXCLUDED.variant_label",
         userId,
         productId,
+        variantId,
+        variantLabel,
         name,
         price,
         currency,
@@ -65,11 +80,22 @@ public class WishlistRepository {
   public void insertIfAbsent(
       UUID userId,
       UUID productId,
+      UUID variantId,
+      String variantLabel,
       String name,
       BigDecimal price,
       String currency,
       String imageUrl) {
-    write(INSERT + "NOTHING", userId, productId, name, price, currency, imageUrl);
+    write(
+        INSERT + "NOTHING",
+        userId,
+        productId,
+        variantId,
+        variantLabel,
+        name,
+        price,
+        currency,
+        imageUrl);
   }
 
   /** Serialises this user's wishlist writes for the rest of the transaction (cap enforcement). */
@@ -87,20 +113,24 @@ public class WishlistRepository {
         .single();
   }
 
-  public boolean exists(UUID userId, UUID productId) {
+  public boolean exists(UUID userId, UUID productId, UUID variantId) {
     return jdbc.sql(
             "SELECT EXISTS (SELECT 1 FROM cart.wishlist_items WHERE user_id = :userId "
-                + "AND product_id = :productId)")
+                + "AND product_id = :productId AND variant_key = :vk)")
         .param("userId", userId)
         .param("productId", productId)
+        .param("vk", key(variantId))
         .query(Boolean.class)
         .single();
   }
 
-  public void delete(UUID userId, UUID productId) {
-    jdbc.sql("DELETE FROM cart.wishlist_items WHERE user_id = :userId AND product_id = :productId")
+  public void delete(UUID userId, UUID productId, UUID variantId) {
+    jdbc.sql(
+            "DELETE FROM cart.wishlist_items WHERE user_id = :userId AND product_id = :productId "
+                + "AND variant_key = :vk")
         .param("userId", userId)
         .param("productId", productId)
+        .param("vk", key(variantId))
         .update();
   }
 
@@ -108,6 +138,8 @@ public class WishlistRepository {
       String sql,
       UUID userId,
       UUID productId,
+      UUID variantId,
+      String variantLabel,
       String name,
       BigDecimal price,
       String currency,
@@ -115,6 +147,8 @@ public class WishlistRepository {
     jdbc.sql(sql)
         .param("userId", userId)
         .param("productId", productId)
+        .param("variantId", variantId)
+        .param("variantLabel", variantLabel)
         .param("name", name.trim())
         .param("price", price)
         .param("currency", currency.toUpperCase(Locale.ROOT))

@@ -8,6 +8,7 @@ import com.acme.ecommerce.order.api.dto.OrderResponse;
 import com.acme.ecommerce.order.api.dto.OrderSummaryResponse;
 import com.acme.ecommerce.order.api.dto.PlaceOrderRequest;
 import com.acme.ecommerce.order.api.dto.PurchaseStatusResponse;
+import com.acme.ecommerce.order.api.dto.ShipmentResponse;
 import com.acme.ecommerce.order.api.dto.ReturnResponse;
 import com.acme.ecommerce.order.service.InvoiceService;
 import com.acme.ecommerce.order.service.OrderLifecycleService;
@@ -132,13 +133,31 @@ public class OrderController {
     if ("PENDING_PAYMENT".equals(order.status()) || "CANCELLED".equals(order.status())) {
       throw new ResourceConflictException("No invoice is available for this order yet");
     }
-    byte[] pdf = invoices.render(order);
+    return invoicePdf(order, null);
+  }
+
+  /** Invoice of one shipment (seller as supplier). */
+  @GetMapping(value = "/{id}/shipments/{shipmentId}/invoice.pdf", produces = MediaType.APPLICATION_PDF_VALUE)
+  public ResponseEntity<byte[]> shipmentInvoice(
+      @AuthenticationPrincipal Jwt jwt, @PathVariable UUID id, @PathVariable UUID shipmentId) {
+    OrderResponse order = store.get(userId(jwt), id);
+    ShipmentResponse shipment = InvoiceService.pick(order, shipmentId);
+    if ("PENDING_PAYMENT".equals(order.status())
+        || (shipment != null && "CANCELLED".equals(shipment.status()))) {
+      throw new ResourceConflictException("No invoice is available for this shipment yet");
+    }
+    return invoicePdf(order, shipmentId);
+  }
+
+  private ResponseEntity<byte[]> invoicePdf(OrderResponse order, UUID shipmentId) {
+    ShipmentResponse shipment = InvoiceService.pick(order, shipmentId);
+    byte[] pdf = invoices.render(order, shipmentId);
     return ResponseEntity.ok()
         .contentType(MediaType.APPLICATION_PDF)
         .header(
             HttpHeaders.CONTENT_DISPOSITION,
             ContentDisposition.inline()
-                .filename(InvoiceService.invoiceNumber(order) + ".pdf")
+                .filename(InvoiceService.invoiceNumber(order, shipment) + ".pdf")
                 .build()
                 .toString())
         .body(pdf);

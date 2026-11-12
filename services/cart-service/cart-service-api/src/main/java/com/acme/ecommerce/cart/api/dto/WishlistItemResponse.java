@@ -10,4 +10,6 @@ public record WishlistItemResponse(
     BigDecimal price,
     String currency,
     String imageUrl,
-    Instant addedAt) {}
+    Instant addedAt,
+    UUID variantId,
+    String variantLabel) {}

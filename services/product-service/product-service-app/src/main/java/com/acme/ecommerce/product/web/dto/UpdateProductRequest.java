@@ -41,5 +41,10 @@ public class UpdateProductRequest {
   String sellerName;
 
   Map<String, Object> specifications;
+
+  @Size(max = 120)
+  String brand;
+
+  Map<String, Object> attributes;
   @Valid List<ProductImageRequest> images;
 }

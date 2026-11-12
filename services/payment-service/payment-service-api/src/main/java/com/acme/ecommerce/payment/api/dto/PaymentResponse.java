@@ -6,7 +6,8 @@ import java.util.UUID;
 /**
  * Payment as seen by order-service and the owner. {@code status}: REQUIRES_PAYMENT, PROCESSING,
  * SUCCEEDED, FAILED, REFUNDED, PARTIALLY_REFUNDED, COD_PENDING. {@code mode}: STRIPE or SIMULATED.
- * {@code clientSecret}/{@code publishableKey} are only set for CARD payments in STRIPE mode that
+ * {@code purpose} is ORDER, MEMBERSHIP or GIFT_CARD ({@code orderId} then holds the
+ * subject id). {@code clientSecret}/{@code publishableKey} are only set for CARD payments in STRIPE mode that
  * still need payment.
  */
 public record PaymentResponse(
@@ -19,4 +20,5 @@ public record PaymentResponse(
     String currency,
     BigDecimal refundedAmount,
     String clientSecret,
-    String publishableKey) {}
+    String publishableKey,
+    String purpose) {}

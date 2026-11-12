@@ -42,6 +42,23 @@ export function ActiveFilters({ query, categories, onChange, onClearAll }: Props
     chips.push({ key: 'discount', label: `${query.minDiscount}%+ off`, clear: { minDiscount: undefined } })
   }
   if (query.seller) chips.push({ key: 'seller', label: `Seller: ${query.seller}`, clear: { seller: undefined } })
+  for (const brand of query.brand ?? []) {
+    const rest = (query.brand ?? []).filter((b) => b !== brand)
+    chips.push({ key: `brand-${brand}`, label: `Brand: ${brand}`, clear: { brand: rest.length ? rest : undefined } })
+  }
+  for (const [attr, values] of Object.entries(query.attrs ?? {})) {
+    for (const value of values) {
+      const attrs = { ...(query.attrs ?? {}) }
+      const rest = values.filter((v) => v !== value)
+      if (rest.length) attrs[attr] = rest
+      else delete attrs[attr]
+      chips.push({
+        key: `attr-${attr}-${value}`,
+        label: `${attr}: ${value}`,
+        clear: { attrs: Object.keys(attrs).length ? attrs : undefined },
+      })
+    }
+  }
   for (const item of SWITCHES) {
     if (query[item.key]) chips.push({ key: item.key, label: item.label, clear: { [item.key]: undefined } })
   }

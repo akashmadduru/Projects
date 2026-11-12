@@ -63,7 +63,15 @@ async function signOut(): Promise<void> {
     </div>
 
     <div class="data-card">
-      <p class="text-sm opacity-70">More settings coming soon.</p>
+      <h2 class="text-sm font-medium uppercase tracking-wide opacity-60">Your access</h2>
+      <ul class="mt-3 flex flex-col gap-1 text-sm">
+        <li>Catalog (products, categories, inventory): {{ auth.canManageCatalog ? 'read & write' : 'read only' }}</li>
+        <li>Orders, returns, payments, customers, reviews, coupons: {{ auth.isAdmin ? 'full access' : 'no access' }}</li>
+      </ul>
+      <p class="mt-3 text-xs opacity-60">
+        Roles are managed by an administrator under Customers. A role change applies after your next
+        sign-in or token refresh.
+      </p>
     </div>
   </section>
 </template>

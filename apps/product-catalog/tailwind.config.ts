@@ -50,7 +50,7 @@ export default {
         DEFAULT: token('outline'),
       },
       fontFamily: {
-        display: ['Righteous', '"Poppins"', 'system-ui', 'sans-serif'],
+        display: ['Quicksand', '"Poppins"', 'system-ui', 'sans-serif'],
         body: ['"Poppins"', 'system-ui', 'sans-serif'],
       },
     },

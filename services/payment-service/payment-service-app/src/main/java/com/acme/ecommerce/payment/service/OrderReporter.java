@@ -2,6 +2,8 @@ package com.acme.ecommerce.payment.service;
 
 import com.acme.ecommerce.payment.api.dto.PaymentResultRequest;
 import com.acme.ecommerce.payment.client.OrderFeignClient;
+import com.acme.ecommerce.payment.client.UserFeignClient;
+import com.acme.ecommerce.payment.client.UserFeignClient.MembershipPaymentResult;
 import com.acme.ecommerce.payment.repository.PaymentRepository;
 import com.acme.ecommerce.payment.repository.PaymentRepository.Payment;
 import org.slf4j.Logger;
@@ -21,10 +23,18 @@ public class OrderReporter {
 
   private final PaymentRepository payments;
   private final OrderFeignClient orders;
+  private final UserFeignClient users;
+  private final GiftCardService giftCards;
 
-  public OrderReporter(PaymentRepository payments, OrderFeignClient orders) {
+  public OrderReporter(
+      PaymentRepository payments,
+      OrderFeignClient orders,
+      UserFeignClient users,
+      GiftCardService giftCards) {
     this.payments = payments;
     this.orders = orders;
+    this.users = users;
+    this.giftCards = giftCards;
   }
 
   /** Best effort; never throws. */
@@ -35,7 +45,13 @@ public class OrderReporter {
       return;
     }
     try {
-      orders.paymentResult(p.orderId(), new PaymentResultRequest(p.status(), p.id()));
+      switch (p.purpose() == null ? "ORDER" : p.purpose()) {
+        case "MEMBERSHIP" ->
+            users.membershipPaymentResult(
+                new MembershipPaymentResult(p.referenceId(), p.status(), p.id()));
+        case "GIFT_CARD" -> giftCards.onPaymentResult(p.referenceId(), p.status());
+        default -> orders.paymentResult(p.orderId(), new PaymentResultRequest(p.status(), p.id()));
+      }
       payments.markReported(p.id());
       log.info("Reported payment {} ({}) to order-service", p.id(), p.status());
     } catch (Exception e) {

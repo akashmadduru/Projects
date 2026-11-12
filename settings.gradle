@@ -73,6 +73,9 @@ include ':services:payment-service:payment-service-app'
 include ':services:promotion-service:promotion-service-api'
 include ':services:promotion-service:promotion-service-app'
 
+// --- seller service (marketplace onboarding, settlements, ads) ----------------
+include ':services:seller-service:seller-service-app'
+
 // --- notification service (email / sms, order-event consumer) ----------------
 include ':services:notification-service:notification-service-api'
 include ':services:notification-service:notification-service-app'

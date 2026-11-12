@@ -50,6 +50,11 @@ public class CreateProductRequest {
   String sellerName;
 
   Map<String, Object> specifications;
+
+  @Size(max = 120)
+  String brand;
+
+  Map<String, Object> attributes;
   @Valid List<ProductImageRequest> images;
 
   /** Custom validation: active products require initialQuantity >= 1. */

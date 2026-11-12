@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
+import { useRoute } from 'vue-router';
 
 import ProblemAlert from '@/components/ProblemAlert.vue';
 import {
@@ -36,7 +37,15 @@ const error = ref<{ message: string; correlationId: string | null } | null>(null
 const page = ref(0);
 const totalPages = ref(1);
 const totalElements = ref(0);
-const filters = reactive({ status: '', q: '' });
+// Deep links from the dashboard: /orders?status=SHIPPED or /orders?q=<order id prefix>.
+// Validated against the known statuses; anything else is ignored rather than sent to the API.
+const route = useRoute();
+const queryStatus = typeof route.query.status === 'string' ? route.query.status : '';
+const queryTerm = typeof route.query.q === 'string' ? route.query.q.slice(0, 64) : '';
+const filters = reactive({
+  status: (ORDER_STATUSES as readonly string[]).includes(queryStatus) ? queryStatus : '',
+  q: queryTerm,
+});
 
 async function load(): Promise<void> {
   loading.value = true;

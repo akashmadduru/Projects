@@ -48,7 +48,7 @@ function isAuthPath(url: string): boolean {
 
 function send(url: string, init: RequestInit): Promise<Response> {
   const headers = new Headers(init.headers)
-  if (init.body !== undefined && init.body !== null) {
+  if (init.body !== undefined && init.body !== null && !(init.body instanceof FormData)) {
     headers.set('Content-Type', 'application/json')
   }
   if (accessToken) {
@@ -119,7 +119,7 @@ export async function apiFetch<T = unknown>(url: string, config: ApiRequestConfi
 
   const init: RequestInit = { method, headers: config.headers }
   if (config.body !== undefined) {
-    init.body = JSON.stringify(config.body)
+    init.body = config.body instanceof FormData ? config.body : JSON.stringify(config.body)
   }
 
   if (method !== 'GET') return execute<T>(fullUrl, init)

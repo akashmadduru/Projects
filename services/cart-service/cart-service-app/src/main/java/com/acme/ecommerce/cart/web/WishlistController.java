@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -46,8 +47,11 @@ public class WishlistController {
 
   @DeleteMapping("/{productId}")
   @ResponseStatus(HttpStatus.NO_CONTENT)
-  public void remove(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID productId) {
-    wishlist.remove(userId(jwt), productId);
+  public void remove(
+      @AuthenticationPrincipal Jwt jwt,
+      @PathVariable UUID productId,
+      @RequestParam(required = false) UUID variantId) {
+    wishlist.remove(userId(jwt), productId, variantId);
   }
 
   @PostMapping("/merge")

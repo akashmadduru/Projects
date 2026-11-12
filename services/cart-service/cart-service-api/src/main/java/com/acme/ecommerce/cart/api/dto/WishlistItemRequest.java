@@ -7,6 +7,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
+import java.util.UUID;
 import java.math.BigDecimal;
 
 /** Wishlist entry snapshot (the product id comes from the path). */
@@ -17,4 +18,6 @@ public record WishlistItemRequest(
     @NotBlank @Pattern(regexp = "^[A-Za-z]{3}$", message = "must be a 3-letter currency code")
         String currency,
     @Size(max = 2048) @Pattern(regexp = "^https?://.*", message = "must be an http(s) URL")
-        String imageUrl) {}
+        String imageUrl,
+    UUID variantId,
+    @Size(max = 200) String variantLabel) {}

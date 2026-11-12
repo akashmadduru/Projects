@@ -1,6 +1,8 @@
 package com.acme.ecommerce.rating.api.dto;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -32,4 +34,7 @@ public class RatingResponse {
   private Long version;
   private Instant createdAt;
   private Instant updatedAt;
+
+  /** Review photos, oldest first; empty when none. */
+  @Builder.Default private List<RatingMediaResponse> media = new ArrayList<>();
 }

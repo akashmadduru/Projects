@@ -59,7 +59,11 @@ public class SecurityConfig {
    * public GET rule for the same two paths.
    */
   private static final String[] PUBLIC_READS = {
-    "/api/ratings/products/*", "/api/ratings/products/*/summary"
+    "/api/ratings/products/*",
+    "/api/ratings/products/*/summary",
+    "/api/ratings/products/*/questions",
+    "/api/ratings/questions/*/answers",
+    "/api/ratings/media/*"
   };
 
   /**

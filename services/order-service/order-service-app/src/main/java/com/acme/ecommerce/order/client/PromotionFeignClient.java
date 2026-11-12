@@ -1,6 +1,7 @@
 package com.acme.ecommerce.order.client;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -42,4 +43,36 @@ public interface PromotionFeignClient {
 
   @DeleteMapping("/internal/promotions/redemptions/{orderId}")
   void release(@PathVariable("orderId") UUID orderId);
+
+  record DealKey(UUID productId, UUID variantId) {}
+
+  record DealPricesRequest(List<DealKey> items, UUID userId) {}
+
+  record CoinRedeem(UUID userId, int coins, UUID orderId) {}
+
+  @PostMapping("/internal/coins/redeem")
+  void redeemCoins(@RequestBody CoinRedeem request);
+
+  @DeleteMapping("/internal/coins/redeem/{orderId}")
+  void releaseCoins(@PathVariable("orderId") UUID orderId);
+
+  @org.springframework.web.bind.annotation.GetMapping("/internal/coins/{userId}")
+  java.util.Map<String, Integer> coinBalance(@PathVariable("userId") UUID userId);
+
+  record DealPrice(UUID productId, UUID variantId, UUID dealId, BigDecimal dealPrice, int remaining) {}
+
+  record DealPricesResponse(List<DealPrice> prices) {}
+
+  record DealClaimItem(UUID dealId, int quantity) {}
+
+  record DealClaimsRequest(UUID orderId, List<DealClaimItem> items) {}
+
+  @PostMapping("/internal/promotions/deals/prices")
+  DealPricesResponse dealPrices(@RequestBody DealPricesRequest request);
+
+  @PostMapping("/internal/promotions/deals/claims")
+  void claimDeals(@RequestBody DealClaimsRequest request);
+
+  @DeleteMapping("/internal/promotions/deals/claims/{orderId}")
+  void releaseDeals(@PathVariable("orderId") UUID orderId);
 }

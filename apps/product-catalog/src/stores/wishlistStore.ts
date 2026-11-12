@@ -18,10 +18,12 @@ export interface WishlistSnapshot {
   price: number
   currency: string
   imageUrl?: string
+  variantLabel?: string
 }
 
 export interface WishlistItem {
   productId: string
+  variantId?: string
   addedAt: number
   snapshot?: WishlistSnapshot
 }
@@ -30,10 +32,10 @@ export interface WishlistState {
   items: WishlistItem[]
   /** True while a signed-in user's wishlist is mirrored from the server. Not persisted. */
   serverBacked: boolean
-  addItem: (productId: string, snapshot?: WishlistSnapshot) => void
-  removeItem: (productId: string) => void
-  toggleItem: (productId: string, snapshot?: WishlistSnapshot) => void
-  isInWishlist: (productId: string) => boolean
+  addItem: (productId: string, snapshot?: WishlistSnapshot, variantId?: string) => void
+  removeItem: (productId: string, variantId?: string) => void
+  toggleItem: (productId: string, snapshot?: WishlistSnapshot, variantId?: string) => void
+  isInWishlist: (productId: string, variantId?: string) => boolean
   clearWishlist: () => void
   getItemCount: () => number
   attachServer: () => Promise<void>
@@ -46,12 +48,14 @@ const MERGE_CHUNK = 200
 function fromServer(rows: WishlistItemResponse[]): WishlistItem[] {
   return rows.map((row) => ({
     productId: row.productId,
+    variantId: row.variantId ?? undefined,
     addedAt: Date.parse(row.addedAt) || Date.now(),
     snapshot: {
       name: row.name,
       price: Number(row.price),
       currency: row.currency,
       imageUrl: row.imageUrl ?? undefined,
+      variantLabel: row.variantLabel ?? undefined,
     },
   }))
 }
@@ -64,8 +68,13 @@ function toLine(item: WishlistItem): WishlistLine | null {
     price: item.snapshot.price,
     currency: item.snapshot.currency,
     imageUrl: item.snapshot.imageUrl ?? null,
+    variantId: item.variantId ?? null,
+    variantLabel: item.snapshot.variantLabel ?? null,
   }
 }
+
+const same = (item: WishlistItem, productId: string, variantId?: string) =>
+  item.productId === productId && (item.variantId ?? undefined) === variantId
 
 export const useWishlistStore = create<WishlistState>()(
   persist(
@@ -91,11 +100,11 @@ export const useWishlistStore = create<WishlistState>()(
         })
       }
 
-      const add = (productId: string, snapshot?: WishlistSnapshot) => {
+      const add = (productId: string, snapshot?: WishlistSnapshot, variantId?: string) => {
         const apply = (items: WishlistItem[]): WishlistItem[] =>
-          items.some((item) => item.productId === productId)
+          items.some((item) => same(item, productId, variantId))
             ? items
-            : [...items, { productId, addedAt: Date.now(), snapshot }]
+            : [...items, { productId, variantId, addedAt: Date.now(), snapshot }]
         if (!get().serverBacked) {
           set((state) => ({ items: apply(state.items) }))
           return
@@ -108,17 +117,19 @@ export const useWishlistStore = create<WishlistState>()(
             price: snapshot.price,
             currency: snapshot.currency,
             imageUrl: snapshot.imageUrl ?? null,
+            variantId: variantId ?? null,
+            variantLabel: snapshot.variantLabel ?? null,
           }),
         )
       }
 
-      const remove = (productId: string) => {
-        const apply = (items: WishlistItem[]) => items.filter((item) => item.productId !== productId)
+      const remove = (productId: string, variantId?: string) => {
+        const apply = (items: WishlistItem[]) => items.filter((item) => !same(item, productId, variantId))
         if (!get().serverBacked) {
           set((state) => ({ items: apply(state.items) }))
           return
         }
-        mutate(apply, () => cartApi.removeWishlistItem(productId))
+        mutate(apply, () => cartApi.removeWishlistItem(productId, variantId))
       }
 
       return {
@@ -128,19 +139,19 @@ export const useWishlistStore = create<WishlistState>()(
         addItem: add,
         removeItem: remove,
 
-        toggleItem: (productId, snapshot) => {
-          if (get().items.some((item) => item.productId === productId)) remove(productId)
-          else add(productId, snapshot)
+        toggleItem: (productId, snapshot, variantId) => {
+          if (get().items.some((item) => same(item, productId, variantId))) remove(productId, variantId)
+          else add(productId, snapshot, variantId)
         },
 
-        isInWishlist: (productId) => get().items.some((item) => item.productId === productId),
+        isInWishlist: (productId, variantId) => get().items.some((item) => same(item, productId, variantId)),
 
         clearWishlist: () => {
           if (!get().serverBacked) {
             set({ items: [] })
             return
           }
-          for (const item of get().items) remove(item.productId)
+          for (const item of get().items) remove(item.productId, item.variantId)
         },
 
         getItemCount: () => get().items.length,

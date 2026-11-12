@@ -24,11 +24,11 @@ Index: [README](README.md)
 - **Fix:** Generate per-environment passwords; remove literals from SQL (use psql variables).
 
 <a id="td-sec-04"></a>
-## TD-SEC-04 Open registration by default, no email verification
-- **Severity / Effort:** Med / M
+## TD-SEC-04 Open registration by default
+- **Severity / Effort:** Med / S
 - **Where:** `infra/docker-compose.yml` (`AUTH_REGISTRATION_ENABLED:-true`).
-- **Risk:** Anyone can create accounts with unverified emails. Fine for dev, not for production.
-- **Fix:** Default false outside dev; add email verification.
+- **Risk:** Anyone can create accounts. Email verification exists since Phase 6 but is advisory (see [TD-P6-10](phase6.md#td-p6-10)). Fine for dev, not for production.
+- **Fix:** Default false outside dev.
 
 <a id="td-sec-05"></a>
 ## TD-SEC-05 Manual DB script for existing volumes

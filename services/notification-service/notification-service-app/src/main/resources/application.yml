@@ -1,11 +1,31 @@
 # =============================================================================
-# notification-service configuration (stateless: no database).
-# Dev/docker-compose defaults; mail goes to the mailpit container (UI :8025).
+# notification-service configuration. Since Phase 8 it owns notification_db (inbox, push
+# subscriptions, campaigns). Dev/docker-compose defaults; mail goes to mailpit (UI :8025).
 # =============================================================================
 spring:
   application:
     name: notification-service
 
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/notification_db}
+    username: ${SPRING_DATASOURCE_USERNAME:notification_service}
+    password: ${SPRING_DATASOURCE_PASSWORD:notification_service_local_pwd}
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 3000
+  jpa:
+    hibernate:
+      ddl-auto: none
+    open-in-view: false
+    properties:
+      hibernate:
+        default_schema: notification
+  flyway:
+    enabled: true
+    schemas: notification
+    default-schema: notification
+    locations: classpath:db/migration
   threads:
     virtual:
       enabled: true
@@ -40,6 +60,15 @@ notification:
   sender: ${NOTIFICATION_SENDER:no-reply@acme.local}
   storefront-base-url: ${STOREFRONT_BASE_URL:http://localhost:3000}
   sms-mailbox-domain: acme.local
+  jwt:
+    issuer: ${AUTH_JWT_ISSUER:https://auth.acme-ecommerce.internal}
+    audience: ${AUTH_JWT_AUDIENCES:ecommerce-platform}
+    jwks-service-id: ${NOTIFICATION_JWKS_SERVICE_ID:AUTH-SERVICE}
+    jwks-uri: ${NOTIFICATION_JWKS_URI:}
+  vapid:
+    public-key: ${VAPID_PUBLIC_KEY:}
+    private-key: ${VAPID_PRIVATE_KEY:}
+    subject: ${VAPID_SUBJECT:mailto:admin@acme.local}
 
 eureka:
   client:

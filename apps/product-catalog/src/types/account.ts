@@ -71,6 +71,10 @@ export interface CartLineRequest {
   unitPrice: number
   currency: string
   imageUrl: string | null
+  variantId?: string | null
+  variantLabel?: string | null
+  /** Marketplace offer; the server defaults to the buy box offer when omitted. */
+  offerId?: string | null
 }
 
 export interface CartItemResponse extends CartLineRequest {
@@ -84,6 +88,8 @@ export interface SavedItemResponse {
   unitPrice: number
   currency: string
   imageUrl: string | null
+  variantId?: string | null
+  variantLabel?: string | null
   savedAt: string
 }
 
@@ -101,6 +107,8 @@ export interface WishlistLine {
   price: number
   currency: string
   imageUrl: string | null
+  variantId?: string | null
+  variantLabel?: string | null
 }
 
 export interface WishlistItemResponse extends WishlistLine {
@@ -117,7 +125,7 @@ export type OrderStatus =
   | 'DELIVERED'
   | 'CANCELLED'
 
-export type PaymentMethod = 'CARD' | 'COD'
+export type PaymentMethod = 'CARD' | 'COD' | 'WALLET'
 
 export type PaymentStatus =
   | 'PENDING'
@@ -147,6 +155,11 @@ export interface OrderItem {
   quantity: number
   lineTotal: number
   imageUrl: string | null
+  variantId?: string | null
+  variantLabel?: string | null
+  offerId?: string | null
+  sellerId?: string | null
+  shipmentId?: string | null
 }
 
 export interface PaymentInfo {
@@ -162,6 +175,19 @@ export interface TimelineEntry {
   note: string | null
   actor: 'USER' | 'ADMIN' | 'SYSTEM'
   at: string
+}
+
+export interface OrderShipment {
+  id: string
+  sellerId: string
+  sellerName: string
+  status: OrderStatus
+  trackingNumber: string | null
+  carrier: string | null
+  estimatedDeliveryDate: string | null
+  /** Order item ids or product ids (contract leaves it open); matched against both. */
+  items: string[]
+  timeline: TimelineEntry[]
 }
 
 export interface Order {
@@ -181,6 +207,10 @@ export interface Order {
   shippingAmount: number
   taxAmount: number
   taxLabel: string | null
+  coinsRedeemed?: number | null
+  coinsValue?: number | null
+  walletAmount?: number | null
+  membershipFreeShipping?: boolean | null
   taxBreakdown: { cgst: number | null; sgst: number | null; igst: number | null } | null
   estimatedDeliveryDate: string | null
   trackingNumber: string | null
@@ -191,6 +221,7 @@ export interface Order {
   returnWindowEndsAt: string | null
   timeline: TimelineEntry[]
   payment?: PaymentInfo | null
+  shipments?: OrderShipment[] | null
 }
 
 export interface OrderSummary {
@@ -208,7 +239,9 @@ export interface PlaceOrderRequest {
   addressId: string
   paymentMethod: PaymentMethod
   couponCode?: string
-  items?: { productId: string; quantity: number }[]
+  useWallet?: boolean
+  coinsToRedeem?: number
+  items?: { productId: string; offerId?: string; variantId?: string; quantity: number }[]
 }
 
 export interface DeliveryEstimate {
@@ -244,9 +277,10 @@ export interface AvailableCoupon {
 export type ReturnReason = 'DAMAGED' | 'WRONG_ITEM' | 'NOT_AS_DESCRIBED' | 'NO_LONGER_NEEDED' | 'OTHER'
 
 export interface ReturnRequest {
-  items: { productId: string; quantity: number }[]
+  items: { productId: string; variantId?: string; quantity: number }[]
   reason: ReturnReason
   comment?: string
+  refundTo?: 'SOURCE' | 'WALLET'
 }
 
 export interface ReturnResponse {
@@ -255,7 +289,7 @@ export interface ReturnResponse {
   status: 'REQUESTED' | 'APPROVED' | 'REJECTED' | 'PICKED_UP' | 'REFUNDED'
   reason: ReturnReason
   comment: string | null
-  items: { productId: string; name: string; quantity: number; unitPrice: number }[]
+  items: { productId: string; variantId?: string | null; name: string; quantity: number; unitPrice: number }[]
   refundAmount: number | null
   createdAt: string
   updatedAt: string

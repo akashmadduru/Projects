@@ -30,7 +30,7 @@ export function CategoryNav() {
 
   return (
     <nav aria-label="Categories" className="border-b border-outline bg-surface">
-      <ul className="mx-auto flex max-w-[1400px] gap-1 overflow-x-auto px-4 sm:px-6 lg:px-8 [scrollbar-width:none]">
+      <ul className="mx-auto flex max-w-[1400px] flex-wrap gap-x-1 px-4 sm:px-6 lg:px-8">
         <li>
           <Link to={href()} className={item(onCatalog && !query.categoryId)} aria-current={onCatalog && !query.categoryId ? 'page' : undefined}>
             All products

@@ -158,8 +158,8 @@ h1,
 h2,
 h3,
 .font-display {
-  font-family: 'Righteous', 'Poppins', system-ui, sans-serif;
-  font-weight: 400;
+  font-family: 'Quicksand', 'Poppins', system-ui, sans-serif;
+  font-weight: 700;
   letter-spacing: 0.01em;
 }
 
@@ -629,6 +629,124 @@ h3.font-body {
 
 .animate-counter {
   animation: counterCount 1200ms var(--ease-smooth) both;
+}
+
+/* =============================================================================
+   Retro lights: theatre-marquee bulbs, neon tubes, a searchlight sweep.
+   Only opacity/transform animate (compositor-only). Under prefers-reduced-motion the
+   global rule below freezes them in their lit state; .lights-off (on <html>) hides them.
+   ============================================================================= */
+
+/* A horizontal string of bulbs. Two offset layers blink in anti-phase -> chase effect. */
+.bulb-string {
+  --bulb-gap: 22px;
+  --bulb-size: 3.5px;
+  --bulb-a: var(--color-vivid-amber);
+  --bulb-b: 45 100% 92%;
+  position: relative;
+  height: 12px;
+  pointer-events: none;
+}
+.bulb-string::before,
+.bulb-string::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-repeat: repeat-x;
+  background-size: calc(var(--bulb-gap) * 2) 100%;
+  will-change: opacity;
+}
+.bulb-string::before {
+  background-image: radial-gradient(circle at center, hsl(var(--bulb-a)) 0 var(--bulb-size), transparent calc(var(--bulb-size) + 1px));
+  background-position: 0 50%;
+  filter: drop-shadow(0 0 3px hsl(var(--bulb-a) / 0.9));
+  animation: bulbChase 1.4s steps(1, end) infinite;
+}
+.bulb-string::after {
+  background-image: radial-gradient(circle at center, hsl(var(--bulb-b)) 0 var(--bulb-size), transparent calc(var(--bulb-size) + 1px));
+  background-position: var(--bulb-gap) 50%;
+  filter: drop-shadow(0 0 3px hsl(var(--bulb-b) / 0.9));
+  animation: bulbChase 1.4s steps(1, end) infinite reverse;
+}
+.bulb-string--warm {
+  --bulb-a: var(--color-deal);
+  --bulb-b: var(--color-vivid-amber);
+}
+
+@keyframes bulbChase {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.18;
+  }
+}
+
+/* Neon-tube lettering with an irregular flicker, like a diner sign warming up. */
+.neon-sign {
+  color: hsl(var(--color-surface));
+  text-shadow:
+    0 0 2px hsl(var(--neon, var(--color-vivid-pink))),
+    0 0 8px hsl(var(--neon, var(--color-vivid-pink)) / 0.9),
+    0 0 18px hsl(var(--neon, var(--color-vivid-pink)) / 0.7),
+    2px 2px 0 hsl(var(--color-ink));
+  animation: neonFlicker 7s linear infinite;
+}
+.neon-sign--amber {
+  --neon: var(--color-vivid-amber);
+}
+
+@keyframes neonFlicker {
+  0%, 18%, 22%, 25%, 53%, 57%, 100% {
+    opacity: 1;
+  }
+  20%, 24%, 55% {
+    opacity: 0.55;
+  }
+}
+
+/* A soft spotlight that sweeps across a panel. Put on an absolutely positioned child. */
+.searchlight {
+  position: absolute;
+  inset: -40% auto -40% -30%;
+  width: 35%;
+  background: linear-gradient(100deg, transparent, hsl(45 100% 95% / 0.16), transparent);
+  transform: translateX(-100%) skewX(-12deg);
+  animation: searchlight 9s var(--ease-glide) infinite;
+  pointer-events: none;
+}
+@keyframes searchlight {
+  0% {
+    transform: translateX(-100%) skewX(-12deg);
+  }
+  60%, 100% {
+    transform: translateX(480%) skewX(-12deg);
+  }
+}
+
+/* Pulsing "ON AIR"-style lamp. */
+.lamp {
+  display: inline-block;
+  height: 0.6rem;
+  width: 0.6rem;
+  border-radius: 9999px;
+  background: hsl(var(--color-deal));
+  box-shadow: 0 0 0 2px hsl(var(--color-ink)), 0 0 10px hsl(var(--color-deal));
+  animation: lampPulse 1.6s ease-in-out infinite;
+}
+@keyframes lampPulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.lights-off .bulb-string,
+.lights-off .searchlight {
+  display: none;
+}
+.lights-off .neon-sign,
+.lights-off .lamp {
+  animation: none;
 }
 
 @media (prefers-reduced-motion: reduce) {

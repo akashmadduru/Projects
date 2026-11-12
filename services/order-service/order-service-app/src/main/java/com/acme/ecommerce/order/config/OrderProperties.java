@@ -37,6 +37,23 @@ public class OrderProperties {
 
   @Builder.Default private Seller seller = new Seller();
 
+  @Builder.Default private Loyalty loyalty = new Loyalty();
+
+  /** Coins and subscription rules. */
+  @Data
+  @NoArgsConstructor
+  @AllArgsConstructor
+  @Builder
+  public static class Loyalty {
+    /** Max share of the subtotal payable with coins. */
+    @Builder.Default private int coinMaxPercent = 20;
+
+    /** Subscribe & Save line discount. */
+    @Builder.Default private int subscriptionDiscountPercent = 5;
+
+    @Builder.Default private int subscriptionMaxFailures = 3;
+  }
+
   /** Shared secret for /internal/** (inbound) and the internal Feign clients (outbound). */
   @Data
   @NoArgsConstructor

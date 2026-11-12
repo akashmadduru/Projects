@@ -24,12 +24,16 @@ public final class Roles {
   /** Read-only access. */
   public static final String VIEWER = "VIEWER";
 
+  /** Approved marketplace seller (granted by auth-service when seller-service approves KYC). */
+  public static final String SELLER = "SELLER";
+
   // --- prefixed: the GrantedAuthority form ---
   public static final String ROLE_PREFIX = "ROLE_";
 
   public static final String ROLE_ADMIN = ROLE_PREFIX + ADMIN;
   public static final String ROLE_CATALOG_MANAGER = ROLE_PREFIX + CATALOG_MANAGER;
   public static final String ROLE_VIEWER = ROLE_PREFIX + VIEWER;
+  public static final String ROLE_SELLER = ROLE_PREFIX + SELLER;
 
   private Roles() {
     throw new AssertionError("constants holder");

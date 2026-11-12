@@ -27,4 +27,9 @@ public class InventoryResponse {
   private Instant lastUpdatedAt;
   private Instant createdAt;
   private Instant updatedAt;
+
+  /** Per-variant stock (Phase 7); empty for products without variants. */
+  private java.util.List<VariantQuantity> variants;
+
+  public record VariantQuantity(UUID variantId, int quantity) {}
 }

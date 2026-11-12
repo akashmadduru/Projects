@@ -6,6 +6,9 @@ import { createAuthGuard } from '@/router/guards';
  * Every route component is lazy — the login screen must not ship the catalog's
  * code, and an anonymous visitor is the most common first paint.
  */
+const STAFF_ROLES = ['ADMIN', 'CATALOG_MANAGER'] as const;
+const SELLER_ROLES = ['SELLER'] as const;
+
 export const routes: readonly RouteRecordRaw[] = [
   {
     path: '/',
@@ -16,13 +19,13 @@ export const routes: readonly RouteRecordRaw[] = [
         path: 'dashboard',
         name: 'dashboard',
         component: () => import('@/views/DashboardView.vue'),
-        meta: { requiresAuth: true },
+        meta: { requiresAuth: true, requiresAnyRole: STAFF_ROLES },
       },
       {
         path: 'products',
         name: 'products',
         component: () => import('@/views/ProductsView.vue'),
-        meta: { requiresAuth: true },
+        meta: { requiresAuth: true, requiresAnyRole: STAFF_ROLES },
       },
       {
         path: 'products/new',
@@ -34,10 +37,41 @@ export const routes: readonly RouteRecordRaw[] = [
         meta: { requiresAuth: true, requiresAnyRole: ['CATALOG_MANAGER', 'ADMIN'] },
       },
       {
+        path: 'categories',
+        name: 'categories',
+        component: () => import('@/views/CategoriesView.vue'),
+        meta: { requiresAuth: true, requiresAnyRole: STAFF_ROLES },
+      },
+      {
         path: 'inventory',
         name: 'inventory',
         component: () => import('@/views/InventoryView.vue'),
-        meta: { requiresAuth: true },
+        meta: { requiresAuth: true, requiresAnyRole: STAFF_ROLES },
+      },
+      {
+        path: 'customers',
+        name: 'customers',
+        component: () => import('@/views/CustomersView.vue'),
+        meta: { requiresAuth: true, requiresAnyRole: ['ADMIN'] },
+      },
+      {
+        path: 'customers/:id',
+        name: 'customer-detail',
+        component: () => import('@/views/CustomerDetailView.vue'),
+        props: true,
+        meta: { requiresAuth: true, requiresAnyRole: ['ADMIN'] },
+      },
+      {
+        path: 'reviews',
+        name: 'reviews',
+        component: () => import('@/views/ReviewsView.vue'),
+        meta: { requiresAuth: true, requiresAnyRole: ['ADMIN'] },
+      },
+      {
+        path: 'payments',
+        name: 'payments',
+        component: () => import('@/views/PaymentsView.vue'),
+        meta: { requiresAuth: true, requiresAnyRole: ['ADMIN'] },
       },
       {
         path: 'orders',
@@ -55,6 +89,85 @@ export const routes: readonly RouteRecordRaw[] = [
         path: 'coupons',
         name: 'coupons',
         component: () => import('@/views/CouponsView.vue'),
+        meta: { requiresAuth: true, requiresAnyRole: ['ADMIN'] },
+      },
+      {
+        path: 'deals',
+        name: 'deals',
+        component: () => import('@/views/DealsView.vue'),
+        meta: { requiresAuth: true, requiresAnyRole: ['ADMIN'] },
+      },
+      {
+        path: 'campaigns',
+        name: 'campaigns',
+        component: () => import('@/views/CampaignsView.vue'),
+        meta: { requiresAuth: true, requiresAnyRole: ['ADMIN'] },
+      },
+      {
+        path: 'seller/apply',
+        name: 'seller-apply',
+        component: () => import('@/views/SellerApplyView.vue'),
+        meta: { requiresAuth: true },
+      },
+      { path: 'seller', redirect: '/seller/listings' },
+      {
+        path: 'seller/listings',
+        name: 'seller-listings',
+        component: () => import('@/views/SellerListingsView.vue'),
+        meta: { requiresAuth: true, requiresAnyRole: SELLER_ROLES },
+      },
+      {
+        path: 'seller/bulk',
+        name: 'seller-bulk',
+        component: () => import('@/views/SellerBulkView.vue'),
+        meta: { requiresAuth: true, requiresAnyRole: SELLER_ROLES },
+      },
+      {
+        path: 'seller/orders',
+        name: 'seller-orders',
+        component: () => import('@/views/SellerOrdersView.vue'),
+        meta: { requiresAuth: true, requiresAnyRole: SELLER_ROLES },
+      },
+      {
+        path: 'seller/finance',
+        name: 'seller-finance',
+        component: () => import('@/views/SellerFinanceView.vue'),
+        meta: { requiresAuth: true, requiresAnyRole: SELLER_ROLES },
+      },
+      {
+        path: 'seller/analytics',
+        name: 'seller-analytics',
+        component: () => import('@/views/SellerAnalyticsView.vue'),
+        meta: { requiresAuth: true, requiresAnyRole: SELLER_ROLES },
+      },
+      {
+        path: 'seller/ads',
+        name: 'seller-ads',
+        component: () => import('@/views/SellerAdsView.vue'),
+        meta: { requiresAuth: true, requiresAnyRole: SELLER_ROLES },
+      },
+      {
+        path: 'seller/feedback',
+        name: 'seller-feedback',
+        component: () => import('@/views/SellerFeedbackView.vue'),
+        meta: { requiresAuth: true, requiresAnyRole: SELLER_ROLES },
+      },
+      {
+        path: 'sellers',
+        name: 'admin-sellers',
+        component: () => import('@/views/AdminSellersView.vue'),
+        meta: { requiresAuth: true, requiresAnyRole: ['ADMIN'] },
+      },
+      {
+        path: 'payouts',
+        name: 'admin-payouts',
+        component: () => import('@/views/AdminPayoutsView.vue'),
+        meta: { requiresAuth: true, requiresAnyRole: ['ADMIN'] },
+      },
+      {
+        path: 'warehouses',
+        name: 'admin-warehouses',
+        component: () => import('@/views/AdminWarehousesView.vue'),
         meta: { requiresAuth: true, requiresAnyRole: ['ADMIN'] },
       },
       {

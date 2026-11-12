@@ -1,6 +1,9 @@
 package com.acme.ecommerce.notification.event;
 
+import com.acme.ecommerce.notification.api.dto.EmailTemplate;
 import com.acme.ecommerce.notification.config.NotificationProperties;
+import com.acme.ecommerce.notification.inbox.NotificationDispatcher;
+import com.acme.ecommerce.notification.inbox.PreferenceLookup;
 import com.acme.ecommerce.notification.mail.EmailContent;
 import com.acme.ecommerce.notification.mail.EmailRenderer;
 import com.acme.ecommerce.notification.mail.MailSenderService;
@@ -8,6 +11,7 @@ import java.math.BigDecimal;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -38,11 +42,20 @@ public class OrderEventListener {
             }
           });
 
+  private final NotificationDispatcher dispatcher;
+  private final PreferenceLookup preferences;
+
   public OrderEventListener(
-      EmailRenderer renderer, MailSenderService mail, NotificationProperties properties) {
+      EmailRenderer renderer,
+      MailSenderService mail,
+      NotificationProperties properties,
+      NotificationDispatcher dispatcher,
+      PreferenceLookup preferences) {
     this.renderer = renderer;
     this.mail = mail;
     this.properties = properties;
+    this.dispatcher = dispatcher;
+    this.preferences = preferences;
   }
 
   @KafkaListener(
@@ -55,8 +68,10 @@ public class OrderEventListener {
         log.warn("Skipping undecodable or typeless order event");
         return;
       }
-      if (event.email() == null || event.email().isBlank()) {
-        log.info("Skipping {} for order {}: no email on event", event.type(), event.orderId());
+      UUID userId = parseUuid(event.userId());
+      boolean hasEmail = event.email() != null && !event.email().isBlank();
+      if (!hasEmail && userId == null) {
+        log.info("Skipping {} for order {}: no email or user on event", event.type(), event.orderId());
         return;
       }
       if (event.eventId() != null) {
@@ -72,8 +87,21 @@ public class OrderEventListener {
         log.debug("No email for {} status={}", event.type(), event.status());
         return;
       }
-      mail.send(event.email(), content.subject(), content.text(), content.html());
-      log.info("Sent {} email for order {}", event.type(), event.orderId());
+      if (userId != null) {
+        // Inbox entry (+ push when pushOrders) for every order event; link is storefront-relative.
+        dispatcher.notifyUser(
+            userId,
+            "ORDER",
+            content.subject(),
+            inboxBody(content.text()),
+            "/orders/" + event.orderId(),
+            event.eventId() == null ? null : "order:" + event.eventId());
+      }
+      boolean emailOrders = userId == null || preferences.get(userId).emailOrders();
+      if (hasEmail && emailOrders) {
+        mail.send(event.email(), content.subject(), content.text(), content.html());
+        log.info("Sent {} email for order {}", event.type(), event.orderId());
+      }
     } catch (RuntimeException e) {
       log.error("Failed to handle order event {}: {}", event == null ? null : event.eventId(), e.toString());
     }
@@ -107,7 +135,20 @@ public class OrderEventListener {
                   + " method.",
               "View order",
               orderUrl);
-      case "ORDER_STATUS_CHANGED" -> statusChanged(e, ref, orderUrl);
+      case "ORDER_STATUS_CHANGED" -> e.isSplit() ? null : statusChanged(e, ref, orderUrl);
+      case "SHIPMENT_STATUS_CHANGED" -> e.isSplit() ? shipmentChanged(e, ref, orderUrl) : null;
+      case "SUBSCRIPTION_ORDER_PLACED" ->
+          renderer.render(
+              EmailTemplate.SUBSCRIPTION_ORDER_PLACED,
+              Map.of(
+                  "productName", e.firstItemName() == null ? "your subscribed item" : e.firstItemName(),
+                  "link", properties.storefrontBaseUrl() + "/account/subscriptions"));
+      case "SUBSCRIPTION_FAILED" ->
+          renderer.render(
+              EmailTemplate.SUBSCRIPTION_FAILED,
+              Map.of(
+                  "productName", e.firstItemName() == null ? "your subscribed item" : e.firstItemName(),
+                  "link", properties.storefrontBaseUrl() + "/account/subscriptions"));
       case "RETURN_REQUESTED" ->
           renderer.order(
               "Return requested for order " + ref,
@@ -120,6 +161,42 @@ public class OrderEventListener {
               "Refund issued for order " + ref,
               "Your refund is on its way",
               "A refund for your return on order " + ref + " has been processed.",
+              "View order",
+              orderUrl);
+      default -> null;
+    };
+  }
+
+  /** Split orders: one email per shipment, naming the seller. Silent for the other statuses. */
+  private EmailContent shipmentChanged(OrderEvent e, String ref, String orderUrl) {
+    String status = e.status() == null ? "" : e.status();
+    String seller =
+        e.shipments().stream()
+            .filter(s -> s.shipmentId() != null && s.shipmentId().equals(e.shipmentId()))
+            .map(OrderEvent.ShipmentInfo::sellerName)
+            .filter(n -> n != null && !n.isBlank())
+            .findFirst()
+            .orElse("one of our sellers");
+    return switch (status) {
+      case "SHIPPED" ->
+          renderer.order(
+              "Part of order " + ref + " has shipped",
+              "A package from " + seller + " is on the way",
+              "Your order " + ref + " ships in several packages. The package from " + seller
+                  + " has shipped."
+                  + (e.carrier() == null ? "" : "\nCarrier: " + e.carrier())
+                  + (e.trackingNumber() == null ? "" : "\nTracking number: " + e.trackingNumber())
+                  + (e.estimatedDeliveryDate() == null
+                      ? ""
+                      : "\nEstimated delivery: " + e.estimatedDeliveryDate()),
+              "Track order",
+              orderUrl);
+      case "DELIVERED" ->
+          renderer.order(
+              "Part of order " + ref + " delivered",
+              "A package from " + seller + " was delivered",
+              "The package from " + seller + " in order " + ref
+                  + " was delivered. You can return its items within 7 days.",
               "View order",
               orderUrl);
       default -> null;
@@ -150,6 +227,20 @@ public class OrderEventListener {
               orderUrl);
       default -> null;
     };
+  }
+
+  /** Second paragraph of the rendered text body (first is the headline). */
+  private static String inboxBody(String text) {
+    String[] parts = text.split("\n\n", 3);
+    return (parts.length > 1 ? parts[1] : text).strip();
+  }
+
+  private static UUID parseUuid(String s) {
+    try {
+      return s == null ? null : UUID.fromString(s);
+    } catch (IllegalArgumentException ex) {
+      return null;
+    }
   }
 
   private static String summary(OrderEvent e) {

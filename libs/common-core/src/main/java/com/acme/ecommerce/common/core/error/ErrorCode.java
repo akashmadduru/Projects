@@ -95,6 +95,15 @@ public enum ErrorCode {
   /** Coupon total or per-user usage limit reached. */
   COUPON_USAGE_LIMIT("COUPON_USAGE_LIMIT", 409, "Coupon usage limit reached"),
 
+  /** Gift card code is unknown, already redeemed, expired or cancelled. */
+  GIFT_CARD_INVALID("GIFT_CARD_INVALID", 422, "Gift card invalid"),
+
+  /** Wallet or coin balance is too low for the requested debit. */
+  INSUFFICIENT_BALANCE("INSUFFICIENT_BALANCE", 409, "Insufficient balance"),
+
+  /** A deal ran out of claimable units. */
+  DEAL_SOLD_OUT("DEAL_SOLD_OUT", 409, "Deal sold out"),
+
   /** The order or items are not eligible for return. */
   RETURN_NOT_ALLOWED("RETURN_NOT_ALLOWED", 409, "Return not allowed"),
 

@@ -6,7 +6,12 @@ import { apiFetch } from '../lib/http'
 import type {
   BackendPagedModel,
   MyReviewStatus,
+  Answer,
+  Question,
+  QuestionSort,
   Review,
+  ReviewFilters,
+  ReviewMedia,
   ReviewInput,
   ReviewPage,
   ReviewSort,
@@ -16,6 +21,12 @@ import type {
 
 export const REVIEW_PAGE_SIZE = 10
 
+export interface QuestionPage {
+  questions: Question[]
+  totalPages: number
+  totalElements: number
+}
+
 export class RatingApiClient {
   private baseUrl = '/api/ratings'
 
@@ -24,9 +35,17 @@ export class RatingApiClient {
     page: number = 0,
     sort: ReviewSort = 'createdAt,desc',
     size: number = REVIEW_PAGE_SIZE,
+    filters: ReviewFilters = {},
   ): Promise<ReviewPage> {
     const response = await apiFetch<BackendPagedModel<Review>>(`${this.baseUrl}/products/${productId}`, {
-      params: { page, size, sort },
+      params: {
+        page,
+        size,
+        sort,
+        ...(filters.stars ? { stars: filters.stars } : {}),
+        ...(filters.verified ? { verified: true } : {}),
+        ...(filters.withMedia ? { withMedia: true } : {}),
+      },
     })
     return {
       reviews: response.content,
@@ -55,6 +74,46 @@ export class RatingApiClient {
 
   remove(id: string): Promise<void> {
     return apiFetch<void>(`${this.baseUrl}/${id}`, { method: 'DELETE' })
+  }
+
+  uploadMedia(ratingId: string, file: File): Promise<ReviewMedia> {
+    const body = new FormData()
+    body.append('file', file)
+    return apiFetch<ReviewMedia>(`${this.baseUrl}/${ratingId}/media`, { method: 'POST', body })
+  }
+
+  removeMedia(ratingId: string, mediaId: string): Promise<void> {
+    return apiFetch<void>(`${this.baseUrl}/${ratingId}/media/${mediaId}`, { method: 'DELETE' })
+  }
+
+  async questions(productId: string, page: number, sort: QuestionSort): Promise<QuestionPage> {
+    const response = await apiFetch<BackendPagedModel<Question>>(`${this.baseUrl}/products/${productId}/questions`, {
+      params: { page, size: 5, sort },
+    })
+    return { questions: response.content, totalPages: response.page.totalPages, totalElements: response.page.totalElements }
+  }
+
+  async answers(questionId: string, page: number): Promise<Answer[]> {
+    const response = await apiFetch<BackendPagedModel<Answer>>(`${this.baseUrl}/questions/${questionId}/answers`, {
+      params: { page, size: 10 },
+    })
+    return response.content
+  }
+
+  ask(productId: string, text: string): Promise<Question> {
+    return apiFetch<Question>(`${this.baseUrl}/products/${productId}/questions`, { method: 'POST', body: { text } })
+  }
+
+  answer(questionId: string, text: string): Promise<Answer> {
+    return apiFetch<Answer>(`${this.baseUrl}/questions/${questionId}/answers`, { method: 'POST', body: { text } })
+  }
+
+  upvoteQuestion(id: string): Promise<void> {
+    return apiFetch<void>(`${this.baseUrl}/questions/${id}/upvote`, { method: 'POST' })
+  }
+
+  upvoteAnswer(id: string): Promise<void> {
+    return apiFetch<void>(`${this.baseUrl}/answers/${id}/upvote`, { method: 'POST' })
   }
 
   vote(id: string, vote: ReviewVote): Promise<void> {

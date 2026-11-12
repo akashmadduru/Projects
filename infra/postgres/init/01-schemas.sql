@@ -113,3 +113,25 @@ ALTER DATABASE payment_db SET search_path TO public;
 REVOKE ALL ON SCHEMA public FROM PUBLIC;
 GRANT ALL ON SCHEMA public TO promotion_service;
 ALTER DATABASE promotion_db SET search_path TO public;
+
+-- --- Phase 8: notification-service -------------------------------------------
+\connect postgres
+CREATE ROLE notification_service WITH LOGIN PASSWORD 'notification_service_local_pwd';
+CREATE DATABASE notification_db WITH OWNER notification_service ENCODING 'UTF8';
+COMMENT ON DATABASE notification_db IS 'notification-service: inbox, push subscriptions, campaigns';
+
+\connect notification_db
+REVOKE ALL ON SCHEMA public FROM PUBLIC;
+GRANT ALL ON SCHEMA public TO notification_service;
+ALTER DATABASE notification_db SET search_path TO public;
+
+-- --- Phase 9: seller-service --------------------------------------------------
+\connect postgres
+CREATE ROLE seller_service WITH LOGIN PASSWORD 'seller_service_local_pwd';
+CREATE DATABASE seller_db WITH OWNER seller_service ENCODING 'UTF8';
+COMMENT ON DATABASE seller_db IS 'seller-service: seller onboarding/KYC, feedback, settlements, ads';
+
+\connect seller_db
+REVOKE ALL ON SCHEMA public FROM PUBLIC;
+GRANT ALL ON SCHEMA public TO seller_service;
+ALTER DATABASE seller_db SET search_path TO public;

@@ -4,10 +4,14 @@ import com.acme.ecommerce.notification.api.NotificationClient;
 import com.acme.ecommerce.notification.api.dto.EmailRequest;
 import com.acme.ecommerce.notification.api.dto.SmsRequest;
 import com.acme.ecommerce.notification.config.NotificationProperties;
+import com.acme.ecommerce.notification.inbox.NotificationDispatcher;
 import com.acme.ecommerce.notification.mail.EmailContent;
 import com.acme.ecommerce.notification.mail.EmailRenderer;
 import com.acme.ecommerce.notification.mail.MailSenderService;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -30,12 +34,32 @@ public class InternalNotificationController {
   private final EmailRenderer renderer;
   private final MailSenderService mail;
   private final NotificationProperties properties;
+  private final NotificationDispatcher dispatcher;
 
   public InternalNotificationController(
-      EmailRenderer renderer, MailSenderService mail, NotificationProperties properties) {
+      EmailRenderer renderer,
+      MailSenderService mail,
+      NotificationProperties properties,
+      NotificationDispatcher dispatcher) {
     this.renderer = renderer;
     this.mail = mail;
     this.properties = properties;
+    this.dispatcher = dispatcher;
+  }
+
+  public record InboxRequest(
+      @NotNull UUID userId,
+      @NotBlank String type,
+      @NotBlank String title,
+      String body,
+      String link) {}
+
+  /** Inbox entry (+ preference-gated web push) for other services: alerts, wallet, membership. */
+  @PostMapping("/inbox")
+  @ResponseStatus(HttpStatus.ACCEPTED)
+  public void inbox(@Valid @RequestBody InboxRequest request) {
+    dispatcher.notifyUser(
+        request.userId(), request.type(), request.title(), request.body(), request.link(), null);
   }
 
   @PostMapping("/email")

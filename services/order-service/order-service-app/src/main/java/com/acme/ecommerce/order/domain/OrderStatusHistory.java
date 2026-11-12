@@ -46,14 +46,23 @@ public class OrderStatusHistory {
   @Column(name = "created_at", nullable = false, updatable = false)
   private Instant createdAt;
 
+  @Column(name = "shipment_id", updatable = false)
+  private UUID shipmentId;
+
   static OrderStatusHistory of(
-      Order order, OrderStatus status, String note, HistoryActor actor, Instant at) {
+      Order order,
+      OrderStatus status,
+      String note,
+      HistoryActor actor,
+      Instant at,
+      UUID shipmentId) {
     OrderStatusHistory h = new OrderStatusHistory();
     h.order = order;
     h.status = status;
     h.note = note;
     h.actor = actor;
     h.createdAt = at;
+    h.shipmentId = shipmentId;
     return h;
   }
 }

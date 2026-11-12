@@ -12,6 +12,7 @@ import com.acme.ecommerce.auth.security.DatabaseUserDetailsService;
 import com.acme.ecommerce.auth.token.JwtKeyProvider;
 import com.acme.ecommerce.common.security.AudienceValidator;
 import com.acme.ecommerce.common.security.PlatformJwtAuthenticationConverter;
+import com.acme.ecommerce.common.security.Roles;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.jwk.source.ImmutableJWKSet;
 import com.nimbusds.jose.jwk.source.JWKSource;
@@ -112,6 +113,10 @@ public class SecurityConfig {
                 requests
                     .requestMatchers(PUBLIC_ENDPOINTS)
                     .permitAll()
+                    // Back-office user management: ADMIN only, at the URL level so
+                    // every current and future /api/admin endpoint is covered.
+                    .requestMatchers("/api/admin/**")
+                    .hasAuthority(Roles.ROLE_ADMIN)
                     // Everything else - /me, /validate, any future admin endpoint -
                     // needs a valid bearer token. `anyRequest().authenticated()`
                     // rather than an allow-list of protected paths, so a new

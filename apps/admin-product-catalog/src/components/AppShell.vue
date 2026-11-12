@@ -1,20 +1,37 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter, RouterLink, RouterView } from 'vue-router';
 import {
   Boxes,
+  CreditCard,
+  FolderTree,
   LayoutDashboard,
+  MessageSquareText,
+  Users,
   LogOut,
   Menu,
   Package,
   ReceiptText,
   RotateCcw,
   Ticket,
+  Zap,
+  Megaphone,
+  Store,
+  BadgeCheck,
+  Warehouse,
+  Banknote,
+  Truck,
+  Wallet,
+  BarChart3,
+  Target,
+  Star,
+  Upload,
   PanelLeftClose,
   PanelLeftOpen,
   Settings as SettingsIcon,
 } from '@lucide/vue';
 
+import BrandLogo from '@/components/BrandLogo.vue';
 import ThemeToggle from '@/components/ThemeToggle.vue';
 import { useAuthStore } from '@/stores/auth';
 
@@ -36,37 +53,103 @@ interface NavItem {
   readonly icon: typeof LayoutDashboard;
   /** Hidden unless the user holds the ADMIN role (mirrors the route guard). */
   readonly adminOnly?: boolean;
+  /** Hidden unless the user can manage the catalog (CATALOG_MANAGER or ADMIN). */
+  readonly catalogOnly?: boolean;
+  /** Visible only to ROLE_SELLER users (Seller section). */
+  readonly sellerOnly?: boolean;
+  /** Visible only to signed-in users without the seller role. */
+  readonly applicantOnly?: boolean;
 }
 
 const NAV_ITEMS: readonly NavItem[] = [
   { name: 'dashboard', label: 'Overview', to: '/dashboard', icon: LayoutDashboard },
   { name: 'products', label: 'Products', to: '/products', icon: Package },
+  { name: 'categories', label: 'Categories', to: '/categories', icon: FolderTree },
   { name: 'inventory', label: 'Inventory', to: '/inventory', icon: Boxes },
   { name: 'orders', label: 'Orders', to: '/orders', icon: ReceiptText, adminOnly: true },
   { name: 'returns', label: 'Returns', to: '/returns', icon: RotateCcw, adminOnly: true },
+  { name: 'payments', label: 'Payments', to: '/payments', icon: CreditCard, adminOnly: true },
+  { name: 'customers', label: 'Customers', to: '/customers', icon: Users, adminOnly: true },
+  { name: 'reviews', label: 'Reviews', to: '/reviews', icon: MessageSquareText, adminOnly: true },
   { name: 'coupons', label: 'Coupons', to: '/coupons', icon: Ticket, adminOnly: true },
+  { name: 'deals', label: 'Deals', to: '/deals', icon: Zap, adminOnly: true },
+  { name: 'campaigns', label: 'Campaigns', to: '/campaigns', icon: Megaphone, adminOnly: true },
+  { name: 'admin-sellers', label: 'Sellers', to: '/sellers', icon: BadgeCheck, adminOnly: true },
+  { name: 'admin-payouts', label: 'Payouts', to: '/payouts', icon: Banknote, adminOnly: true },
+  { name: 'admin-warehouses', label: 'Warehouses', to: '/warehouses', icon: Warehouse, adminOnly: true },
   { name: 'settings', label: 'Settings', to: '/settings', icon: SettingsIcon },
 ];
 
+/** Separate "Seller" section (Phase 9). */
+const SELLER_NAV_ITEMS: readonly NavItem[] = [
+  { name: 'seller-apply', label: 'Become a seller', to: '/seller/apply', icon: Store, applicantOnly: true },
+  { name: 'seller-listings', label: 'My listings', to: '/seller/listings', icon: Package, sellerOnly: true },
+  { name: 'seller-bulk', label: 'Bulk upload', to: '/seller/bulk', icon: Upload, sellerOnly: true },
+  { name: 'seller-orders', label: 'Orders to fulfil', to: '/seller/orders', icon: Truck, sellerOnly: true },
+  { name: 'seller-finance', label: 'Ledger & payouts', to: '/seller/finance', icon: Wallet, sellerOnly: true },
+  { name: 'seller-analytics', label: 'Analytics', to: '/seller/analytics', icon: BarChart3, sellerOnly: true },
+  { name: 'seller-ads', label: 'Ads', to: '/seller/ads', icon: Target, sellerOnly: true },
+  { name: 'seller-feedback', label: 'Feedback', to: '/seller/feedback', icon: Star, sellerOnly: true },
+];
+
+/** Staff-only items (everything except Settings) are hidden from plain customers/sellers. */
 const visibleNavItems = computed<readonly NavItem[]>(() =>
-  NAV_ITEMS.filter((item) => !item.adminOnly || auth.isAdmin),
+  NAV_ITEMS.filter(
+    (item) =>
+      (item.name === 'settings' || auth.isStaff) &&
+      (!item.adminOnly || auth.isAdmin) &&
+      (!item.catalogOnly || auth.canManageCatalog),
+  ),
+);
+
+const visibleSellerItems = computed<readonly NavItem[]>(() =>
+  SELLER_NAV_ITEMS.filter(
+    (item) => (!item.sellerOnly || auth.isSeller) && (!item.applicantOnly || !auth.isSeller),
+  ),
 );
 
 const PAGE_TITLES: Readonly<Record<string, string>> = {
   dashboard: 'Overview',
   products: 'Products',
   'new-product': 'New product',
+  categories: 'Categories',
   inventory: 'Inventory',
+  customers: 'Customers',
+  'customer-detail': 'Customer',
+  reviews: 'Reviews',
+  payments: 'Payments',
   orders: 'Orders',
   returns: 'Returns',
   coupons: 'Coupons',
+  deals: 'Deals',
+  campaigns: 'Campaigns',
   settings: 'Settings',
+  'seller-apply': 'Become a seller',
+  'seller-listings': 'My listings',
+  'seller-bulk': 'Bulk upload',
+  'seller-orders': 'Orders to fulfil',
+  'seller-finance': 'Ledger & payouts',
+  'seller-analytics': 'Seller analytics',
+  'seller-ads': 'Sponsored ads',
+  'seller-feedback': 'Seller feedback',
+  'admin-sellers': 'Sellers',
+  'admin-payouts': 'Payouts',
+  'admin-warehouses': 'Warehouses',
 };
 
 const pageTitle = computed<string>(() => {
   const name = typeof route.name === 'string' ? route.name : '';
-  return PAGE_TITLES[name] ?? 'Admin Product Catalog';
+  return PAGE_TITLES[name] ?? 'Cartwise Admin';
 });
+
+// Browser tab: "Orders · Cartwise Admin" so several admin tabs stay distinguishable.
+watch(
+  pageTitle,
+  (title) => {
+    document.title = title === 'Cartwise Admin' ? title : `${title} · Cartwise Admin`;
+  },
+  { immediate: true },
+);
 
 function isActive(item: NavItem): boolean {
   return route.path === item.to || route.path.startsWith(`${item.to}/`);
@@ -125,7 +208,8 @@ async function signOut(): Promise<void> {
           >
             <Menu class="h-5 w-5" aria-hidden="true" />
           </label>
-          <h1 class="text-sm font-semibold">{{ pageTitle }}</h1>
+          <BrandLogo tone="on-brand" collapsed class="md:hidden" />
+          <h1 class="text-sm">{{ pageTitle }}</h1>
         </div>
         <div class="flex items-center gap-3">
           <span
@@ -150,10 +234,15 @@ async function signOut(): Promise<void> {
         class="app-sidebar"
         :style="{ width: collapsed ? '72px' : '264px' }"
       >
-        <div class="flex h-14 flex-none items-center px-4">
-          <span v-if="!collapsed" class="truncate text-sm font-semibold">Admin Product Catalog</span>
-          <span v-else class="text-sm font-semibold" aria-hidden="true">APC</span>
-        </div>
+        <RouterLink
+          to="/dashboard"
+          class="app-brand flex h-14 flex-none items-center px-4"
+          :class="{ 'justify-center px-0': collapsed }"
+          aria-label="Cartwise Admin: go to overview"
+          @click="closeMobileDrawer"
+        >
+          <BrandLogo tone="on-brand" :collapsed="collapsed" />
+        </RouterLink>
 
         <div>
 
@@ -172,6 +261,23 @@ async function signOut(): Promise<void> {
             <component :is="item.icon" class="h-4 w-4 flex-none" aria-hidden="true" />
             <span v-if="!collapsed" class="truncate">{{ item.label }}</span>
           </RouterLink>
+          <template v-if="visibleSellerItems.length > 0">
+            <p v-if="!collapsed" class="mb-1 mt-4 px-3 text-xs font-semibold uppercase opacity-50">Seller</p>
+            <hr v-else class="my-3 border-base-content/10" />
+            <RouterLink
+              v-for="item in visibleSellerItems"
+              :key="item.name"
+              :to="item.to"
+              class="nav-item mb-1 px-3 py-2"
+              :class="{ 'nav-item-active': isActive(item) }"
+              :data-test="`nav-${item.name}`"
+              :title="collapsed ? item.label : undefined"
+              @click="closeMobileDrawer"
+            >
+              <component :is="item.icon" class="h-4 w-4 flex-none" aria-hidden="true" />
+              <span v-if="!collapsed" class="truncate">{{ item.label }}</span>
+            </RouterLink>
+          </template>
         </nav>
 
         <div class="flex-none border-t border-base-content/10 p-3">

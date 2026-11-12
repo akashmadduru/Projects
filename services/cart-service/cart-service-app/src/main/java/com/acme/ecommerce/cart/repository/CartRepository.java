@@ -15,16 +15,27 @@ import org.springframework.stereotype.Repository;
 /**
  * Cart persistence on plain SQL: every write is an atomic upsert ({@code INSERT ... ON CONFLICT}),
  * so concurrent requests for the same user and product cannot create duplicates or lose updates.
+ * A line is keyed by (product, variant); a null variant is stored as null and compared through the
+ * generated {@code variant_key} column (nil uuid).
  */
 @Repository
 public class CartRepository {
 
   public static final int MAX_QUANTITY = 99;
 
+  private static final UUID NIL = new UUID(0L, 0L);
+
+  /** Offer predicate: an omitted offerId matches every offer of the (product, variant) line. */
+  private static final String OFFER_ANY = " AND (CAST(:ok AS uuid) IS NULL OR offer_key = CAST(:ok AS uuid))";
+
   private final JdbcClient jdbc;
 
   public CartRepository(JdbcClient jdbc) {
     this.jdbc = jdbc;
+  }
+
+  private static UUID key(UUID variantId) {
+    return variantId == null ? NIL : variantId;
   }
 
   /**
@@ -42,9 +53,9 @@ public class CartRepository {
 
   public List<CartItemResponse> findItems(UUID userId) {
     return jdbc.sql(
-            "SELECT i.product_id, i.quantity, i.name, i.unit_price, i.currency, i.image_url, "
-                + "i.added_at FROM cart.cart_items i JOIN cart.carts c ON c.id = i.cart_id "
-                + "WHERE c.user_id = :userId ORDER BY i.added_at, i.id")
+            "SELECT i.product_id, i.variant_id, i.variant_label, i.offer_id, i.seller_id, i.quantity, i.name, i.unit_price, "
+                + "i.currency, i.image_url, i.added_at FROM cart.cart_items i JOIN cart.carts c "
+                + "ON c.id = i.cart_id WHERE c.user_id = :userId ORDER BY i.added_at, i.id")
         .param("userId", userId)
         .query(
             (rs, n) -> {
@@ -58,7 +69,11 @@ public class CartRepository {
                   rs.getString("currency"),
                   rs.getString("image_url"),
                   price.multiply(BigDecimal.valueOf(qty)),
-                  rs.getObject("added_at", OffsetDateTime.class).toInstant());
+                  rs.getObject("added_at", OffsetDateTime.class).toInstant(),
+                  rs.getObject("variant_id", UUID.class),
+                  rs.getString("variant_label"),
+                  rs.getObject("offer_id", UUID.class),
+                  rs.getObject("seller_id", UUID.class));
             })
         .list();
   }
@@ -66,17 +81,22 @@ public class CartRepository {
   /** Adds the requested quantity to the line (capped at 99), refreshing the display snapshot. */
   public void addOrIncrement(UUID cartId, CartItemRequest item) {
     jdbc.sql(
-            "INSERT INTO cart.cart_items (cart_id, product_id, quantity, name, unit_price, "
-                + "currency, image_url) VALUES (:cartId, :productId, :qty, :name, :price, "
-                + ":currency, :imageUrl) "
-                + "ON CONFLICT (cart_id, product_id) DO UPDATE SET "
+            "INSERT INTO cart.cart_items (cart_id, product_id, variant_id, variant_label, offer_id, seller_id, "
+                + "quantity, name, unit_price, currency, image_url) VALUES (:cartId, :productId, :variantId, "
+                + ":variantLabel, :offerId, :sellerId, :qty, :name, :price, :currency, :imageUrl) "
+                + "ON CONFLICT (cart_id, product_id, variant_key, offer_key) DO UPDATE SET "
                 + "quantity = LEAST("
                 + MAX_QUANTITY
                 + ", cart.cart_items.quantity + EXCLUDED.quantity), "
                 + "name = EXCLUDED.name, unit_price = EXCLUDED.unit_price, "
+                + "variant_label = EXCLUDED.variant_label, "
                 + "currency = EXCLUDED.currency, image_url = EXCLUDED.image_url")
         .param("cartId", cartId)
         .param("productId", item.productId())
+        .param("variantId", item.variantId())
+        .param("variantLabel", item.variantLabel())
+        .param("offerId", item.offerId())
+        .param("sellerId", item.sellerId())
         .param("qty", item.quantity())
         .param("name", item.name().trim())
         .param("price", item.unitPrice())
@@ -85,21 +105,27 @@ public class CartRepository {
         .update();
   }
 
-  /** Returns rows changed (0 when the product is not in the cart). */
-  public int setQuantity(UUID cartId, UUID productId, int quantity) {
+  /** Returns rows changed (0 when the line is not in the cart). */
+  public int setQuantity(UUID cartId, UUID productId, UUID variantId, UUID offerId, int quantity) {
     return jdbc.sql(
             "UPDATE cart.cart_items SET quantity = :qty WHERE cart_id = :cartId "
-                + "AND product_id = :productId")
+                + "AND product_id = :productId AND variant_key = :vk" + OFFER_ANY)
+        .param("ok", offerId)
         .param("qty", quantity)
         .param("cartId", cartId)
         .param("productId", productId)
+        .param("vk", key(variantId))
         .update();
   }
 
-  public void deleteItem(UUID cartId, UUID productId) {
-    jdbc.sql("DELETE FROM cart.cart_items WHERE cart_id = :cartId AND product_id = :productId")
+  public void deleteItem(UUID cartId, UUID productId, UUID variantId, UUID offerId) {
+    jdbc.sql(
+            "DELETE FROM cart.cart_items WHERE cart_id = :cartId AND product_id = :productId "
+                + "AND variant_key = :vk" + OFFER_ANY)
+        .param("ok", offerId)
         .param("cartId", cartId)
         .param("productId", productId)
+        .param("vk", key(variantId))
         .update();
   }
 
@@ -128,8 +154,9 @@ public class CartRepository {
 
   public List<SavedItemResponse> findSaved(UUID userId) {
     return jdbc.sql(
-            "SELECT product_id, name, unit_price, currency, image_url, saved_at "
-                + "FROM cart.saved_items WHERE user_id = :userId ORDER BY saved_at DESC, id")
+            "SELECT product_id, variant_id, variant_label, offer_id, seller_id, name, unit_price, currency, image_url, "
+                + "saved_at FROM cart.saved_items WHERE user_id = :userId "
+                + "ORDER BY saved_at DESC, id")
         .param("userId", userId)
         .query(
             (rs, n) ->
@@ -139,7 +166,11 @@ public class CartRepository {
                     rs.getBigDecimal("unit_price"),
                     rs.getString("currency"),
                     rs.getString("image_url"),
-                    rs.getObject("saved_at", OffsetDateTime.class).toInstant()))
+                    rs.getObject("saved_at", OffsetDateTime.class).toInstant(),
+                    rs.getObject("variant_id", UUID.class),
+                    rs.getString("variant_label"),
+                    rs.getObject("offer_id", UUID.class),
+                    rs.getObject("seller_id", UUID.class)))
         .list();
   }
 
@@ -150,38 +181,50 @@ public class CartRepository {
         .single();
   }
 
-  public boolean hasSaved(UUID userId, UUID productId) {
+  public boolean hasSaved(UUID userId, UUID productId, UUID variantId, UUID offerId) {
     return jdbc.sql(
             "SELECT EXISTS (SELECT 1 FROM cart.saved_items WHERE user_id = :userId "
-                + "AND product_id = :productId)")
+                + "AND product_id = :productId AND variant_key = :vk" + OFFER_ANY + ")")
+        .param("ok", offerId)
         .param("userId", userId)
         .param("productId", productId)
+        .param("vk", key(variantId))
         .query(Boolean.class)
         .single();
   }
 
   /** Copies the cart line into saved items (upsert). Returns rows written (0 = no such line). */
-  public int saveLineForLater(UUID cartId, UUID userId, UUID productId) {
+  public int saveLineForLater(
+      UUID cartId, UUID userId, UUID productId, UUID variantId, UUID offerId) {
     return jdbc.sql(
-            "INSERT INTO cart.saved_items (user_id, product_id, name, unit_price, currency, "
-                + "image_url) SELECT :userId, product_id, name, unit_price, currency, image_url "
+            "INSERT INTO cart.saved_items (user_id, product_id, variant_id, variant_label, offer_id, seller_id, "
+                + "name, unit_price, currency, image_url) SELECT :userId, product_id, variant_id, "
+                + "variant_label, offer_id, seller_id, name, unit_price, currency, image_url "
                 + "FROM cart.cart_items WHERE cart_id = :cartId AND product_id = :productId "
-                + "ON CONFLICT (user_id, product_id) DO UPDATE SET name = EXCLUDED.name, "
+                + "AND variant_key = :vk" + OFFER_ANY + " "
+                + "ON CONFLICT (user_id, product_id, variant_key, offer_key) DO UPDATE SET "
+                + "name = EXCLUDED.name, "
                 + "unit_price = EXCLUDED.unit_price, currency = EXCLUDED.currency, "
                 + "image_url = EXCLUDED.image_url, saved_at = now()")
         .param("userId", userId)
         .param("cartId", cartId)
         .param("productId", productId)
+        .param("vk", key(variantId))
+        .param("ok", offerId)
         .update();
   }
 
   /** The saved row as a quantity-1 cart request, or empty. */
-  public Optional<CartItemRequest> findSavedAsRequest(UUID userId, UUID productId) {
+  public Optional<CartItemRequest> findSavedAsRequest(
+      UUID userId, UUID productId, UUID variantId, UUID offerId) {
     return jdbc.sql(
-            "SELECT product_id, name, unit_price, currency, image_url FROM cart.saved_items "
-                + "WHERE user_id = :userId AND product_id = :productId")
+            "SELECT product_id, variant_id, variant_label, offer_id, seller_id, name, unit_price, currency, image_url "
+                + "FROM cart.saved_items WHERE user_id = :userId AND product_id = :productId "
+                + "AND variant_key = :vk" + OFFER_ANY + " ORDER BY saved_at DESC LIMIT 1")
+        .param("ok", offerId)
         .param("userId", userId)
         .param("productId", productId)
+        .param("vk", key(variantId))
         .query(
             (rs, n) ->
                 new CartItemRequest(
@@ -190,23 +233,33 @@ public class CartRepository {
                     rs.getString("name"),
                     rs.getBigDecimal("unit_price"),
                     rs.getString("currency"),
-                    rs.getString("image_url")))
+                    rs.getString("image_url"),
+                    rs.getObject("variant_id", UUID.class),
+                    rs.getString("variant_label"),
+                    rs.getObject("offer_id", UUID.class),
+                    rs.getObject("seller_id", UUID.class)))
         .optional();
   }
 
-  public void deleteSaved(UUID userId, UUID productId) {
-    jdbc.sql("DELETE FROM cart.saved_items WHERE user_id = :userId AND product_id = :productId")
+  public void deleteSaved(UUID userId, UUID productId, UUID variantId, UUID offerId) {
+    jdbc.sql(
+            "DELETE FROM cart.saved_items WHERE user_id = :userId AND product_id = :productId "
+                + "AND variant_key = :vk" + OFFER_ANY)
+        .param("ok", offerId)
         .param("userId", userId)
         .param("productId", productId)
+        .param("vk", key(variantId))
         .update();
   }
 
-  public boolean hasLine(UUID cartId, UUID productId) {
+  public boolean hasLine(UUID cartId, UUID productId, UUID variantId, UUID offerId) {
     return jdbc.sql(
             "SELECT EXISTS (SELECT 1 FROM cart.cart_items WHERE cart_id = :cartId "
-                + "AND product_id = :productId)")
+                + "AND product_id = :productId AND variant_key = :vk AND offer_key = :okExact)")
+        .param("okExact", key(offerId))
         .param("cartId", cartId)
         .param("productId", productId)
+        .param("vk", key(variantId))
         .query(Boolean.class)
         .single();
   }

@@ -24,7 +24,7 @@ async function loadProduct(id: string): Promise<Product | undefined> {
 export function WishlistPage() {
   const items = useWishlistStore((s) => s.items)
   const [products, setProducts] = useState<Product[] | undefined>()
-  const idsKey = items.map((item) => item.productId).join(',')
+  const idsKey = [...new Set(items.map((item) => item.productId))].join(',')
 
   useEffect(() => {
     let mounted = true

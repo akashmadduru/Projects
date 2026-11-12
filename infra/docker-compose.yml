@@ -263,6 +263,8 @@ services:
       AUTH_DEFAULT_REDIRECT_URI: ${AUTH_DEFAULT_REDIRECT_URI:-http://localhost:5173/auth/callback}
       # Registration is ON by default: the storefront (product-catalog) lets customers sign up.
       AUTH_REGISTRATION_ENABLED: ${AUTH_REGISTRATION_ENABLED:-true}
+      # MUST be true behind HTTPS (production): marks the refresh cookie Secure.
+      AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-false}
       # UserSessionCache's connection (Phase 2). Resolved on the compose network,
       # not localhost - see the depends_on note above for why this is not a
       # startup gate.
@@ -466,6 +468,8 @@ services:
       # gate: a Kafka outage delays events, it must never delay or block a
       # product write/read.
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      # Phase 7: X-Internal-Token for inventory-service /internal/inventory/variants.
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?set INTERNAL_API_TOKEN in infra/.env}
     ports:
       # Loopback only, like every service except the gateway: nothing outside the
       # host has any business reaching the catalog directly.
@@ -577,6 +581,9 @@ services:
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
       AUTH_JWT_ISSUER: ${AUTH_JWT_ISSUER:-https://auth.acme-ecommerce.internal}
       AUTH_JWT_AUDIENCES: ${AUTH_JWT_AUDIENCES:-ecommerce-platform}
+      # Phase 8: /internal/** guard, membership payments, referral links
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?set INTERNAL_API_TOKEN in infra/.env}
+      STOREFRONT_BASE_URL: ${STOREFRONT_BASE_URL:-http://localhost:3000}
     ports:
       - "127.0.0.1:${USER_PORT:-8085}:8085"
     healthcheck:
@@ -608,9 +615,13 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/cart_db
       SPRING_DATASOURCE_USERNAME: cart_service
       SPRING_DATASOURCE_PASSWORD: ${CART_DB_PASSWORD:?set CART_DB_PASSWORD in infra/.env}
+      # Phase 7: alerts consume product.events/inventory.events and email via notification-service
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?set INTERNAL_API_TOKEN in infra/.env}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
       AUTH_JWT_ISSUER: ${AUTH_JWT_ISSUER:-https://auth.acme-ecommerce.internal}
       AUTH_JWT_AUDIENCES: ${AUTH_JWT_AUDIENCES:-ecommerce-platform}
+      STOREFRONT_BASE_URL: ${STOREFRONT_BASE_URL:-http://localhost:3000}
     ports:
       - "127.0.0.1:${CART_PORT:-8086}:8086"
     healthcheck:
@@ -684,6 +695,11 @@ services:
       AUTH_JWT_ISSUER: ${AUTH_JWT_ISSUER:-https://auth.acme-ecommerce.internal}
       AUTH_JWT_AUDIENCES: ${AUTH_JWT_AUDIENCES:-ecommerce-platform}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      RATING_MEDIA_DIR: /data/media
+    # Review photos. Root so the freshly created named volume is writable (see tech debt).
+    user: "0:0"
+    volumes:
+      - rating-media:/data/media
     ports:
       - "127.0.0.1:${RATING_PORT:-8084}:8084"
     healthcheck:
@@ -718,6 +734,8 @@ services:
     container_name: ecommerce-notification
     restart: unless-stopped
     depends_on:
+      postgres:
+        condition: service_healthy
       eureka-server:
         condition: service_healthy
       kafka:
@@ -726,10 +744,28 @@ services:
         condition: service_started
     environment:
       SPRING_PROFILES_ACTIVE: default
+      # Phase 8: own database (inbox, push subscriptions, campaigns) + JWT validation for /api/**
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/notification_db
+      SPRING_DATASOURCE_USERNAME: notification_service
+      SPRING_DATASOURCE_PASSWORD: ${NOTIFICATION_DB_PASSWORD:?set NOTIFICATION_DB_PASSWORD in infra/.env}
+      AUTH_JWT_ISSUER: ${AUTH_JWT_ISSUER:-https://auth.acme-ecommerce.internal}
+      AUTH_JWT_AUDIENCES: ${AUTH_JWT_AUDIENCES:-ecommerce-platform}
+      # Blank => keys are generated at first start and persisted in notification_db.settings
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:admin@acme.local}
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      MAIL_HOST: mailpit
-      MAIL_PORT: 1025
+      # Defaults send to the Mailpit container. For a real provider set MAIL_* in infra/.env
+      # (see docs/Setup-Integrations.md).
+      MAIL_HOST: ${MAIL_HOST:-mailpit}
+      MAIL_PORT: ${MAIL_PORT:-1025}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      NOTIFICATION_SENDER: ${NOTIFICATION_SENDER:-no-reply@acme.local}
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH: ${MAIL_SMTP_AUTH:-false}
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE: ${MAIL_SMTP_STARTTLS:-false}
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_SSL_ENABLE: ${MAIL_SMTP_SSL:-false}
       STOREFRONT_BASE_URL: ${STOREFRONT_BASE_URL:-http://localhost:3000}
       INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?set INTERNAL_API_TOKEN in infra/.env}
     ports:
@@ -800,6 +836,7 @@ services:
       AUTH_JWT_ISSUER: ${AUTH_JWT_ISSUER:-https://auth.acme-ecommerce.internal}
       AUTH_JWT_AUDIENCES: ${AUTH_JWT_AUDIENCES:-ecommerce-platform}
       INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?set INTERNAL_API_TOKEN in infra/.env}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     ports:
       - "127.0.0.1:${PROMOTION_PORT:-8089}:8089"
     healthcheck:
@@ -809,7 +846,47 @@ services:
       retries: 6
       start_period: 60s
 
+  # ---------------------------------------------------------------------------
+  # seller-service - Phase 9. Own database (seller_db) + role: seller onboarding/KYC,
+  # feedback, settlements ledger/payouts (consumes order.events), analytics, sponsored-ad campaigns.
+  # SELLER_DATA_KEY (base64, 32 bytes) encrypts bank account numbers at rest (AES-GCM).
+  # ---------------------------------------------------------------------------
+  seller-service:
+    build:
+      context: ..
+      dockerfile: services/seller-service/seller-service-app/Dockerfile
+    container_name: ecommerce-seller
+    restart: unless-stopped
+    mem_limit: 384m
+    depends_on:
+      postgres:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: default
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/seller_db
+      SPRING_DATASOURCE_USERNAME: seller_service
+      SPRING_DATASOURCE_PASSWORD: ${SELLER_DB_PASSWORD:?set SELLER_DB_PASSWORD in infra/.env}
+      SELLER_DATA_KEY: ${SELLER_DATA_KEY:?set SELLER_DATA_KEY in infra/.env}
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      AUTH_JWT_ISSUER: ${AUTH_JWT_ISSUER:-https://auth.acme-ecommerce.internal}
+      AUTH_JWT_AUDIENCES: ${AUTH_JWT_AUDIENCES:-ecommerce-platform}
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?set INTERNAL_API_TOKEN in infra/.env}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      STOREFRONT_BASE_URL: ${STOREFRONT_BASE_URL:-http://localhost:3000}
+      ADMIN_BASE_URL: ${ADMIN_BASE_URL:-http://localhost:3001}
+    ports:
+      - "127.0.0.1:${SELLER_PORT:-8091}:8091"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8091/actuator/health | grep -q '\"status\":\"UP\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 60s
+
 volumes:
+  rating-media:
   postgres-data:
   zookeeper-data:
   zookeeper-datalog:

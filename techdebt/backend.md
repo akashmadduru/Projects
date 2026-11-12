@@ -2,19 +2,7 @@
 
 Index: [README](README.md)
 
-<a id="td-be-01"></a>
-## TD-BE-01 No inventory reservation at checkout (oversell)
-- **Severity / Effort:** High / L
-- **Where:** `services/order-service/order-service-app/.../service/OrderService.java` (no inventory-service call anywhere in order-service).
-- **Risk:** Two customers can buy the last unit; stock is never decremented by orders.
-- **Fix:** Reserve via inventory-service (reservedQuantity) before persisting, or choreograph over Kafka (see TD-BE-04); release on failure and on cancel (TD-BE-05).
-
-<a id="td-be-02"></a>
-## TD-BE-02 No payment, shipping cost or tax
-- **Severity / Effort:** High / L
-- **Where:** `order-service-app/.../domain/Order.java` (total = sum of line totals); statuses limited to PLACED/CANCELLED (`V1__order_baseline.sql` check constraint).
-- **Risk:** Orders are placed without taking money; totals are not what a customer would be charged.
-- **Fix:** Payment service/provider integration with PENDING_PAYMENT/PAID states; shipping and tax calculators; new Flyway migration for statuses.
+TD-BE-01, TD-BE-02, TD-BE-04 and TD-BE-05 were resolved by Phase 6; residual risks are in [phase6.md](phase6.md). See the resolved list in the [README](README.md#resolved-by-phase-6-checked-against-the-code).
 
 <a id="td-be-03"></a>
 ## TD-BE-03 Cart clear after order is best-effort, no outbox
@@ -22,20 +10,6 @@ Index: [README](README.md)
 - **Where:** `OrderService.clearCartBestEffort`.
 - **Risk:** If cart-service is down after commit, the order exists and the cart is not cleared (only a log warning); a customer can re-order the same items.
 - **Fix:** Outbox row in the order transaction, relayed to cart-service or consumed from `order.events`.
-
-<a id="td-be-04"></a>
-## TD-BE-04 No `order.events` Kafka publisher
-- **Severity / Effort:** Med / M
-- **Where:** `services/order-service/order-service-app`.
-- **Risk:** Other services (inventory, notifications) cannot react to orders. Deferred by plan.
-- **Fix:** Publish ORDER_PLACED / ORDER_CANCELLED via transactional outbox, following the product/inventory event contract conventions.
-
-<a id="td-be-05"></a>
-## TD-BE-05 Cancel does not release stock or refund
-- **Severity / Effort:** Med / M
-- **Where:** `OrderStore.cancel`, `Order.cancel`.
-- **Risk:** Status flips PLACED to CANCELLED only. Depends on TD-BE-01/02.
-- **Fix:** Emit cancel event; inventory release and refund consumers.
 
 <a id="td-be-06"></a>
 ## TD-BE-06 Sequential product lookups in checkout

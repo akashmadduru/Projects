@@ -32,6 +32,7 @@ public class PaymentService {
   private final PaymentRepository payments;
   private final StripeGateway stripe;
   private final OrderReporter reporter;
+  private final WalletService wallet;
   private final PaymentProperties properties;
   private final TransactionTemplate tx;
 
@@ -39,11 +40,13 @@ public class PaymentService {
       PaymentRepository payments,
       StripeGateway stripe,
       OrderReporter reporter,
+      WalletService wallet,
       PaymentProperties properties,
       TransactionTemplate tx) {
     this.payments = payments;
     this.stripe = stripe;
     this.reporter = reporter;
+    this.wallet = wallet;
     this.properties = properties;
     this.tx = tx;
   }
@@ -53,9 +56,17 @@ public class PaymentService {
     return new PaymentConfigResponse(stripe.mode(), key);
   }
 
-  /** Idempotent by orderId. */
+  /** Idempotent by subject id (orderId, or referenceId for MEMBERSHIP / GIFT_CARD). */
   public PaymentResponse create(CreatePaymentRequest req) {
-    var existing = payments.findByOrderId(req.orderId());
+    UUID subject = req.subjectId();
+    if (subject == null) {
+      throw new CodedException(ErrorCode.VALIDATION_FAILED, "orderId or referenceId is required");
+    }
+    String purpose = req.effectivePurpose();
+    if (!"ORDER".equals(purpose) && !"CARD".equals(req.method())) {
+      throw new CodedException(ErrorCode.VALIDATION_FAILED, purpose + " payments must be CARD");
+    }
+    var existing = payments.findByOrderId(subject);
     if (existing.isPresent()) {
       return view(existing.get());
     }
@@ -69,14 +80,14 @@ public class PaymentService {
     } else {
       status = "REQUIRES_PAYMENT";
       if (stripe.enabled()) {
-        intentId = stripe.createIntent(req.orderId().toString(), toMinor(amount), currency).id();
+        intentId = stripe.createIntent(subject.toString(), toMinor(amount), currency).id();
       }
     }
     payments.insert(
-        req.orderId(), req.userId(), req.method(), mode, amount, currency, status, intentId);
+        subject, req.userId(), req.method(), mode, amount, currency, status, intentId, purpose);
     return view(
         payments
-            .findByOrderId(req.orderId())
+            .findByOrderId(subject)
             .orElseThrow(() -> new CodedException(ErrorCode.INTERNAL_ERROR, "Payment not saved")));
   }
 
@@ -197,7 +208,11 @@ public class PaymentService {
           ErrorCode.DOMAIN_RULE_VIOLATION, "Refund amount exceeds the refundable balance");
     }
     String stripeRefundId = null;
-    if ("STRIPE".equals(p.mode()) && "CARD".equals(p.method()) && p.intentId() != null) {
+    boolean toWallet = "WALLET".equalsIgnoreCase(req.destination());
+    if (!toWallet
+        && "STRIPE".equals(p.mode())
+        && "CARD".equals(p.method())
+        && p.intentId() != null) {
       stripeRefundId = stripe.refund(p.intentId(), toMinor(amount), req.idempotencyKey());
     }
     String refundId = stripeRefundId;
@@ -213,6 +228,15 @@ public class PaymentService {
                 ErrorCode.DOMAIN_RULE_VIOLATION, "Refund amount exceeds the refundable balance");
           }
           payments.insertRefund(locked.id(), amount, req.reason(), refundId, req.idempotencyKey());
+          if (toWallet) {
+            wallet.credit(
+                locked.userId(),
+                amount,
+                locked.currency(),
+                "REFUND",
+                locked.orderId().toString(),
+                "refund-" + req.idempotencyKey());
+          }
           String newStatus =
               total.compareTo(locked.amount()) == 0 ? "REFUNDED" : "PARTIALLY_REFUNDED";
           payments.applyRefund(locked.id(), total, newStatus);
@@ -268,6 +292,7 @@ public class PaymentService {
         p.currency(),
         p.refundedAmount(),
         clientSecret,
-        publishable);
+        publishable,
+        p.purpose());
   }
 }

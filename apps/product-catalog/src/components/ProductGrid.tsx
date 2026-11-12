@@ -2,7 +2,9 @@
  * Responsive product grid layout - with refined stagger timing and no layout shift
  */
 
+import { useEffect, useRef } from 'react'
 import { ProductCard } from './ProductCard'
+import { sellerApi } from '../services/sellerApi'
 import type { Product } from '../types'
 
 interface Props {
@@ -11,6 +13,15 @@ interface Props {
 }
 
 export function ProductGrid({ products, showMetadata = false }: Props) {
+  // One impression per sponsored ad per mounted grid.
+  const reported = useRef(new Set<string>())
+  useEffect(() => {
+    const fresh = products.flatMap((p) => (p.sponsored && p.adId && !reported.current.has(p.adId) ? [p.adId] : []))
+    if (fresh.length === 0) return
+    fresh.forEach((adId) => reported.current.add(adId))
+    sellerApi.trackImpressions(fresh)
+  }, [products])
+
   if (products.length === 0) {
     return (
       <div className="text-center py-16 bg-surface-variant/30 rounded-lg">

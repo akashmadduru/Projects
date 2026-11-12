@@ -1,4 +1,4 @@
-# admin-product-catalog (Phase 1F)
+# Cartwise Admin (admin-product-catalog, Phase 1F)
 
 The platform's **Vue 3 admin SPA**. It is the first client of the whole Phase 1 request path:
 browser → gateway (`:8080`) → auth-service / product-service, with a real JWT and a real

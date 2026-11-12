@@ -68,6 +68,25 @@ public class SecurityConfig {
     "/actuator/health", "/actuator/health/**", "/actuator/info", "/actuator/prometheus"
   };
 
+  /** /internal/** is guarded by the shared X-Internal-Token only. */
+  @Bean
+  @org.springframework.core.annotation.Order(org.springframework.core.Ordered.HIGHEST_PRECEDENCE)
+  public SecurityFilterChain internalFilterChain(
+      HttpSecurity http,
+      ProblemResponseWriter problems,
+      @org.springframework.beans.factory.annotation.Value("${INTERNAL_API_TOKEN:}") String token)
+      throws Exception {
+    http.securityMatcher("/internal/**")
+        .csrf(AbstractHttpConfigurer::disable)
+        .sessionManagement(
+            session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+        .authorizeHttpRequests(requests -> requests.anyRequest().permitAll())
+        .addFilterBefore(
+            new InternalTokenFilter(token, problems),
+            org.springframework.security.web.access.intercept.AuthorizationFilter.class);
+    return http.build();
+  }
+
   /** The filter chain. */
   @Bean
   public SecurityFilterChain filterChain(
@@ -98,6 +117,10 @@ public class SecurityConfig {
                         "/api/products/**",
                         "/api/categories",
                         "/api/categories/**")
+                    .permitAll()
+                    .requestMatchers(HttpMethod.GET, "/sitemap.xml")
+                    .permitAll()
+                    .requestMatchers(HttpMethod.POST, "/api/products/*/views")
                     .permitAll()
                     // `anyRequest().authenticated()` rather than an allow-list of
                     // protected paths, so a Phase 2 endpoint is secure by default

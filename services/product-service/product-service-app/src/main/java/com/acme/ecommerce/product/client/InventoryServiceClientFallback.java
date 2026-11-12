@@ -19,4 +19,25 @@ public class InventoryServiceClientFallback implements InventoryServiceClient {
     log.warn("InventoryServiceClient fallback for getByProduct({}): returning null", productId);
     return null;
   }
+
+  @Override
+  public java.util.List<InventoryDto.VariantStock> getVariantStock(
+      java.util.List<UUID> ids, String internalToken) {
+    return java.util.List.of();
+  }
+
+  @Override
+  public java.util.List<InventoryDto.StockRow> stockRows(UUID productId, String internalToken) {
+    throw new IllegalStateException("inventory-service unavailable");
+  }
+
+  @Override
+  public void putStock(InventoryDto.StockWrite body, String internalToken) {
+    throw new IllegalStateException("inventory-service unavailable");
+  }
+
+  @Override
+  public InventoryDto getByProductWithAuth(UUID productId, String authorization) {
+    return null;
+  }
 }

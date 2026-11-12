@@ -3,15 +3,18 @@ package com.acme.ecommerce.order.service;
 import com.acme.ecommerce.order.api.dto.OrderItemResponse;
 import com.acme.ecommerce.order.api.dto.OrderResponse;
 import com.acme.ecommerce.order.api.dto.ShipToResponse;
+import com.acme.ecommerce.order.api.dto.ShipmentResponse;
 import com.acme.ecommerce.order.config.OrderProperties;
 import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.UUID;
 import org.springframework.stereotype.Service;
 
 /**
@@ -48,22 +51,80 @@ public class InvoiceService {
         + o.id().toString().substring(0, 8).toUpperCase(Locale.ROOT);
   }
 
+  /** The shipment an invoice is for: the requested one, else the first. Null for legacy orders. */
+  public static ShipmentResponse pick(OrderResponse o, UUID shipmentId) {
+    if (o.shipments() == null || o.shipments().isEmpty()) {
+      return null;
+    }
+    if (shipmentId == null) {
+      return o.shipments().get(0);
+    }
+    return o.shipments().stream()
+        .filter(s -> s.id().equals(shipmentId))
+        .findFirst()
+        .orElseThrow(
+            () ->
+                new com.acme.ecommerce.common.core.error.ResourceNotFoundException(
+                    "Shipment", shipmentId));
+  }
+
+  /** Same number as before for single-shipment orders; split orders get one per shipment. */
+  public static String invoiceNumber(OrderResponse o, ShipmentResponse s) {
+    if (s == null || o.shipments().size() <= 1) {
+      return invoiceNumber(o);
+    }
+    return invoiceNumber(o) + "-" + s.id().toString().substring(0, 4).toUpperCase(Locale.ROOT);
+  }
+
   public byte[] render(OrderResponse o) {
+    return render(o, null);
+  }
+
+  /**
+   * Invoice for one shipment (seller as supplier). Single-shipment orders render exactly as before;
+   * on split orders the order-level amounts are pro-rated by the shipment's share of the subtotal.
+   */
+  public byte[] render(OrderResponse o, UUID shipmentId) {
+    ShipmentResponse ship = pick(o, shipmentId);
+    boolean split = ship != null && o.shipments().size() > 1;
+    BigDecimal share = BigDecimal.ONE;
+    if (split && o.subtotalAmount() != null && o.subtotalAmount().signum() > 0) {
+      share = ship.amount().divide(o.subtotalAmount(), 8, RoundingMode.HALF_UP);
+    }
+    final BigDecimal sh = share;
+    java.util.function.UnaryOperator<BigDecimal> part =
+        v -> v == null ? null : split ? v.multiply(sh).setScale(2, RoundingMode.HALF_UP) : v;
+    List<OrderItemResponse> invItems = split ? ship.items() : o.items();
+    BigDecimal subtotalAmt = split ? ship.amount() : o.subtotalAmount();
     List<Line> lines = new ArrayList<>();
     OrderProperties.Seller seller = props.getSeller();
+    boolean otherSeller =
+        ship != null
+            && ship.sellerName() != null
+            && !ship.sellerName().equalsIgnoreCase(seller.getName())
+            && !"Acme Retail".equalsIgnoreCase(ship.sellerName());
     String rule = "-".repeat(WIDTH_CHARS);
 
     lines.add(new Line("TAX INVOICE", true, 16));
     lines.add(new Line("", false, SIZE));
-    lines.add(new Line("Invoice No : " + invoiceNumber(o), true, SIZE));
+    lines.add(new Line("Invoice No : " + invoiceNumber(o, ship), true, SIZE));
     lines.add(new Line("Date       : " + DATE.format(o.placedAt()), false, SIZE));
     lines.add(new Line("Order      : " + o.id(), false, SIZE));
+    if (split) {
+      lines.add(new Line("Shipment   : " + ship.id(), false, SIZE));
+    }
     lines.add(new Line("Payment    : " + o.paymentMethod() + " (" + o.paymentStatus() + ")", false, SIZE));
     lines.add(new Line("", false, SIZE));
     lines.add(new Line("SOLD BY", true, SIZE));
-    lines.add(new Line(seller.getName(), false, SIZE));
-    lines.add(new Line(seller.getAddress(), false, SIZE));
-    lines.add(new Line("GSTIN: " + seller.getGstin(), false, SIZE));
+    if (otherSeller) {
+      lines.add(new Line(ship.sellerName(), false, SIZE));
+      lines.add(new Line("Marketplace seller - fulfilled from " + ship.warehouseCode(), false, SIZE));
+      lines.add(new Line("Sold via " + seller.getName() + " marketplace, GSTIN: " + seller.getGstin(), false, SIZE));
+    } else {
+      lines.add(new Line(seller.getName(), false, SIZE));
+      lines.add(new Line(seller.getAddress(), false, SIZE));
+      lines.add(new Line("GSTIN: " + seller.getGstin(), false, SIZE));
+    }
     lines.add(new Line("", false, SIZE));
     ShipToResponse s = o.shipTo();
     lines.add(new Line("BILL TO / SHIP TO", true, SIZE));
@@ -85,7 +146,7 @@ public class InvoiceService {
     lines.add(new Line(rule, false, SIZE));
     lines.add(new Line(row("Item", "Qty", "Unit price", "Amount"), true, SIZE));
     lines.add(new Line(rule, false, SIZE));
-    for (OrderItemResponse i : o.items()) {
+    for (OrderItemResponse i : invItems) {
       lines.add(
           new Line(
               row(i.name(), String.valueOf(i.quantity()), money(i.unitPrice()), money(i.lineTotal())),
@@ -94,30 +155,50 @@ public class InvoiceService {
     }
     lines.add(new Line(rule, false, SIZE));
     String cur = o.currency().trim();
-    lines.add(new Line(total("Subtotal", cur, o.subtotalAmount()), false, SIZE));
+    lines.add(new Line(total("Subtotal", cur, subtotalAmt), false, SIZE));
     if (o.discountAmount() != null && o.discountAmount().signum() > 0) {
       lines.add(
           new Line(
               total(
                   "Discount" + (o.couponCode() == null ? "" : " (" + o.couponCode() + ")"),
                   cur,
-                  o.discountAmount().negate()),
+                  part.apply(o.discountAmount()).negate()),
               false,
               SIZE));
     }
-    lines.add(new Line(total("Shipping", cur, o.shippingAmount()), false, SIZE));
-    lines.add(new Line(total("TOTAL (incl. tax)", cur, o.totalAmount()), true, SIZE));
+    if (o.coinsRedeemed() > 0 && o.coinsValue() != null && o.coinsValue().signum() > 0) {
+      lines.add(
+          new Line(
+              total(
+                  "Coins redeemed (" + o.coinsRedeemed() + ")",
+                  cur,
+                  part.apply(o.coinsValue()).negate()),
+              false,
+              SIZE));
+    }
+    lines.add(new Line(total("Shipping", cur, part.apply(o.shippingAmount())), false, SIZE));
+    BigDecimal totalAmt = part.apply(o.totalAmount());
+    BigDecimal walletAmt = part.apply(o.walletAmount());
+    lines.add(new Line(total("TOTAL (incl. tax)", cur, totalAmt), true, SIZE));
+    if (walletAmt != null && walletAmt.signum() > 0) {
+      lines.add(new Line(total("Paid from wallet", cur, walletAmt), false, SIZE));
+      lines.add(
+          new Line(
+              total("Paid by " + o.paymentMethod(), cur, totalAmt.subtract(walletAmt)),
+              false,
+              SIZE));
+    }
     lines.add(new Line("", false, SIZE));
     lines.add(new Line("Tax breakdown (included in total)", true, SIZE));
     if (o.taxBreakdown() != null && o.taxBreakdown().igst() != null) {
-      lines.add(new Line(total("IGST", cur, o.taxBreakdown().igst()), false, SIZE));
+      lines.add(new Line(total("IGST", cur, part.apply(o.taxBreakdown().igst())), false, SIZE));
     } else if (o.taxBreakdown() != null) {
-      lines.add(new Line(total("CGST", cur, o.taxBreakdown().cgst()), false, SIZE));
-      lines.add(new Line(total("SGST", cur, o.taxBreakdown().sgst()), false, SIZE));
+      lines.add(new Line(total("CGST", cur, part.apply(o.taxBreakdown().cgst())), false, SIZE));
+      lines.add(new Line(total("SGST", cur, part.apply(o.taxBreakdown().sgst())), false, SIZE));
     } else {
       lines.add(new Line(o.taxLabel() == null ? "Tax included" : o.taxLabel(), false, SIZE));
     }
-    lines.add(new Line(total("Total tax", cur, o.taxAmount()), true, SIZE));
+    lines.add(new Line(total("Total tax", cur, part.apply(o.taxAmount())), true, SIZE));
     lines.add(new Line("", false, SIZE));
     lines.add(new Line("This is a computer generated invoice.", false, SIZE));
     return toPdf(lines);

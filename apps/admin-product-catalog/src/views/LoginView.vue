@@ -2,6 +2,7 @@
 import { computed, reactive, ref } from 'vue';
 import { useRoute, useRouter, RouterLink } from 'vue-router';
 
+import BrandLogo from '@/components/BrandLogo.vue';
 import ProblemAlert from '@/components/ProblemAlert.vue';
 import { googleAuthorizationUrl } from '@/lib/http';
 import { rememberPostLoginRedirect, safeRedirectTarget } from '@/lib/oauthRedirect';
@@ -77,11 +78,15 @@ function signInWithGoogle(): void {
 </script>
 
 <template>
-  <div class="flex min-h-screen items-center justify-center p-4">
+  <div class="flex min-h-screen flex-col items-center justify-center gap-6 p-4">
+    <div class="flex flex-col items-center gap-2 text-center">
+      <BrandLogo tone="surface" large :tag="false" />
+      <p class="text-sm font-semibold uppercase tracking-[0.2em] opacity-70">Store admin console</p>
+    </div>
     <div class="data-card w-full max-w-md">
       <div class="card-body p-0">
         <h1 class="card-title text-2xl">Sign in</h1>
-        <p class="text-sm opacity-70">Admin Product Catalog</p>
+        <p class="text-sm opacity-70">Welcome back to Cartwise Admin</p>
 
         <div
           v-if="registeredEmail"

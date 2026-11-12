@@ -18,6 +18,7 @@ import { errorMessage, isApiError, problemCode } from '../lib/errors'
 import { formatMoney } from '../lib/format'
 import { effectivePrice } from '../lib/price'
 import { orderApi } from '../services/orderApi'
+import { engageApi } from '../services/engageApi'
 import { promotionApi } from '../services/paymentApi'
 import { userApi } from '../services/userApi'
 import { useCartStore } from '../stores'
@@ -25,14 +26,19 @@ import type {
   Address,
   AddressRequest,
   AvailableCoupon,
+  Coins,
   CouponValidation,
   DeliveryEstimate,
   Order,
   PaymentMethod,
+  Wallet,
 } from '../types'
 
 interface Line {
   productId: string
+  offerId?: string
+  variantId?: string
+  variantLabel?: string
   quantity: number
   name: string
   price: number
@@ -49,6 +55,7 @@ interface StockShortfall {
 const COD_LIMIT_INR = 50000
 const COD_LIMIT_OTHER = 1000
 const GST_RATE = 18
+const COIN_CAP = 0.2
 
 function stockShortfalls(error: unknown): StockShortfall[] {
   if (!isApiError(error) || problemCode(error) !== 'OUT_OF_STOCK') return []
@@ -60,6 +67,8 @@ export function CheckoutPage() {
   const navigate = useNavigate()
   const [params] = useSearchParams()
   const buyNowId = params.get('buyNow') ?? undefined
+  const buyNowVariantId = params.get('variant') ?? undefined
+  const buyNowOfferId = params.get('offer') ?? undefined
   const buyNowQty = Math.min(Math.max(Number.parseInt(params.get('qty') ?? '1', 10) || 1, 1), 99)
   const buyNow = useProduct(buyNowId)
   const cartItems = useCartStore((s) => s.items)
@@ -68,14 +77,18 @@ export function CheckoutPage() {
     if (buyNowId) {
       if (buyNow.status !== 'success') return []
       const p = buyNow.data
+      const v = buyNowVariantId ? p.variants?.find((x) => x.id === buyNowVariantId) : undefined
+      const vPrice = v ? (v.salePrice && v.salePrice > 0 ? v.salePrice : v.priceAmount) : null
       return [
         {
           productId: p.id,
+          ...(buyNowOfferId ? { offerId: buyNowOfferId } : {}),
+          ...(v ? { variantId: v.id, variantLabel: Object.values(v.attributes).join(' / ') } : {}),
           quantity: buyNowQty,
           name: p.name,
-          price: effectivePrice(p),
+          price: vPrice ?? effectivePrice(p),
           currency: p.priceCurrency,
-          image: p.images[0],
+          image: v?.imageUrl ?? p.images[0],
         },
       ]
     }
@@ -84,6 +97,8 @@ export function CheckoutPage() {
         ? [
             {
               productId: i.productId,
+              ...(i.offerId ? { offerId: i.offerId } : {}),
+              ...(i.variantId ? { variantId: i.variantId, variantLabel: i.variantLabel } : {}),
               quantity: i.quantity,
               name: i.snapshot.name,
               price: i.snapshot.priceAmount,
@@ -93,7 +108,7 @@ export function CheckoutPage() {
           ]
         : [],
     )
-  }, [buyNowId, buyNow, buyNowQty, cartItems])
+  }, [buyNowId, buyNowVariantId, buyNowOfferId, buyNow, buyNowQty, cartItems])
 
   const loadAddresses = useCallback(() => userApi.listAddresses(), [])
   const { data: addresses, error, loading, reload } = useLoad(loadAddresses)
@@ -164,9 +179,37 @@ export function CheckoutPage() {
     }
   }, [subtotal, currency])
 
+  // Wallet, coins and membership are optional extras: a failing service just hides its controls.
+  const [wallet, setWallet] = useState<Wallet | null>(null)
+  const [coins, setCoins] = useState<Coins | null>(null)
+  const [member, setMember] = useState(false)
+  const [useWallet, setUseWallet] = useState(false)
+  const [coinsInput, setCoinsInput] = useState(0)
+  useEffect(() => {
+    let active = true
+    void engageApi.wallet().then((w) => active && setWallet(w)).catch(() => undefined)
+    void engageApi.coins(currency).then((c) => active && setCoins(c)).catch(() => undefined)
+    void engageApi.membership().then((m) => active && setMember(m.active)).catch(() => undefined)
+    return () => {
+      active = false
+    }
+  }, [currency])
+
   const discount = coupon?.discountAmount ?? 0
-  const shipping = estimate?.shippingFee ?? 0
-  const total = Math.max(subtotal - discount, 0) + shipping
+  const coinUnit = currency === 'INR' ? 1 : 0.01
+  const coinsUsable = coins && (coins.currency == null || coins.currency === currency)
+  const maxCoins = coinsUsable
+    ? Math.max(0, Math.min(coins.balance, Math.floor((Math.max(subtotal - discount, 0) * COIN_CAP) / coinUnit)))
+    : 0
+  const coinsToRedeem = Math.min(coinsInput, maxCoins)
+  const coinsValue = coinsToRedeem * coinUnit
+  const baseShipping = estimate?.shippingFee ?? 0
+  const shipping = member ? 0 : baseShipping
+  const total = Math.max(subtotal - discount - coinsValue, 0) + shipping
+  const walletUsable = !!wallet && wallet.balance > 0 && (wallet.currency == null || wallet.currency === currency)
+  const walletCoversAll = walletUsable && wallet.balance >= total && total > 0
+  const walletApplied = walletUsable && (useWallet || paymentMethod === 'WALLET') ? Math.min(wallet.balance, total) : 0
+  const payable = Math.max(total - walletApplied, 0)
   const codLimit = currency === 'INR' ? COD_LIMIT_INR : COD_LIMIT_OTHER
   const codReason = !estimate
     ? 'Choose a deliverable address to check Cash on Delivery.'
@@ -180,6 +223,12 @@ export function CheckoutPage() {
   useEffect(() => {
     if (paymentMethod === 'COD' && codReason) setPaymentMethod('CARD')
   }, [paymentMethod, codReason])
+
+  // The wallet method needs a balance covering the whole total; a toggle that covers it becomes the WALLET method.
+  useEffect(() => {
+    if (paymentMethod === 'WALLET' && !walletCoversAll) setPaymentMethod('CARD')
+    else if (useWallet && walletCoversAll && paymentMethod !== 'WALLET') setPaymentMethod('WALLET')
+  }, [paymentMethod, walletCoversAll, useWallet])
 
   const applyCoupon = async (code: string) => {
     const trimmed = code.trim()
@@ -249,7 +298,9 @@ export function CheckoutPage() {
       addressId: selectedId,
       paymentMethod,
       ...(coupon ? { couponCode: coupon.code } : {}),
-      ...(buyNowId ? { items: lines.map((l) => ({ productId: l.productId, quantity: l.quantity })) } : {}),
+      ...(walletApplied > 0 ? { useWallet: true } : {}),
+      ...(coinsToRedeem > 0 ? { coinsToRedeem } : {}),
+      ...(buyNowId ? { items: lines.map((l) => ({ productId: l.productId, ...(l.offerId ? { offerId: l.offerId } : {}), ...(l.variantId ? { variantId: l.variantId } : {}), quantity: l.quantity })) } : {}),
     }
     const shape = JSON.stringify(request)
     if (attempt.current?.shape !== shape) attempt.current = { shape, key: crypto.randomUUID() }
@@ -365,7 +416,10 @@ export function CheckoutPage() {
                 name="paymentMethod"
                 className="mr-2"
                 checked={paymentMethod === 'CARD'}
-                onChange={() => setPaymentMethod('CARD')}
+                onChange={() => {
+                  setPaymentMethod('CARD')
+                  if (paymentMethod === 'WALLET') setUseWallet(false)
+                }}
               />
               <span className="font-bold text-on-surface">Card</span>
               <span className="mt-1 block text-sm text-on-surface-muted">Pay securely online</span>
@@ -381,7 +435,10 @@ export function CheckoutPage() {
                 className="mr-2"
                 checked={paymentMethod === 'COD'}
                 disabled={!!codReason}
-                onChange={() => setPaymentMethod('COD')}
+                onChange={() => {
+                  if (paymentMethod === 'WALLET') setUseWallet(false)
+                  setPaymentMethod('COD')
+                }}
                 aria-describedby="cod-reason"
               />
               <span className="font-bold text-on-surface">Cash on Delivery</span>
@@ -389,7 +446,70 @@ export function CheckoutPage() {
                 {codReason ?? 'Pay when your order arrives'}
               </span>
             </label>
+            {walletUsable && (
+              <label
+                className={`${cardClass} block ${walletCoversAll ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'} ${
+                  paymentMethod === 'WALLET' ? 'ring-2 ring-primary' : ''
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="paymentMethod"
+                  className="mr-2"
+                  checked={paymentMethod === 'WALLET'}
+                  disabled={!walletCoversAll}
+                  onChange={() => {
+                    setPaymentMethod('WALLET')
+                    setUseWallet(true)
+                  }}
+                  aria-describedby="wallet-reason"
+                />
+                <span className="font-bold text-on-surface">Wallet</span>
+                <span id="wallet-reason" className="mt-1 block text-sm text-on-surface-muted">
+                  {walletCoversAll
+                    ? `Pay in full from your ${formatMoney(wallet.balance, currency)} balance`
+                    : `Balance ${formatMoney(wallet.balance, currency)} does not cover this order`}
+                </span>
+              </label>
+            )}
           </div>
+          {walletUsable && !walletCoversAll && (
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-on-surface">
+              <input type="checkbox" checked={useWallet} onChange={(e) => setUseWallet(e.target.checked)} />
+              Use wallet balance for part of this order ({formatMoney(Math.min(wallet.balance, total), currency)} applied)
+            </label>
+          )}
+          {coinsUsable && maxCoins > 0 && (
+            <div className={`${cardClass} space-y-2`}>
+              <label htmlFor="coins-range" className="flex flex-wrap items-baseline justify-between gap-2 font-bold text-on-surface">
+                <span>Redeem coins</span>
+                <span className="text-sm font-semibold text-on-surface-muted">
+                  {coinsToRedeem} of {maxCoins} usable (up to 20% of subtotal) = {formatMoney(coinsValue, currency)}
+                </span>
+              </label>
+              <div className="flex items-center gap-3">
+                <input
+                  id="coins-range"
+                  type="range"
+                  min={0}
+                  max={maxCoins}
+                  step={1}
+                  value={coinsToRedeem}
+                  onChange={(e) => setCoinsInput(Number(e.target.value))}
+                  className="flex-1 accent-[hsl(var(--color-primary))]"
+                />
+                <input
+                  type="number"
+                  min={0}
+                  max={maxCoins}
+                  aria-label="Coins to redeem"
+                  value={coinsToRedeem}
+                  onChange={(e) => setCoinsInput(Math.min(maxCoins, Math.max(0, Math.floor(Number(e.target.value) || 0))))}
+                  className="w-20 rounded-lg border-2 border-ink bg-surface px-2 py-1 text-sm"
+                />
+              </div>
+            </div>
+          )}
         </fieldset>
       </div>
 
@@ -397,12 +517,13 @@ export function CheckoutPage() {
         <h2 className="font-bold text-on-surface">Order summary</h2>
         <ul className="divide-y divide-outline">
           {lines.map((line) => (
-            <li key={line.productId} className="flex gap-3 py-2">
+            <li key={`${line.productId}:${line.variantId ?? ''}`} className="flex gap-3 py-2">
               <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-surface-variant">
                 <ProductImage src={line.image} alt={line.name} productId={line.productId} />
               </div>
               <div className="min-w-0 flex-1 text-sm">
                 <p className="line-clamp-2 text-on-surface">{line.name}</p>
+                {line.variantLabel && <p className="text-xs text-on-surface-muted">{line.variantLabel}</p>}
                 <p className="text-xs text-on-surface-muted">Qty {line.quantity}</p>
               </div>
               <span className="text-sm font-bold text-on-surface">{formatMoney(line.price * line.quantity, line.currency)}</span>
@@ -485,9 +606,20 @@ export function CheckoutPage() {
               <dd className="text-success">-{formatMoney(discount, currency)}</dd>
             </div>
           )}
+          {coinsValue > 0 && (
+            <div className="flex justify-between">
+              <dt className="text-on-surface-muted">Coins ({coinsToRedeem})</dt>
+              <dd className="text-success">-{formatMoney(coinsValue, currency)}</dd>
+            </div>
+          )}
           <div className="flex justify-between">
-            <dt className="text-on-surface-muted">Shipping</dt>
-            <dd className="text-on-surface">{!estimate ? '—' : shipping > 0 ? formatMoney(shipping, currency) : 'Free'}</dd>
+            <dt className="text-on-surface-muted">
+              Shipping
+              {member && (
+                <span className="ml-2 rounded-full border-2 border-ink bg-vivid-amber px-2 py-0.5 text-[10px] font-bold uppercase text-ink">Plus: free</span>
+              )}
+            </dt>
+            <dd className="text-on-surface">{!estimate && !member ? '—' : shipping > 0 ? formatMoney(shipping, currency) : 'Free'}</dd>
           </div>
           <div className="flex justify-between">
             <dt className="text-on-surface-muted">{currency === 'INR' ? `Includes GST (${GST_RATE}%)` : 'Tax included'}</dt>
@@ -497,6 +629,18 @@ export function CheckoutPage() {
             <dt className="font-bold text-on-surface">Total</dt>
             <dd className="text-xl font-bold text-on-surface">{formatMoney(total, currency)}</dd>
           </div>
+          {walletApplied > 0 && (
+            <>
+              <div className="flex justify-between">
+                <dt className="text-on-surface-muted">Paid from wallet</dt>
+                <dd className="text-success">-{formatMoney(walletApplied, currency)}</dd>
+              </div>
+              <div className="flex justify-between font-bold">
+                <dt className="text-on-surface">{paymentMethod === 'COD' ? 'Due on delivery' : 'To pay'}</dt>
+                <dd className="text-on-surface">{formatMoney(payable, currency)}</dd>
+              </div>
+            </>
+          )}
         </dl>
         <p className="text-xs text-on-surface-muted">Final prices, tax and discounts are confirmed by the store when the order is placed.</p>
         <button
@@ -505,7 +649,7 @@ export function CheckoutPage() {
           disabled={placing || !selectedId || showForm || mixedCurrency}
           className={`${primaryButtonClass} w-full`}
         >
-          {placing ? 'Placing order...' : paymentMethod === 'CARD' ? 'Place order and pay' : 'Place order'}
+          {placing ? 'Placing order...' : paymentMethod === 'CARD' && payable > 0 ? 'Place order and pay' : 'Place order'}
         </button>
       </aside>
     </div>

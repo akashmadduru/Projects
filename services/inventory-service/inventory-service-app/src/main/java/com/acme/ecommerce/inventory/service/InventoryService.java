@@ -8,6 +8,11 @@ import com.acme.ecommerce.inventory.domain.Inventory;
 import com.acme.ecommerce.inventory.event.InventoryEventPublisher;
 import com.acme.ecommerce.inventory.event.InventoryEventType;
 import com.acme.ecommerce.inventory.repository.InventoryRepository;
+import com.acme.ecommerce.inventory.domain.Platform;
+import com.acme.ecommerce.inventory.domain.Platform;
+import com.acme.ecommerce.inventory.repository.VariantStockRepository;
+import com.acme.ecommerce.inventory.repository.WarehouseStockRepository;
+import com.acme.ecommerce.inventory.repository.WarehouseStockRepository;
 import com.acme.ecommerce.inventory.web.dto.CreateInventoryRequest;
 import com.acme.ecommerce.inventory.web.dto.UpdateInventoryRequest;
 import java.time.Instant;
@@ -48,9 +53,17 @@ public class InventoryService {
   private final InventoryRepository inventory;
   private final TimeProvider timeProvider;
   private final InventoryEventPublisher events;
+  private final VariantStockRepository variantStock;
+  private final WarehouseStockRepository warehouseStock;
 
   public InventoryService(
-      InventoryRepository inventory, TimeProvider timeProvider, InventoryEventPublisher events) {
+      InventoryRepository inventory,
+      TimeProvider timeProvider,
+      InventoryEventPublisher events,
+      VariantStockRepository variantStock,
+      WarehouseStockRepository warehouseStock) {
+    this.variantStock = variantStock;
+    this.warehouseStock = warehouseStock;
     this.inventory = inventory;
     this.timeProvider = timeProvider;
     this.events = events;
@@ -95,10 +108,50 @@ public class InventoryService {
    * @throws ResourceNotFoundException when no row has been provisioned for {@code productId}
    */
   public InventoryResponse findByProductId(UUID productId) {
-    return inventory
-        .findByProductId(productId)
-        .map(InventoryService::toResponse)
-        .orElseThrow(() -> new ResourceNotFoundException("Inventory", productId));
+    java.util.List<InventoryResponse.VariantQuantity> vq =
+        variantStock.byProduct(productId, java.util.List.of()).stream()
+            .map(v -> new InventoryResponse.VariantQuantity(v.variantId(), v.quantity()))
+            .toList();
+    InventoryResponse base =
+        inventory
+            .findByProductId(productId)
+            .map(InventoryService::toResponse)
+            .orElseGet(
+                () -> {
+                  if (vq.isEmpty()) {
+                    throw new ResourceNotFoundException("Inventory", productId);
+                  }
+                  // Variant-only product: no product-level row, expose the variant breakdown.
+                  InventoryResponse stub = new InventoryResponse();
+                  stub.setProductId(productId);
+                  stub.setQuantity(vq.stream().mapToInt(InventoryResponse.VariantQuantity::quantity).sum());
+                  stub.setAvailableQuantity(stub.getQuantity());
+                  return stub;
+                });
+    base.setVariants(vq);
+    return base;
+  }
+
+  public java.util.List<InventoryResponse.VariantQuantity> variantQuantities(
+      java.util.List<UUID> ids) {
+    return ids.stream()
+        .map(id -> variantStock.quantity(id).map(q -> new InventoryResponse.VariantQuantity(id, q)))
+        .flatMap(java.util.Optional::stream)
+        .toList();
+  }
+
+  @Transactional
+  public void setVariantStock(UUID variantId, UUID productId, int quantity) {
+    int oldQty = variantStock.quantity(variantId).orElse(0);
+    boolean wasEmpty = variantStock.quantity(variantId).map(q -> q <= 0).orElse(true);
+    variantStock.upsert(variantId, productId, quantity);
+    if (productId != null) {
+      warehouseStock.shift(productId, variantId, Platform.DEFAULT_WAREHOUSE_ID, quantity - oldQty);
+    }
+    if (wasEmpty && quantity > 0 && productId != null) {
+      events.publishAfterCommit(
+          InventoryEventType.INVENTORY_QUANTITY_CHANGED, productId, variantId, quantity);
+    }
   }
 
   /**
@@ -141,6 +194,7 @@ public class InventoryService {
     }
     events.publishAfterCommit(InventoryEventType.INVENTORY_QUANTITY_CHANGED, saved);
     maybePublishLowStock(saved);
+    warehouseStock.shift(saved.getProductId(), null, Platform.DEFAULT_WAREHOUSE_ID, saved.getQuantity());
     return toResponse(saved);
   }
 
@@ -165,6 +219,7 @@ public class InventoryService {
           "Inventory " + id + " has version " + row.getVersion() + ", not " + request.getVersion());
     }
     Instant now = timeProvider.now();
+    int oldQuantity = row.getQuantity();
     row.adjustQuantity(request.getQuantity(), now);
     row.updateEnrichment(
         request.getWarehouseCode(), resolveLowStockThreshold(request.getLowStockThreshold()), now);
@@ -174,6 +229,8 @@ public class InventoryService {
     // toResponse() has already read the stale value) - a client acting on that response would send
     // the next PUT with a version that is already wrong.
     Inventory saved = inventory.saveAndFlush(row);
+    warehouseStock.shift(
+        saved.getProductId(), null, Platform.DEFAULT_WAREHOUSE_ID, saved.getQuantity() - oldQuantity);
     events.publishAfterCommit(InventoryEventType.INVENTORY_QUANTITY_CHANGED, saved);
     maybePublishLowStock(saved);
     return toResponse(saved);
@@ -252,6 +309,7 @@ public class InventoryService {
       // event. No-op: the other delivery already created the row.
       return;
     }
+    warehouseStock.shift(productId, null, Platform.DEFAULT_WAREHOUSE_ID, saved.getQuantity());
     events.publishAfterCommit(InventoryEventType.INVENTORY_QUANTITY_CHANGED, saved);
     maybePublishLowStock(saved);
   }
@@ -269,6 +327,7 @@ public class InventoryService {
   @Transactional
   public void removeIfPresent(UUID productId) {
     inventory.findByProductId(productId).ifPresent(inventory::delete);
+    warehouseStock.deleteByProduct(productId);
   }
 
   /**
@@ -307,6 +366,33 @@ public class InventoryService {
    *
    * @param row the just-saved stock-level row
    */
+  /** Admin platform-stock write: moves the legacy platform totals by delta and publishes. */
+  @Transactional
+  public void shiftLegacyTotals(UUID productId, UUID variantId, int delta) {
+    if (delta == 0) {
+      return;
+    }
+    if (variantId != null) {
+      boolean wasEmpty = variantStock.quantity(variantId).map(q -> q <= 0).orElse(true);
+      int next = Math.max(0, variantStock.quantity(variantId).orElse(0) + delta);
+      variantStock.upsert(variantId, productId, next);
+      if (wasEmpty && next > 0) {
+        events.publishAfterCommit(
+            InventoryEventType.INVENTORY_QUANTITY_CHANGED, productId, variantId, next);
+      }
+      return;
+    }
+    Instant now = timeProvider.now();
+    Inventory row = inventory.findByProductId(productId).orElse(null);
+    if (row == null) {
+      row = Inventory.builder().productId(productId).quantity(0).createdAt(now).updatedAt(now).build();
+    }
+    row.adjustQuantity(Math.max(0, row.getQuantity() + delta), now);
+    Inventory saved = inventory.saveAndFlush(row);
+    events.publishAfterCommit(InventoryEventType.INVENTORY_QUANTITY_CHANGED, saved);
+    maybePublishLowStock(saved);
+  }
+
   private void maybePublishLowStock(Inventory row) {
     if (row.getQuantity() <= row.getLowStockThreshold()) {
       events.publishAfterCommit(InventoryEventType.INVENTORY_LOW_STOCK, row);
@@ -341,6 +427,7 @@ public class InventoryService {
         row.getVersion(),
         row.getLastUpdatedAt(),
         row.getCreatedAt(),
-        row.getUpdatedAt());
+        row.getUpdatedAt(),
+        java.util.List.of());
   }
 }

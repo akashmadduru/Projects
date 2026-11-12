@@ -6,6 +6,7 @@ import React from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from './App'
 import { useAuthStore } from './stores'
+import './lib/retroLights' // applies the saved "lights off" preference before first paint
 import './style.css'
 
 

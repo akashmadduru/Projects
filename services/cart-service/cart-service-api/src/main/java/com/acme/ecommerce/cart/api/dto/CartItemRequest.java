@@ -22,4 +22,8 @@ public record CartItemRequest(
     @NotBlank @Pattern(regexp = "^[A-Za-z]{3}$", message = "must be a 3-letter currency code")
         String currency,
     @Size(max = 2048) @Pattern(regexp = "^https?://.*", message = "must be an http(s) URL")
-        String imageUrl) {}
+        String imageUrl,
+    UUID variantId,
+    @Size(max = 200) String variantLabel,
+    UUID offerId,
+    UUID sellerId) {}

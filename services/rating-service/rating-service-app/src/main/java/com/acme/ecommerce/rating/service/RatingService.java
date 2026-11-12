@@ -7,19 +7,26 @@ import com.acme.ecommerce.common.core.error.ResourceConflictException;
 import com.acme.ecommerce.common.core.error.ResourceNotFoundException;
 import com.acme.ecommerce.common.core.error.ValidationException;
 import com.acme.ecommerce.common.core.time.TimeProvider;
+import com.acme.ecommerce.rating.api.dto.RatingMediaResponse;
 import com.acme.ecommerce.rating.api.dto.RatingResponse;
 import com.acme.ecommerce.rating.api.dto.RatingSummaryResponse;
 import com.acme.ecommerce.rating.domain.Rating;
 import com.acme.ecommerce.rating.domain.RatingVote;
+import com.acme.ecommerce.rating.domain.ReviewMedia;
 import com.acme.ecommerce.rating.event.RatingEventPublisher;
 import com.acme.ecommerce.rating.event.RatingEventType;
 import com.acme.ecommerce.rating.repository.RatingRepository;
 import com.acme.ecommerce.rating.repository.RatingVoteRepository;
 import com.acme.ecommerce.rating.web.dto.CreateRatingRequest;
 import com.acme.ecommerce.rating.web.dto.UpdateRatingRequest;
+import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
+import jakarta.persistence.criteria.Subquery;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -30,6 +37,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -50,18 +58,88 @@ public class RatingService {
   private final RatingVoteRepository votes;
   private final TimeProvider timeProvider;
   private final RatingEventPublisher events;
+  private final ReviewMediaService mediaService;
 
-  public Page<RatingResponse> findByProductId(UUID productId, Pageable pageable) {
-    return ratings.findByProductId(productId, pageable).map(RatingService::toResponse);
+  /** Public review list; stars / verified / withMedia are optional and AND-ed. */
+  public Page<RatingResponse> findByProductId(
+      UUID productId, Integer stars, boolean verified, boolean withMedia, Pageable pageable) {
+    Specification<Rating> spec =
+        (root, query, cb) -> {
+          List<Predicate> ps = new ArrayList<>();
+          ps.add(cb.equal(root.get("productId"), productId));
+          if (stars != null) {
+            ps.add(cb.equal(root.get("ratingValue"), stars));
+          }
+          if (verified) {
+            ps.add(cb.isTrue(root.get("isVerifiedPurchase")));
+          }
+          if (withMedia) {
+            Subquery<UUID> sq = query.subquery(UUID.class);
+            Root<ReviewMedia> m = sq.from(ReviewMedia.class);
+            sq.select(m.get("ratingId")).where(cb.equal(m.get("ratingId"), root.get("id")));
+            ps.add(cb.exists(sq));
+          }
+          return cb.and(ps.toArray(new Predicate[0]));
+        };
+    return withMedia(ratings.findAll(spec, pageable).map(RatingService::toResponse));
   }
 
   public RatingResponse findById(UUID id) {
-    return toResponse(load(id));
+    return withMedia(toResponse(load(id)));
+  }
+
+  /** Attaches photos to every response of a page with a single query. */
+  private Page<RatingResponse> withMedia(Page<RatingResponse> page) {
+    Map<UUID, List<RatingMediaResponse>> byRating =
+        mediaService.forRatings(page.getContent().stream().map(RatingResponse::getId).toList());
+    page.getContent()
+        .forEach(r -> r.setMedia(new ArrayList<>(byRating.getOrDefault(r.getId(), List.of()))));
+    return page;
+  }
+
+  private RatingResponse withMedia(RatingResponse r) {
+    r.setMedia(
+        new ArrayList<>(
+            mediaService.forRatings(List.of(r.getId())).getOrDefault(r.getId(), List.of())));
+    return r;
+  }
+
+  /**
+   * Back-office moderation search across all products. Filters are optional and AND-ed; {@code q}
+   * matches title, text or reviewer display name (case-insensitive, LIKE wildcards stripped).
+   */
+  public Page<RatingResponse> adminSearch(
+      UUID productId, Integer ratingValue, String term, Pageable pageable) {
+    String q =
+        term == null ? "" : term.trim().toLowerCase(java.util.Locale.ROOT).replaceAll("[%_\\\\]", "");
+    Specification<Rating> spec =
+        (root, query, cb) -> {
+          List<Predicate> ps = new ArrayList<>();
+          if (productId != null) {
+            ps.add(cb.equal(root.get("productId"), productId));
+          }
+          if (ratingValue != null) {
+            ps.add(cb.equal(root.get("ratingValue"), ratingValue));
+          }
+          if (!q.isEmpty()) {
+            String like = "%" + q + "%";
+            ps.add(
+                cb.or(
+                    cb.like(cb.lower(root.get("reviewTitle")), like),
+                    cb.like(cb.lower(root.get("reviewText")), like),
+                    cb.like(cb.lower(root.get("userDisplayName")), like)));
+          }
+          return cb.and(ps.toArray(new Predicate[0]));
+        };
+    return withMedia(ratings.findAll(spec, pageable).map(RatingService::toResponse));
   }
 
   /** The caller's own review of a product, if any. */
   public Optional<RatingResponse> findMine(UUID productId, UUID userId) {
-    return ratings.findByProductIdAndUserId(productId, userId).map(RatingService::toResponse);
+    return ratings
+        .findByProductIdAndUserId(productId, userId)
+        .map(RatingService::toResponse)
+        .map(this::withMedia);
   }
 
   /**
@@ -119,7 +197,7 @@ public class RatingService {
     rating.updateReview(clean(request.getReviewTitle()), clean(request.getReviewText()), now);
 
     Rating saved = ratings.saveAndFlush(rating);
-    RatingResponse response = toResponse(saved);
+    RatingResponse response = withMedia(toResponse(saved));
 
     events.publishAfterCommit(RatingEventType.RATING_UPDATED, id, rating.getProductId(), response);
     log.info("Updated rating ratingId={} productId={}", id, rating.getProductId());
@@ -135,6 +213,7 @@ public class RatingService {
     }
 
     UUID productId = rating.getProductId();
+    mediaService.deleteFilesOf(id);
     ratings.delete(rating);
 
     events.publishAfterCommit(RatingEventType.RATING_DELETED, id, productId, null);
@@ -224,6 +303,7 @@ public class RatingService {
         rating.getUnhelpfulCount(),
         rating.getVersion(),
         rating.getCreatedAt(),
-        rating.getUpdatedAt());
+        rating.getUpdatedAt(),
+        new ArrayList<>());
   }
 }

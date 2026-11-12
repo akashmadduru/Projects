@@ -12,9 +12,19 @@ import java.util.UUID;
 public record CreateReturnRequest(
     @NotEmpty @Size(max = 50) List<@Valid ReturnItemRequest> items,
     @NotNull ReasonRequest reason,
-    @Size(max = 1000) String comment) {
+    @Size(max = 1000) String comment,
+    RefundTo refundTo,
+    UUID shipmentId) {
 
-  public record ReturnItemRequest(@NotNull UUID productId, @Min(1) @Max(99) int quantity) {}
+  /** Where a CARD refund goes; COD refunds always go to the wallet. */
+  public enum RefundTo {
+    SOURCE,
+    WALLET
+  }
+
+
+  public record ReturnItemRequest(
+      @NotNull UUID productId, UUID variantId, @Min(1) @Max(99) int quantity) {}
 
   public enum ReasonRequest {
     DAMAGED,

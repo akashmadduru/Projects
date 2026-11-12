@@ -29,6 +29,16 @@ export const DEFAULT_AUTHENTICATED_ROUTE = '/dashboard';
  * returns only what it decides, which makes it directly callable from a test
  * without fabricating a `next` callback that the guard never uses.
  */
+/**
+ * Role-aware landing page. Plain customers (no staff/seller role) go to the
+ * "Become a seller" flow instead of admin screens they may not see.
+ */
+export function homeRouteFor(roles: readonly string[]): string {
+  if (roles.includes('ADMIN') || roles.includes('CATALOG_MANAGER')) return DEFAULT_AUTHENTICATED_ROUTE;
+  if (roles.includes('SELLER')) return '/seller/listings';
+  return '/seller/apply';
+}
+
 export type AuthGuard = (to: RouteLocationNormalized) => Promise<boolean | RouteLocationRaw>;
 
 export function createAuthGuard(): AuthGuard {
@@ -50,14 +60,14 @@ export function createAuthGuard(): AuthGuard {
       if (required !== undefined && required.length > 0) {
         const held = auth.user?.roles ?? [];
         if (!required.some((role) => held.includes(role))) {
-          return { path: DEFAULT_AUTHENTICATED_ROUTE };
+          return { path: homeRouteFor(held) };
         }
       }
       return true;
     }
 
     if (to.meta.guestOnly === true && auth.isAuthenticated) {
-      return { path: DEFAULT_AUTHENTICATED_ROUTE };
+      return { path: homeRouteFor(auth.user?.roles ?? []) };
     }
 
     return true;

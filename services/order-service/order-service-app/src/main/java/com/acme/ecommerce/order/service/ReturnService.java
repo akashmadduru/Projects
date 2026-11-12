@@ -9,6 +9,10 @@ import com.acme.ecommerce.order.event.OrderEventPublisher;
 import com.acme.ecommerce.order.event.OrderEventType;
 import com.acme.ecommerce.order.service.OrderStore.ReturnOutcome;
 import com.acme.ecommerce.order.service.OrderStore.ReturnRefundPlan;
+import com.acme.ecommerce.common.core.error.CodedException;
+import com.acme.ecommerce.common.core.error.ErrorCode;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
@@ -31,15 +35,17 @@ public class ReturnService {
 
   public ReturnResponse request(UUID userId, UUID orderId, CreateReturnRequest req) {
     List<ReturnLine> lines =
-        req.items().stream().map(i -> new ReturnLine(i.productId(), i.quantity())).toList();
+        req.items().stream().map(i -> new ReturnLine(i.productId(), i.variantId(), i.quantity())).toList();
     ReturnOutcome outcome =
         store.requestReturn(
             userId,
             orderId,
             lines,
             ReturnReason.valueOf(req.reason().name()),
-            req.comment() == null || req.comment().isBlank() ? null : req.comment().trim());
-    events.publish(OrderEventType.RETURN_REQUESTED, outcome.order());
+            req.comment() == null || req.comment().isBlank() ? null : req.comment().trim(),
+            req.refundTo() == null ? "SOURCE" : req.refundTo().name(),
+            req.shipmentId());
+    events.publishReturn(OrderEventType.RETURN_REQUESTED, outcome.order(), outcome.ret());
     return outcome.ret();
   }
 
@@ -65,13 +71,57 @@ public class ReturnService {
    */
   public ReturnResponse refund(UUID returnId) {
     ReturnRefundPlan plan = store.refundPlan(returnId);
-    if (plan.card() && plan.paid()) {
-      remote.refund(
-          plan.orderId(), plan.refundAmount(), "Return refunded", "return-" + plan.returnId());
-    }
+    moveMoney(plan, returnId);
     ReturnOutcome outcome = store.completeRefund(returnId);
     remote.releaseStock(plan.orderId(), plan.returnId(), plan.lines());
-    events.publish(OrderEventType.RETURN_REFUNDED, outcome.order());
+    events.publishReturn(OrderEventType.RETURN_REFUNDED, outcome.order(), outcome.ret());
     return outcome.ret();
+  }
+
+  /**
+   * Pro-rata split: the wallet share of the order goes back to the wallet, the rest to the card
+   * source (or to the wallet when the customer asked for it, and always for cash on delivery).
+   */
+  private void moveMoney(ReturnRefundPlan plan, UUID returnId) {
+    BigDecimal refund = plan.refundAmount();
+    BigDecimal walletShare = BigDecimal.ZERO;
+    if (plan.walletAmount().signum() > 0 && plan.orderTotal().signum() > 0) {
+      walletShare =
+          refund
+              .multiply(plan.walletAmount())
+              .divide(plan.orderTotal(), 2, RoundingMode.HALF_UP)
+              .min(refund);
+    }
+    BigDecimal rest = refund.subtract(walletShare);
+    if (walletShare.signum() > 0) {
+      remote.creditWallet(
+          plan.userId(), walletShare, plan.currency(), plan.orderId(), "return-wallet-" + returnId);
+    }
+    if (rest.signum() <= 0 || !plan.paid() || "WALLET".equals(plan.method())) {
+      if (rest.signum() > 0 && "WALLET".equals(plan.method())) {
+        remote.creditWallet(
+            plan.userId(), rest, plan.currency(), plan.orderId(), "return-rest-" + returnId);
+      }
+      return;
+    }
+    String key = "return-" + returnId;
+    if (plan.card()) {
+      remote.refund(
+          plan.orderId(),
+          rest,
+          "Return refunded",
+          key,
+          "WALLET".equals(plan.refundTo()) ? "WALLET" : null);
+      return;
+    }
+    // Cash on delivery: the refund lands in the wallet.
+    try {
+      remote.refund(plan.orderId(), rest, "Return refunded", key, "WALLET");
+    } catch (CodedException e) {
+      if (e.errorCode() == ErrorCode.DEPENDENCY_UNAVAILABLE) {
+        throw e;
+      }
+      remote.creditWallet(plan.userId(), rest, plan.currency(), plan.orderId(), "return-rest-" + returnId);
+    }
   }
 }

@@ -32,6 +32,9 @@ public class ReservationRelease {
   @Column(name = "product_id", nullable = false, updatable = false)
   private UUID productId;
 
+  @Column(name = "variant_id", updatable = false)
+  private UUID variantId;
+
   @Column(name = "quantity", nullable = false, updatable = false)
   private int quantity;
 
@@ -39,11 +42,12 @@ public class ReservationRelease {
   private Instant createdAt;
 
   public static ReservationRelease of(
-      UUID orderId, String releaseKey, UUID productId, int quantity, Instant now) {
+      UUID orderId, String releaseKey, UUID productId, UUID variantId, int quantity, Instant now) {
     ReservationRelease r = new ReservationRelease();
     r.orderId = orderId;
     r.releaseKey = releaseKey;
     r.productId = productId;
+    r.variantId = variantId;
     r.quantity = quantity;
     r.createdAt = now;
     return r;

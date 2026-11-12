@@ -5,12 +5,14 @@
 import { useEffect } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { CartDrawer } from './CartDrawer'
+import { CompareTray } from './CompareTray'
 import { Footer } from './Footer'
 import { Header } from './Header'
 import { Atom, Boomerang, Starburst } from './Atomic'
 import { ArrowUpIcon } from './Icons'
 import { Toaster } from './Toaster'
 import { VerifyEmailBanner } from './VerifyEmailBanner'
+import { useReferral } from '../hooks/useReferral'
 import { useScrolled } from '../hooks/useScrolled'
 
 /** Starburst laminate wallpaper with a few slow-moving space-age motifs. Purely decorative. */
@@ -54,6 +56,7 @@ function BackToTop() {
 
 export function Layout() {
   const { pathname } = useLocation()
+  useReferral()
 
   // A new page starts at the top; filter/sort changes on the same page keep the scroll position.
   useEffect(() => {
@@ -78,6 +81,7 @@ export function Layout() {
       <Footer />
       <BackToTop />
       <CartDrawer />
+      <CompareTray />
       <Toaster />
     </div>
   )

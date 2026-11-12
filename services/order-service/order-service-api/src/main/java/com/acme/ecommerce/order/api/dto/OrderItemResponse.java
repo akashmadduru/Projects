@@ -10,4 +10,9 @@ public record OrderItemResponse(
     BigDecimal unitPrice,
     int quantity,
     BigDecimal lineTotal,
-    String imageUrl) {}
+    String imageUrl,
+    UUID variantId,
+    String variantLabel,
+    UUID offerId,
+    UUID sellerId,
+    UUID shipmentId) {}

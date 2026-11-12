@@ -57,6 +57,17 @@ export function Footer() {
                 Wishlist
               </Link>
             </li>
+            <li>
+              <a
+                href={import.meta.env.VITE_ADMIN_URL ?? 'http://localhost:5173'}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block text-on-brand/85 transition-all duration-500 hover:translate-x-1 hover:text-accent"
+              >
+                Sell on Acme
+                <span className="sr-only"> (opens in a new tab)</span>
+              </a>
+            </li>
           </ul>
         </nav>
       </div>

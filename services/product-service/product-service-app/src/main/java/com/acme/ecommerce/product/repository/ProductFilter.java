@@ -1,6 +1,8 @@
 package com.acme.ecommerce.product.repository;
 
 import java.math.BigDecimal;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -22,6 +24,8 @@ import java.util.UUID;
  * @param onSale only products with a positive {@code discount_percent}
  * @param featured only products flagged {@code is_featured}
  * @param verifiedSeller only products from a verified seller
+ * @param brands brand names (case-insensitive, OR); empty = no brand filter
+ * @param attributes attribute key to accepted values (OR within a key, AND across keys)
  */
 public record ProductFilter(
     UUID categoryId,
@@ -34,7 +38,77 @@ public record ProductFilter(
     boolean inStock,
     boolean onSale,
     boolean featured,
-    boolean verifiedSeller) {
+    boolean verifiedSeller,
+    List<String> brands,
+    Map<String, List<String>> attributes,
+    UUID sellerId) {
+
+  /** Pre-Phase-7 shape: no brand or attribute narrowing. */
+  public ProductFilter(
+      UUID categoryId,
+      String query,
+      BigDecimal minPrice,
+      BigDecimal maxPrice,
+      BigDecimal minRating,
+      BigDecimal minDiscount,
+      String seller,
+      boolean inStock,
+      boolean onSale,
+      boolean featured,
+      boolean verifiedSeller) {
+    this(
+        categoryId,
+        query,
+        minPrice,
+        maxPrice,
+        minRating,
+        minDiscount,
+        seller,
+        inStock,
+        onSale,
+        featured,
+        verifiedSeller,
+        List.of(),
+        Map.of(),
+        null);
+  }
+
+  public ProductFilter withBrandsAndAttributes(
+      List<String> newBrands, Map<String, List<String>> newAttributes) {
+    return new ProductFilter(
+        categoryId,
+        query,
+        minPrice,
+        maxPrice,
+        minRating,
+        minDiscount,
+        seller,
+        inStock,
+        onSale,
+        featured,
+        verifiedSeller,
+        newBrands,
+        newAttributes,
+        sellerId);
+  }
+
+  public ProductFilter withSellerId(UUID newSellerId) {
+    return new ProductFilter(
+        categoryId,
+        query,
+        minPrice,
+        maxPrice,
+        minRating,
+        minDiscount,
+        seller,
+        inStock,
+        onSale,
+        featured,
+        verifiedSeller,
+        brands,
+        attributes,
+        newSellerId);
+  }
 
   public static ProductFilter none() {
     return new ProductFilter(null, null, null, null, null, null, null, false, false, false, false);

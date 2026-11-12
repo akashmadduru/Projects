@@ -36,7 +36,9 @@ import org.springframework.web.client.RestTemplate;
 public class SecurityConfig {
 
   private static final String[] PUBLIC_ENDPOINTS = {
-    "/actuator/health", "/actuator/health/**", "/actuator/info", "/actuator/prometheus"
+    "/actuator/health", "/actuator/health/**", "/actuator/info", "/actuator/prometheus",
+    "/api/promotions/offers",
+    "/api/promotions/deals/active"
   };
 
   @Bean

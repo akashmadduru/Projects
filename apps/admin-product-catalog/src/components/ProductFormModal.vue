@@ -1,9 +1,12 @@
 <script setup lang="ts">
-import { computed, reactive, watch } from 'vue';
+import { computed, reactive, ref, watch } from 'vue';
 
 import ProblemAlert from '@/components/ProblemAlert.vue';
 import { useProductMutations } from '@/composables/useProductMutations';
-import type { Product, ProductImageRequest } from '@/types/api';
+import { getProduct, isCategoryActive, listCategories, replaceVariants } from '@/lib/adminApi';
+import { ApiError } from '@/lib/problem';
+import type { Product, ProductImageRequest, ProductVariantRequest } from '@/types/api';
+import type { Category } from '@/types/commerce';
 
 /**
  * Handles both create and edit: `product` present means edit (SKU locked,
@@ -34,25 +37,78 @@ function blankImageRow(nextOrder: number): ImageRow {
   return { url: '', displayOrder: String(nextOrder) };
 }
 
+/** Phase 7 attribute row (filterable facet key/value). */
+interface AttrRow {
+  key: string;
+  value: string;
+}
+
+/** Phase 7 variant row. `attrs` is edited as "key=value, key=value". */
+interface VariantRow {
+  id?: string;
+  sku: string;
+  attrs: string;
+  priceAmount: string;
+  salePrice: string;
+  imageUrl: string;
+  active: boolean;
+  sortOrder: string;
+}
+
+function blankVariantRow(nextOrder: number): VariantRow {
+  return { sku: '', attrs: '', priceAmount: '', salePrice: '', imageUrl: '', active: true, sortOrder: String(nextOrder) };
+}
+
+function attrsToText(attrs: Readonly<Record<string, string>>): string {
+  return Object.entries(attrs)
+    .map(([k, v]) => `${k}=${v}`)
+    .join(', ');
+}
+
+/** Returns null when the text is malformed. Empty text is a valid empty map. */
+function parseAttrs(text: string): Record<string, string> | null {
+  const out: Record<string, string> = {};
+  const raw = text.trim();
+  if (raw.length === 0) return out;
+  for (const part of raw.split(',')) {
+    const idx = part.indexOf('=');
+    if (idx <= 0) return null;
+    const k = part.slice(0, idx).trim();
+    const v = part.slice(idx + 1).trim();
+    if (k.length === 0 || v.length === 0) return null;
+    out[k] = v;
+  }
+  return out;
+}
+
 interface FormState {
+  brand: string;
+  attributes: AttrRow[];
+  variants: VariantRow[];
   sku: string;
   name: string;
   priceAmount: string;
   priceCurrency: string;
   active: boolean;
   sellerName: string;
+  /** '' = no category. PUT is full-replace for this field, so it must always be sent. */
+  categoryId: string;
   specifications: string;
   images: ImageRow[];
 }
 
 function blankForm(): FormState {
   return {
+    brand: '',
+    attributes: [],
+    variants: [],
     sku: '',
     name: '',
     priceAmount: '',
     priceCurrency: 'USD',
     active: true,
     sellerName: '',
+    categoryId: '',
     specifications: '',
     images: [],
   };
@@ -60,18 +116,70 @@ function blankForm(): FormState {
 
 function formFromProduct(product: Product): FormState {
   return {
+    brand: product.brand ?? '',
+    attributes: Object.entries(product.attributes ?? {}).map(([key, value]) => ({ key, value: String(value) })),
+    variants: (product.variants ?? []).map((v) => ({
+      id: v.id,
+      sku: v.sku,
+      attrs: attrsToText(v.attributes ?? {}),
+      priceAmount: v.priceAmount === null || v.priceAmount === undefined ? '' : String(v.priceAmount),
+      salePrice: v.salePrice === null || v.salePrice === undefined ? '' : String(v.salePrice),
+      imageUrl: v.imageUrl ?? '',
+      active: v.active,
+      sortOrder: String(v.sortOrder ?? 0),
+    })),
     sku: product.sku,
     name: product.name,
     priceAmount: String(product.priceAmount),
     priceCurrency: product.priceCurrency,
     active: product.active,
     sellerName: product.sellerName ?? '',
+    categoryId: product.categoryId ?? '',
     specifications: product.specifications ? JSON.stringify(product.specifications, null, 2) : '',
     images: product.images.map((image) => ({ url: image.url, displayOrder: String(image.displayOrder) })),
   };
 }
 
 const form = reactive<FormState>(blankForm());
+
+/**
+ * Category options, loaded once per modal instance. A failed load leaves the
+ * list empty but keeps the product's current categoryId selected (shown as an
+ * "unknown" option) so a save never silently clears it.
+ */
+const categories = ref<readonly Category[]>([]);
+const categoriesLoaded = ref(false);
+async function loadCategories(): Promise<void> {
+  if (categoriesLoaded.value) return;
+  try {
+    categories.value = (await listCategories()).content;
+    categoriesLoaded.value = true;
+  } catch {
+    categories.value = [];
+  }
+}
+const categoryOptions = computed(() => {
+  const byId = new Map(categories.value.map((c) => [c.id, c]));
+  const opts = [...categories.value]
+    .filter((c) => isCategoryActive(c) || c.id === form.categoryId)
+    .map((c) => {
+      const parent = c.parentCategoryId ? byId.get(c.parentCategoryId) : undefined;
+      return { id: c.id, label: parent ? `${parent.name} › ${c.name}` : c.name };
+    })
+    .sort((a, b) => a.label.localeCompare(b.label));
+  if (form.categoryId && !byId.has(form.categoryId)) {
+    opts.unshift({ id: form.categoryId, label: `Current (${form.categoryId.slice(0, 8)})` });
+  }
+  return opts;
+});
+watch(
+  () => props.open,
+  (open) => {
+    if (open) void loadCategories();
+  },
+  { immediate: true },
+);
+
 const touched = reactive({
   sku: false,
   name: false,
@@ -79,7 +187,38 @@ const touched = reactive({
   priceCurrency: false,
   specifications: false,
   images: false,
+  attributes: false,
+  variants: false,
 });
+
+/**
+ * The paged list row carries no variants (and may omit brand/attributes), so on edit the full
+ * product is fetched. Brand/attributes/variants are only sent once that detail load succeeded
+ * (or the user edited them) - otherwise a full-replace PUT would wipe data we never saw.
+ */
+const detailLoaded = ref(false);
+const detailLoading = ref(false);
+const variantsError = ref<string | null>(null);
+/** Create succeeded but the follow-up variants save failed; retry only re-saves variants. */
+const createdProduct = ref<Product | null>(null);
+
+async function loadDetail(id: string): Promise<void> {
+  detailLoaded.value = false;
+  detailLoading.value = true;
+  try {
+    const full = await getProduct(id);
+    if (props.product?.id !== id) return;
+    const seeded = formFromProduct(full);
+    form.brand = seeded.brand;
+    form.attributes = seeded.attributes;
+    form.variants = seeded.variants;
+    detailLoaded.value = true;
+  } catch {
+    // Leave the sections empty and unsent; the rest of the form still saves.
+  } finally {
+    detailLoading.value = false;
+  }
+}
 
 /**
  * Re-seeds the form whenever the modal is (re)opened, rather than once on
@@ -99,6 +238,12 @@ watch(
     touched.priceCurrency = false;
     touched.specifications = false;
     touched.images = false;
+    touched.attributes = false;
+    touched.variants = false;
+    variantsError.value = null;
+    createdProduct.value = null;
+    detailLoaded.value = false;
+    if (product) void loadDetail(product.id);
     mutations.resetCreateState();
     mutations.resetUpdateState();
   },
@@ -159,8 +304,40 @@ const imagesError = computed<string | null>(() => {
   }
   return null;
 });
+const attributesError = computed<string | null>(() => {
+  const seen = new Set<string>();
+  for (const row of form.attributes) {
+    const k = row.key.trim();
+    if (k.length === 0 || row.value.trim().length === 0) return 'Each attribute needs a key and a value, or remove the row.';
+    if (seen.has(k.toLowerCase())) return `Duplicate attribute key "${k}".`;
+    seen.add(k.toLowerCase());
+  }
+  return null;
+});
+const variantsValidation = computed<string | null>(() => {
+  const skus = new Set<string>();
+  for (const [i, row] of form.variants.entries()) {
+    const n = i + 1;
+    const sku = row.sku.trim();
+    if (sku.length === 0) return `Variant ${n}: SKU is required.`;
+    if (skus.has(sku.toLowerCase())) return `Variant ${n}: duplicate SKU "${sku}".`;
+    skus.add(sku.toLowerCase());
+    if (parseAttrs(row.attrs) === null) return `Variant ${n}: attributes must look like size=M, color=Red.`;
+    for (const [label, v] of [['Price', row.priceAmount], ['Sale price', row.salePrice]] as const) {
+      const t = String(v).trim();
+      if (t.length > 0 && (!Number.isFinite(Number(t)) || Number(t) < 0)) {
+        return `Variant ${n}: ${label} must be a non-negative number.`;
+      }
+    }
+    const order = Number(row.sortOrder);
+    if (!Number.isInteger(order) || order < 0) return `Variant ${n}: order must be a non-negative whole number.`;
+  }
+  return null;
+});
 const formValid = computed<boolean>(
   () =>
+    attributesError.value === null &&
+    variantsValidation.value === null &&
     skuError.value === null &&
     nameError.value === null &&
     priceAmountError.value === null &&
@@ -168,6 +345,53 @@ const formValid = computed<boolean>(
     specificationsError.value === null &&
     imagesError.value === null,
 );
+
+function addAttrRow(): void {
+  touched.attributes = true;
+  form.attributes.push({ key: '', value: '' });
+}
+
+function removeAttrRow(index: number): void {
+  touched.attributes = true;
+  form.attributes.splice(index, 1);
+}
+
+function addVariantRow(): void {
+  touched.variants = true;
+  form.variants.push(blankVariantRow(form.variants.length));
+}
+
+function removeVariantRow(index: number): void {
+  touched.variants = true;
+  form.variants.splice(index, 1);
+}
+
+function buildVariants(): ProductVariantRequest[] {
+  const optNum = (v: string): number | null => (String(v).trim().length === 0 ? null : Number(v));
+  return form.variants.map((row) => ({
+    ...(row.id ? { id: row.id } : {}),
+    sku: row.sku.trim(),
+    attributes: parseAttrs(row.attrs) ?? {},
+    priceAmount: optNum(row.priceAmount),
+    salePrice: optNum(row.salePrice),
+    imageUrl: row.imageUrl.trim() || null,
+    active: row.active,
+    sortOrder: Number(row.sortOrder),
+  }));
+}
+
+/** Saves variants for a persisted product; returns false (and sets variantsError) on failure. */
+async function saveVariants(productId: string): Promise<boolean> {
+  variantsError.value = null;
+  try {
+    await replaceVariants(productId, buildVariants());
+    return true;
+  } catch (e: unknown) {
+    const msg = e instanceof ApiError ? e.message : 'The variants could not be saved.';
+    variantsError.value = `Product saved, but variants failed: ${msg}`;
+    return false;
+  }
+}
 
 function addImageRow(): void {
   touched.images = true;
@@ -208,9 +432,23 @@ async function submit(): Promise<void> {
   touched.priceAmount = true;
   touched.priceCurrency = true;
   touched.specifications = true;
+  if (createdProduct.value) {
+    // Retry path: the product exists already, only the variants save failed.
+    if (variantsValidation.value === null && (await saveVariants(createdProduct.value.id))) {
+      emit('saved', createdProduct.value);
+    }
+    return;
+  }
   if (!formValid.value || submitting.value) {
     return;
   }
+  const sendExtras = !isEditing.value || detailLoaded.value || touched.attributes;
+  const brand = form.brand.trim();
+  const attributes: Record<string, string> | undefined = sendExtras
+    ? Object.fromEntries(form.attributes.map((r) => [r.key.trim(), r.value.trim()]))
+    : undefined;
+  const brandField = sendExtras ? (brand.length === 0 ? null : brand) : undefined;
+  const saveVariantsToo = form.variants.length > 0 || (isEditing.value && (detailLoaded.value || touched.variants));
 
   const priceAmount = Number(form.priceAmount);
   const priceCurrency = form.priceCurrency.trim().toUpperCase();
@@ -237,10 +475,17 @@ async function submit(): Promise<void> {
       active: form.active,
       version: props.product.version,
       sellerName: sellerName.length === 0 ? undefined : sellerName,
+      categoryId: form.categoryId || null,
       specifications,
       images,
+      brand: brandField,
+      attributes,
     });
     if (result) {
+      if (saveVariantsToo && !(await saveVariants(result.id))) {
+        createdProduct.value = result;
+        return;
+      }
       emit('saved', result);
     }
     return;
@@ -253,10 +498,17 @@ async function submit(): Promise<void> {
     priceCurrency,
     active: form.active,
     sellerName: sellerName.length === 0 ? undefined : sellerName,
+    categoryId: form.categoryId || null,
     specifications,
     images,
+    brand: brandField ?? undefined,
+    attributes: attributes && Object.keys(attributes).length > 0 ? attributes : undefined,
   });
   if (result) {
+    if (saveVariantsToo && !(await saveVariants(result.id))) {
+      createdProduct.value = result;
+      return;
+    }
     emit('saved', result);
   }
 }
@@ -287,6 +539,7 @@ function close(): void {
           :correlation-id="serverErrorCorrelationId"
         />
       </div>
+      <ProblemAlert v-if="variantsError" class="mt-3" :message="variantsError" :correlation-id="null" />
       <button
         v-if="serverErrorIsConflict"
         class="btn btn-outline btn-sm mt-2"
@@ -453,6 +706,35 @@ function close(): void {
         </div>
 
         <div class="form-control">
+          <label class="label" for="product-brand">
+            <span class="label-text">Brand <span class="opacity-60">(optional)</span></span>
+          </label>
+          <input
+            id="product-brand"
+            v-model="form.brand"
+            class="input input-bordered w-full"
+            type="text"
+            maxlength="120"
+            data-test="product-brand"
+          />
+        </div>
+
+        <div class="form-control">
+          <label class="label" for="product-category">
+            <span class="label-text">Category <span class="opacity-60">(optional)</span></span>
+          </label>
+          <select
+            id="product-category"
+            v-model="form.categoryId"
+            class="select select-bordered w-full"
+            data-test="product-category"
+          >
+            <option value="">No category</option>
+            <option v-for="c in categoryOptions" :key="c.id" :value="c.id">{{ c.label }}</option>
+          </select>
+        </div>
+
+        <div class="form-control">
           <label class="label" for="product-specifications">
             <span class="label-text">Specifications <span class="opacity-60">(optional JSON object)</span></span>
           </label>
@@ -531,6 +813,75 @@ function close(): void {
           </div>
           <p v-if="touched.images && imagesError" class="mt-1 text-sm text-error" data-test="product-images-error">
             {{ imagesError }}
+          </p>
+        </div>
+
+        <div class="form-control">
+          <div class="flex items-baseline justify-between">
+            <span class="label-text">Attributes <span class="opacity-60">(filterable, e.g. RAM = 8 GB)</span></span>
+            <button class="btn btn-outline btn-xs" type="button" data-test="product-attr-add" @click="addAttrRow">
+              Add attribute
+            </button>
+          </div>
+          <div v-for="(row, index) in form.attributes" :key="index" class="mt-2 flex items-start gap-2">
+            <input
+              v-model="row.key"
+              class="input input-bordered input-sm w-1/3"
+              type="text"
+              :aria-label="`Attribute ${index + 1} key`"
+              placeholder="Key"
+              @input="touched.attributes = true"
+            />
+            <input
+              v-model="row.value"
+              class="input input-bordered input-sm flex-1"
+              type="text"
+              :aria-label="`Attribute ${index + 1} value`"
+              placeholder="Value"
+              @input="touched.attributes = true"
+            />
+            <button class="btn btn-ghost btn-sm" type="button" @click="removeAttrRow(index)">Remove</button>
+          </div>
+          <p v-if="attributesError" class="mt-1 text-sm text-error" data-test="product-attributes-error">
+            {{ attributesError }}
+          </p>
+        </div>
+
+        <div class="form-control">
+          <div class="flex items-baseline justify-between">
+            <span class="label-text">Variants <span class="opacity-60">(optional)</span></span>
+            <button class="btn btn-outline btn-xs" type="button" data-test="product-variant-add" @click="addVariantRow">
+              Add variant
+            </button>
+          </div>
+          <p v-if="detailLoading" class="mt-1 text-xs opacity-60">Loading current variants…</p>
+          <p v-else-if="isEditing && !detailLoaded" class="mt-1 text-xs text-warning">
+            Could not load current brand, attributes and variants; they will not be changed unless you edit them.
+          </p>
+          <p class="mt-1 text-xs opacity-60">
+            Saving replaces the whole variant list. Attributes as key=value, comma separated;
+            blank price = product price.
+          </p>
+          <div
+            v-for="(row, index) in form.variants"
+            :key="row.id ?? index"
+            class="mt-2 grid grid-cols-6 gap-2 rounded border border-base-300 p-2"
+            data-test="product-variant-row"
+          >
+            <input v-model="row.sku" class="input input-bordered input-sm col-span-2" placeholder="SKU" :aria-label="`Variant ${index + 1} SKU`" @input="touched.variants = true" />
+            <input v-model="row.attrs" class="input input-bordered input-sm col-span-4" placeholder="size=M, color=Red" :aria-label="`Variant ${index + 1} attributes`" @input="touched.variants = true" />
+            <input v-model="row.priceAmount" class="input input-bordered input-sm col-span-2" type="number" min="0" step="0.01" placeholder="Price" :aria-label="`Variant ${index + 1} price`" @input="touched.variants = true" />
+            <input v-model="row.salePrice" class="input input-bordered input-sm col-span-2" type="number" min="0" step="0.01" placeholder="Sale price" :aria-label="`Variant ${index + 1} sale price`" @input="touched.variants = true" />
+            <input v-model="row.sortOrder" class="input input-bordered input-sm col-span-2" type="number" min="0" step="1" placeholder="Order" :aria-label="`Variant ${index + 1} order`" @input="touched.variants = true" />
+            <input v-model="row.imageUrl" class="input input-bordered input-sm col-span-3" type="url" placeholder="Image URL" :aria-label="`Variant ${index + 1} image URL`" @input="touched.variants = true" />
+            <label class="col-span-2 flex items-center gap-2">
+              <input v-model="row.active" type="checkbox" class="checkbox checkbox-sm" @change="touched.variants = true" />
+              <span class="label-text">Active</span>
+            </label>
+            <button class="btn btn-ghost btn-sm col-span-1" type="button" @click="removeVariantRow(index)">Remove</button>
+          </div>
+          <p v-if="variantsValidation" class="mt-1 text-sm text-error" data-test="product-variants-error">
+            {{ variantsValidation }}
           </p>
         </div>
 

@@ -42,10 +42,15 @@ export function toQueryParams(
   if (query.minDiscount != null) params['minDiscount'] = query.minDiscount
   const seller = query.seller?.trim()
   if (seller) params['seller'] = seller
+  if (query.sellerId) params['sellerId'] = query.sellerId
   if (query.inStock) params['inStock'] = true
   if (query.onSale) params['onSale'] = true
   if (query.featured) params['featured'] = true
   if (query.verifiedSeller) params['verifiedSeller'] = true
+  if (query.brand?.length) params['brand'] = query.brand.join(',')
+  for (const [key, values] of Object.entries(query.attrs ?? {})) {
+    if (values.length) params[`attr.${key}`] = values.join(',')
+  }
   const sort = query.sort ? SORT_PARAM[query.sort] : undefined
   if (sort) params['sort'] = sort
   return params
@@ -86,6 +91,11 @@ export class ProductApiClient {
     const backendProduct = await apiFetch<BackendProductResponse>(`${this.baseUrl}/${id}`, {
       method: 'GET',
     })
+    return toProduct(backendProduct)
+  }
+
+  async bySlug(slug: string): Promise<Product> {
+    const backendProduct = await apiFetch<BackendProductResponse>(`${this.baseUrl}/slug/${encodeURIComponent(slug)}`)
     return toProduct(backendProduct)
   }
 

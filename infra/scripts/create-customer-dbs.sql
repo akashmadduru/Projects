@@ -67,3 +67,27 @@ ALTER DATABASE payment_db SET search_path TO public;
 REVOKE ALL ON SCHEMA public FROM PUBLIC;
 GRANT ALL ON SCHEMA public TO promotion_service;
 ALTER DATABASE promotion_db SET search_path TO public;
+
+-- --- Phase 8: notification-service -------------------------------------------
+\connect postgres
+SELECT 'CREATE ROLE notification_service WITH LOGIN PASSWORD ''notification_service_local_pwd'''
+WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'notification_service')\gexec
+SELECT 'CREATE DATABASE notification_db WITH OWNER notification_service ENCODING ''UTF8'' TEMPLATE template0'
+WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'notification_db')\gexec
+
+\connect notification_db
+REVOKE ALL ON SCHEMA public FROM PUBLIC;
+GRANT ALL ON SCHEMA public TO notification_service;
+ALTER DATABASE notification_db SET search_path TO public;
+
+-- --- Phase 9: seller-service --------------------------------------------------
+\connect postgres
+SELECT 'CREATE ROLE seller_service WITH LOGIN PASSWORD ''seller_service_local_pwd'''
+WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'seller_service')\gexec
+SELECT 'CREATE DATABASE seller_db WITH OWNER seller_service ENCODING ''UTF8'' TEMPLATE template0'
+WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'seller_db')\gexec
+
+\connect seller_db
+REVOKE ALL ON SCHEMA public FROM PUBLIC;
+GRANT ALL ON SCHEMA public TO seller_service;
+ALTER DATABASE seller_db SET search_path TO public;
