@@ -115,6 +115,13 @@ export interface ProductQuery {
   maxPrice?: number
   minRating?: number
   minDiscount?: number
+  /** Case-insensitive substring of the seller name. */
+  seller?: string
+  /** The switches below only ever narrow: leave them undefined (never false) when off. */
+  inStock?: true
+  onSale?: true
+  featured?: true
+  verifiedSeller?: true
   sort?: ProductSort
 }
 

@@ -50,8 +50,8 @@ export default {
         DEFAULT: token('outline'),
       },
       fontFamily: {
-        display: ['Righteous', '"DM Sans"', 'system-ui', 'sans-serif'],
-        body: ['"DM Sans"', 'system-ui', 'sans-serif'],
+        display: ['Righteous', '"Poppins"', 'system-ui', 'sans-serif'],
+        body: ['"Poppins"', 'system-ui', 'sans-serif'],
       },
     },
   },

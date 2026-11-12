@@ -43,6 +43,73 @@ describe('catalog URL state', () => {
   })
 })
 
+describe('switch and seller filters', () => {
+  it('round-trips through the URL', () => {
+    const query = { seller: 'Acme', inStock: true, onSale: true, featured: true, verifiedSeller: true } as const
+    const search = toSearchString(query)
+
+    expect(search).toBe('?seller=Acme&inStock=true&onSale=true&featured=true&verifiedSeller=true')
+    expect(parseCatalogParams(new URLSearchParams(search)).query).toMatchObject(query)
+  })
+
+  it('reads a switch as on only for "true" or "1"', () => {
+    const { query } = parseCatalogParams(new URLSearchParams('?inStock=false&onSale=yes&featured=1&verifiedSeller='))
+
+    expect(query.inStock).toBeUndefined()
+    expect(query.onSale).toBeUndefined()
+    expect(query.featured).toBe(true)
+    expect(query.verifiedSeller).toBeUndefined()
+  })
+
+  it('counts each as an active filter', () => {
+    for (const patch of [{ seller: 'x' }, { inStock: true }, { onSale: true }, { featured: true }, { verifiedSeller: true }] as const) {
+      expect(hasActiveFilters(patch)).toBe(true)
+    }
+    expect(hasActiveFilters({})).toBe(false)
+  })
+
+  it('sends the API only the switches that are on, and a trimmed seller', () => {
+    expect(toQueryParams(0, 20, { inStock: true, featured: true, seller: '  Acme  ' })).toEqual({
+      page: 0,
+      size: 20,
+      seller: 'Acme',
+      inStock: true,
+      featured: true,
+    })
+    expect(toQueryParams(0, 20, { seller: '   ' })).toEqual({ page: 0, size: 20 })
+  })
+
+  it('filters the offline catalog like the API does', () => {
+    const verified = queryLocally(dummyProducts, { verifiedSeller: true }, 0, 100).content
+    expect(verified.length).toBeGreaterThan(0)
+    expect(verified.every((p) => p.sellerVerified)).toBe(true)
+
+    const topPicks = queryLocally(dummyProducts, { featured: true }, 0, 100).content
+    expect(topPicks.length).toBeGreaterThan(0)
+    expect(topPicks.every((p) => p.featured)).toBe(true)
+
+    const onSale = queryLocally(dummyProducts, { onSale: true }, 0, 100).content
+    expect(onSale.every((p) => (p.discountPercent ?? 0) > 0)).toBe(true)
+
+    const bySeller = queryLocally(dummyProducts, { seller: 'TECHGEAR' }, 0, 100).content
+    expect(bySeller.length).toBeGreaterThan(0)
+    expect(bySeller.every((p) => p.sellerName?.toLowerCase().includes('techgear'))).toBe(true)
+  })
+
+  it('keeps products with unknown stock but hides known sold-out ones', () => {
+    const base = dummyProducts[0]!
+    const catalog = [
+      { ...base, id: 'a', sku: 'a', lastKnownQuantity: 5 },
+      { ...base, id: 'b', sku: 'b', lastKnownQuantity: 0 },
+      { ...base, id: 'c', sku: 'c', lastKnownQuantity: null },
+    ]
+
+    const ids = queryLocally(catalog, { inStock: true }, 0, 10).content.map((p) => p.id)
+
+    expect(ids).toEqual(['a', 'c'])
+  })
+})
+
 describe('toQueryParams', () => {
   it('maps UI sorts onto the backend sort whitelist', () => {
     expect(toQueryParams(0, 20, { sort: 'rating' })).toEqual({ page: 0, size: 20, sort: 'averageRating,desc' })

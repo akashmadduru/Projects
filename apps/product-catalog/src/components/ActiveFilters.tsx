@@ -3,7 +3,7 @@
  */
 
 import { CloseIcon } from './Icons'
-import { PRICE_PRESETS } from './FilterPanel'
+import { PRICE_PRESETS, SWITCHES } from './FilterPanel'
 import { formatMoney } from '../lib/format'
 import type { Category, ProductQuery } from '../types'
 
@@ -40,6 +40,10 @@ export function ActiveFilters({ query, categories, onChange, onClearAll }: Props
   }
   if (query.minDiscount != null) {
     chips.push({ key: 'discount', label: `${query.minDiscount}%+ off`, clear: { minDiscount: undefined } })
+  }
+  if (query.seller) chips.push({ key: 'seller', label: `Seller: ${query.seller}`, clear: { seller: undefined } })
+  for (const item of SWITCHES) {
+    if (query[item.key]) chips.push({ key: item.key, label: item.label, clear: { [item.key]: undefined } })
   }
 
   if (chips.length === 0) return null

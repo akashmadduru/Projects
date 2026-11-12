@@ -148,6 +148,11 @@ feign:
       inventory-service:
         connect-timeout: 1000
         read-timeout: 1500
+      # RatingFeignClient: public GET summary, called from the rating.events consumer. No retries
+      # (Spring Cloud's default Retryer is NEVER_RETRY); a miss is repaired by the next event.
+      rating-service:
+        connect-timeout: 1000
+        read-timeout: 3000
 
 # -----------------------------------------------------------------------------
 # aggregateCb - the circuit breaker around InventoryFeignClient (docs/adr/0003, Decision 2).

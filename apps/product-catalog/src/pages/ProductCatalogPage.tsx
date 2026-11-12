@@ -26,9 +26,17 @@ export function ProductCatalogPage() {
   const filtered = hasActiveFilters(query)
   const categoryName = categories.find((c) => c.id === query.categoryId)?.name
   const heading = query.q ? `Results for “${query.q}”` : (categoryName ?? 'All products')
-  const activeFilterCount = [query.categoryId, query.minPrice ?? query.maxPrice, query.minRating, query.minDiscount].filter(
-    (v) => v != null,
-  ).length
+  const activeFilterCount = [
+    query.categoryId,
+    query.minPrice ?? query.maxPrice,
+    query.minRating,
+    query.minDiscount,
+    query.seller,
+    query.inStock,
+    query.onSale,
+    query.featured,
+    query.verifiedSeller,
+  ].filter((v) => v != null).length
 
   const panel = <FilterPanel query={query} categories={tree} onChange={update} />
 

@@ -1,7 +1,8 @@
 /**
  * Catalog search state, kept in the URL so results are shareable and Back/Forward work.
  *
- * URL keys: q, category, minPrice, maxPrice, rating, discount, sort, page (1-based for humans).
+ * URL keys: q, category, minPrice, maxPrice, rating, discount, seller, inStock, onSale, featured,
+ * verifiedSeller, sort, page (1-based for humans).
  */
 
 import { useCallback, useMemo } from 'react'
@@ -17,6 +18,11 @@ const KEYS = {
   maxPrice: 'maxPrice',
   minRating: 'rating',
   minDiscount: 'discount',
+  seller: 'seller',
+  inStock: 'inStock',
+  onSale: 'onSale',
+  featured: 'featured',
+  verifiedSeller: 'verifiedSeller',
   sort: 'sort',
 } as const satisfies Record<keyof ProductQuery, string>
 
@@ -25,6 +31,12 @@ function readNumber(params: URLSearchParams, key: string): number | undefined {
   if (raw == null || raw === '') return undefined
   const value = Number(raw)
   return Number.isFinite(value) && value >= 0 ? value : undefined
+}
+
+/** A switch is on only when explicitly 'true' (or '1'); anything else is off. */
+function readFlag(params: URLSearchParams, key: string): true | undefined {
+  const raw = params.get(key)
+  return raw === 'true' || raw === '1' ? true : undefined
 }
 
 export function parseCatalogParams(params: URLSearchParams): { query: ProductQuery; page: number } {
@@ -36,6 +48,11 @@ export function parseCatalogParams(params: URLSearchParams): { query: ProductQue
     maxPrice: readNumber(params, KEYS.maxPrice),
     minRating: readNumber(params, KEYS.minRating),
     minDiscount: readNumber(params, KEYS.minDiscount),
+    seller: params.get(KEYS.seller)?.trim() || undefined,
+    inStock: readFlag(params, KEYS.inStock),
+    onSale: readFlag(params, KEYS.onSale),
+    featured: readFlag(params, KEYS.featured),
+    verifiedSeller: readFlag(params, KEYS.verifiedSeller),
     sort: sort && SORTS.includes(sort) ? sort : undefined,
   }
   const page = Math.max((readNumber(params, 'page') ?? 1) - 1, 0)
@@ -62,7 +79,12 @@ export function hasActiveFilters(query: ProductQuery): boolean {
     query.minPrice != null ||
     query.maxPrice != null ||
     query.minRating != null ||
-    query.minDiscount != null
+    query.minDiscount != null ||
+    !!query.seller ||
+    !!query.inStock ||
+    !!query.onSale ||
+    !!query.featured ||
+    !!query.verifiedSeller
   )
 }
 

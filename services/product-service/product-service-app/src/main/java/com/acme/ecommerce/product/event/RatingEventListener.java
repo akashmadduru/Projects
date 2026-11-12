@@ -1,6 +1,8 @@
 package com.acme.ecommerce.product.event;
 
 import com.acme.ecommerce.common.core.error.ResourceNotFoundException;
+import com.acme.ecommerce.product.client.RatingFeignClient;
+import com.acme.ecommerce.product.client.RatingSummary;
 import com.acme.ecommerce.product.service.ProductCatalogService;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +27,7 @@ import org.springframework.stereotype.Component;
 public class RatingEventListener {
 
   private final ProductCatalogService productCatalog;
+  private final RatingFeignClient ratings;
 
   /**
    * Consumes rating events and updates product denormalization.
@@ -38,7 +41,7 @@ public class RatingEventListener {
   @KafkaListener(
       topics = "rating.events",
       groupId = "product-service-rating-listener",
-      containerFactory = "kafkaListenerContainerFactory")
+      containerFactory = "ratingKafkaListenerFactory")
   public void onRatingEvent(RatingEvent event) {
     UUID productId = event.productId();
 
@@ -49,11 +52,11 @@ public class RatingEventListener {
           productId,
           event.ratingId());
 
-      // Call product catalog to update denormalized rating fields.
-      // In production, this would fetch aggregates from rating-service via Feign client
-      // and update the product's average_rating, rating_count, and rating_distribution.
-      // For now, this is a placeholder for the denormalization update.
-      productCatalog.updateRatingDenormalization(productId);
+      // The summary is authoritative, so the event is only a trigger: event order and replays do
+      // not matter. Fetched outside any transaction; a rating-service outage is logged below and
+      // repaired by the next event for this product (or the backfill script).
+      RatingSummary summary = ratings.summary(productId);
+      productCatalog.applyRatingSummary(productId, summary);
 
       log.info(
           "Successfully updated product rating denormalization productId={} eventType={}",

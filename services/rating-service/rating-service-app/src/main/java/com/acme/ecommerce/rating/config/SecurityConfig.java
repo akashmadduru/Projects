@@ -155,8 +155,8 @@ public class SecurityConfig {
    * be pinned to whichever instance happened to be registered at that moment - quite possibly none
    * at all, given compose bring-up order.
    *
-   * <p>An absolute {@code rating.jwt.jwks-uri} bypasses this bean entirely (see {@link #jwtDecoder});
-   * the load balancer would otherwise treat the URL's hostname as a service id.
+   * <p>An absolute {@code rating.jwt.jwks-uri} bypasses this bean entirely (see {@link
+   * #jwtDecoder}); the load balancer would otherwise treat the URL's hostname as a service id.
    *
    * <p>Timeouts are mandatory, not defensive: {@code RestTemplate}'s defaults are INFINITE, so a
    * hung auth-service would park the fetching thread forever and, with Nimbus' cache expired, take

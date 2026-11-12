@@ -3,11 +3,11 @@ package com.acme.ecommerce.product.web;
 import com.acme.ecommerce.common.core.error.ValidationException;
 import com.acme.ecommerce.product.api.ProductClient;
 import com.acme.ecommerce.product.api.dto.ProductResponse;
-import com.acme.ecommerce.product.repository.ProductFilter;
 import com.acme.ecommerce.product.service.CatalogAggregateService;
 import com.acme.ecommerce.product.service.ProductCatalogService;
 import com.acme.ecommerce.product.web.dto.CreateProductRequest;
 import com.acme.ecommerce.product.web.dto.ProductCatalogAggregateResponse;
+import com.acme.ecommerce.product.web.dto.ProductListParams;
 import com.acme.ecommerce.product.web.dto.UpdateProductRequest;
 import jakarta.validation.Valid;
 import java.math.BigDecimal;
@@ -22,12 +22,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -73,6 +73,9 @@ public class ProductController {
   private static final Set<String> SORTABLE =
       Set.of("sku", "name", "priceAmount", "averageRating", "discountPercent", "createdAt");
 
+  /** Longest free-text filter value accepted ({@code product.seller_name} is varchar(200)). */
+  private static final int MAX_TEXT_FILTER = 200;
+
   private final ProductCatalogService catalog;
   private final CatalogAggregateService catalogAggregateService;
 
@@ -88,34 +91,29 @@ public class ProductController {
    * directly emits Spring Data's internal shape, which the framework itself warns is not a stable
    * contract; {@code PagedModel} is the documented, stable {@code {content, page}} envelope.
    *
-   * <p>Every filter is optional and they combine with AND. Range bounds are inclusive.
+   * <p>The filters are described on {@link ProductListParams}; every one is optional and they
+   * combine with AND.
    *
-   * @param categoryId a category; a root category also matches its subcategories' products
-   * @param q case-insensitive substring of the name or sku
-   * @param minPrice lower price bound
-   * @param maxPrice upper price bound
-   * @param minRating lowest average rating (0-5); unrated products are excluded
-   * @param minDiscount lowest discount percentage (0-100)
+   * @param params the filter query parameters
    * @param pageable page/size/sort, bound from the query string; sort limited to {@link #SORTABLE}
    * @return the requested page of products
    */
   @GetMapping
   public PagedModel<ProductResponse> list(
-      @RequestParam(required = false) UUID categoryId,
-      @RequestParam(required = false) String q,
-      @RequestParam(required = false) BigDecimal minPrice,
-      @RequestParam(required = false) BigDecimal maxPrice,
-      @RequestParam(required = false) BigDecimal minRating,
-      @RequestParam(required = false) BigDecimal minDiscount,
+      @ModelAttribute ProductListParams params,
       @PageableDefault(size = DEFAULT_PAGE_SIZE, sort = "sku", direction = Sort.Direction.ASC)
           Pageable pageable) {
+    BigDecimal minPrice = params.minPrice();
+    BigDecimal maxPrice = params.maxPrice();
     requireInRange("minPrice", minPrice, BigDecimal.ZERO, null);
     requireInRange("maxPrice", maxPrice, BigDecimal.ZERO, null);
     if (minPrice != null && maxPrice != null && minPrice.compareTo(maxPrice) > 0) {
       throw ValidationException.forField("minPrice", "must not be greater than maxPrice");
     }
-    requireInRange("minRating", minRating, BigDecimal.ZERO, BigDecimal.valueOf(5));
-    requireInRange("minDiscount", minDiscount, BigDecimal.ZERO, BigDecimal.valueOf(100));
+    requireInRange("minRating", params.minRating(), BigDecimal.ZERO, BigDecimal.valueOf(5));
+    requireInRange("minDiscount", params.minDiscount(), BigDecimal.ZERO, BigDecimal.valueOf(100));
+    requireMaxLength("q", params.q());
+    requireMaxLength("seller", params.seller());
     for (Sort.Order order : pageable.getSort()) {
       if (!SORTABLE.contains(order.getProperty())) {
         throw ValidationException.forField(
@@ -123,9 +121,14 @@ public class ProductController {
       }
     }
 
-    ProductFilter filter =
-        new ProductFilter(categoryId, q, minPrice, maxPrice, minRating, minDiscount);
-    return new PagedModel<>(catalog.list(filter, pageable));
+    return new PagedModel<>(catalog.list(params.toFilter(), pageable));
+  }
+
+  private static void requireMaxLength(String field, String value) {
+    if (value != null && value.length() > MAX_TEXT_FILTER) {
+      throw ValidationException.forField(
+          field, "must be at most " + MAX_TEXT_FILTER + " characters");
+    }
   }
 
   private static void requireInRange(

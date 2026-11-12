@@ -20,9 +20,16 @@ export function queryLocally(
   size: number,
 ): ProductResponse {
   const q = query.q?.trim().toLowerCase()
+  const seller = query.seller?.trim().toLowerCase()
   const matches = products.filter(
     (p) =>
       (!q || p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q)) &&
+      (!seller || (p.sellerName ?? '').toLowerCase().includes(seller)) &&
+      // Unknown stock (null) is kept, exactly like the API.
+      (!query.inStock || p.lastKnownQuantity == null || p.lastKnownQuantity > 0) &&
+      (!query.onSale || (p.discountPercent ?? 0) > 0) &&
+      (!query.featured || p.featured) &&
+      (!query.verifiedSeller || p.sellerVerified) &&
       (!query.categoryId || p.categoryId === query.categoryId) &&
       (query.minPrice == null || p.priceAmount >= query.minPrice) &&
       (query.maxPrice == null || p.priceAmount <= query.maxPrice) &&

@@ -66,14 +66,66 @@ function Option({
   )
 }
 
+/** Boolean filters the API narrows by. Each is on only when true, never "false". */
+export const SWITCHES = [
+  { key: 'inStock', label: 'In stock only', hint: 'Hides items known to be sold out' },
+  { key: 'onSale', label: 'On sale', hint: 'Only discounted items' },
+  { key: 'featured', label: 'Top picks', hint: 'Hand-picked by our team' },
+  { key: 'verifiedSeller', label: 'Verified sellers', hint: 'Sold by a verified seller' },
+] as const satisfies readonly { key: keyof ProductQuery; label: string; hint: string }[]
+
+function Switch({
+  checked,
+  label,
+  hint,
+  onToggle,
+}: {
+  checked: boolean
+  label: string
+  hint: string
+  onToggle: () => void
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={onToggle}
+      className="press group flex w-full items-center gap-3 rounded-2xl px-2.5 py-2 text-left transition-colors duration-500 hover:bg-vivid-amber/20"
+    >
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-bold text-on-surface">{label}</span>
+        <span className="block text-xs text-on-surface-muted">{hint}</span>
+      </span>
+      <span
+        aria-hidden="true"
+        className={`relative h-6 w-11 shrink-0 rounded-full border-2 border-ink transition-colors duration-500 ${
+          checked ? 'bg-vivid-teal' : 'bg-surface-variant'
+        }`}
+      >
+        <span
+          className={`absolute top-0.5 h-4 w-4 rounded-full border-2 border-ink bg-surface transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${
+            checked ? 'left-[1.35rem]' : 'left-0.5'
+          }`}
+        />
+      </span>
+    </button>
+  )
+}
+
 export function FilterPanel({ query, categories, onChange }: Props) {
   const [minText, setMinText] = useState(query.minPrice?.toString() ?? '')
   const [maxText, setMaxText] = useState(query.maxPrice?.toString() ?? '')
+  const [sellerText, setSellerText] = useState(query.seller ?? '')
 
   useEffect(() => {
     setMinText(query.minPrice?.toString() ?? '')
     setMaxText(query.maxPrice?.toString() ?? '')
   }, [query.minPrice, query.maxPrice])
+
+  useEffect(() => {
+    setSellerText(query.seller ?? '')
+  }, [query.seller])
 
   const toNumber = (text: string) => {
     const value = Number(text)
@@ -204,6 +256,50 @@ export function FilterPanel({ query, categories, onChange }: Props) {
             </Option>
           ))}
         </div>
+      </Section>
+
+      <Section title="Availability & offers">
+        <div className="space-y-0.5">
+          {SWITCHES.map((item) => (
+            <Switch
+              key={item.key}
+              checked={!!query[item.key]}
+              label={item.label}
+              hint={item.hint}
+              onToggle={() => onChange({ [item.key]: query[item.key] ? undefined : true })}
+            />
+          ))}
+        </div>
+      </Section>
+
+      <Section title="Seller">
+        <form
+          role="search"
+          aria-label="Filter by seller"
+          onSubmit={(e) => {
+            e.preventDefault()
+            onChange({ seller: sellerText.trim() || undefined })
+          }}
+          className="flex items-center gap-2"
+        >
+          <label className="sr-only" htmlFor="seller-filter">
+            Seller name
+          </label>
+          <input
+            id="seller-filter"
+            value={sellerText}
+            maxLength={200}
+            placeholder="Seller name"
+            onChange={(e) => setSellerText(e.target.value)}
+            className="w-full rounded-full border-2 border-outline bg-surface px-3 py-1.5 text-sm text-on-surface transition-shadow focus:border-primary focus:shadow-[0_0_0_3px_hsl(var(--color-primary)/0.2)]"
+          />
+          <button
+            type="submit"
+            className="press bg-brand-gradient rounded-full border-2 border-ink px-3 py-1.5 text-sm font-bold text-on-brand shadow-[2px_2px_0_hsl(var(--color-ink))]"
+          >
+            Go
+          </button>
+        </form>
       </Section>
     </div>
   )

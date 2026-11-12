@@ -34,7 +34,6 @@ Shortcuts taken while building customer accounts (login, Google SSO, user/cart/o
 | TD-SEC-04 | Open registration by default, no email verification | infra-security | Med | M | [infra-security.md](infra-security.md#td-sec-04) |
 | TD-SEC-05 | Manual DB script needed for existing volumes | infra-security | Med | M | [infra-security.md](infra-security.md#td-sec-05) |
 | TD-SEC-06 | Dev admin seed removed, no replacement | infra-security | Med | S | [infra-security.md](infra-security.md#td-sec-06) |
-| TD-SEC-07 | rating-service not runnable in compose/gateway | infra-security | Med | M | [infra-security.md](infra-security.md#td-sec-07) |
 | TD-FE-02 | Checkout totals are client-side; price drift seen only after order | frontend | Med | M | [frontend.md](frontend.md#td-fe-02) |
 | TD-FE-03 | Optimistic cart/wishlist edits are last-write-wins | frontend | Med | M | [frontend.md](frontend.md#td-fe-03) |
 | TD-FE-04 | Failed login merge has no in-session retry | frontend | Low | S | [frontend.md](frontend.md#td-fe-04) |
@@ -51,6 +50,13 @@ Shortcuts taken while building customer accounts (login, Google SSO, user/cart/o
 | TD-SEC-13 | DB `CONNECT` not revoked from PUBLIC | infra-security | Low | S | [infra-security.md](infra-security.md#td-sec-13) |
 | TD-BE-16 | Build tooling quirks on Windows (spotless bind mount, buildx entitlement, LF endings) | backend | Low | S | [backend.md](backend.md#td-be-16) |
 | TD-TEST-06 | Seed data cannot exercise the sale-price rule | testing | Low | S | [testing.md](testing.md#td-test-06) |
+| TD-RT-01 | Demo product averages disagree with rating-service | ratings | Med | S | [ratings.md](ratings.md#td-rt-01) |
+| TD-RT-02 | No scheduled reconcile of product rating fields | ratings | Med | M | [ratings.md](ratings.md#td-rt-02) |
+| TD-RT-03 | Rating updates bump `Product.version` | ratings | Low | S | [ratings.md](ratings.md#td-rt-03) |
+| TD-RT-04 | Reviewer display name is a snapshot | ratings | Low | S | [ratings.md](ratings.md#td-rt-04) |
+| TD-RT-05 | Seed reviews have synthetic authors | ratings | Low | S | [ratings.md](ratings.md#td-rt-05) |
+| TD-RT-06 | Duplicated rating event/summary shapes, no contract tests | ratings | Low | M | [ratings.md](ratings.md#td-rt-06) |
+| TD-RT-07 | Ratings frontend cleanups (dead code, refetch, lag, no tests) | ratings | Low | S | [ratings.md](ratings.md#td-rt-07) |
 | TD-SEC-08 | No account-linking UX for Google vs password accounts | infra-security | Low | M | [infra-security.md](infra-security.md#td-sec-08) |
 | TD-FE-06 | Wishlist: snapshot-less items dropped; N product fetches | frontend | Low | M | [frontend.md](frontend.md#td-fe-06) |
 | TD-FE-07 | Session-expiry full reload; no Retry-After on 429 | frontend | Low | S | [frontend.md](frontend.md#td-fe-07) |
@@ -65,5 +71,6 @@ Shortcuts taken while building customer accounts (login, Google SSO, user/cart/o
 - TD-FE-01 "`npm run dev` forces port 3000; Google callback needs 5174": resolved by keeping the storefront on 3000 (`vite.config.ts` strictPort 3000) and allow-listing `http://localhost:3000/auth/callback` in compose.
 - TD-BE-13 "No cap on distinct cart lines / wishlist size": resolved in review fixes (cart max 50 lines, wishlist max 500, 409 `CART_LIMIT` / `WISHLIST_LIMIT`).
 - TD-FE-04 data loss: resolved (quantities clamped to 99, merge chunked, local items kept when merge fails). Remaining: no retry until next sign-in.
+- TD-SEC-07 "rating-service not runnable in compose/gateway": resolved by the ratings feature (rating_db, Dockerfile, compose on 8084, gateway route, `roles`-based admin check). Related product-service listener bug (rating events failed to deserialize; denormalization stub) also fixed.
 - "RouteAuthorizationContractTest not updated": that test does not exist in `services/gateway/src/test`; it is only referenced in a `SecurityConfig` javadoc. Reframed as TD-TEST-04.
 - "Update platform error catalogue": done in [Backend-API.md](../docs/Backend-API.md).

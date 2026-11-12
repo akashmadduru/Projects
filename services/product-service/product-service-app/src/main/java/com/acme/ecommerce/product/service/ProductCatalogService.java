@@ -6,6 +6,7 @@ import com.acme.ecommerce.common.core.error.ValidationException;
 import com.acme.ecommerce.common.core.time.TimeProvider;
 import com.acme.ecommerce.product.api.dto.ProductImageResponse;
 import com.acme.ecommerce.product.api.dto.ProductResponse;
+import com.acme.ecommerce.product.client.RatingSummary;
 import com.acme.ecommerce.product.domain.Product;
 import com.acme.ecommerce.product.domain.ProductImage;
 import com.acme.ecommerce.product.event.ProductEventPublisher;
@@ -20,6 +21,7 @@ import com.acme.ecommerce.product.web.dto.UpdateProductRequest;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -273,31 +275,44 @@ public class ProductCatalogService {
   }
 
   /**
-   * Updates denormalized rating fields on a product. Called ONLY by {@code RatingEventListener}, in
-   * reaction to consumed rating events (RATING_ADDED/UPDATED/DELETED). Recalculates average rating,
-   * rating count, and rating distribution from rating-service via Feign client (or directly if
-   * integration is not yet implemented).
+   * Overwrites the denormalized rating fields of a product with rating-service's authoritative
+   * summary. Called ONLY by {@code RatingEventListener}, which fetches the summary BEFORE this
+   * transaction opens so no database connection is held across the HTTP call.
    *
-   * <p>Deliberately does NOT call {@link ProductEventPublisher} - ratings changed, not the product
-   * itself. If the product no longer exists, this is a silent no-op - the event describes a product
-   * state that has legitimately since changed.
+   * <p>Idempotent and order-independent: the summary is a full snapshot, so replays and
+   * out-of-order events converge on the same values. Deliberately does NOT call {@link
+   * ProductEventPublisher} - ratings changed, not the product itself. If the product no longer
+   * exists, this is a silent no-op.
    *
    * @param productId the product whose denormalized rating fields should be updated
+   * @param summary the current summary from rating-service
    */
   @Transactional
-  public void updateRatingDenormalization(UUID productId) {
+  public void applyRatingSummary(UUID productId, RatingSummary summary) {
     products
         .findById(productId)
         .ifPresent(
             product -> {
-              // In production, this would:
-              // 1. Call ratingServiceClient.getSummary(productId)
-              // 2. Update product.averageRating, ratingCount, reviewCount, ratingDistribution
-              // 3. Save the product
-              // For now, this is a placeholder that ensures the method exists for the listener to
-              // call.
-              // TODO: Implement rating aggregation via Feign client to rating-service
+              int count = summary.ratingCount();
+              product.setRatingCount(count);
+              product.setReviewCount(summary.reviewCount());
+              product.setAverageRating(
+                  count > 0 && summary.averageRating() != null
+                      ? summary.averageRating().setScale(2, RoundingMode.HALF_UP)
+                      : null);
+              product.setRatingDistribution(writeRatingDistribution(summary.ratingDistribution()));
             });
+  }
+
+  private String writeRatingDistribution(Map<Integer, Integer> distribution) {
+    if (distribution == null || distribution.isEmpty()) {
+      return null;
+    }
+    try {
+      return objectMapper.writeValueAsString(distribution);
+    } catch (JsonProcessingException e) {
+      throw new IllegalStateException("Cannot serialise rating distribution", e);
+    }
   }
 
   private static List<ProductImage> toImageEntities(

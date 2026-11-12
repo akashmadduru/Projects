@@ -4,6 +4,7 @@ import com.acme.ecommerce.product.domain.Category;
 import com.acme.ecommerce.product.domain.Product;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Subquery;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -60,6 +61,27 @@ public final class ProductSpecifications {
       }
       if (filter.minDiscount() != null) {
         predicates.add(cb.greaterThanOrEqualTo(root.get("discountPercent"), filter.minDiscount()));
+      }
+
+      if (filter.seller() != null && !filter.seller().isBlank()) {
+        String pattern = "%" + escapeLike(filter.seller().trim().toLowerCase(Locale.ROOT)) + "%";
+        predicates.add(cb.like(cb.lower(root.get("sellerName")), pattern, LIKE_ESCAPE));
+      }
+      if (filter.inStock()) {
+        // Unknown quantity (null) is kept - see ProductFilter#inStock.
+        predicates.add(
+            cb.or(
+                cb.isNull(root.get("lastKnownQuantity")),
+                cb.greaterThan(root.<Integer>get("lastKnownQuantity"), 0)));
+      }
+      if (filter.onSale()) {
+        predicates.add(cb.greaterThan(root.<BigDecimal>get("discountPercent"), BigDecimal.ZERO));
+      }
+      if (filter.featured()) {
+        predicates.add(cb.isTrue(root.get("isFeatured")));
+      }
+      if (filter.verifiedSeller()) {
+        predicates.add(cb.isTrue(root.get("isSellerVerified")));
       }
 
       return cb.and(predicates.toArray(Predicate[]::new));

@@ -31,8 +31,8 @@ export function toQueryParams(
   page: number,
   size: number,
   query: ProductQuery = {},
-): Record<string, string | number> {
-  const params: Record<string, string | number> = { page, size }
+): Record<string, string | number | boolean> {
+  const params: Record<string, string | number | boolean> = { page, size }
   const q = query.q?.trim()
   if (q) params['q'] = q
   if (query.categoryId) params['categoryId'] = query.categoryId
@@ -40,6 +40,12 @@ export function toQueryParams(
   if (query.maxPrice != null) params['maxPrice'] = query.maxPrice
   if (query.minRating != null) params['minRating'] = query.minRating
   if (query.minDiscount != null) params['minDiscount'] = query.minDiscount
+  const seller = query.seller?.trim()
+  if (seller) params['seller'] = seller
+  if (query.inStock) params['inStock'] = true
+  if (query.onSale) params['onSale'] = true
+  if (query.featured) params['featured'] = true
+  if (query.verifiedSeller) params['verifiedSeller'] = true
   const sort = query.sort ? SORT_PARAM[query.sort] : undefined
   if (sort) params['sort'] = sort
   return params
