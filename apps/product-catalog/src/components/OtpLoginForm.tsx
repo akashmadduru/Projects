@@ -40,8 +40,9 @@ export function OtpLoginForm({ onSuccess }: { onSuccess: () => void }) {
     setBusy(true)
     setError(undefined)
     try {
-      await loginWithOtp(phone.trim(), code.trim())
-      onSuccess()
+      const result = await loginWithOtp(phone.trim(), code.trim())
+      if (result === 'ok') onSuccess()
+      else setBusy(false)
     } catch (err) {
       setError(errorMessage(err))
       setBusy(false)

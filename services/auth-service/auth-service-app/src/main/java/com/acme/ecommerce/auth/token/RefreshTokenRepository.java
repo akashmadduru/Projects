@@ -99,6 +99,33 @@ interface RefreshTokenRepository extends JpaRepository<RefreshToken, UUID> {
   int markExpired(@Param("id") UUID id, @Param("now") Instant now);
 
   /** Live token count for a family. Used by tests and by session-management tooling. */
+  @Query(
+      """
+      select t from RefreshToken t
+       where t.userId = :userId and t.revokedAt is null and t.expiresAt > :now
+       order by t.issuedAt desc
+      """)
+  java.util.List<RefreshToken> findActiveForUser(
+      @Param("userId") UUID userId, @Param("now") Instant now);
+
+  boolean existsByFamilyIdAndUserId(UUID familyId, UUID userId);
+
+  @Modifying(flushAutomatically = true, clearAutomatically = true)
+  @Query(
+      """
+      update RefreshToken t
+         set t.revokedAt = :now,
+             t.revokedReason = :reason
+       where t.userId = :userId
+         and t.familyId <> :keepFamily
+         and t.revokedAt is null
+      """)
+  int revokeOthers(
+      @Param("userId") UUID userId,
+      @Param("keepFamily") UUID keepFamily,
+      @Param("reason") String reason,
+      @Param("now") Instant now);
+
   long countByFamilyIdAndRevokedAtIsNull(UUID familyId);
 
   /** Every token in a family, live or dead. Forensics and tests. */

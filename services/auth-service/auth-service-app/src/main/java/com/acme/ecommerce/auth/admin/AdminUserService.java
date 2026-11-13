@@ -52,7 +52,13 @@ public class AdminUserService {
 
   private static final Logger log = LoggerFactory.getLogger(AdminUserService.class);
   private static final Set<String> ASSIGNABLE =
-      Set.of(Roles.ADMIN, Roles.CATALOG_MANAGER, Roles.VIEWER, Roles.SELLER);
+      Set.of(
+          Roles.ADMIN,
+          Roles.CATALOG_MANAGER,
+          Roles.VIEWER,
+          Roles.SELLER,
+          Roles.SUPPORT,
+          Roles.FINANCE);
 
   private final UserAccountRepository users;
   private final RoleRepository roles;

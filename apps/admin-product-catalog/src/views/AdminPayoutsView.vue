@@ -76,8 +76,8 @@ onMounted(() => {
 
     <ProblemAlert v-if="runError" class="mb-4" :message="runError.message" :correlation-id="runError.correlationId" />
     <div v-if="runResult" class="alert alert-success mb-4" role="status" data-test="payout-result">
-      Payout run complete<template v-if="(runResult.payouts ?? runResult.count) !== undefined">
-        : {{ runResult.payouts ?? runResult.count }} payout(s) created</template>.
+      Payout run complete<template v-if="runResult.count !== undefined">
+        : {{ runResult.count }} payout(s) created</template>.
     </div>
 
     <div v-if="loading" class="data-card p-8 text-center" role="status">

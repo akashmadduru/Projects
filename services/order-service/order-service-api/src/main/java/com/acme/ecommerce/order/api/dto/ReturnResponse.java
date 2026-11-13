@@ -16,7 +16,8 @@ public record ReturnResponse(
     Instant createdAt,
     Instant updatedAt,
     String adminNote,
-    UUID shipmentId) {
+    UUID shipmentId,
+    boolean abuseFlag) {
 
   public record ReturnItemResponse(
       UUID productId, UUID variantId, String name, int quantity, BigDecimal unitPrice) {}

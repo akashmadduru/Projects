@@ -14,7 +14,10 @@ dependencies {
     implementation libs.bundles.persistence.postgres
     implementation libs.bundles.resource.server
     implementation libs.spring.cloud.starter.openfeign
+    // Phase 10 privacy: user.events USER_DELETED producer (own KafkaTemplate, no autoconfig).
+    implementation libs.spring.kafka
     implementation libs.micrometer.registry.prometheus
+    implementation libs.bundles.tracing
 
     compileOnly libs.lombok
     annotationProcessor libs.lombok

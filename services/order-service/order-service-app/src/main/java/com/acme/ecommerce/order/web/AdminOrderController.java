@@ -28,10 +28,13 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-/** Back-office order and return management. ADMIN only (enforced here, in the service). */
+/**
+ * Back-office order and return management. Reads: ADMIN, SUPPORT, FINANCE. Writes: ADMIN (refund
+ * pickup/refund steps also FINANCE). Enforced here, in the service.
+ */
 @RestController
 @RequestMapping("/api/admin")
-@PreAuthorize("hasAnyAuthority('ADMIN', 'ROLE_ADMIN')")
+@PreAuthorize("hasAnyRole('ADMIN','SUPPORT','FINANCE')")
 public class AdminOrderController {
 
   private static final int MAX_PAGE_SIZE = 50;
@@ -52,9 +55,18 @@ public class AdminOrderController {
       @RequestParam(required = false) OrderStatus status,
       @RequestParam(required = false) String q,
       @RequestParam(required = false) UUID userId,
+      @RequestParam(required = false) Boolean riskHold,
       @RequestParam(defaultValue = "0") int page,
       @RequestParam(defaultValue = "20") int size) {
-    return new PagedModel<>(store.adminList(status, q, userId, pageable(page, size, "placedAt")));
+    return new PagedModel<>(
+        store.adminList(status, q, userId, riskHold, pageable(page, size, "placedAt")));
+  }
+
+  /** Releases a risk hold so fulfilment can proceed. */
+  @PostMapping("/orders/{id}/release-hold")
+  @PreAuthorize("hasRole('ADMIN')")
+  public OrderResponse releaseHold(@PathVariable UUID id) {
+    return store.releaseHold(id);
   }
 
   /** Dashboard counters. Declared before /orders/{id} only for readability; paths do not clash. */
@@ -69,6 +81,7 @@ public class AdminOrderController {
   }
 
   @PostMapping("/orders/{id}/status")
+  @PreAuthorize("hasRole('ADMIN')")
   public OrderResponse updateStatus(
       @PathVariable UUID id, @Valid @RequestBody StatusUpdate request) {
     return lifecycle.adminAdvance(id, request);
@@ -76,6 +89,7 @@ public class AdminOrderController {
 
   /** Moves one shipment of a split order (works for single-shipment orders too). */
   @PostMapping("/orders/{id}/shipments/{shipmentId}/status")
+  @PreAuthorize("hasRole('ADMIN')")
   public OrderResponse updateShipmentStatus(
       @PathVariable UUID id,
       @PathVariable UUID shipmentId,
@@ -84,6 +98,7 @@ public class AdminOrderController {
   }
 
   @PostMapping("/orders/{id}/cancel")
+  @PreAuthorize("hasRole('ADMIN')")
   public OrderResponse cancel(@PathVariable UUID id, @Valid @RequestBody CancelOrder request) {
     return lifecycle.cancelByAdmin(id, request.reason());
   }
@@ -97,11 +112,13 @@ public class AdminOrderController {
   }
 
   @PostMapping("/returns/{id}/decision")
+  @PreAuthorize("hasRole('ADMIN')")
   public ReturnResponse decide(@PathVariable UUID id, @Valid @RequestBody ReturnDecision request) {
     return returns.decide(id, request.approve(), request.note());
   }
 
   @PostMapping("/returns/{id}/status")
+  @PreAuthorize("hasAnyRole('ADMIN','FINANCE')")
   public ReturnResponse returnStatus(
       @PathVariable UUID id, @Valid @RequestBody ReturnStatusUpdate request) {
     return switch (request.status()) {

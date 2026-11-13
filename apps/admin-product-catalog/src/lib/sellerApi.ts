@@ -6,6 +6,7 @@ import type {
   LedgerEntry,
   Offer,
   OfferRequest,
+  OfferView,
   PagedModel,
   Payout,
   PayoutRunResult,
@@ -45,20 +46,33 @@ export function applySeller(body: SellerApplyRequest): Promise<Seller> {
 
 // ---- offers / products / stock -----------------------------------------------------------
 
+/** Real response: {offer:{offerId,price,...,availableQuantity}, productId, productName, productSku}. */
+function flattenOffer(v: OfferView): Offer {
+  return {
+    id: v.offer.offerId,
+    productId: v.productId,
+    variantId: v.offer.variantId,
+    productName: v.productName,
+    sku: v.productSku,
+    price: v.offer.price,
+    salePrice: v.offer.salePrice,
+    currency: v.offer.currency,
+    dispatchDays: v.offer.dispatchDays,
+    active: v.offer.active,
+    availableQuantity: v.offer.availableQuantity,
+  };
+}
+
 export async function listOffers(): Promise<readonly Offer[]> {
-  return unwrap(
-    await apiFetch<readonly Offer[] | PagedModel<Offer>>('/api/seller/offers', {
-      query: { page: 0, size: 200 },
-    }),
-  );
+  return unwrap(await apiFetch<readonly OfferView[] | PagedModel<OfferView>>('/api/seller/offers')).map(flattenOffer);
 }
 
-export function createOffer(body: OfferRequest): Promise<Offer> {
-  return apiFetch<Offer>('/api/seller/offers', { method: 'POST', body });
+export async function createOffer(body: OfferRequest): Promise<Offer> {
+  return flattenOffer(await apiFetch<OfferView>('/api/seller/offers', { method: 'POST', body }));
 }
 
-export function updateOffer(id: string, body: OfferRequest): Promise<Offer> {
-  return apiFetch<Offer>(`/api/seller/offers/${id}`, { method: 'PUT', body });
+export async function updateOffer(id: string, body: OfferRequest): Promise<Offer> {
+  return flattenOffer(await apiFetch<OfferView>(`/api/seller/offers/${id}`, { method: 'PUT', body }));
 }
 
 export function createSellerProduct(body: SellerProductRequest): Promise<unknown> {

@@ -33,6 +33,16 @@ spring:
       include-stacktrace: never
       include-message: never
 
+  reactor:
+    # Carry the Micrometer trace context across reactive hops so traceId/spanId reach the logs.
+    context-propagation: auto
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 500ms
+
   cloud:
     loadbalancer:
       # Client-side load balancing over the Eureka registry. Retries are OFF at
@@ -106,7 +116,7 @@ spring:
             - id: auth-public
               uri: lb://AUTH-SERVICE
               predicates:
-                - Path=/api/auth/login,/api/auth/register,/api/auth/refresh,/api/auth/logout,/api/auth/password/forgot,/api/auth/password/reset,/api/auth/email/verify,/api/auth/otp/request,/api/auth/otp/verify
+                - Path=/api/auth/login,/api/auth/register,/api/auth/refresh,/api/auth/logout,/api/auth/password/forgot,/api/auth/password/reset,/api/auth/email/verify,/api/auth/otp/request,/api/auth/otp/verify,/api/auth/2fa/verify
               filters:
                 - name: CircuitBreaker
                   args:
@@ -124,7 +134,7 @@ spring:
             - id: auth-secured
               uri: lb://AUTH-SERVICE
               predicates:
-                - Path=/api/auth/me,/api/auth/validate,/api/auth/me/**,/api/auth/email/verify/resend,/api/admin/users/**
+                - Path=/api/auth/me,/api/auth/validate,/api/auth/me/**,/api/auth/email/verify/resend,/api/auth/2fa/**,/api/auth/sessions,/api/auth/sessions/**,/api/admin/users/**
               filters:
                 - name: CircuitBreaker
                   args:
@@ -169,7 +179,7 @@ spring:
             - id: product
               uri: lb://PRODUCT-SERVICE
               predicates:
-                - Path=/api/products/**,/api/categories/**,/sitemap.xml,/api/seller/offers,/api/seller/offers/**,/api/seller/products,/api/seller/products/**
+                - Path=/api/products/**,/api/categories/**,/api/admin/fx-rates,/sitemap.xml,/api/seller/offers,/api/seller/offers/**,/api/seller/products,/api/seller/products/**
               filters:
                 - name: CircuitBreaker
                   args:
@@ -225,7 +235,7 @@ spring:
             - id: order
               uri: lb://ORDER-SERVICE
               predicates:
-                - Path=/api/orders/**,/api/orders,/api/admin/orders/**,/api/admin/returns/**,/api/recommendations/**,/api/subscriptions/**,/api/subscriptions,/api/seller/shipments,/api/seller/shipments/**
+                - Path=/api/orders/**,/api/orders,/api/admin/orders/**,/api/admin/returns/**,/api/admin/exchange/**,/api/recommendations/**,/api/subscriptions/**,/api/subscriptions,/api/seller/shipments,/api/seller/shipments/**
               filters:
                 - name: CircuitBreaker
                   args:
@@ -309,11 +319,31 @@ spring:
                 response-timeout: 10000
                 connect-timeout: 2000
 
+            # --- support-service (Phase 10): help centre, tickets, chatbot, audit log ---
+            - id: support
+              uri: lb://SUPPORT-SERVICE
+              predicates:
+                - Path=/api/support/**,/api/admin/support/**,/api/admin/audit,/api/admin/audit/**
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: supportCb
+                    fallbackUri: forward:/__fallback/support
+              metadata:
+                response-timeout: 10000
+                connect-timeout: 2000
+
 # -----------------------------------------------------------------------------
 # The gateway's own settings. Every one is documented on
 # com.acme.ecommerce.gateway.config.GatewayProperties.
 # -----------------------------------------------------------------------------
 gateway:
+  rate-limit:
+    # Edge request rate limit (Redis, per JWT subject else per IP). Strict production defaults;
+    # dev compose raises them via env so the e2e scripts are not throttled.
+    enabled: ${GATEWAY_RATE_LIMIT_ENABLED:true}
+    writes-per-minute: ${GATEWAY_RATE_LIMIT_WRITES:30}
+    reads-per-minute: ${GATEWAY_RATE_LIMIT_READS:300}
   jwt:
     # SAME ENV VAR AND SAME DEFAULT AS auth-service's `auth.jwt.issuer`. One of
     # the two drifting is a total outage with a singularly unhelpful error
@@ -427,6 +457,9 @@ resilience4j:
       sellerCb:
         base-config: default
         slow-call-duration-threshold: 2s
+      supportCb:
+        base-config: default
+        slow-call-duration-threshold: 2s
 
   timelimiter:
     configs:
@@ -472,6 +505,9 @@ resilience4j:
       sellerCb:
         base-config: default
         timeout-duration: 11s
+      supportCb:
+        base-config: default
+        timeout-duration: 11s
 
 server:
   port: ${SERVER_PORT:8080}
@@ -500,6 +536,19 @@ eureka:
     lease-expiration-duration-in-seconds: 30
 
 management:
+  # Phase 10 tracing: Micrometer Tracing -> OTel -> OTLP/HTTP (Jaeger). Production sampling 10%; dev compose sets 1.0.
+  tracing:
+    sampling:
+      probability: ${TRACING_SAMPLING_PROBABILITY:0.1}
+  opentelemetry:
+    tracing:
+      export:
+        otlp:
+          endpoint: ${OTEL_TRACES_ENDPOINT:http://localhost:4318/v1/traces}
+  otlp:
+    metrics:
+      export:
+        enabled: false
   endpoints:
     web:
       exposure:
@@ -515,6 +564,9 @@ management:
       probes:
         enabled: true
   health:
+    redis:
+      # The limiter fails open; a Redis outage must not mark the edge DOWN.
+      enabled: false
     livenessstate:
       enabled: true
     readinessstate:
@@ -539,7 +591,7 @@ logging:
     org.springframework.cloud.gateway: INFO
     reactor.netty.http.client: INFO
   pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%X{correlationId:-}] %logger{36} - %msg%n"
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%X{correlationId:-}] [%X{traceId:-},%X{spanId:-}] %logger{36} - %msg%n"
 
 ---
 # =============================================================================

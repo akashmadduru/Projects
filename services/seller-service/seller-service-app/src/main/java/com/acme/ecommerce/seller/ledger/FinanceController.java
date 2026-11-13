@@ -41,13 +41,13 @@ public class FinanceController {
   }
 
   @GetMapping("/api/admin/payouts")
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasAnyRole('ADMIN','FINANCE')")
   public Paged<Payout> adminPayouts(@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
     return ledger.payouts(null, page, size);
   }
 
   @PostMapping("/api/admin/payouts/run")
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasAnyRole('ADMIN','FINANCE')")
   public PayoutRun run(@RequestBody(required = false) RunRequest request, @RequestParam(required = false) Integer minAgeDays) {
     Integer days = request != null && request.minAgeDays() != null ? request.minAgeDays() : minAgeDays;
     return ledger.run(days);

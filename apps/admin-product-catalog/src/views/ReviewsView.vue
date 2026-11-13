@@ -3,7 +3,7 @@ import { onMounted, ref } from 'vue';
 
 import ConfirmDialog from '@/components/ConfirmDialog.vue';
 import ProblemAlert from '@/components/ProblemAlert.vue';
-import { deleteRating, errorInfo, fmtDate, listRatings } from '@/lib/adminApi';
+import { deleteRating, errorInfo, fmtDate, listRatings, moderateRating } from '@/lib/adminApi';
 import type { AdminRating } from '@/types/commerce';
 
 /**
@@ -25,6 +25,8 @@ const totalElements = ref(0);
 const q = ref('');
 const stars = ref('');
 const productId = ref('');
+const flaggedOnly = ref(false);
+const moderating = ref<string | null>(null);
 const productIdInvalid = ref(false);
 const expanded = ref<Record<string, boolean>>({});
 
@@ -42,6 +44,7 @@ async function load(): Promise<void> {
       q: q.value.trim() || undefined,
       rating: stars.value ? Number(stars.value) : undefined,
       productId: pid || undefined,
+      flagged: flaggedOnly.value ? true : undefined,
       page: page.value,
       size: PAGE_SIZE,
     });
@@ -82,6 +85,20 @@ async function confirmDelete(): Promise<void> {
   }
 }
 
+/** Approve keeps the review and counts it in averages; reject keeps it excluded. */
+async function moderate(r: AdminRating, approve: boolean): Promise<void> {
+  moderating.value = r.id;
+  actionError.value = null;
+  try {
+    await moderateRating(r.id, approve);
+    await load();
+  } catch (e: unknown) {
+    actionError.value = errorInfo(e);
+  } finally {
+    moderating.value = null;
+  }
+}
+
 function starString(n: number): string {
   return '★'.repeat(n) + '☆'.repeat(Math.max(0, 5 - n));
 }
@@ -112,6 +129,10 @@ onMounted(load);
           <option value="">All ratings</option>
           <option v-for="n in [5, 4, 3, 2, 1]" :key="n" :value="String(n)">{{ n }} star{{ n > 1 ? 's' : '' }}</option>
         </select>
+        <label class="label cursor-pointer gap-2">
+          <input v-model="flaggedOnly" type="checkbox" class="checkbox checkbox-sm" data-test="reviews-flagged" @change="applyFilter" />
+          <span class="label-text">Flagged only</span>
+        </label>
         <button class="btn btn-sm" type="submit">Search</button>
       </form>
     </div>
@@ -146,15 +167,41 @@ onMounted(load);
             </p>
             <p class="font-mono text-xs opacity-50">product {{ r.productId }}</p>
           </div>
-          <button
-            class="btn btn-outline btn-error btn-xs"
-            type="button"
-            data-test="review-delete"
-            @click="toDelete = r"
-          >
-            Delete
-          </button>
+          <div class="flex gap-1">
+            <template v-if="r.flagged">
+              <button
+                class="btn btn-outline btn-success btn-xs"
+                type="button"
+                data-test="review-approve"
+                :disabled="moderating === r.id"
+                @click="moderate(r, true)"
+              >
+                Approve
+              </button>
+              <button
+                class="btn btn-outline btn-warning btn-xs"
+                type="button"
+                data-test="review-reject"
+                :disabled="moderating === r.id"
+                @click="moderate(r, false)"
+              >
+                Reject
+              </button>
+            </template>
+            <button
+              class="btn btn-outline btn-error btn-xs"
+              type="button"
+              data-test="review-delete"
+              @click="toDelete = r"
+            >
+              Delete
+            </button>
+          </div>
         </div>
+        <p v-if="r.flagged" class="mt-2 text-xs" data-test="review-flag-reasons">
+          <span class="badge badge-warning badge-sm mr-1">flagged</span>
+          {{ (r.flagReasons ?? []).join(', ') }}
+        </p>
         <p
           v-if="r.reviewText"
           class="mt-2 whitespace-pre-line text-sm"

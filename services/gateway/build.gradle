@@ -50,6 +50,8 @@ dependencies {
     implementation libs.nimbus.jose.jwt
 
     implementation libs.micrometer.registry.prometheus
+    implementation libs.bundles.tracing
+    implementation libs.spring.boot.starter.data.redis
 
     // Lombok for configuration properties and DTO generation
     compileOnly libs.lombok

@@ -110,6 +110,11 @@ public class RatingService {
    */
   public Page<RatingResponse> adminSearch(
       UUID productId, Integer ratingValue, String term, Pageable pageable) {
+    return adminSearch(productId, ratingValue, term, null, pageable);
+  }
+
+  public Page<RatingResponse> adminSearch(
+      UUID productId, Integer ratingValue, String term, Boolean flaggedOnly, Pageable pageable) {
     String q =
         term == null ? "" : term.trim().toLowerCase(java.util.Locale.ROOT).replaceAll("[%_\\\\]", "");
     Specification<Rating> spec =
@@ -121,6 +126,9 @@ public class RatingService {
           if (ratingValue != null) {
             ps.add(cb.equal(root.get("ratingValue"), ratingValue));
           }
+          if (flaggedOnly != null) {
+            ps.add(cb.equal(root.get("flagged"), flaggedOnly));
+          }
           if (!q.isEmpty()) {
             String like = "%" + q + "%";
             ps.add(
@@ -131,7 +139,34 @@ public class RatingService {
           }
           return cb.and(ps.toArray(new Predicate[0]));
         };
-    return withMedia(ratings.findAll(spec, pageable).map(RatingService::toResponse));
+    return withMedia(
+        ratings
+            .findAll(spec, pageable)
+            .map(
+                r -> {
+                  RatingResponse resp = toResponse(r);
+                  resp.setFlagReasons(
+                      r.getFlagReasons() == null
+                          ? List.of()
+                          : List.of(r.getFlagReasons().split(",")));
+                  return resp;
+                }));
+  }
+
+  /** Admin moderation of a flagged review: approve keeps it (and counts it), else it is deleted. */
+  @Transactional
+  public RatingResponse moderate(UUID id, boolean approve) {
+    Rating rating = load(id);
+    if (!approve) {
+      delete(id, null, true);
+      return withMedia(toResponse(rating));
+    }
+    rating.approve(timeProvider.now());
+    Rating saved = ratings.saveAndFlush(rating);
+    RatingResponse response = withMedia(toResponse(saved));
+    events.publishAfterCommit(
+        RatingEventType.RATING_UPDATED, id, rating.getProductId(), response);
+    return response;
   }
 
   /** The caller's own review of a product, if any. */
@@ -149,7 +184,47 @@ public class RatingService {
   @Transactional
   public RatingResponse create(
       UUID productId, CreateRatingRequest request, UUID userId, String displayName) {
+    return create(productId, request, userId, displayName, null);
+  }
+
+  /** Fake-review heuristics (Phase 10): returns comma-separated reason codes, or null. */
+  private String suspicion(
+      UUID productId, UUID userId, int stars, String text, Instant accountCreatedAt, Instant now) {
+    List<String> reasons = new ArrayList<>();
+    if (accountCreatedAt != null && accountCreatedAt.isAfter(now.minus(java.time.Duration.ofDays(3)))) {
+      reasons.add("NEW_ACCOUNT");
+    }
+    if (text != null && text.length() >= 10 && ratings.countSimilarText(text) > 0) {
+      reasons.add("DUPLICATE_TEXT");
+    }
+    if (ratings.countByUserIdAndCreatedAtAfter(userId, now.minus(java.time.Duration.ofHours(24))) >= 5) {
+      reasons.add("REVIEW_VELOCITY");
+    }
+    if (stars == 5
+        && ratings.countByProductIdAndRatingValueAndCreatedAtAfter(
+                productId, 5, now.minus(java.time.Duration.ofHours(1)))
+            >= 10) {
+      reasons.add("FIVE_STAR_BURST");
+    }
+    return reasons.isEmpty() ? null : String.join(",", reasons);
+  }
+
+  @Transactional
+  public RatingResponse create(
+      UUID productId,
+      CreateRatingRequest request,
+      UUID userId,
+      String displayName,
+      Instant accountCreatedAt) {
     Instant now = timeProvider.now();
+    String suspicious =
+        suspicion(
+            productId,
+            userId,
+            request.getRatingValue(),
+            clean(request.getReviewText()),
+            accountCreatedAt,
+            now);
 
     Rating rating =
         Rating.builder()
@@ -163,6 +238,9 @@ public class RatingService {
             .createdAt(now)
             .updatedAt(now)
             .build();
+    if (suspicious != null) {
+      rating.flag(suspicious);
+    }
 
     Rating saved;
     try {
@@ -304,6 +382,8 @@ public class RatingService {
         rating.getVersion(),
         rating.getCreatedAt(),
         rating.getUpdatedAt(),
-        new ArrayList<>());
+        new ArrayList<>(),
+        rating.isFlagged(),
+        null);
   }
 }

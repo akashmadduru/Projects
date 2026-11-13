@@ -191,6 +191,12 @@ public class OrderStore {
   @Transactional(readOnly = true)
   public Page<AdminOrderSummary> adminList(
       OrderStatus status, String term, UUID userId, Pageable pageable) {
+    return adminList(status, term, userId, null, pageable);
+  }
+
+  @Transactional(readOnly = true)
+  public Page<AdminOrderSummary> adminList(
+      OrderStatus status, String term, UUID userId, Boolean riskHold, Pageable pageable) {
     String q = term == null ? "" : term.trim().toLowerCase().replaceAll("[%_\\\\]", "");
     Specification<Order> spec =
         (root, query, cb) -> {
@@ -200,6 +206,9 @@ public class OrderStore {
           }
           if (userId != null) {
             ps.add(cb.equal(root.get("userId"), userId));
+          }
+          if (riskHold != null) {
+            ps.add(cb.equal(root.get("riskHold"), riskHold));
           }
           if (!q.isEmpty()) {
             ps.add(
@@ -222,7 +231,25 @@ public class OrderStore {
                     o.getTotalAmount(),
                     o.getCurrency(),
                     o.getItems().stream().mapToLong(OrderItem::getQuantity).sum(),
-                    o.getPlacedAt()));
+                    o.getPlacedAt(),
+                    o.isRiskHold(),
+                    o.getRiskScore()));
+  }
+
+  /** Admin release of a risk hold (idempotent). */
+  @Transactional
+  public OrderResponse releaseHold(UUID id) {
+    Order o = findAny(id);
+    o.releaseHold(Instant.now());
+    return mapper.toResponse(o);
+  }
+
+  /** Exchange verification outcome: record the shortfall the customer still owes. */
+  @Transactional
+  public OrderResponse recordExchangeShortfall(UUID id, BigDecimal amount) {
+    Order o = findAny(id);
+    o.recordExchangeShortfall(amount);
+    return mapper.toResponse(o);
   }
 
   /** Dashboard aggregates: three grouped queries, no row materialisation. */
@@ -457,6 +484,12 @@ public class OrderStore {
             props.getReturns().getWindowDays(),
             Instant.now());
     orders.flush();
+    long recent = returns.countByUserIdAndCreatedAtAfter(userId, Instant.now().minus(60, ChronoUnit.DAYS));
+    long totalOrders = orders.countByUserIdAndStatusNot(userId, OrderStatus.CANCELLED);
+    long returnedOrders = returns.countDistinctOrders(userId);
+    if (recent > 3 || (totalOrders >= 4 && returnedOrders * 2 > totalOrders)) {
+      r.flagAbuse();
+    }
     return new ReturnOutcome(mapper.toResponse(r), mapper.toResponse(o));
   }
 

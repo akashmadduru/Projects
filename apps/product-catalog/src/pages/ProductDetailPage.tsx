@@ -12,6 +12,7 @@ import { BoughtTogether } from '../components/BoughtTogether'
 import { CompareButton } from '../components/CompareButton'
 import { Countdown } from '../components/Countdown'
 import { CheckBadgeIcon, ChevronRightIcon, MinusIcon, PlusIcon } from '../components/Icons'
+import { ExchangeOffer } from '../components/ExchangeOffer'
 import { OffersCard } from '../components/OffersCard'
 import { OtherSellers } from '../components/OtherSellers'
 import { PincodeCheck } from '../components/PincodeCheck'
@@ -31,6 +32,7 @@ import { useHead } from '../hooks/useHead'
 import { effectiveDiscount, formatCount, formatMoney } from '../lib/format'
 import { effectivePrice } from '../lib/price'
 import { productPath } from '../lib/productPath'
+import { useConsent } from '../lib/consent'
 import { pushRecentlyViewed } from '../lib/recentlyViewed'
 import { discoveryApi } from '../services/discoveryApi'
 import { useAuthStore } from '../stores'
@@ -85,6 +87,7 @@ export function ProductDetailPage() {
   const { id, slug } = useParams<{ id: string; slug: string }>()
   const navigate = useNavigate()
   const authenticated = useAuthStore((s) => s.status === 'authenticated')
+  const consented = useConsent((s) => s.analytics)
   const state = useProduct(id, slug)
   const { categories } = useCategories()
   const [imageIndex, setImageIndex] = useState(0)
@@ -116,7 +119,7 @@ export function ProductDetailPage() {
     pushRecentlyViewed(productId)
     discoveryApi.trackView(productId)
     if (authenticated) discoveryApi.syncRecentlyViewed(productId)
-  }, [productId, authenticated])
+  }, [productId, authenticated, consented])
 
   const variant = hasVariants
     ? variants.find((v) => Object.keys(options).every((k) => v.attributes[k] === selected[k]))
@@ -428,10 +431,12 @@ export function ProductDetailPage() {
             buyBoxId={product.buyBox?.offerId}
             quantity={quantity}
             unavailable={variantMissing}
+            variant={variant ? { id: variant.id, label: variantLabel, image: variant.imageUrl } : undefined}
           />
 
           <OffersCard productId={product.id} price={unitPrice} currency={product.priceCurrency} />
           <PincodeCheck price={unitPrice} currency={product.priceCurrency} />
+          <ExchangeOffer productId={product.id} />
         </div>
       </div>
 

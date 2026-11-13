@@ -5,6 +5,13 @@
 import { apiFetch } from '../lib/http'
 import type { CartLineRequest, CartResponse, WishlistItemResponse, WishlistLine } from '../types'
 
+function lineParams(variantId?: string, offerId?: string): Record<string, string> | undefined {
+  const p: Record<string, string> = {}
+  if (variantId) p['variantId'] = variantId
+  if (offerId) p['offerId'] = offerId
+  return Object.keys(p).length ? p : undefined
+}
+
 export class CartApiClient {
   getCart(): Promise<CartResponse> {
     return apiFetch<CartResponse>('/api/cart')
@@ -14,18 +21,18 @@ export class CartApiClient {
     return apiFetch<CartResponse>('/api/cart/items', { method: 'POST', body: line })
   }
 
-  setQuantity(productId: string, quantity: number, variantId?: string): Promise<CartResponse> {
+  setQuantity(productId: string, quantity: number, variantId?: string, offerId?: string): Promise<CartResponse> {
     return apiFetch<CartResponse>(`/api/cart/items/${productId}`, {
       method: 'PUT',
       body: { quantity },
-      params: variantId ? { variantId } : undefined,
+      params: lineParams(variantId, offerId),
     })
   }
 
-  removeItem(productId: string, variantId?: string): Promise<void> {
+  removeItem(productId: string, variantId?: string, offerId?: string): Promise<void> {
     return apiFetch<void>(`/api/cart/items/${productId}`, {
       method: 'DELETE',
-      params: variantId ? { variantId } : undefined,
+      params: lineParams(variantId, offerId),
     })
   }
 

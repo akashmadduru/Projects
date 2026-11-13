@@ -15,7 +15,9 @@ dependencies {
     implementation libs.bundles.resource.server
     implementation libs.spring.cloud.starter.openfeign
     implementation libs.stripe.java
+    implementation libs.spring.kafka
     implementation libs.micrometer.registry.prometheus
+    implementation libs.bundles.tracing
 
     compileOnly libs.lombok
     annotationProcessor libs.lombok

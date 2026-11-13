@@ -132,7 +132,23 @@ public class WarehouseService {
     if (platform) {
       legacy.shiftLegacyTotals(productId, variantId, quantity - previous);
     }
-    return stock.find(productId, variantId, sellerId, w.id()).orElseThrow();
+    Row row = stock.find(productId, variantId, sellerId, w.id()).orElseThrow();
+    afterCommit(() -> sellers.syncPricesAsync(productId));
+    return row;
+  }
+
+  private static void afterCommit(Runnable r) {
+    if (org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()) {
+      org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+          new org.springframework.transaction.support.TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+              r.run();
+            }
+          });
+    } else {
+      r.run();
+    }
   }
 
   private Warehouse resolveWarehouse(UUID sellerId, String code, boolean anyWarehouse) {

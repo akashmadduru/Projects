@@ -81,6 +81,23 @@ export interface Offer {
   readonly availableQuantity?: number | null;
 }
 
+/** Wire shape of /api/seller/offers items. */
+export interface OfferView {
+  readonly offer: {
+    readonly offerId: string;
+    readonly variantId?: string | null;
+    readonly price: number;
+    readonly salePrice?: number | null;
+    readonly currency: string;
+    readonly dispatchDays?: number;
+    readonly active: boolean;
+    readonly availableQuantity?: number | null;
+  };
+  readonly productId: string;
+  readonly productName?: string | null;
+  readonly productSku?: string | null;
+}
+
 export interface OfferRequest {
   readonly productId?: string;
   readonly variantId?: string;
@@ -134,7 +151,9 @@ export interface SellerShipment {
   readonly amount?: number;
   readonly currency?: string;
   readonly createdAt?: string;
-  readonly shipTo?: string | null;
+  readonly placedAt?: string;
+  readonly warehouseCode?: string | null;
+  readonly shipTo?: { readonly fullName?: string; readonly city?: string; readonly postalCode?: string } | null;
   readonly items?: readonly { productName?: string; name?: string; quantity: number }[];
 }
 
@@ -161,9 +180,8 @@ export interface Payout {
 }
 
 export interface PayoutRunResult {
-  readonly payouts?: number;
   readonly count?: number;
-  readonly total?: number;
+  readonly payouts?: readonly Payout[];
 }
 
 export interface SellerAnalytics {

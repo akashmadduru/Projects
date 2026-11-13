@@ -16,7 +16,7 @@ export function ErrorAlert({ error, message, onDismiss }: Props) {
   const correlationId = error?.correlationId
 
   return (
-    <div className="rounded-lg p-4 mb-6 border border-outline/50 bg-surface-variant animate-slide-up">
+    <div role="alert" className="rounded-lg p-4 mb-6 border border-outline/50 bg-surface-variant animate-slide-up">
       <div className="flex items-start justify-between gap-4">
         <div className="flex gap-3 flex-1">
           <div className="flex-shrink-0 mt-0.5">

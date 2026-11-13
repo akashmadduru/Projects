@@ -24,6 +24,30 @@ public interface OrderRepository
 
   long countByUserIdAndStatusNot(UUID userId, OrderStatus status);
 
+  long countByUserIdAndPlacedAtAfter(UUID userId, Instant after);
+
+  /** One row of [count, average total] over the user's non-cancelled orders in a currency. */
+  @Query(
+      "select count(o), coalesce(avg(o.totalAmount), 0) from Order o where o.userId = :userId"
+          + " and o.currency = :currency and o.status <> :excluded")
+  List<Object[]> orderStats(
+      @Param("userId") UUID userId,
+      @Param("currency") String currency,
+      @Param("excluded") OrderStatus excluded);
+
+  @Query("select min(o.placedAt) from Order o where o.userId = :userId")
+  Instant firstOrderAt(@Param("userId") UUID userId);
+
+  /** COD orders cancelled after they had shipped (customer refusal / RTO) since the cutoff. */
+  @Query(
+      value =
+          "select count(*) from orders.orders o where o.user_id = :userId and o.payment_method = 'COD'"
+              + " and o.status = 'CANCELLED' and o.placed_at > :since and exists (select 1 from"
+              + " orders.order_status_history h where h.order_id = o.id and h.status in"
+              + " ('SHIPPED','OUT_FOR_DELIVERY'))",
+      nativeQuery = true)
+  long codRefusals(@Param("userId") UUID userId, @Param("since") Instant since);
+
   List<Order> findByStatusAndPlacedAtBefore(OrderStatus status, Instant cutoff);
 
   /** The user's most recent order, not in the excluded statuses, that contains the product. */

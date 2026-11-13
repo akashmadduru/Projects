@@ -23,6 +23,7 @@ import {
   UserIcon,
 } from '../../components/Icons'
 import { displayNameOf } from '../../lib/account'
+import { useT } from '../../lib/i18n'
 import { useAuthStore, useWishlistStore } from '../../stores'
 
 const navLink = ({ isActive }: { isActive: boolean }) =>
@@ -52,6 +53,7 @@ function formatMonthYear(iso: string): string {
 export function AccountLayout() {
   const user = useAuthStore((s) => s.user)
   const wishlistCount = useWishlistStore((s) => s.items.length)
+  const t = useT()
   if (!user) return null
 
   const name = displayNameOf(user)
@@ -110,23 +112,23 @@ export function AccountLayout() {
         >
           <NavLink to="/account" end className={navLink}>
             <DashboardIcon className="h-5 w-5" />
-            Dashboard
+            {t('Dashboard')}
           </NavLink>
           <NavLink to="/account/profile" className={navLink}>
             <UserIcon className="h-5 w-5" />
-            Personal info
+            {t('Personal info')}
           </NavLink>
           <NavLink to="/account/orders" className={navLink}>
             <PackageIcon className="h-5 w-5" />
-            Orders
+            {t('Orders')}
           </NavLink>
           <NavLink to="/account/addresses" className={navLink}>
             <MapPinIcon className="h-5 w-5" />
-            Addresses
+            {t('Addresses')}
           </NavLink>
           <NavLink to="/account/recent" className={navLink}>
             <ClockIcon className="h-5 w-5" />
-            Recently viewed
+            {t('Recently viewed')}
           </NavLink>
           <NavLink to="/wishlist" className={navLink}>
             <HeartIcon className="h-5 w-5" />
@@ -139,47 +141,59 @@ export function AccountLayout() {
           </NavLink>
           <NavLink to="/account/alerts" className={navLink}>
             <MailIcon className="h-5 w-5" />
-            Alerts
+            {t('Alerts')}
           </NavLink>
           <NavLink to="/account/buy-again" className={navLink}>
             <PackageIcon className="h-5 w-5" />
-            Buy again
+            {t('Buy again')}
           </NavLink>
           <NavLink to="/account/subscriptions" className={navLink}>
             <ClockIcon className="h-5 w-5" />
-            Subscriptions
+            {t('Subscriptions')}
           </NavLink>
           <NavLink to="/account/lists" className={navLink}>
             <HeartIcon className="h-5 w-5" />
-            Lists
+            {t('Lists')}
           </NavLink>
           <NavLink to="/account/wallet" className={navLink}>
             <WalletIcon className="h-5 w-5" />
-            Wallet
+            {t('Wallet')}
           </NavLink>
           <NavLink to="/account/gift-cards" className={navLink}>
             <GiftIcon className="h-5 w-5" />
-            Gift cards
+            {t('Gift cards')}
           </NavLink>
           <NavLink to="/account/coins" className={navLink}>
             <TagIcon className="h-5 w-5" />
-            Coins
+            {t('Coins')}
           </NavLink>
           <NavLink to="/account/membership" className={navLink}>
             <SparkleIcon className="h-5 w-5" />
-            Plus membership
+            {t('Plus membership')}
           </NavLink>
           <NavLink to="/account/referrals" className={navLink}>
             <UserIcon className="h-5 w-5" />
-            Refer a friend
+            {t('Refer a friend')}
           </NavLink>
           <NavLink to="/account/notifications" className={navLink}>
             <BellIcon className="h-5 w-5" />
-            Notifications
+            {t('Notifications')}
+          </NavLink>
+          <NavLink to="/account/support" className={navLink}>
+            <MailIcon className="h-5 w-5" />
+            {t('Support tickets')}
+          </NavLink>
+          <NavLink to="/account/security" className={navLink}>
+            <CheckBadgeIcon className="h-5 w-5" />
+            {t('Security')}
+          </NavLink>
+          <NavLink to="/account/privacy" className={navLink}>
+            <UserIcon className="h-5 w-5" />
+            {t('Privacy')}
           </NavLink>
           <NavLink to="/account/settings" className={navLink}>
             <SettingsIcon className="h-5 w-5" />
-            Settings
+            {t('Settings')}
           </NavLink>
         </nav>
 

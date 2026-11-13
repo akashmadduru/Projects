@@ -63,6 +63,7 @@ const NON_RETRYABLE_PATHS: readonly string[] = [
   '/api/auth/register',
   '/api/auth/refresh',
   '/api/auth/logout',
+  '/api/auth/2fa/verify',
 ];
 
 export const apiBaseUrl: string = (

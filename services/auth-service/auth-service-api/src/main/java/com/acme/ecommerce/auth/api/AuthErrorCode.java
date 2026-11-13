@@ -98,7 +98,19 @@ public enum AuthErrorCode {
   AUTH_PHONE_INVALID(400, "Phone number invalid"),
 
   /** The phone number is already verified on another account. */
-  AUTH_PHONE_TAKEN(409, "Phone number already in use");
+  AUTH_PHONE_TAKEN(409, "Phone number already in use"),
+
+  /** Phase 10: second-factor code or recovery code rejected. */
+  AUTH_MFA_INVALID(401, "Verification code invalid"),
+
+  /** Phase 10: the mfaToken is unknown, expired or already used. */
+  AUTH_MFA_TOKEN_INVALID(401, "MFA token invalid"),
+
+  /** Phase 10: five wrong codes on one mfaToken. */
+  AUTH_MFA_LOCKED(429, "Too many verification attempts"),
+
+  /** Phase 10: 2FA enrolment in the wrong state (already enabled / not set up / not enabled). */
+  AUTH_2FA_STATE(409, "Two-factor authentication state conflict");
 
   private static final String TYPE_PREFIX = "https://errors.acme-ecommerce.internal/";
 

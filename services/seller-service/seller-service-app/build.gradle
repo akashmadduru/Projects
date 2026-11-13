@@ -16,6 +16,7 @@ dependencies {
     implementation libs.spring.boot.kafka
     implementation libs.bundles.resource.server
     implementation libs.micrometer.registry.prometheus
+    implementation libs.bundles.tracing
 
     compileOnly libs.lombok
     annotationProcessor libs.lombok

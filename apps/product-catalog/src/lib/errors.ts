@@ -42,6 +42,8 @@ const FRIENDLY: Record<string, string> = {
   ORDER_NOT_CANCELLABLE: 'This order can no longer be cancelled because it is already on its way.',
   PAYMENT_FAILED: 'Your payment did not go through. Please try again or use another payment method.',
   PAYMENT_NOT_FOUND: 'We could not find a payment for this order.',
+  RATE_LIMITED: 'Too many requests. Please slow down and try again shortly.',
+  ACCOUNT_DELETION_BLOCKED: 'Your account cannot be deleted while you have open orders or pending refunds.',
   PAYMENT_METHOD_UNAVAILABLE: 'That payment method is not available for this order. Please choose another.',
   COUPON_INVALID: 'That coupon code is not valid.',
   COUPON_EXPIRED: 'That coupon has expired.',

@@ -113,6 +113,12 @@ public enum ErrorCode {
   /** Pincode is malformed or not serviceable. */
   INVALID_PINCODE("INVALID_PINCODE", 400, "Invalid pincode"),
 
+  /** Account deletion refused because of open orders, returns or in-flight payments. */
+  ACCOUNT_DELETION_BLOCKED("ACCOUNT_DELETION_BLOCKED", 409, "Account deletion blocked"),
+
+  /** Gateway request rate limit exceeded (per user, else per IP). */
+  RATE_LIMITED("RATE_LIMITED", 429, "Too many requests"),
+
   /** Missing or wrong internal service token on an /internal/** endpoint. */
   INTERNAL_AUTH_FAILED("INTERNAL_AUTH_FAILED", 401, "Internal authentication failed"),
 

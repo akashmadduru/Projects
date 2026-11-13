@@ -28,6 +28,16 @@ public enum EmailTemplate {
   REFERRAL_REWARD,
   /** data: name, storeName, link. */
   SELLER_APPROVED,
+  /** data: name, device, ip (masked), time, link. */
+  LOGIN_ALERT,
   /** data: name, storeName, reason, link. */
-  SELLER_REJECTED
+  SELLER_REJECTED,
+  /** data: name, ticketRef, subject, message, link. */
+  SUPPORT_TICKET_REPLY,
+  /** data: name, ticketRef, subject, status, link. */
+  SUPPORT_STATUS,
+  /** data: name, link, expiresAt. */
+  PRIVACY_EXPORT_READY,
+  /** data: name, scheduledFor, link. */
+  PRIVACY_DELETE_SCHEDULED
 }

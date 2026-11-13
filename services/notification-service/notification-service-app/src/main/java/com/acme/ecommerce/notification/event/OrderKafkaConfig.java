@@ -43,12 +43,13 @@ public class OrderKafkaConfig {
 
   @Bean
   public ConcurrentKafkaListenerContainerFactory<String, OrderEvent> orderKafkaListenerFactory(
-      ConsumerFactory<String, OrderEvent> orderConsumerFactory) {
+      ConsumerFactory<String, OrderEvent> orderConsumerFactory,
+      @Value("${spring.kafka.bootstrap-servers:localhost:9092}") String bootstrapServers) {
     ConcurrentKafkaListenerContainerFactory<String, OrderEvent> factory =
         new ConcurrentKafkaListenerContainerFactory<>();
     factory.setConsumerFactory(orderConsumerFactory);
-    // Logs and skips after two quick retries; deserialization failures are never retried.
-    factory.setCommonErrorHandler(new DefaultErrorHandler(new FixedBackOff(500L, 2L)));
+    // 3 retries with exponential backoff, then <topic>.DLT.
+    factory.setCommonErrorHandler(com.acme.ecommerce.common.web.kafka.DlqErrorHandlers.create(bootstrapServers));
     return factory;
   }
 }

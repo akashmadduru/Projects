@@ -56,7 +56,7 @@ public class OrderEventConsumer {
             });
     ConcurrentKafkaListenerContainerFactory<String, OrderEvt> f = new ConcurrentKafkaListenerContainerFactory<>();
     f.setConsumerFactory(cf);
-    f.setCommonErrorHandler(new DefaultErrorHandler(new FixedBackOff(500L, 2L)));
+    f.setCommonErrorHandler(com.acme.ecommerce.common.web.kafka.DlqErrorHandlers.create(servers));
     return f;
   }
 

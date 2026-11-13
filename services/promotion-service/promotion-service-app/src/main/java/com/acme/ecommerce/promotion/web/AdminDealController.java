@@ -25,7 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
 /** Admin CRUD for deals of the day. */
 @RestController
 @RequestMapping("/api/admin/deals")
-@PreAuthorize("hasRole('ADMIN')")
+@PreAuthorize("hasAnyRole('ADMIN','CATALOG_MANAGER')")
 public class AdminDealController {
 
   public record DealRequest(

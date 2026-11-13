@@ -31,6 +31,8 @@ export interface AdminOrderSummary {
   readonly currency: string;
   readonly itemCount: number;
   readonly placedAt: string;
+  readonly riskHold?: boolean;
+  readonly riskScore?: number | null;
 }
 
 export interface OrderLine {
@@ -80,6 +82,11 @@ export interface AdminOrderDetail {
   readonly items?: readonly OrderLine[];
   readonly shipTo?: OrderAddress | null;
   readonly timeline?: readonly TimelineEntry[];
+  readonly riskScore?: number | null;
+  readonly riskReasons?: readonly string[] | null;
+  readonly riskHold?: boolean;
+  readonly exchangeQuoteId?: string | null;
+  readonly exchangeShortfall?: number | null;
 }
 
 export interface OrderStatusRequest {
@@ -168,8 +175,15 @@ export interface AdminOrderStats {
 export type UserStatus = 'ACTIVE' | 'DISABLED' | 'LOCKED';
 export const USER_STATUSES: readonly UserStatus[] = ['ACTIVE', 'DISABLED', 'LOCKED'];
 
-export type AssignableRole = 'ADMIN' | 'CATALOG_MANAGER' | 'VIEWER';
-export const ASSIGNABLE_ROLES: readonly AssignableRole[] = ['ADMIN', 'CATALOG_MANAGER', 'VIEWER'];
+export type AssignableRole = 'ADMIN' | 'CATALOG_MANAGER' | 'SUPPORT' | 'FINANCE' | 'SELLER' | 'VIEWER';
+export const ASSIGNABLE_ROLES: readonly AssignableRole[] = [
+  'ADMIN',
+  'CATALOG_MANAGER',
+  'SUPPORT',
+  'FINANCE',
+  'SELLER',
+  'VIEWER',
+];
 
 /** `GET /api/admin/users[/{id}]` (auth-service). Roles are unprefixed. */
 export interface AdminUser {
@@ -203,6 +217,8 @@ export interface AdminRating {
   readonly unhelpfulCount: number;
   readonly createdAt: string;
   readonly updatedAt: string;
+  readonly flagged?: boolean;
+  readonly flagReasons?: readonly string[] | null;
 }
 
 export const PAYMENT_STATUSES: readonly string[] = [

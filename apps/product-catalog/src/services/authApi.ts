@@ -3,11 +3,11 @@
  */
 
 import { apiFetch } from '../lib/http'
-import type { AuthUser, LoginRequest, RegisterRequest, TokenResponse } from '../types'
+import type { AuthSession, AuthUser, LoginRequest, LoginResult, RegisterRequest, TokenResponse, TwoFactorSetup } from '../types'
 
 export class AuthApiClient {
-  login(request: LoginRequest): Promise<TokenResponse> {
-    return apiFetch<TokenResponse>('/api/auth/login', { method: 'POST', body: request })
+  login(request: LoginRequest): Promise<LoginResult> {
+    return apiFetch<LoginResult>('/api/auth/login', { method: 'POST', body: request })
   }
 
   register(request: RegisterRequest): Promise<AuthUser> {
@@ -38,8 +38,8 @@ export class AuthApiClient {
     return apiFetch<void>('/api/auth/otp/request', { method: 'POST', body: { phone } })
   }
 
-  verifyOtp(phone: string, code: string): Promise<TokenResponse> {
-    return apiFetch<TokenResponse>('/api/auth/otp/verify', { method: 'POST', body: { phone, code } })
+  verifyOtp(phone: string, code: string): Promise<LoginResult> {
+    return apiFetch<LoginResult>('/api/auth/otp/verify', { method: 'POST', body: { phone, code } })
   }
 
   addPhone(phone: string): Promise<void> {
@@ -48,6 +48,34 @@ export class AuthApiClient {
 
   verifyPhone(code: string): Promise<void> {
     return apiFetch<void>('/api/auth/me/phone/verify', { method: 'POST', body: { code } })
+  }
+
+  verifyMfa(mfaToken: string, input: { code: string } | { recoveryCode: string }): Promise<TokenResponse> {
+    return apiFetch<TokenResponse>('/api/auth/2fa/verify', { method: 'POST', body: { mfaToken, ...input } })
+  }
+
+  twoFactorSetup(): Promise<TwoFactorSetup> {
+    return apiFetch<TwoFactorSetup>('/api/auth/2fa/setup', { method: 'POST' })
+  }
+
+  twoFactorEnable(code: string): Promise<{ recoveryCodes: string[] }> {
+    return apiFetch<{ recoveryCodes: string[] }>('/api/auth/2fa/enable', { method: 'POST', body: { code } })
+  }
+
+  twoFactorDisable(input: { code?: string; recoveryCode?: string; password: string }): Promise<void> {
+    return apiFetch<void>('/api/auth/2fa/disable', { method: 'POST', body: input })
+  }
+
+  sessions(): Promise<AuthSession[]> {
+    return apiFetch<AuthSession[]>('/api/auth/sessions')
+  }
+
+  revokeSession(familyId: string): Promise<void> {
+    return apiFetch<void>(`/api/auth/sessions/${familyId}`, { method: 'DELETE' })
+  }
+
+  revokeOtherSessions(): Promise<void> {
+    return apiFetch<void>('/api/auth/sessions/revoke-others', { method: 'POST' })
   }
 
   me(): Promise<AuthUser> {

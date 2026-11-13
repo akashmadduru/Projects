@@ -53,14 +53,14 @@ public class WarehouseController {
   }
 
   @GetMapping("/api/admin/warehouses")
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasAnyRole('ADMIN','CATALOG_MANAGER')")
   public List<Warehouse> adminList() {
     return service.list(null);
   }
 
   @PostMapping("/api/admin/warehouses")
   @ResponseStatus(HttpStatus.CREATED)
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasAnyRole('ADMIN','CATALOG_MANAGER')")
   public Warehouse adminCreate(@RequestBody WarehouseRequest r) {
     return service.create(
         r.sellerId() == null ? Platform.SELLER_ID : r.sellerId(),
@@ -71,7 +71,7 @@ public class WarehouseController {
   }
 
   @PutMapping("/api/admin/warehouses/{id}")
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasAnyRole('ADMIN','CATALOG_MANAGER')")
   public Warehouse adminUpdate(@PathVariable UUID id, @RequestBody WarehouseUpdate r) {
     return service.update(id, r.name(), r.pincode(), r.state(), r.active());
   }

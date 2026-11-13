@@ -1,6 +1,6 @@
 # Tech Debt Register
 
-Shortcuts taken while building customer accounts (login, Google SSO, user/cart/order services) and Phase 6 "Sell for real" (payments, promotions, notifications, order lifecycle, returns, OTP) under the instruction "no test cases for now, focus on e2e features". Related docs: [Phase5-Feature](../docs/Phase5-Feature.md), [Phase5-DecisionLog](../docs/Phase5-DecisionLog.md), [Product-Roadmap](../docs/Product-Roadmap.md). Phase 6 items live in [phase6.md](phase6.md). Phase 7 admin-console items live in [admin.md](admin.md). Phase 7 "Discovery and conversion" (search, variants, facets, offers, deals, recommendations, Q&A, review media, alerts, compare, SEO) items live in [phase7.md](phase7.md). Phase 8 "Retention and loyalty" (wallet, gift cards, coins, membership, subscriptions, referrals, notification centre, web push, campaigns, lists, abandoned-cart reminders, personalised home) items live in [phase8.md](phase8.md).
+Shortcuts taken while building customer accounts (login, Google SSO, user/cart/order services) and Phase 6 "Sell for real" (payments, promotions, notifications, order lifecycle, returns, OTP) under the instruction "no test cases for now, focus on e2e features". Related docs: [Phase5-Feature](../docs/Phase5-Feature.md), [Phase5-DecisionLog](../docs/Phase5-DecisionLog.md), [Product-Roadmap](../docs/Product-Roadmap.md). Phase 6 items live in [phase6.md](phase6.md). Phase 7 admin-console items live in [admin.md](admin.md). Phase 7 "Discovery and conversion" (search, variants, facets, offers, deals, recommendations, Q&A, review media, alerts, compare, SEO) items live in [phase7.md](phase7.md). Phase 8 "Retention and loyalty" (wallet, gift cards, coins, membership, subscriptions, referrals, notification centre, web push, campaigns, lists, abandoned-cart reminders, personalised home) items live in [phase8.md](phase8.md). Phase 9 "Marketplace and sellers" (seller-service, onboarding/KYC, seller portal, offers and buy box, warehouses, split shipments, ledger and payouts, ads, analytics) items live in [phase9.md](phase9.md).
 
 ## How to use this folder
 
@@ -144,6 +144,25 @@ Shortcuts taken while building customer accounts (login, Google SSO, user/cart/o
 | TD-P8-18 | Storefront Phase 8 UX shortcuts (estimates, polling, fan-out) | phase8 | Low | M | [phase8.md](phase8.md#td-p8-18) |
 | TD-P8-19 | Phase 8 test data and Mailpit messages left in dev | phase8 | Low | S | [phase8.md](phase8.md#td-p8-19) |
 | TD-P8-20 | notification_db setup script, throwaway password, offline builds | phase8 | Low | S | [phase8.md](phase8.md#td-p8-20) |
+| TD-P9-01 | No tests for Phase 9; admin/storefront specs likely stale | phase9 | High | L | [phase9.md](phase9.md#td-p9-01) |
+| TD-P9-02 | Two sources of truth for platform stock (warehouse_stock vs legacy) | phase9 | High | M | [phase9.md](phase9.md#td-p9-02) |
+| TD-P9-03 | Seller products go live without moderation | phase9 | High | M | [phase9.md](phase9.md#td-p9-03) |
+| TD-P9-07 | Seller ledger: consumer starts at latest, no DLQ, delivery fee not reversed | phase9 | High | M | [phase9.md](phase9.md#td-p9-07) |
+| TD-P9-09 | KYC format-only; static bank-data key; suspend keeps role | phase9 | High | M | [phase9.md](phase9.md#td-p9-09) |
+| TD-P9-04 | Offer + stock writes non-atomic; bulk CSV per row | phase9 | Med | M | [phase9.md](phase9.md#td-p9-04) |
+| TD-P9-05 | Seller stock publishes no events; offer-without-stock fallback; sellers cannot stock platform warehouses | phase9 | Med | M | [phase9.md](phase9.md#td-p9-05) |
+| TD-P9-06 | List price not re-synced when an offer sells out via orders | phase9 | Med | S | [phase9.md](phase9.md#td-p9-06) |
+| TD-P9-08 | Payout run manual and simulated | phase9 | Med | M | [phase9.md](phase9.md#td-p9-08) |
+| TD-P9-10 | Ads: unauthenticated clicks, FE-driven beacons, substring keywords | phase9 | Med | M | [phase9.md](phase9.md#td-p9-10) |
+| TD-P9-11 | Seller lookups uncached; fixed fallback ratings | phase9 | Med | S | [phase9.md](phase9.md#td-p9-11) |
+| TD-P9-12 | Shipment lifecycle: no per-shipment cancel/refund, no SLA | phase9 | Med | M | [phase9.md](phase9.md#td-p9-12) |
+| TD-P9-13 | Returns, invoices, delivery estimates per shipment shortcuts | phase9 | Med | M | [phase9.md](phase9.md#td-p9-13) |
+| TD-P9-15 | Wishlist/saved not offer-keyed; omitted offerId ambiguous | phase9 | Med | M | [phase9.md](phase9.md#td-p9-15) |
+| TD-P9-14 | Seller analytics approximate | phase9 | Low | S | [phase9.md](phase9.md#td-p9-14) |
+| TD-P9-16 | Gateway explicit seller paths; seller DB setup and secrets | phase9 | Low | S | [phase9.md](phase9.md#td-p9-16) |
+| TD-P9-17 | Storefront Phase 9 UX shortcuts | phase9 | Low | M | [phase9.md](phase9.md#td-p9-17) |
+| TD-P9-18 | Seller portal assumed API shapes, raw-UUID forms | phase9 | Low | M | [phase9.md](phase9.md#td-p9-18) |
+| TD-P9-19 | Phase 9 test data left in dev (Laptop PDP 404) | phase9 | Low | S | [phase9.md](phase9.md#td-p9-19) |
 
 ## Resolved by Phase 6 (checked against the code)
 
@@ -174,6 +193,18 @@ These were found during Phase 8 integration and fixed. Residuals are tracked in 
 - Invoice PDF omitted coins and wallet. It now shows "Coins redeemed" and "Paid from wallet / Paid by <method>" lines. Residual: the order list DTO still lacks them (TD-P8-10).
 - Admin CampaignsView had no `SENDING` state, so a running send looked stuck. It now shows a badge and auto-refreshes every 3 s. Residual: TD-P8-03.
 
+## Resolved by Phase 9 (checked against the code)
+
+These were found during Phase 9 integration and fixed. Residuals are tracked in [phase9.md](phase9.md).
+
+- Refunds were reversed against the seller ledger as a whole shipment only. A `RETURN_REFUNDED` event with `returnShipmentId`, `returnId` and `refundAmount` now books `REFUND_REVERSAL` and `COMMISSION_REVERSAL` once per return (V2 `ledger_entries.return_id`), so partial refunds work. Residual: delivery fee not reversed, consumer starts at latest (TD-P9-07).
+- Cart lines were keyed by product + variant, so two sellers of one product merged into one line. Lines are now keyed (product, variant, offer). Residual: wishlist/saved and omitted `offerId` (TD-P9-15).
+- The PDP buy box and "Other sellers" panel ignored the selected variant. They now follow the variant (`variantBuyBoxes`). Residual: TD-P9-17.
+- Storefront brand text read "Sell on Acme"; now "Sell on Cartwise".
+- List-row price did not follow the buy box after seller stock writes. inventory `writeStock` now calls product-service `/internal/products/{id}/sync-prices` (async, fail-open). Residual: sell-out through orders (TD-P9-06).
+- Return restock did not say which seller's offer was returned. It now passes `offerId` to inventory release. Residual: TD-P9-13.
+- Seller portal response shapes were guessed wrong: `/api/seller/offers` is nested (flattened in `sellerApi`), payout run returns `{count,payouts[]}`, shipment `shipTo` is an object with `placedAt`/`warehouseCode`, and validation problems carry `errors[{field,message}]` (now shown). Residual: TD-P9-18.
+
 ## Dropped after verification
 
 - Phase 6 "admin nav hides items client-side only": by design; backend `hasRole('ADMIN')` enforces. Folded into TD-P6-21 as a note.
@@ -190,3 +221,4 @@ These were found during Phase 8 integration and fixed. Residuals are tracked in 
 - "Update platform error catalogue": done in [Backend-API.md](../docs/Backend-API.md).
 - Phase 7: the first-build notes for variant stock via JWT forwarding, non-variant returns, non-variant wishlist, alert payload, and "Deals RBAC unverified" were superseded by the integration fixes above and not filed as items. Gateway body-size and Maven Central notes were merged into TD-P7-14 and TD-P6-06. Test-data notes from the commerce and integration agents were merged into TD-P7-20. Roadmap item 5 (PDP pincode check) was already built in Phase 6 and has no Phase 7 debt.
 - Phase 8: first-build notes superseded by integration fixes (coins currency, wallet/gift-card inbox entries, invoice lines, admin SENDING status) are listed under "Resolved by Phase 8" and not filed as items. The frontend agent's `[p8-fe]` bullets in [frontend.md](frontend.md) were moved into [TD-P8-18](phase8.md#td-p8-18). Duplicates merged: campaign audience (engage + integration) into TD-P8-02, campaign send (engage + admin) into TD-P8-03, no-tests notes into TD-P8-01. The "wallet single currency / coins deviation" notes are kept as separate items (TD-P8-07, TD-P8-09). The `GET /internal/orders/last-order-dates` shape note was folded into TD-P8-02.
+- Phase 9: first-build notes superseded by integration fixes (offers without `variantId`, cart keyed by product + variant, whole-shipment-only ledger reversal, restock without `offerId`, `OrderShipment.items` shape, guessed admin response shapes, "Sell on Acme") are listed under "Resolved by Phase 9" and not filed as items. The `[p9-admin]` and `[p9-fe]` bullets were consolidated into TD-P9-17 and TD-P9-18; no-tests notes into TD-P9-01; seller-cache, platform-rating and views-attribution notes into TD-P9-11; ads notes (seller + frontend) into TD-P9-10.

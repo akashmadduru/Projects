@@ -103,6 +103,7 @@ public class OrderRemote {
     } catch (RuntimeException e) {
       log.error("Could not release deal claims for order {}: {}", orderId, e.toString());
     }
+    releaseExchangeBestEffort(orderId);
   }
 
   public void releaseStock(UUID orderId, UUID returnId, List<ReturnLine> lines) {
@@ -160,6 +161,39 @@ public class OrderRemote {
     } catch (RuntimeException e) {
       log.warn("Deal prices unavailable, using list prices: {}", e.toString());
       return List.of();
+    }
+  }
+
+  public PromotionFeignClient.ExchangeQuoteView exchangeQuote(UUID quoteId, UUID userId) {
+    try {
+      return promotions.exchangeQuote(quoteId, userId);
+    } catch (FeignException e) {
+      throw RemoteCalls.translate("promotion-service", e);
+    }
+  }
+
+  public void applyExchange(UUID quoteId, UUID userId, UUID orderId) {
+    try {
+      promotions.applyExchange(new PromotionFeignClient.ExchangeApplyRequest(quoteId, userId, orderId));
+    } catch (FeignException e) {
+      throw RemoteCalls.translate("promotion-service", e);
+    }
+  }
+
+  public void releaseExchangeBestEffort(UUID orderId) {
+    try {
+      promotions.releaseExchange(orderId);
+    } catch (RuntimeException e) {
+      log.error("Could not release exchange quote for order {}: {}", orderId, e.toString());
+    }
+  }
+
+  /** Strict wallet debit with a caller-chosen idempotency key (exchange shortfall). */
+  public void debitWalletKeyed(UUID userId, BigDecimal amount, String currency, UUID orderId, String key) {
+    try {
+      payments.walletDebit(new PaymentFeignClient.WalletDebit(userId, amount, currency, orderId, key));
+    } catch (FeignException e) {
+      throw RemoteCalls.translate("payment-service", e);
     }
   }
 

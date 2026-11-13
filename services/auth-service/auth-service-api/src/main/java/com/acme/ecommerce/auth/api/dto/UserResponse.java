@@ -26,4 +26,5 @@ public class UserResponse {
   String status;
   List<String> roles;
   Instant createdAt;
+  boolean twoFactorEnabled;
 }

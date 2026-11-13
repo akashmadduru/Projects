@@ -6,6 +6,8 @@ import { Link } from 'react-router-dom'
 import { Starburst } from './Atomic'
 import { LogoMark } from './Logo'
 import { toSearchString } from '../hooks'
+import { useConsent } from '../lib/consent'
+import { useT } from '../lib/i18n'
 
 const shop = [
   { label: 'All products', search: '' },
@@ -15,6 +17,8 @@ const shop = [
 ]
 
 export function Footer() {
+  const t = useT()
+  const reopenConsent = useConsent((s) => s.reopen)
   return (
     <footer className="bg-brand-gradient relative isolate mt-12 overflow-hidden border-t-2 border-ink text-on-brand">
       <div aria-hidden="true" className="retro-stripes h-2 border-b-2 border-ink" />
@@ -37,12 +41,12 @@ export function Footer() {
         </div>
 
         <nav aria-label="Shop">
-          <h3 className="mb-3 text-sm uppercase tracking-[0.18em] text-vivid-amber">Shop</h3>
+          <h3 className="mb-3 text-sm uppercase tracking-[0.18em] text-vivid-amber">{t('Shop')}</h3>
           <ul className="space-y-2 text-sm">
             {shop.map((link) => (
               <li key={link.label}>
                 <Link to={{ pathname: '/', search: link.search }} className="inline-block text-on-brand/85 transition-all duration-500 hover:translate-x-1 hover:text-accent">
-                  {link.label}
+                  {t(link.label)}
                 </Link>
               </li>
             ))}
@@ -50,12 +54,27 @@ export function Footer() {
         </nav>
 
         <nav aria-label="Your account">
-          <h3 className="mb-3 text-sm uppercase tracking-[0.18em] text-vivid-amber">Your Cartwise</h3>
+          <h3 className="mb-3 text-sm uppercase tracking-[0.18em] text-vivid-amber">{t('Your Cartwise')}</h3>
           <ul className="space-y-2 text-sm">
             <li>
               <Link to="/wishlist" className="inline-block text-on-brand/85 transition-all duration-500 hover:translate-x-1 hover:text-accent">
-                Wishlist
+                {t('Wishlist')}
               </Link>
+            </li>
+            <li>
+              <Link to="/help" className="inline-block text-on-brand/85 transition-all duration-500 hover:translate-x-1 hover:text-accent">
+                {t('Help centre')}
+              </Link>
+            </li>
+            <li>
+              <Link to="/account/privacy" className="inline-block text-on-brand/85 transition-all duration-500 hover:translate-x-1 hover:text-accent">
+                {t('Privacy')}
+              </Link>
+            </li>
+            <li>
+              <button type="button" onClick={reopenConsent} className="inline-block text-on-brand/85 transition-all duration-500 hover:translate-x-1 hover:text-accent">
+                {t('Cookie preferences')}
+              </button>
             </li>
             <li>
               <a
@@ -64,7 +83,7 @@ export function Footer() {
                 rel="noopener noreferrer"
                 className="inline-block text-on-brand/85 transition-all duration-500 hover:translate-x-1 hover:text-accent"
               >
-                Sell on Acme
+                {t('Sell on Cartwise')}
                 <span className="sr-only"> (opens in a new tab)</span>
               </a>
             </li>

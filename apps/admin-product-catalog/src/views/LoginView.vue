@@ -54,7 +54,11 @@ async function submit(): Promise<void> {
 
   submitting.value = true;
   try {
-    await auth.login({ email: form.email.trim(), password: form.password });
+    const challenge = await auth.login({ email: form.email.trim(), password: form.password });
+    if (challenge !== null) {
+      mfaToken.value = challenge.mfaToken;
+      return;
+    }
     await router.push(redirectTarget.value);
   } catch (error: unknown) {
     // The backend returns one indistinguishable 401 for "wrong password" and
@@ -67,6 +71,39 @@ async function submit(): Promise<void> {
   } finally {
     submitting.value = false;
   }
+}
+
+// Phase 10: second step when the account has 2FA enabled.
+const mfaToken = ref<string | null>(null);
+const mfaCode = ref('');
+const useRecovery = ref(false);
+
+async function submitMfa(): Promise<void> {
+  const token = mfaToken.value;
+  const code = mfaCode.value.trim();
+  serverError.value = null;
+  if (token === null || code.length === 0 || submitting.value) {
+    return;
+  }
+  submitting.value = true;
+  try {
+    await auth.verifyMfa(token, code, useRecovery.value);
+    await router.push(redirectTarget.value);
+  } catch (error: unknown) {
+    serverError.value =
+      error instanceof ApiError
+        ? error
+        : new ApiError('Verification failed unexpectedly.', { status: 0 });
+  } finally {
+    submitting.value = false;
+  }
+}
+
+function cancelMfa(): void {
+  mfaToken.value = null;
+  mfaCode.value = '';
+  useRecovery.value = false;
+  serverError.value = null;
 }
 
 function signInWithGoogle(): void {
@@ -104,7 +141,36 @@ function signInWithGoogle(): void {
           :correlation-id="serverError.correlationId"
         />
 
-        <form class="mt-2 flex flex-col gap-3" novalidate @submit.prevent="submit">
+        <form
+          v-if="mfaToken !== null"
+          class="mt-2 flex flex-col gap-3"
+          data-test="mfa-form"
+          @submit.prevent="submitMfa"
+        >
+          <p class="text-sm">
+            Two-factor authentication is on. Enter the
+            {{ useRecovery ? 'recovery code' : '6-digit code from your authenticator app' }}.
+          </p>
+          <input
+            id="login-mfa-code"
+            v-model="mfaCode"
+            class="input input-bordered w-full"
+            :inputmode="useRecovery ? 'text' : 'numeric'"
+            autocomplete="one-time-code"
+            :aria-label="useRecovery ? 'Recovery code' : 'Authentication code'"
+            data-test="mfa-code"
+          />
+          <button class="btn btn-primary" type="submit" data-test="mfa-submit" :disabled="submitting">
+            <span v-if="submitting" class="loading loading-spinner loading-sm" aria-hidden="true" />
+            Verify
+          </button>
+          <button class="btn btn-ghost btn-sm" type="button" @click="useRecovery = !useRecovery">
+            {{ useRecovery ? 'Use authenticator code' : 'Use a recovery code' }}
+          </button>
+          <button class="btn btn-ghost btn-sm" type="button" @click="cancelMfa">Back</button>
+        </form>
+
+        <form v-else class="mt-2 flex flex-col gap-3" novalidate @submit.prevent="submit">
           <div class="form-control">
             <label class="label" for="login-email">
               <span class="label-text">Email</span>
@@ -163,9 +229,10 @@ function signInWithGoogle(): void {
           </button>
         </form>
 
-        <div class="divider text-xs">or</div>
+        <div v-if="mfaToken === null" class="divider text-xs">or</div>
 
         <button
+          v-if="mfaToken === null"
           class="btn btn-outline w-full"
           type="button"
           data-test="google"
@@ -174,7 +241,7 @@ function signInWithGoogle(): void {
           Sign in with Google
         </button>
 
-        <p class="mt-4 text-center text-sm">
+        <p v-if="mfaToken === null" class="mt-4 text-center text-sm">
           No account?
           <RouterLink class="link link-primary" :to="{ name: 'register' }">Register</RouterLink>
         </p>

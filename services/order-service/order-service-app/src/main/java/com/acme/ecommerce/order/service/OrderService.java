@@ -17,7 +17,9 @@ import com.acme.ecommerce.order.client.ProductViewFeignClient;
 import com.acme.ecommerce.order.client.ProductViewFeignClient.Offer;
 import com.acme.ecommerce.order.client.ProductViewFeignClient.ProductView;
 import com.acme.ecommerce.order.client.ProductViewFeignClient.Variant;
+import com.acme.ecommerce.order.client.PromotionFeignClient;
 import com.acme.ecommerce.order.client.PromotionFeignClient.DealClaimItem;
+import com.acme.ecommerce.order.error.RiskBlockedException;
 import com.acme.ecommerce.order.client.PromotionFeignClient.DealKey;
 import com.acme.ecommerce.order.client.PromotionFeignClient.DealPrice;
 import com.acme.ecommerce.order.client.PromotionFeignClient.Validation;
@@ -80,6 +82,7 @@ public class OrderService {
   private final OrderRemote remote;
   private final OrderEventPublisher events;
   private final OrderProperties props;
+  private final RiskService risks;
 
   public OrderService(
       OrderStore store,
@@ -89,7 +92,9 @@ public class OrderService {
       PricingService pricing,
       OrderRemote remote,
       OrderEventPublisher events,
-      OrderProperties props) {
+      OrderProperties props,
+      RiskService risks) {
+    this.risks = risks;
     this.store = store;
     this.carts = carts;
     this.users = users;
@@ -153,6 +158,23 @@ public class OrderService {
       discount = v.discountAmount() == null ? BigDecimal.ZERO : v.discountAmount();
     }
 
+    // Exchange offer (Phase 10): the quoted device value is an extra discount on the subtotal.
+    UUID exchangeQuoteId = req.exchangeQuoteId();
+    BigDecimal exchangeValue = BigDecimal.ZERO;
+    if (exchangeQuoteId != null) {
+      PromotionFeignClient.ExchangeQuoteView quote = remote.exchangeQuote(exchangeQuoteId, userId);
+      if (!"QUOTED".equals(quote.status())) {
+        throw new CodedException(
+            ErrorCode.VALIDATION_FAILED, "This exchange quote is no longer available");
+      }
+      if (quote.currency() != null && !quote.currency().equalsIgnoreCase(currency)) {
+        throw new CodedException(
+            ErrorCode.CURRENCY_MISMATCH, "The exchange quote currency does not match the order");
+      }
+      exchangeValue = quote.quotedValue().min(order.getSubtotalAmount().subtract(discount));
+      discount = discount.add(exchangeValue);
+    }
+
     // Coins: at most coinMaxPercent of the subtotal, never more than what is left to pay.
     int coins = req.coinsToRedeem() == null ? 0 : req.coinsToRedeem();
     BigDecimal perCoin = PricingService.isInr(currency) ? BigDecimal.ONE : new BigDecimal("0.01");
@@ -203,12 +225,25 @@ public class OrderService {
       }
     }
     BigDecimal remainder = price.total().subtract(walletAmount);
+    RiskService.Assessment risk =
+        subscriptionId != null
+            ? new RiskService.Assessment(0, List.of())
+            : risks.assess(userId, price.total(), currency);
+    if (method == PaymentMethod.COD && remainder.signum() > 0 && risk.blocksCod()) {
+      throw new RiskBlockedException(
+          "Cash on delivery is not available for this order (" + String.join("; ", risk.reasons()) + ")");
+    }
     if (method == PaymentMethod.COD
         && remainder.signum() > 0
         && !pricing.codAllowed(estimate, remainder, currency)) {
       throw new CodedException(
           ErrorCode.PAYMENT_METHOD_UNAVAILABLE,
           "Cash on delivery is not available for this address or order value");
+    }
+
+    order.applyRisk(risk.score(), risk.reasons(), risk.hold());
+    if (exchangeQuoteId != null) {
+      order.applyExchange(exchangeQuoteId, exchangeValue);
     }
 
     boolean firstOrder = store.isFirstOrder(userId);
@@ -270,6 +305,15 @@ public class OrderService {
         remote.claimDeals(saved.id(), dealClaims);
       } catch (RuntimeException e) {
         abandon(saved.id(), "Deal could not be claimed", false);
+        throw e;
+      }
+    }
+
+    if (exchangeQuoteId != null) {
+      try {
+        remote.applyExchange(exchangeQuoteId, userId, saved.id());
+      } catch (RuntimeException e) {
+        abandon(saved.id(), "Exchange quote could not be applied", false);
         throw e;
       }
     }

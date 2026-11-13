@@ -37,4 +37,10 @@ public class RatingResponse {
 
   /** Review photos, oldest first; empty when none. */
   @Builder.Default private List<RatingMediaResponse> media = new ArrayList<>();
+
+  /** Phase 10: suspected fake review (excluded from averages until approved). */
+  private boolean flagged;
+
+  /** Reason codes; only populated on admin endpoints. */
+  private List<String> flagReasons;
 }

@@ -67,6 +67,42 @@ public interface PromotionFeignClient {
 
   record DealClaimsRequest(UUID orderId, List<DealClaimItem> items) {}
 
+  @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)
+  record ExchangeQuoteView(
+      UUID id, UUID userId, UUID programId, BigDecimal quotedValue, String currency, String status) {}
+
+  record ExchangeApplyRequest(UUID quoteId, UUID userId, UUID orderId) {}
+
+  record ExchangeVerifyRequest(boolean accepted, BigDecimal finalValue) {}
+
+  @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)
+  record ExchangeVerifyResponse(
+      UUID quoteId,
+      UUID orderId,
+      String status,
+      BigDecimal quotedValue,
+      BigDecimal finalValue,
+      BigDecimal shortfall) {}
+
+  @org.springframework.web.bind.annotation.GetMapping("/internal/promotions/exchange/quotes/{id}")
+  ExchangeQuoteView exchangeQuote(
+      @PathVariable("id") UUID id,
+      @org.springframework.web.bind.annotation.RequestParam("userId") UUID userId);
+
+  @org.springframework.web.bind.annotation.GetMapping("/internal/promotions/exchange/quotes")
+  java.util.List<java.util.Map<String, Object>> exchangeQuotes(
+      @org.springframework.web.bind.annotation.RequestParam(value = "status", required = false) String status);
+
+  @PostMapping("/internal/promotions/exchange/apply")
+  void applyExchange(@RequestBody ExchangeApplyRequest request);
+
+  @DeleteMapping("/internal/promotions/exchange/apply/{orderId}")
+  void releaseExchange(@PathVariable("orderId") UUID orderId);
+
+  @PostMapping("/internal/promotions/exchange/{quoteId}/verify")
+  ExchangeVerifyResponse verifyExchange(
+      @PathVariable("quoteId") UUID quoteId, @RequestBody ExchangeVerifyRequest request);
+
   @PostMapping("/internal/promotions/deals/prices")
   DealPricesResponse dealPrices(@RequestBody DealPricesRequest request);
 

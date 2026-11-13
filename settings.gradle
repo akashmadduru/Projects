@@ -79,3 +79,6 @@ include ':services:seller-service:seller-service-app'
 // --- notification service (email / sms, order-event consumer) ----------------
 include ':services:notification-service:notification-service-api'
 include ':services:notification-service:notification-service-app'
+
+// --- support service (help centre, tickets, chatbot, audit log) -----------------
+include ':services:support-service:support-service-app'

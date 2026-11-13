@@ -20,6 +20,10 @@ dependencies {
     // the auto-configuration only registers it when security is actually present.
     compileOnly libs.spring.security.core
     compileOnly libs.spring.security.web
+    // Phase 10 AuditPublisher: plain Kafka producer + tx synchronisation (spring-tx comes with it).
+    compileOnly libs.spring.kafka
+    // DlqErrorHandlers serialises dead-lettered payload objects with spring-kafka JsonSerializer (Jackson 2).
+    compileOnly "com.fasterxml.jackson.core:jackson-databind"
 
     testImplementation libs.spring.web
     testImplementation libs.spring.webmvc

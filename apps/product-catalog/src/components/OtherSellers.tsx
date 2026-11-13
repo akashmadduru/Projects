@@ -15,12 +15,14 @@ interface Props {
   quantity: number
   /** Extra reason to disable every button (e.g. variant not chosen). */
   unavailable?: boolean
+  /** Selected variant (variant products): offers are per variant. */
+  variant?: { id: string; label: string; image?: string | null }
 }
 
 export const offerPrice = (offer: ProductOffer): number =>
   offer.salePrice && offer.salePrice > 0 ? offer.salePrice : offer.price
 
-export function OtherSellers({ product, offers, buyBoxId, quantity, unavailable = false }: Props) {
+export function OtherSellers({ product, offers, buyBoxId, quantity, unavailable = false, variant }: Props) {
   if (offers.length < 2) return null
   const sorted = [...offers].sort((a, b) => offerPrice(a) - offerPrice(b))
   const lowest = offerPrice(sorted[0]!)
@@ -59,6 +61,7 @@ export function OtherSellers({ product, offers, buyBoxId, quantity, unavailable 
                   product={product}
                   price={offerPrice(offer)}
                   offerId={offer.offerId}
+                  variant={variant}
                   quantity={quantity}
                   unavailable={soldOut || unavailable}
                   label="Add"

@@ -53,6 +53,7 @@ dependencies {
     implementation libs.spring.cloud.starter.openfeign
 
     implementation libs.micrometer.registry.prometheus
+    implementation libs.bundles.tracing
 
     // Getter/no-arg-constructor generation for the Inventory domain entity -
     // compileOnly + annotationProcessor only, never on the runtime classpath.

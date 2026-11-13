@@ -3,6 +3,7 @@
  */
 
 import { effectiveDiscount, formatMoney } from '../lib/format'
+import { ApproxPrice } from './ApproxPrice'
 
 interface Props {
   priceAmount: number
@@ -20,6 +21,7 @@ export function PriceBlock({ priceAmount, priceCurrency, listPrice, size = 'sm' 
       <span className={`font-bold text-on-surface ${large ? 'text-3xl' : 'text-lg'}`}>
         {formatMoney(priceAmount, priceCurrency)}
       </span>
+      <ApproxPrice amount={priceAmount} currency={priceCurrency} />
       {discount != null && listPrice != null && (
         <>
           <span className={`text-on-surface-muted line-through ${large ? 'text-base' : 'text-sm'}`}>

@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/api/admin/ratings")
-@PreAuthorize("hasAuthority('ROLE_ADMIN')")
+@PreAuthorize("hasAnyRole('ADMIN','SUPPORT')")
 public class AdminRatingController {
 
   private static final int MAX_PAGE_SIZE = 50;
@@ -34,6 +34,7 @@ public class AdminRatingController {
       @RequestParam(required = false) UUID productId,
       @RequestParam(required = false) Integer rating,
       @RequestParam(required = false) String q,
+      @RequestParam(required = false) Boolean flagged,
       @RequestParam(defaultValue = "0") int page,
       @RequestParam(defaultValue = "20") int size) {
     Integer stars = rating != null && rating >= 1 && rating <= 5 ? rating : null;
@@ -42,6 +43,16 @@ public class AdminRatingController {
             Math.max(page, 0),
             Math.min(Math.max(size, 1), MAX_PAGE_SIZE),
             Sort.by(Sort.Direction.DESC, "createdAt"));
-    return new PagedModel<>(ratings.adminSearch(productId, stars, q, pageable));
+    return new PagedModel<>(ratings.adminSearch(productId, stars, q, flagged, pageable));
+  }
+
+  public record ModerateRequest(@jakarta.validation.constraints.NotNull Boolean approve) {}
+
+  /** approve=true keeps the review (counted again); approve=false deletes it. */
+  @org.springframework.web.bind.annotation.PostMapping("/{id}/moderate")
+  public RatingResponse moderate(
+      @org.springframework.web.bind.annotation.PathVariable UUID id,
+      @jakarta.validation.Valid @org.springframework.web.bind.annotation.RequestBody ModerateRequest r) {
+    return ratings.moderate(id, r.approve());
   }
 }

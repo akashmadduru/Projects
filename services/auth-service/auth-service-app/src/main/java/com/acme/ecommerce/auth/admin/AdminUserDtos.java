@@ -36,7 +36,7 @@ public final class AdminUserDtos {
   }
 
   /** Replaces the user's role set. Unprefixed names; at least one role. */
-  public record RolesChangeRequest(@NotEmpty @Size(max = 3) Set<@NotNull String> roles) {}
+  public record RolesChangeRequest(@NotEmpty @Size(max = 6) Set<@NotNull String> roles) {}
 
   public record AdminUserStats(long total, Map<String, Long> byStatus) {}
 }

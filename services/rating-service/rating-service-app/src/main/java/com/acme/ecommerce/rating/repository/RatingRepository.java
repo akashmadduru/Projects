@@ -24,14 +24,28 @@ public interface RatingRepository
 
   boolean existsByProductIdAndUserId(UUID productId, UUID userId);
 
+  long countByUserIdAndCreatedAtAfter(UUID userId, java.time.Instant after);
+
+  long countByProductIdAndRatingValueAndCreatedAtAfter(
+      UUID productId, int ratingValue, java.time.Instant after);
+
+  /** Reviews (by anyone) whose text is a near-duplicate (trigram similarity > 0.9). */
+  @Query(
+      value =
+          "SELECT COUNT(*) FROM rating.ratings WHERE review_text IS NOT NULL"
+              + " AND rating.similarity(lower(review_text), lower(:text)) > 0.9",
+      nativeQuery = true)
+  long countSimilarText(@Param("text") String text);
+
   /** Rows of (ratingValue, count) for one product - the star distribution in one query. */
   @Query(
-      "SELECT r.ratingValue, COUNT(r) FROM Rating r WHERE r.productId = :productId"
+      "SELECT r.ratingValue, COUNT(r) FROM Rating r WHERE r.productId = :productId AND r.flagged = false"
           + " GROUP BY r.ratingValue")
   List<Object[]> countByRatingValue(@Param("productId") UUID productId);
 
   @Query(
-      "SELECT COUNT(r) FROM Rating r WHERE r.productId = :productId AND r.reviewText IS NOT NULL")
+      "SELECT COUNT(r) FROM Rating r WHERE r.productId = :productId AND r.reviewText IS NOT NULL"
+          + " AND r.flagged = false")
   int countReviewsByProductId(@Param("productId") UUID productId);
 
   /**

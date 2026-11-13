@@ -20,7 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 /** Admin coupon CRUD. */
 @RestController
 @RequestMapping("/api/admin/coupons")
-@PreAuthorize("hasRole('ADMIN')")
+@PreAuthorize("hasAnyRole('ADMIN','FINANCE')")
 public class AdminCouponController {
 
   private final CouponService service;
@@ -35,17 +35,20 @@ public class AdminCouponController {
   }
 
   @PostMapping
+  @PreAuthorize("hasRole('ADMIN')")
   @ResponseStatus(HttpStatus.CREATED)
   public CouponResponse create(@Valid @RequestBody CouponRequest request) {
     return service.create(request);
   }
 
   @PutMapping("/{id}")
+  @PreAuthorize("hasRole('ADMIN')")
   public CouponResponse update(@PathVariable UUID id, @Valid @RequestBody CouponRequest request) {
     return service.update(id, request);
   }
 
   @PostMapping("/{id}/deactivate")
+  @PreAuthorize("hasRole('ADMIN')")
   public CouponResponse deactivate(@PathVariable UUID id) {
     return service.deactivate(id);
   }

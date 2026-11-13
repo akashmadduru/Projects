@@ -81,6 +81,17 @@ spring:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
 
+  # Phase 10: audit.events producer only (fail-open; short block so an outage never stalls a request).
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      properties:
+        max.block.ms: 2000
+        delivery.timeout.ms: 5000
+        request.timeout.ms: 3000
+
   # Deliberately NOT using spring.security.oauth2.client.registration.google.*.
   # Boot builds that registration eagerly and asserts a non-empty client id, so
   # an unset GOOGLE_CLIENT_ID would stop the application from starting at all
@@ -173,6 +184,9 @@ auth:
     # shares. Set explicitly only if the keystore is not shared.
     state-cookie-secret: ${AUTH_STATE_COOKIE_SECRET:}
 
+  # Phase 10: AES-256-GCM key (base64, 32 bytes) for TOTP secrets at rest. No default.
+  data-key: ${AUTH_DATA_KEY:}
+
   housekeeping:
     enabled: true
     retention: 30d
@@ -226,6 +240,19 @@ eureka:
     lease-expiration-duration-in-seconds: 30
 
 management:
+  # Phase 10 tracing: Micrometer Tracing -> OTel -> OTLP/HTTP (Jaeger). Production sampling 10%; dev compose sets 1.0.
+  tracing:
+    sampling:
+      probability: ${TRACING_SAMPLING_PROBABILITY:0.1}
+  opentelemetry:
+    tracing:
+      export:
+        otlp:
+          endpoint: ${OTEL_TRACES_ENDPOINT:http://localhost:4318/v1/traces}
+  otlp:
+    metrics:
+      export:
+        enabled: false
   endpoints:
     web:
       exposure:
@@ -260,7 +287,7 @@ logging:
     "[org.hibernate.SQL]": INFO
     "[org.hibernate.orm.jdbc.bind]": INFO
   pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%X{correlationId:-}] %logger{36} - %msg%n"
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%X{correlationId:-}] [%X{traceId:-},%X{spanId:-}] %logger{36} - %msg%n"
 
 ---
 # =============================================================================

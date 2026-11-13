@@ -19,5 +19,5 @@ public interface AuthAccountFeignClient {
 
   /** Only the field this service needs; everything else in the response is ignored. */
   @JsonIgnoreProperties(ignoreUnknown = true)
-  record Account(String displayName) {}
+  record Account(String displayName, java.time.Instant createdAt) {}
 }

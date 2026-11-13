@@ -55,6 +55,7 @@ export interface UserResponse {
   /** Unprefixed role names (`VIEWER`, not `ROLE_VIEWER`). */
   readonly roles: readonly string[];
   readonly createdAt: string;
+  readonly twoFactorEnabled?: boolean;
 }
 
 /**
@@ -160,6 +161,12 @@ export interface PagedModel<T> {
 }
 
 /** Body of `POST /api/auth/login`. */
+/** Phase 10: login answer when the account has 2FA enabled (no tokens yet). */
+export interface MfaChallenge {
+  readonly mfaRequired: true;
+  readonly mfaToken: string;
+}
+
 export interface LoginRequest {
   readonly email: string;
   readonly password: string;

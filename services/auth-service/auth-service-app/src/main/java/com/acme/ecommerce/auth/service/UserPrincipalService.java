@@ -31,9 +31,12 @@ import org.springframework.transaction.annotation.Transactional;
 public class UserPrincipalService implements PrincipalLoader {
 
   private final UserAccountRepository users;
+  private final com.acme.ecommerce.auth.repository.UserTotpRepository totps;
 
-  public UserPrincipalService(UserAccountRepository users) {
+  public UserPrincipalService(
+      UserAccountRepository users, com.acme.ecommerce.auth.repository.UserTotpRepository totps) {
     this.users = users;
+    this.totps = totps;
   }
 
   @Override
@@ -90,7 +93,8 @@ public class UserPrincipalService implements PrincipalLoader {
         user.getDisplayName(),
         user.getStatus().name(),
         claimNames(user).stream().sorted().toList(),
-        user.getCreatedAt());
+        user.getCreatedAt(),
+        totps.isEnabled(user.getId()));
   }
 
   private static Set<String> claimNames(UserAccount user) {

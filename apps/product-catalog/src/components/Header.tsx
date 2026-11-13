@@ -8,7 +8,9 @@ import { Logo } from './Logo'
 import { SearchBar } from './SearchBar'
 import { AccountMenu } from './AccountMenu'
 import { NotificationBell } from './NotificationBell'
+import { PreferencesSwitcher } from './PreferencesSwitcher'
 import { ThemeToggle } from './ThemeToggle'
+import { useT } from '../lib/i18n'
 import { useScrolled } from '../hooks/useScrolled'
 import { useCartStore, useUiStore, useWishlistStore } from '../stores'
 
@@ -33,6 +35,7 @@ export function Header() {
   const wishlistCount = useWishlistStore((s) => s.items.length)
   const openCart = useUiStore((s) => s.openCart)
   const scrolled = useScrolled()
+  const t = useT()
 
   return (
     <header
@@ -40,6 +43,9 @@ export function Header() {
         scrolled ? 'shadow-[0_4px_0_hsl(var(--color-ink)/0.25)]' : ''
       }`}
     >
+      <p role="status" aria-live="polite" className="sr-only">
+        {`Cart updated: ${cartCount} items`}
+      </p>
       <div
         className={`mx-auto flex max-w-[1400px] flex-wrap items-center gap-x-4 gap-y-3 px-4 transition-[padding] duration-700 sm:px-6 lg:flex-nowrap lg:px-8 ${
           scrolled ? 'py-2' : 'py-3'
@@ -57,15 +63,16 @@ export function Header() {
               <HeartIcon className="w-6 h-6 transition-transform duration-700 group-hover:scale-110 group-hover:text-vivid-pink" />
               <CountBadge count={wishlistCount} />
             </span>
-            <span className="hidden sm:inline">Wishlist</span>
+            <span className="hidden sm:inline">{t('Wishlist')}</span>
           </Link>
           <button type="button" onClick={openCart} className={action} aria-label={`Cart, ${cartCount} items`}>
             <span className="relative">
               <CartIcon className="w-6 h-6 transition-transform duration-700 group-hover:-rotate-6 group-hover:scale-110" />
               <CountBadge count={cartCount} />
             </span>
-            <span className="hidden sm:inline">Cart</span>
+            <span className="hidden sm:inline">{t('Cart')}</span>
           </button>
+          <PreferencesSwitcher />
           <NotificationBell />
           <AccountMenu />
           <ThemeToggle />

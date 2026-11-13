@@ -80,7 +80,7 @@ export function CartDrawer() {
         {items.length === 0 && <p className="py-6 text-center text-sm text-on-surface-muted">Your cart is empty.</p>}
         <ul className="divide-y divide-outline">
           {items.map((item) => (
-            <li key={`${item.productId}:${item.variantId ?? ''}`} className="flex gap-3 py-4">
+            <li key={`${item.productId}:${item.variantId ?? ''}:${item.offerId ?? ''}`} className="flex gap-3 py-4">
               <Link
                 to={`/products/${item.productId}`}
                 onClick={close}
@@ -106,7 +106,7 @@ export function CartDrawer() {
                   <div className="flex items-center rounded-lg border border-outline">
                     <button
                       type="button"
-                      onClick={() => updateQuantity(item.productId, item.quantity - 1, item.variantId)}
+                      onClick={() => updateQuantity(item.productId, item.quantity - 1, item.variantId, item.offerId)}
                       className="p-1.5 text-on-surface hover:bg-surface-variant"
                       aria-label={`Decrease quantity of ${item.snapshot?.name ?? 'product'}`}
                     >
@@ -117,7 +117,7 @@ export function CartDrawer() {
                     </span>
                     <button
                       type="button"
-                      onClick={() => updateQuantity(item.productId, item.quantity + 1, item.variantId)}
+                      onClick={() => updateQuantity(item.productId, item.quantity + 1, item.variantId, item.offerId)}
                       className="p-1.5 text-on-surface hover:bg-surface-variant"
                       aria-label={`Increase quantity of ${item.snapshot?.name ?? 'product'}`}
                     >
@@ -136,7 +136,7 @@ export function CartDrawer() {
                   )}
                   <button
                     type="button"
-                    onClick={() => removeItem(item.productId, item.variantId)}
+                    onClick={() => removeItem(item.productId, item.variantId, item.offerId)}
                     className="rounded-lg p-1.5 text-on-surface-muted hover:bg-surface-variant hover:text-error"
                     aria-label={`Remove ${item.snapshot?.name ?? 'product'} from cart`}
                   >

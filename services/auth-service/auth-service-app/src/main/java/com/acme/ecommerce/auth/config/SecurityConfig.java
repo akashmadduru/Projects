@@ -66,6 +66,7 @@ public class SecurityConfig {
     "/api/auth/email/verify",
     "/api/auth/otp/request",
     "/api/auth/otp/verify",
+    "/api/auth/2fa/verify",
     "/.well-known/jwks.json",
     "/oauth2/**",
     "/login/oauth2/**",

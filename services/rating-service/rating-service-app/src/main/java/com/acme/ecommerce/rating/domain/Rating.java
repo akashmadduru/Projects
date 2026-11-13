@@ -99,6 +99,19 @@ public class Rating {
   @Column(name = "unhelpful_count", nullable = false)
   private int unhelpfulCount = 0;
 
+  /** Phase 10: suspected fake review; excluded from averages until an admin approves it. */
+  @Builder.Default
+  @Column(name = "flagged", nullable = false)
+  private boolean flagged = false;
+
+  /** Comma-separated reason codes (NEW_ACCOUNT, DUPLICATE_TEXT, REVIEW_VELOCITY, FIVE_STAR_BURST). */
+  @Column(name = "flag_reasons", columnDefinition = "text")
+  private String flagReasons;
+
+  @Builder.Default
+  @Column(name = "moderated", nullable = false)
+  private boolean moderated = false;
+
   @Column(name = "created_at", nullable = false, updatable = false)
   private Instant createdAt;
 
@@ -119,6 +132,17 @@ public class Rating {
    * @param now the current instant, supplied by the caller's {@code TimeProvider}
    * @throws IllegalArgumentException if rating is outside 1-5 range
    */
+  public void flag(String reasons) {
+    this.flagged = true;
+    this.flagReasons = reasons;
+  }
+
+  public void approve(Instant now) {
+    this.flagged = false;
+    this.moderated = true;
+    this.updatedAt = now;
+  }
+
   public void updateRating(int newRatingValue, Instant now) {
     if (newRatingValue < 1 || newRatingValue > 5) {
       throw new IllegalArgumentException("Rating value must be between 1 and 5");

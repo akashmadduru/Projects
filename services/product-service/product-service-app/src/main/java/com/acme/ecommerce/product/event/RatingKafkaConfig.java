@@ -45,12 +45,13 @@ public class RatingKafkaConfig {
 
   @Bean
   public ConcurrentKafkaListenerContainerFactory<String, RatingEvent> ratingKafkaListenerFactory(
-      ConsumerFactory<String, RatingEvent> ratingConsumerFactory) {
+      ConsumerFactory<String, RatingEvent> ratingConsumerFactory,
+      @Value("${spring.kafka.bootstrap-servers:localhost:9092}") String bootstrapServers) {
     ConcurrentKafkaListenerContainerFactory<String, RatingEvent> factory =
         new ConcurrentKafkaListenerContainerFactory<>();
     factory.setConsumerFactory(ratingConsumerFactory);
-    // Logs and skips after two quick retries; deserialization failures are never retried.
-    factory.setCommonErrorHandler(new DefaultErrorHandler(new FixedBackOff(500L, 2L)));
+    // 3 retries with exponential backoff, then <topic>.DLT.
+    factory.setCommonErrorHandler(com.acme.ecommerce.common.web.kafka.DlqErrorHandlers.create(bootstrapServers));
     return factory;
   }
 }

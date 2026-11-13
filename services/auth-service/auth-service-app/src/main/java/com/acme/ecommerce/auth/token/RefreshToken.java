@@ -235,6 +235,18 @@ class RefreshToken implements Persistable<UUID> {
     return revokedAt;
   }
 
+  String getUserAgent() {
+    return userAgent;
+  }
+
+  String getIpAddress() {
+    return ipAddress;
+  }
+
+  String getAuthMethodRaw() {
+    return authMethod;
+  }
+
   String getRevokedReason() {
     return revokedReason;
   }

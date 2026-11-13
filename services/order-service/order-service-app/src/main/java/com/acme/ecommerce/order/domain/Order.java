@@ -170,6 +170,25 @@ public class Order {
   @Column(name = "subscription_id", updatable = false)
   private UUID subscriptionId;
 
+  @Column(name = "risk_score", nullable = false)
+  private int riskScore;
+
+  /** JSON array of human-readable risk reasons (text column, parsed by the mapper). */
+  @Column(name = "risk_reasons", nullable = false)
+  private String riskReasons = "[]";
+
+  @Column(name = "risk_hold", nullable = false)
+  private boolean riskHold;
+
+  @Column(name = "exchange_quote_id")
+  private UUID exchangeQuoteId;
+
+  @Column(name = "exchange_amount", nullable = false)
+  private BigDecimal exchangeAmount = BigDecimal.ZERO;
+
+  @Column(name = "exchange_shortfall", nullable = false)
+  private BigDecimal exchangeShortfall = BigDecimal.ZERO;
+
   @Version
   @Column(name = "version", nullable = false)
   private Long version;
@@ -324,6 +343,37 @@ public class Order {
     this.walletAmount = walletAmount;
     this.membershipFreeShipping = freeShipping;
     this.subscriptionId = subscriptionId;
+  }
+
+  /** Phase 10: risk assessment at placement (hold = needs admin release before fulfilment). */
+  public void applyRisk(int score, List<String> reasons, boolean hold) {
+    this.riskScore = score;
+    this.riskReasons =
+        "["
+            + reasons.stream()
+                .map(r -> "\"" + r.replace("\\", "\\\\").replace("\"", "\\\"") + "\"")
+                .collect(java.util.stream.Collectors.joining(","))
+            + "]";
+    this.riskHold = hold;
+  }
+
+  /** Admin release of a risk hold. Returns false when the order was not on hold. */
+  public boolean releaseHold(Instant now) {
+    if (!riskHold) {
+      return false;
+    }
+    riskHold = false;
+    record(status, "Risk hold released by admin", HistoryActor.ADMIN, now);
+    return true;
+  }
+
+  public void applyExchange(UUID quoteId, BigDecimal value) {
+    this.exchangeQuoteId = quoteId;
+    this.exchangeAmount = value;
+  }
+
+  public void recordExchangeShortfall(BigDecimal amount) {
+    this.exchangeShortfall = amount;
   }
 
   /** Items value actually paid for (subtotal minus coupon and coins), the refund ceiling. */
@@ -751,6 +801,11 @@ public class Order {
       throw new CodedException(
           ErrorCode.INVALID_STATUS_TRANSITION,
           "Cannot move a shipment of an order in status " + status);
+    }
+    if (riskHold) {
+      throw new CodedException(
+          ErrorCode.INVALID_STATUS_TRANSITION,
+          "Order is on risk hold - an admin must release it first");
     }
     s.advance(target, tracking, carrierName, now);
     record(target, note, actor, now, s.getId());

@@ -213,6 +213,8 @@ export function SearchBar() {
           </li>
         )}
         {options.map((option, i) => (
+          // Combobox option: keyboard selection is handled by the input (ArrowUp/Down + Enter), the click is the pointer path.
+          // eslint-disable-next-line jsx-a11y/click-events-have-key-events
           <li
             key={option.key}
             id={`${listId}-${i}`}

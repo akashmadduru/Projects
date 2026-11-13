@@ -2,6 +2,7 @@
  * Phase 7 discovery and conversion clients: suggest, facets, offers, deals, recommendations, alerts, views
  */
 
+import { analyticsAllowed } from '../lib/consent'
 import { apiFetch } from '../lib/http'
 import { toProduct, toQueryParams } from './productApi'
 import type {
@@ -76,12 +77,14 @@ export const discoveryApi = {
 
   /** Fire-and-forget view beacon; never surfaces errors. */
   trackView(productId: string): void {
+    if (!analyticsAllowed()) return
     apiFetch<void>(`/api/products/${productId}/views`, { method: 'POST', body: { sessionId: sessionId() } }).catch(
       () => undefined,
     )
   },
 
   syncRecentlyViewed(productId: string): void {
+    if (!analyticsAllowed()) return
     apiFetch<void>('/api/users/me/recently-viewed', { method: 'POST', body: { productId } }).catch(() => undefined)
   },
 

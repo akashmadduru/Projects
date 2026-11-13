@@ -165,6 +165,19 @@ eureka:
     lease-expiration-duration-in-seconds: 30
 
 management:
+  # Phase 10 tracing: Micrometer Tracing -> OTel -> OTLP/HTTP (Jaeger). Production sampling 10%; dev compose sets 1.0.
+  tracing:
+    sampling:
+      probability: ${TRACING_SAMPLING_PROBABILITY:0.1}
+  opentelemetry:
+    tracing:
+      export:
+        otlp:
+          endpoint: ${OTEL_TRACES_ENDPOINT:http://localhost:4318/v1/traces}
+  otlp:
+    metrics:
+      export:
+        enabled: false
   endpoints:
     web:
       exposure:
@@ -199,7 +212,7 @@ logging:
     org.hibernate.SQL: INFO
     org.hibernate.orm.jdbc.bind: INFO
   pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%X{correlationId:-}] %logger{36} - %msg%n"
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%X{correlationId:-}] [%X{traceId:-},%X{spanId:-}] %logger{36} - %msg%n"
 
 ---
 # =============================================================================

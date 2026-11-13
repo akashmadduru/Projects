@@ -37,9 +37,16 @@ export interface CartVariant {
   variantLabel: string
 }
 
-/** A cart line is identified by product plus optional variant. */
-export const sameLine = (item: { productId: string; variantId?: string | null }, productId: string, variantId?: string | null) =>
-  item.productId === productId && (item.variantId ?? null) === (variantId ?? null)
+/** A cart line is identified by product, optional variant and offer (seller). An omitted offerId matches any offer. */
+export const sameLine = (
+  item: { productId: string; variantId?: string | null; offerId?: string | null },
+  productId: string,
+  variantId?: string | null,
+  offerId?: string | null,
+) =>
+  item.productId === productId &&
+  (item.variantId ?? null) === (variantId ?? null) &&
+  (offerId === undefined || (item.offerId ?? null) === (offerId ?? null))
 
 export interface CartState {
   items: CartItem[]
@@ -51,8 +58,8 @@ export interface CartState {
   moveSavedToCart: (productId: string, variantId?: string) => Promise<void>
   removeSaved: (productId: string, variantId?: string) => Promise<void>
   addItem: (productId: string, quantity: number, snapshot?: CartSnapshot, variant?: CartVariant, offerId?: string) => void
-  removeItem: (productId: string, variantId?: string) => void
-  updateQuantity: (productId: string, quantity: number, variantId?: string) => void
+  removeItem: (productId: string, variantId?: string, offerId?: string) => void
+  updateQuantity: (productId: string, quantity: number, variantId?: string, offerId?: string) => void
   clearCart: () => void
   getItemCount: () => number
   getTotalItems: () => number
@@ -147,7 +154,7 @@ export const useCartStore = create<CartState>()(
 
         addItem: (productId, quantity, snapshot, variant, offerId) => {
           const apply = (items: CartItem[]): CartItem[] => {
-            const existing = items.find((item) => sameLine(item, productId, variant?.variantId))
+            const existing = items.find((item) => sameLine(item, productId, variant?.variantId, offerId ?? null))
             if (existing) {
               return items.map((item) =>
                 item === existing
@@ -187,28 +194,28 @@ export const useCartStore = create<CartState>()(
           )
         },
 
-        removeItem: (productId, variantId) => {
-          const apply = (items: CartItem[]) => items.filter((item) => !sameLine(item, productId, variantId))
+        removeItem: (productId, variantId, offerId) => {
+          const apply = (items: CartItem[]) => items.filter((item) => !sameLine(item, productId, variantId, offerId))
           if (!get().serverBacked) {
             set((state) => ({ items: apply(state.items) }))
             return
           }
-          mutate(apply, () => cartApi.removeItem(productId, variantId))
+          mutate(apply, () => cartApi.removeItem(productId, variantId, offerId))
         },
 
         // A quantity of 0 removes the line rather than leaving an empty row in the cart.
-        updateQuantity: (productId, quantity, variantId) => {
+        updateQuantity: (productId, quantity, variantId, offerId) => {
           if (quantity <= 0) {
-            get().removeItem(productId, variantId)
+            get().removeItem(productId, variantId, offerId)
             return
           }
           const apply = (items: CartItem[]) =>
-            items.map((item) => (sameLine(item, productId, variantId) ? { ...item, quantity: clampQuantity(quantity) } : item))
+            items.map((item) => (sameLine(item, productId, variantId, offerId) ? { ...item, quantity: clampQuantity(quantity) } : item))
           if (!get().serverBacked) {
             set((state) => ({ items: apply(state.items) }))
             return
           }
-          mutate(apply, () => cartApi.setQuantity(productId, clampQuantity(quantity), variantId))
+          mutate(apply, () => cartApi.setQuantity(productId, clampQuantity(quantity), variantId, offerId))
         },
 
         clearCart: () => {
@@ -234,7 +241,7 @@ export const useCartStore = create<CartState>()(
               const lines = chunk.map(toLine).filter((line): line is CartLineRequest => line !== null)
               cart = await cartApi.mergeCart(lines)
               // Merged lines now live on the server; drop them locally so a retry cannot double-count them.
-              set({ items: get().items.filter((item) => !chunk.some((c) => sameLine(item, c.productId, c.variantId))) })
+              set({ items: get().items.filter((item) => !chunk.some((c) => sameLine(item, c.productId, c.variantId, c.offerId ?? null))) })
             }
             const adopted = cart ?? (await cartApi.getCart())
             set({ items: fromServer(adopted), saved: adopted.savedItems ?? [], serverBacked: true })

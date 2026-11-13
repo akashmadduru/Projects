@@ -143,7 +143,7 @@ export function ReviewForm({ productId, existing, onSaved, onCancel }: Props) {
         <div className="flex flex-wrap gap-2">
           {media.map((m) => (
             <div key={m.id} className="relative h-16 w-16 overflow-hidden rounded-lg border-2 border-outline">
-              <img src={m.url} alt="Attached review photo" className="h-full w-full object-cover" />
+              <img src={m.url} alt="Attached to your review" className="h-full w-full object-cover" />
               <button
                 type="button"
                 onClick={() => void removeExisting(m)}
@@ -156,7 +156,7 @@ export function ReviewForm({ productId, existing, onSaved, onCancel }: Props) {
           ))}
           {files.map((f, i) => (
             <div key={`${f.name}-${i}`} className="relative h-16 w-16 overflow-hidden rounded-lg border-2 border-outline">
-              <img src={URL.createObjectURL(f)} alt={`Selected photo ${f.name}`} className="h-full w-full object-cover" onLoad={(e) => URL.revokeObjectURL(e.currentTarget.src)} />
+              <img src={URL.createObjectURL(f)} alt={`Selected file ${f.name}`} className="h-full w-full object-cover" onLoad={(e) => URL.revokeObjectURL(e.currentTarget.src)} />
               <button
                 type="button"
                 onClick={() => setFiles((list) => list.filter((_, j) => j !== i))}

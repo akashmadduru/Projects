@@ -27,10 +27,16 @@ import type {
 export function listOrders(query: {
   status?: string;
   q?: string;
+  riskHold?: boolean;
   page: number;
   size: number;
 }): Promise<PagedModel<AdminOrderSummary>> {
   return apiFetch<PagedModel<AdminOrderSummary>>('/api/admin/orders', { query });
+}
+
+/** Phase 10: a risk-held order must be released before it can be CONFIRMED. */
+export function releaseOrderHold(id: string): Promise<AdminOrderDetail> {
+  return apiFetch<AdminOrderDetail>(`/api/admin/orders/${id}/release-hold`, { method: 'POST' });
 }
 
 export function getOrder(id: string): Promise<AdminOrderDetail> {
@@ -109,8 +115,20 @@ export function fmtDate(iso: string | null | undefined): string {
 }
 
 export function errorInfo(error: unknown): { message: string; correlationId: string | null } {
-  const e = error as { message?: string; correlationId?: string | null } | null;
-  return { message: e?.message ?? 'The request failed.', correlationId: e?.correlationId ?? null };
+  const e = error as {
+    message?: string;
+    correlationId?: string | null;
+    problem?: { errors?: unknown } | null;
+  } | null;
+  // Validation problems carry errors:[{field,message}] - show them with the summary.
+  const fields = Array.isArray(e?.problem?.errors)
+    ? (e.problem.errors as { field?: string; message?: string }[])
+        .filter((f) => f.message)
+        .map((f) => (f.field ? `${f.field}: ${f.message}` : f.message))
+        .join('; ')
+    : '';
+  const base = e?.message ?? 'The request failed.';
+  return { message: fields ? `${base} (${fields})` : base, correlationId: e?.correlationId ?? null };
 }
 
 // ---- Phase 7: dashboard, customers, reviews, payments, categories ------------------------
@@ -147,11 +165,13 @@ export function userStats(): Promise<AdminUserStats> {
   return apiFetch<AdminUserStats>('/api/admin/users/stats');
 }
 
-export function setUserStatus(id: string, status: 'ACTIVE' | 'DISABLED'): Promise<AdminUser> {
-  return apiFetch<AdminUser>(`/api/admin/users/${encodeURIComponent(id)}/status`, {
-    method: 'PUT',
-    body: { status },
-  });
+/** Phase 10: dedicated enable/disable endpoints; re-read the account for the fresh state. */
+export async function setUserStatus(id: string, status: 'ACTIVE' | 'DISABLED'): Promise<AdminUser> {
+  await apiFetch<unknown>(
+    `/api/admin/users/${encodeURIComponent(id)}/${status === 'DISABLED' ? 'disable' : 'enable'}`,
+    { method: 'POST' },
+  );
+  return getUser(id);
 }
 
 export function setUserRoles(id: string, roles: readonly string[]): Promise<AdminUser> {
@@ -162,6 +182,7 @@ export function setUserRoles(id: string, roles: readonly string[]): Promise<Admi
 }
 
 export function listRatings(query: {
+  flagged?: boolean;
   productId?: string;
   rating?: number;
   q?: string;
@@ -169,6 +190,14 @@ export function listRatings(query: {
   size: number;
 }): Promise<PagedModel<AdminRating>> {
   return apiFetch<PagedModel<AdminRating>>('/api/admin/ratings', { query });
+}
+
+/** Phase 10: flagged reviews are excluded from averages until approved here. */
+export function moderateRating(id: string, approve: boolean): Promise<unknown> {
+  return apiFetch<unknown>(`/api/admin/ratings/${encodeURIComponent(id)}/moderate`, {
+    method: 'POST',
+    body: { approve },
+  });
 }
 
 /** Admin delete reuses the customer endpoint; rating-service allows ADMIN and recomputes averages. */

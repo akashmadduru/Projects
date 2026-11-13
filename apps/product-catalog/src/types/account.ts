@@ -9,6 +9,26 @@ export interface TokenResponse {
   authMethod: 'PASSWORD' | 'GOOGLE' | 'OTP'
 }
 
+export interface MfaChallenge {
+  mfaRequired: true
+  mfaToken: string
+}
+
+export type LoginResult = TokenResponse | MfaChallenge
+
+export interface TwoFactorSetup {
+  otpauthUrl: string
+  secretBase32: string
+}
+
+export interface AuthSession {
+  familyId: string
+  device: string
+  lastUsedAt: string
+  current: boolean
+  createdAt?: string
+}
+
 export interface AuthUser {
   id: string
   email: string
@@ -19,6 +39,7 @@ export interface AuthUser {
   status: string
   roles: string[]
   createdAt: string
+  twoFactorEnabled?: boolean
 }
 
 export interface LoginRequest {
@@ -173,7 +194,7 @@ export interface PaymentInfo {
 export interface TimelineEntry {
   status: OrderStatus
   note: string | null
-  actor: 'USER' | 'ADMIN' | 'SYSTEM'
+  actor: 'USER' | 'ADMIN' | 'SYSTEM' | 'SELLER'
   at: string
 }
 
@@ -185,8 +206,8 @@ export interface OrderShipment {
   trackingNumber: string | null
   carrier: string | null
   estimatedDeliveryDate: string | null
-  /** Order item ids or product ids (contract leaves it open); matched against both. */
-  items: string[]
+  /** Lines of this shipment (the order items it contains). */
+  items: OrderItem[]
   timeline: TimelineEntry[]
 }
 
@@ -211,6 +232,9 @@ export interface Order {
   coinsValue?: number | null
   walletAmount?: number | null
   membershipFreeShipping?: boolean | null
+  /** Placed but held for a manual risk review before confirmation. */
+  riskHold?: boolean | null
+  exchangeValue?: number | null
   taxBreakdown: { cgst: number | null; sgst: number | null; igst: number | null } | null
   estimatedDeliveryDate: string | null
   trackingNumber: string | null
@@ -241,6 +265,7 @@ export interface PlaceOrderRequest {
   couponCode?: string
   useWallet?: boolean
   coinsToRedeem?: number
+  exchangeQuoteId?: string
   items?: { productId: string; offerId?: string; variantId?: string; quantity: number }[]
 }
 

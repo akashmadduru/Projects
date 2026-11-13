@@ -37,11 +37,12 @@ public class OrderKafkaConfig {
 
   @Bean
   public ConcurrentKafkaListenerContainerFactory<String, OrderEvent> orderEventListenerFactory(
-      ConsumerFactory<String, OrderEvent> orderEventConsumerFactory) {
+      ConsumerFactory<String, OrderEvent> orderEventConsumerFactory,
+      @Value("${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}") String bootstrapServers) {
     ConcurrentKafkaListenerContainerFactory<String, OrderEvent> factory =
         new ConcurrentKafkaListenerContainerFactory<>();
     factory.setConsumerFactory(orderEventConsumerFactory);
-    factory.setCommonErrorHandler(new DefaultErrorHandler(new FixedBackOff(1000L, 3L)));
+    factory.setCommonErrorHandler(com.acme.ecommerce.common.web.kafka.DlqErrorHandlers.create(bootstrapServers));
     return factory;
   }
 }

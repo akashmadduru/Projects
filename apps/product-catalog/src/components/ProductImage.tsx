@@ -8,6 +8,42 @@ interface Props {
   src?: string | null
   alt: string
   productId: string
+  /** Intrinsic size hint (reserves layout space, avoids CLS). The box is still sized by CSS. */
+  width?: number
+  height?: number
+  /** `sizes` attribute for the generated srcset. */
+  sizes?: string
+}
+
+const WIDTHS = [240, 400, 640, 800]
+
+/** URL of the same image at a given width, or null when the host has no known resize parameter. */
+function resized(src: string, width: number): string | null {
+  try {
+    const url = new URL(src, window.location.href)
+    if (url.hostname === 'images.unsplash.com') {
+      url.searchParams.set('w', String(width))
+      url.searchParams.delete('h') // keep the natural aspect ratio at every width
+      return url.toString()
+    }
+    const picsum = /^\/(\d+)\/(\d+)$/.exec(url.pathname)
+    if (url.hostname === 'picsum.photos' && picsum) {
+      const ratio = Number(picsum[2]) / Number(picsum[1])
+      url.pathname = `/${width}/${Math.round(width * ratio)}`
+      return url.toString()
+    }
+  } catch {
+    // Not a parseable URL: serve as-is.
+  }
+  return null
+}
+
+function buildSrcSet(src: string): string | undefined {
+  const entries = WIDTHS.map((w) => {
+    const u = resized(src, w)
+    return u ? `${u} ${w}w` : null
+  }).filter((e): e is string => e !== null)
+  return entries.length > 0 ? entries.join(', ') : undefined
 }
 
 type Tone = { token: 'outline' | 'on-surface'; from: number; to: number }
@@ -51,7 +87,7 @@ function PlaceholderIcon() {
   )
 }
 
-function ProductImageComponent({ src, alt, productId }: Props) {
+function ProductImageComponent({ src, alt, productId, width = 400, height = 400, sizes = '(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw' }: Props) {
   const [status, setStatus] = useState<'loading' | 'loaded' | 'error'>('loading')
   const [attempt, setAttempt] = useState(0)
   const [trackedSrc, setTrackedSrc] = useState(src)
@@ -111,10 +147,17 @@ function ProductImageComponent({ src, alt, productId }: Props) {
     )
   }
 
+  const srcSet = attempt === 0 ? buildSrcSet(src) : undefined
+  const lqip = status === 'loading' ? resized(src, 24) : null
+
   return (
     <div className="w-full h-full relative">
+      {lqip && <img src={lqip} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full scale-110 object-cover blur-lg" />}
       <img
         src={withRetryParam(src, attempt)}
+        {...(srcSet ? { srcSet, sizes } : {})}
+        width={width}
+        height={height}
         alt={alt}
         onLoad={() => setStatus('loaded')}
         onError={() => setStatus('error')}

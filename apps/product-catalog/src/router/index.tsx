@@ -46,6 +46,13 @@ const ListsPage = acct(() => import('../pages/account/ListsPage'), 'ListsPage')
 const BuyAgainPage = acct(() => import('../pages/account/BuyAgainPage'), 'BuyAgainPage')
 const NotificationsPage = acct(() => import('../pages/account/NotificationsPage'), 'NotificationsPage')
 const NotificationSettingsPage = acct(() => import('../pages/account/NotificationSettingsPage'), 'NotificationSettingsPage')
+const SecurityPage = acct(() => import('../pages/account/SecurityPage'), 'SecurityPage')
+const PrivacyPage = acct(() => import('../pages/account/PrivacyPage'), 'PrivacyPage')
+const SupportListPage = acct(() => import('../pages/account/support/SupportPages'), 'SupportListPage')
+const NewTicketPage = acct(() => import('../pages/account/support/SupportPages'), 'NewTicketPage')
+const TicketDetailPage = acct(() => import('../pages/account/support/SupportPages'), 'TicketDetailPage')
+const HelpPage = acct(() => import('../pages/help/HelpPage'), 'HelpPage')
+const HelpArticlePage = acct(() => import('../pages/help/HelpArticlePage'), 'HelpArticlePage')
 const SharedListPage = acct(() => import('../pages/SharedListPage'), 'SharedListPage')
 
 const lazyElement = (node: React.ReactNode) => <Suspense fallback={<LoadingBlock />}>{node}</Suspense>
@@ -67,6 +74,8 @@ export const router = createBrowserRouter([
         element: <ProductDetailPage />,
       },
       { path: '/seller/:slug', element: lazyElement(<SellerPage />) },
+      { path: '/help', element: lazyElement(<HelpPage />) },
+      { path: '/help/:slug', element: lazyElement(<HelpArticlePage />) },
       { path: '/compare', element: lazyElement(<ComparePage />) },
       { path: '/lists/shared/:token', element: lazyElement(<SharedListPage />) },
       {
@@ -113,6 +122,11 @@ export const router = createBrowserRouter([
               { path: 'buy-again', element: lazyElement(<BuyAgainPage />) },
               { path: 'notifications', element: lazyElement(<NotificationsPage />) },
               { path: 'notification-settings', element: lazyElement(<NotificationSettingsPage />) },
+              { path: 'security', element: lazyElement(<SecurityPage />) },
+              { path: 'privacy', element: lazyElement(<PrivacyPage />) },
+              { path: 'support', element: lazyElement(<SupportListPage />) },
+              { path: 'support/new', element: lazyElement(<NewTicketPage />) },
+              { path: 'support/:id', element: lazyElement(<TicketDetailPage />) },
               { path: 'settings', element: <SettingsPage /> },
             ],
           },

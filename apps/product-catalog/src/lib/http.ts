@@ -6,6 +6,7 @@
  * the browser sends via `credentials: 'include'`; JavaScript never sees it.
  */
 
+import { getLang } from './i18n'
 import { apiErrorFrom } from './problem'
 
 type RequestKey = string
@@ -25,7 +26,19 @@ interface ApiRequestConfig {
 }
 
 interface RefreshResponse {
-  accessToken: string
+  accessToken?: string
+  mfaRequired?: boolean
+  mfaToken?: string
+}
+
+/** Set when /refresh answers with an MFA challenge (e.g. right after Google sign-in) instead of tokens. */
+let pendingMfaToken: string | null = null
+
+/** Returns and clears an MFA challenge captured by the last refresh, if any. */
+export function takeMfaChallenge(): string | null {
+  const token = pendingMfaToken
+  pendingMfaToken = null
+  return token
 }
 
 function buildUrl(baseUrl: string, params?: Record<string, string | number | boolean>): string {
@@ -51,6 +64,7 @@ function send(url: string, init: RequestInit): Promise<Response> {
   if (init.body !== undefined && init.body !== null && !(init.body instanceof FormData)) {
     headers.set('Content-Type', 'application/json')
   }
+  headers.set('Accept-Language', getLang())
   if (accessToken) {
     headers.set('Authorization', `Bearer ${accessToken}`)
   }
@@ -84,7 +98,12 @@ export function refreshSession(): Promise<string | null> {
         return null
       }
       const body = (await response.json()) as RefreshResponse
-      accessToken = body.accessToken
+      if (body.mfaRequired && body.mfaToken) {
+        accessToken = null
+        pendingMfaToken = body.mfaToken
+        return null
+      }
+      accessToken = body.accessToken ?? null
       return accessToken
     } catch {
       return null

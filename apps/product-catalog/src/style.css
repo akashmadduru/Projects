@@ -43,7 +43,7 @@
   --color-ink: 210 33% 17%;
 
   --color-brand: 174 62% 26%; /* atomic teal */
-  --color-brand-2: 176 58% 33%;
+  --color-brand-2: 176 58% 30%; /* a11y: >=4.5:1 against on-brand */
   --color-on-brand: 45 100% 95%;
 
   --color-primary: 174 65% 26%;
@@ -60,7 +60,7 @@
   --color-deal-2: 14 80% 42%;
 
   --color-success: 150 65% 26%;
-  --color-warning: 34 90% 36%;
+  --color-warning: 33 90% 31%; /* a11y: >=4.5:1 text on surface */
   --color-error: 352 78% 44%;
   --color-on-error: 45 100% 97%;
 
@@ -107,7 +107,7 @@
   --color-accent-strong: 24 85% 60%;
   --color-on-accent: 215 45% 9%;
 
-  --color-deal: 350 80% 52%;
+  --color-deal: 350 80% 62%; /* a11y: >=4.5:1 text on dark surface */
   --color-deal-2: 16 82% 48%;
 
   --color-success: 150 55% 52%;

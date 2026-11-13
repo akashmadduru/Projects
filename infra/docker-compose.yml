@@ -187,6 +187,9 @@ services:
       # `prod` document in that same file shows what must change for a real
       # deploy (self-preservation on, relaxed sweep intervals).
       SPRING_PROFILES_ACTIVE: default
+      # Phase 10 tracing -> Jaeger (OTLP/HTTP). Dev samples everything; production default is 0.1.
+      OTEL_TRACES_ENDPOINT: http://jaeger:4318/v1/traces
+      TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY:-1.0}
     ports:
       # BOUND TO LOOPBACK ON PURPOSE. `- "8761:8761"` would be shorthand for
       # 0.0.0.0:8761 and publish the registry to every interface on the host -
@@ -241,6 +244,9 @@ services:
         condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: default
+      # Phase 10 tracing -> Jaeger (OTLP/HTTP). Dev samples everything; production default is 0.1.
+      OTEL_TRACES_ENDPOINT: http://jaeger:4318/v1/traces
+      TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY:-1.0}
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/auth_db
       SPRING_DATASOURCE_USERNAME: auth_service
       # Injected from the developer's .env (gitignored) - never inlined here.
@@ -275,6 +281,9 @@ services:
       # the send is async and fail-open).
       STOREFRONT_BASE_URL: ${STOREFRONT_BASE_URL:-http://localhost:3000}
       INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?set INTERNAL_API_TOKEN in infra/.env}
+      # Phase 10: AES-GCM key for TOTP secrets (base64, 32 bytes) + audit.events producer (fail-open).
+      AUTH_DATA_KEY: ${AUTH_DATA_KEY:?set AUTH_DATA_KEY in infra/.env}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     volumes:
       - ./secrets/jwt-keystore.p12:/run/secrets/jwt-keystore.p12:ro
     ports:
@@ -315,6 +324,9 @@ services:
       # need is the registry, to resolve `lb://` targets at all.
     environment:
       SPRING_PROFILES_ACTIVE: default
+      # Phase 10 tracing -> Jaeger (OTLP/HTTP). Dev samples everything; production default is 0.1.
+      OTEL_TRACES_ENDPOINT: http://jaeger:4318/v1/traces
+      TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY:-1.0}
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
       # MUST MATCH auth-service's values exactly. A mismatch produces
       # "invalid_token" on every authenticated request, with nothing in either
@@ -330,6 +342,10 @@ services:
       # - http://localhost:3000 is the React product catalog
       # - http://localhost:3001 is the Vue admin SPA
       GATEWAY_CORS_ALLOWED_ORIGINS: ${GATEWAY_CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:5174,http://localhost:3000,http://localhost:3001}
+      # Edge rate limit (Redis). Generous DEV defaults so the e2e scripts are not throttled; application.yml keeps 30/300 per minute.
+      REDIS_HOST: redis
+      GATEWAY_RATE_LIMIT_WRITES: ${GATEWAY_RATE_LIMIT_WRITES:-600}
+      GATEWAY_RATE_LIMIT_READS: ${GATEWAY_RATE_LIMIT_READS:-3000}
     ports:
       - "${GATEWAY_PORT:-8080}:8080"
     healthcheck:
@@ -453,6 +469,9 @@ services:
         condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: default
+      # Phase 10 tracing -> Jaeger (OTLP/HTTP). Dev samples everything; production default is 0.1.
+      OTEL_TRACES_ENDPOINT: http://jaeger:4318/v1/traces
+      TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY:-1.0}
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/product_db
       SPRING_DATASOURCE_USERNAME: product_service
       # Injected from the developer's .env (gitignored) - never inlined here.
@@ -528,6 +547,9 @@ services:
         condition: service_started
     environment:
       SPRING_PROFILES_ACTIVE: default
+      # Phase 10 tracing -> Jaeger (OTLP/HTTP). Dev samples everything; production default is 0.1.
+      OTEL_TRACES_ENDPOINT: http://jaeger:4318/v1/traces
+      TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY:-1.0}
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/inventory_db
       SPRING_DATASOURCE_USERNAME: inventory_service
       # Injected from the developer's .env (gitignored) - never inlined here.
@@ -575,6 +597,9 @@ services:
         condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: default
+      # Phase 10 tracing -> Jaeger (OTLP/HTTP). Dev samples everything; production default is 0.1.
+      OTEL_TRACES_ENDPOINT: http://jaeger:4318/v1/traces
+      TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY:-1.0}
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/user_db
       SPRING_DATASOURCE_USERNAME: user_service
       SPRING_DATASOURCE_PASSWORD: ${USER_DB_PASSWORD:?set USER_DB_PASSWORD in infra/.env}
@@ -584,6 +609,8 @@ services:
       # Phase 8: /internal/** guard, membership payments, referral links
       INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?set INTERNAL_API_TOKEN in infra/.env}
       STOREFRONT_BASE_URL: ${STOREFRONT_BASE_URL:-http://localhost:3000}
+      # Phase 10 privacy: user.events USER_DELETED producer
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     ports:
       - "127.0.0.1:${USER_PORT:-8085}:8085"
     healthcheck:
@@ -612,6 +639,9 @@ services:
         condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: default
+      # Phase 10 tracing -> Jaeger (OTLP/HTTP). Dev samples everything; production default is 0.1.
+      OTEL_TRACES_ENDPOINT: http://jaeger:4318/v1/traces
+      TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY:-1.0}
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/cart_db
       SPRING_DATASOURCE_USERNAME: cart_service
       SPRING_DATASOURCE_PASSWORD: ${CART_DB_PASSWORD:?set CART_DB_PASSWORD in infra/.env}
@@ -650,6 +680,9 @@ services:
         condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: default
+      # Phase 10 tracing -> Jaeger (OTLP/HTTP). Dev samples everything; production default is 0.1.
+      OTEL_TRACES_ENDPOINT: http://jaeger:4318/v1/traces
+      TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY:-1.0}
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/order_db
       SPRING_DATASOURCE_USERNAME: order_service
       SPRING_DATASOURCE_PASSWORD: ${ORDER_DB_PASSWORD:?set ORDER_DB_PASSWORD in infra/.env}
@@ -660,6 +693,12 @@ services:
       # promotion/inventory calls) and the order.events producer (best-effort, not a startup gate).
       INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?set INTERNAL_API_TOKEN in infra/.env}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      # Phase 10 risk thresholds. Production defaults (3 orders/10 min, 3 prior orders, 3x average) are
+      # the code defaults; dev relaxes them so burst e2e scripts do not trip fraud holds.
+      # The Phase 10 trust e2e places 8 quick orders to trip the velocity rule.
+      ORDER_RISK_VELOCITY_THRESHOLD: ${ORDER_RISK_VELOCITY_THRESHOLD:-8}
+      ORDER_RISK_AVG_MIN_ORDERS: ${ORDER_RISK_AVG_MIN_ORDERS:-3}
+      ORDER_RISK_AVG_MULTIPLIER: ${ORDER_RISK_AVG_MULTIPLIER:-10}
     ports:
       - "127.0.0.1:${ORDER_PORT:-8087}:8087"
     healthcheck:
@@ -688,6 +727,9 @@ services:
         condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: default
+      # Phase 10 tracing -> Jaeger (OTLP/HTTP). Dev samples everything; production default is 0.1.
+      OTEL_TRACES_ENDPOINT: http://jaeger:4318/v1/traces
+      TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY:-1.0}
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/rating_db
       SPRING_DATASOURCE_USERNAME: rating_service
       SPRING_DATASOURCE_PASSWORD: ${RATING_DB_PASSWORD:?set RATING_DB_PASSWORD in infra/.env}
@@ -696,6 +738,8 @@ services:
       AUTH_JWT_AUDIENCES: ${AUTH_JWT_AUDIENCES:-ecommerce-platform}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       RATING_MEDIA_DIR: /data/media
+      # Phase 10 privacy: /internal/privacy/** guard
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?set INTERNAL_API_TOKEN in infra/.env}
     # Review photos. Root so the freshly created named volume is writable (see tech debt).
     user: "0:0"
     volumes:
@@ -744,6 +788,9 @@ services:
         condition: service_started
     environment:
       SPRING_PROFILES_ACTIVE: default
+      # Phase 10 tracing -> Jaeger (OTLP/HTTP). Dev samples everything; production default is 0.1.
+      OTEL_TRACES_ENDPOINT: http://jaeger:4318/v1/traces
+      TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY:-1.0}
       # Phase 8: own database (inbox, push subscriptions, campaigns) + JWT validation for /api/**
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/notification_db
       SPRING_DATASOURCE_USERNAME: notification_service
@@ -794,6 +841,9 @@ services:
         condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: default
+      # Phase 10 tracing -> Jaeger (OTLP/HTTP). Dev samples everything; production default is 0.1.
+      OTEL_TRACES_ENDPOINT: http://jaeger:4318/v1/traces
+      TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY:-1.0}
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/payment_db
       SPRING_DATASOURCE_USERNAME: payment_service
       SPRING_DATASOURCE_PASSWORD: ${PAYMENT_DB_PASSWORD:?set PAYMENT_DB_PASSWORD in infra/.env}
@@ -804,6 +854,7 @@ services:
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
       STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY:-}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     ports:
       - "127.0.0.1:${PAYMENT_PORT:-8088}:8088"
     healthcheck:
@@ -829,6 +880,9 @@ services:
         condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: default
+      # Phase 10 tracing -> Jaeger (OTLP/HTTP). Dev samples everything; production default is 0.1.
+      OTEL_TRACES_ENDPOINT: http://jaeger:4318/v1/traces
+      TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY:-1.0}
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/promotion_db
       SPRING_DATASOURCE_USERNAME: promotion_service
       SPRING_DATASOURCE_PASSWORD: ${PROMOTION_DB_PASSWORD:?set PROMOTION_DB_PASSWORD in infra/.env}
@@ -865,6 +919,9 @@ services:
         condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: default
+      # Phase 10 tracing -> Jaeger (OTLP/HTTP). Dev samples everything; production default is 0.1.
+      OTEL_TRACES_ENDPOINT: http://jaeger:4318/v1/traces
+      TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY:-1.0}
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/seller_db
       SPRING_DATASOURCE_USERNAME: seller_service
       SPRING_DATASOURCE_PASSWORD: ${SELLER_DB_PASSWORD:?set SELLER_DB_PASSWORD in infra/.env}
@@ -884,6 +941,60 @@ services:
       timeout: 5s
       retries: 6
       start_period: 60s
+
+  # ---------------------------------------------------------------------------
+  # support-service - Phase 10. Own database (support_db) + role: help centre FAQ, tickets,
+  # rule-based chatbot, audit log (consumes audit.events). Sends email via notification-service.
+  # ---------------------------------------------------------------------------
+  support-service:
+    build:
+      context: ..
+      dockerfile: services/support-service/support-service-app/Dockerfile
+    container_name: ecommerce-support
+    restart: unless-stopped
+    mem_limit: 384m
+    depends_on:
+      postgres:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: default
+      # Phase 10 tracing -> Jaeger (OTLP/HTTP). Dev samples everything; production default is 0.1.
+      OTEL_TRACES_ENDPOINT: http://jaeger:4318/v1/traces
+      TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY:-1.0}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/support_db
+      SPRING_DATASOURCE_USERNAME: support_service
+      SPRING_DATASOURCE_PASSWORD: ${SUPPORT_DB_PASSWORD:?set SUPPORT_DB_PASSWORD in infra/.env}
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      AUTH_JWT_ISSUER: ${AUTH_JWT_ISSUER:-https://auth.acme-ecommerce.internal}
+      AUTH_JWT_AUDIENCES: ${AUTH_JWT_AUDIENCES:-ecommerce-platform}
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?set INTERNAL_API_TOKEN in infra/.env}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      STOREFRONT_BASE_URL: ${STOREFRONT_BASE_URL:-http://localhost:3000}
+    ports:
+      - "127.0.0.1:${SUPPORT_PORT:-8092}:8092"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8092/actuator/health | grep -q '\"status\":\"UP\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 60s
+
+  # ---------------------------------------------------------------------------
+  # Jaeger all-in-one (Phase 10) - trace storage (in-memory) + UI. OTLP/HTTP :4318 is internal only.
+  # ---------------------------------------------------------------------------
+  jaeger:
+    image: jaegertracing/all-in-one:1.62.0
+    container_name: ecommerce-jaeger
+    restart: unless-stopped
+    mem_limit: 256m
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+      MEMORY_MAX_TRACES: "5000"
+      GOMEMLIMIT: 200MiB
+    ports:
+      - "127.0.0.1:16686:16686"
 
 volumes:
   rating-media:

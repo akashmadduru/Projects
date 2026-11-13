@@ -124,7 +124,7 @@ onMounted(() => {
             <tr v-for="s in shipments" :key="s.id" data-test="ship-row">
               <td>
                 <div class="font-mono text-xs">{{ s.orderNumber ?? s.orderId ?? s.id }}</div>
-                <div class="text-xs opacity-70">{{ fmtDate(s.createdAt) }}</div>
+                <div class="text-xs opacity-70">{{ fmtDate(s.placedAt ?? s.createdAt) }}</div>
               </td>
               <td class="text-xs">
                 <div v-for="(it, i) in s.items ?? []" :key="i">{{ it.quantity }} x {{ it.productName ?? it.name }}</div>

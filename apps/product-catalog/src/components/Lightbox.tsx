@@ -156,7 +156,7 @@ export function Lightbox({ images, index, alt, onIndexChange, onClose }: Props) 
         >
           <img
             src={images[index]}
-            alt={`${alt}, image ${index + 1}`}
+            alt={`${alt}, ${index + 1} of ${images.length}`}
             draggable={false}
             className="max-h-full max-w-full select-none object-contain"
             style={{

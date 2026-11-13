@@ -93,6 +93,16 @@ public class ReviewEligibilityService {
     }
   }
 
+  /** When the caller's account was created, or null if auth-service cannot say. */
+  public java.time.Instant accountCreatedAt() {
+    try {
+      AuthAccountFeignClient.Account account = accounts.me();
+      return account == null ? null : account.createdAt();
+    } catch (RuntimeException e) {
+      return null;
+    }
+  }
+
   private static String blankToNull(String value) {
     return value == null || value.isBlank() ? null : value.trim();
   }

@@ -48,6 +48,7 @@ dependencies {
     implementation libs.spring.cloud.starter.openfeign
 
     implementation libs.micrometer.registry.prometheus
+    implementation libs.bundles.tracing
 
     // Lombok for DTO generation and configuration properties
     compileOnly libs.lombok

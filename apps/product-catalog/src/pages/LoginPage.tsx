@@ -7,7 +7,9 @@ import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { ErrorAlert } from '../components/ErrorAlert'
 import { Field, cardClass, inputClass, primaryButtonClass } from '../components/Form'
 import { GoogleSignInButton, OrDivider } from '../components/GoogleSignInButton'
+import { MfaStep } from '../components/MfaStep'
 import { OtpLoginForm } from '../components/OtpLoginForm'
+import { useT } from '../lib/i18n'
 import { codeMessage, errorMessage } from '../lib/errors'
 import { safeNext } from '../lib/redirect'
 import { useAuthStore } from '../stores'
@@ -18,6 +20,8 @@ export function LoginPage() {
   const navigate = useNavigate()
   const status = useAuthStore((s) => s.status)
   const login = useAuthStore((s) => s.login)
+  const mfaToken = useAuthStore((s) => s.mfaToken)
+  const t = useT()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -32,21 +36,32 @@ export function LoginPage() {
     setSubmitting(true)
     setError(undefined)
     try {
-      await login(email.trim(), password)
-      navigate(next, { replace: true })
+      const result = await login(email.trim(), password)
+      if (result === 'ok') navigate(next, { replace: true })
+      else setSubmitting(false)
     } catch (err) {
       setError(errorMessage(err))
       setSubmitting(false)
     }
   }
 
+  if (mfaToken) {
+    return (
+      <div className="mx-auto max-w-md space-y-5">
+        <div className={cardClass}>
+          <MfaStep onSuccess={() => navigate(next, { replace: true })} />
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="mx-auto max-w-md space-y-5">
-      <h1 className="font-display text-2xl font-bold text-on-surface">Sign in</h1>
+      <h1 className="font-display text-2xl font-bold text-on-surface">{t('Sign in')}</h1>
       <div role="tablist" aria-label="Sign-in method" className="flex gap-2">
         {([
-          ['password', 'Password'],
-          ['otp', 'Login with OTP'],
+          ['password', t('Password')],
+          ['otp', t('Login with OTP')],
         ] as const).map(([key, label]) => (
           <button
             key={key}
@@ -71,7 +86,7 @@ export function LoginPage() {
         {error && <ErrorAlert message={error} onDismiss={() => setError(undefined)} />}
         <GoogleSignInButton next={next} />
         <OrDivider />
-        <Field label="Email">
+        <Field label={t('Email')}>
           {(id) => (
             <input
               id={id}
@@ -85,7 +100,7 @@ export function LoginPage() {
             />
           )}
         </Field>
-        <Field label="Password">
+        <Field label={t('Password')}>
           {(id) => (
             <input
               id={id}
@@ -101,18 +116,18 @@ export function LoginPage() {
         </Field>
         <div className="text-right">
           <Link to="/forgot-password" className="text-sm font-semibold text-primary hover:underline">
-            Forgot password?
+            {t('Forgot password?')}
           </Link>
         </div>
         <button type="submit" disabled={submitting} className={`${primaryButtonClass} w-full`}>
-          {submitting ? 'Signing in...' : 'Sign in'}
+          {submitting ? t('Signing in...') : t('Sign in')}
         </button>
       </form>
       )}
       <p className="text-center text-sm text-on-surface-muted">
-        New here?{' '}
+        {t('New here?')}{' '}
         <Link to={`/register?next=${encodeURIComponent(next)}`} className="font-semibold text-primary hover:underline">
-          Create an account
+          {t('Create an account')}
         </Link>
       </p>
     </div>

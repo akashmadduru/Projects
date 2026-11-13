@@ -3,6 +3,8 @@ package com.acme.ecommerce.common.web;
 import com.acme.ecommerce.common.core.error.ProblemPayloadFactory;
 import com.acme.ecommerce.common.core.time.SystemTimeProvider;
 import com.acme.ecommerce.common.core.time.TimeProvider;
+import com.acme.ecommerce.common.web.audit.AuditInterceptor;
+import com.acme.ecommerce.common.web.audit.AuditPublisher;
 import com.acme.ecommerce.common.web.correlation.CorrelationIdFilter;
 import com.acme.ecommerce.common.web.error.GlobalExceptionHandler;
 import com.acme.ecommerce.common.web.error.SecurityProblemExceptionHandler;
@@ -78,6 +80,43 @@ public class CommonWebAutoConfiguration {
     public SecurityProblemExceptionHandler securityProblemExceptionHandler(
         ProblemPayloadFactory problemPayloadFactory) {
       return new SecurityProblemExceptionHandler(problemPayloadFactory);
+    }
+  }
+
+  /**
+   * Admin/seller write auditing (Phase 10) to the {@code audit.events} topic. Registered only when
+   * Kafka clients, Spring Security and MVC are present; {@code audit.enabled=false} turns it off.
+   */
+  @Configuration(proxyBeanMethods = false)
+  @ConditionalOnClass({
+    org.apache.kafka.clients.producer.KafkaProducer.class,
+    org.springframework.security.core.context.SecurityContextHolder.class,
+    org.springframework.web.servlet.config.annotation.WebMvcConfigurer.class
+  })
+  @org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(
+      name = "audit.enabled",
+      havingValue = "true",
+      matchIfMissing = true)
+  public static class AuditConfiguration {
+
+    @Bean(destroyMethod = "close")
+    @ConditionalOnMissingBean(AuditPublisher.class)
+    public AuditPublisher auditPublisher(org.springframework.core.env.Environment env) {
+      return new AuditPublisher(
+          env.getProperty("spring.kafka.bootstrap-servers", "localhost:9092"),
+          env.getProperty("spring.application.name", "service"));
+    }
+
+    @Bean
+    public org.springframework.web.servlet.config.annotation.WebMvcConfigurer auditWebMvcConfigurer(
+        AuditPublisher publisher) {
+      return new org.springframework.web.servlet.config.annotation.WebMvcConfigurer() {
+        @Override
+        public void addInterceptors(
+            org.springframework.web.servlet.config.annotation.InterceptorRegistry registry) {
+          registry.addInterceptor(new AuditInterceptor(publisher)).addPathPatterns("/api/**");
+        }
+      };
     }
   }
 

@@ -135,3 +135,14 @@ COMMENT ON DATABASE seller_db IS 'seller-service: seller onboarding/KYC, feedbac
 REVOKE ALL ON SCHEMA public FROM PUBLIC;
 GRANT ALL ON SCHEMA public TO seller_service;
 ALTER DATABASE seller_db SET search_path TO public;
+
+-- --- Phase 10: support-service ------------------------------------------------
+\connect postgres
+CREATE ROLE support_service WITH LOGIN PASSWORD 'support_service_local_pwd';
+CREATE DATABASE support_db WITH OWNER support_service ENCODING 'UTF8';
+COMMENT ON DATABASE support_db IS 'support-service: help centre, tickets, chatbot, audit log';
+
+\connect support_db
+REVOKE ALL ON SCHEMA public FROM PUBLIC;
+GRANT ALL ON SCHEMA public TO support_service;
+ALTER DATABASE support_db SET search_path TO public;

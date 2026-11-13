@@ -63,6 +63,9 @@ public class OrderReturn {
   @Column(name = "shipment_id", updatable = false)
   private UUID shipmentId;
 
+  @Column(name = "abuse_flag", nullable = false)
+  private boolean abuseFlag;
+
   @Column(name = "admin_note", length = 1000)
   private String adminNote;
 
@@ -103,6 +106,10 @@ public class OrderReturn {
 
   void addItem(UUID productId, UUID variantId, String name, int quantity, BigDecimal unitPrice) {
     items.add(OrderReturnItem.of(this, productId, variantId, name, quantity, unitPrice));
+  }
+
+  public void flagAbuse() {
+    this.abuseFlag = true;
   }
 
   public void decide(boolean approve, String note, Instant now) {

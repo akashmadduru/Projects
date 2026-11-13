@@ -52,18 +52,21 @@ public class LoginService {
   private final TokenService tokenService;
   private final AuthMetrics metrics;
   private final UserSnapshotFactory snapshots;
+  private final TwoFactorService twoFactor;
 
   public LoginService(
       AuthenticationManager authenticationManager,
       LoginAttemptService loginAttempts,
       TokenService tokenService,
       AuthMetrics metrics,
-      UserSnapshotFactory snapshots) {
+      UserSnapshotFactory snapshots,
+      TwoFactorService twoFactor) {
     this.authenticationManager = authenticationManager;
     this.loginAttempts = loginAttempts;
     this.tokenService = tokenService;
     this.metrics = metrics;
     this.snapshots = snapshots;
+    this.twoFactor = twoFactor;
   }
 
   /**
@@ -71,7 +74,7 @@ public class LoginService {
    *
    * @throws AuthException with a deliberately generic code on any failure
    */
-  public TokenPair login(LoginRequest request, DeviceContext device) {
+  public LoginResult login(LoginRequest request, DeviceContext device) {
     String email = com.acme.ecommerce.auth.domain.UserAccount.normaliseEmail(request.getEmail());
 
     Authentication authentication;
@@ -116,7 +119,6 @@ public class LoginService {
             AuthMethod.PASSWORD);
 
     // THE CONVERGENCE POINT. familyId == null starts a new family.
-    return tokenService.issueTokenPair(
-        issuancePrincipal, device, null, null, snapshots.snapshotFor(issuancePrincipal));
+    return twoFactor.completeLogin(issuancePrincipal, device);
   }
 }

@@ -22,7 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/api/admin/payments")
-@PreAuthorize("hasAuthority('ROLE_ADMIN')")
+@PreAuthorize("hasAnyRole('ADMIN','FINANCE','SUPPORT')")
 public class AdminPaymentController {
 
   private static final int MAX_PAGE_SIZE = 50;

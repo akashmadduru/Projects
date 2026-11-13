@@ -91,3 +91,15 @@ WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'seller_db')\gexec
 REVOKE ALL ON SCHEMA public FROM PUBLIC;
 GRANT ALL ON SCHEMA public TO seller_service;
 ALTER DATABASE seller_db SET search_path TO public;
+
+-- --- Phase 10: support-service ------------------------------------------------
+\connect postgres
+SELECT 'CREATE ROLE support_service WITH LOGIN PASSWORD ''support_service_local_pwd'''
+WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'support_service')\gexec
+SELECT 'CREATE DATABASE support_db WITH OWNER support_service ENCODING ''UTF8'' TEMPLATE template0'
+WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'support_db')\gexec
+
+\connect support_db
+REVOKE ALL ON SCHEMA public FROM PUBLIC;
+GRANT ALL ON SCHEMA public TO support_service;
+ALTER DATABASE support_db SET search_path TO public;

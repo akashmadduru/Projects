@@ -40,6 +40,7 @@ public class OtpLoginService {
   private final TokenService tokenService;
   private final UserPrincipalService principals;
   private final UserSnapshotFactory snapshots;
+  private final TwoFactorService twoFactor;
   private final AuthMetrics metrics;
 
   public OtpLoginService(
@@ -49,7 +50,8 @@ public class OtpLoginService {
       TokenService tokenService,
       UserPrincipalService principals,
       UserSnapshotFactory snapshots,
-      AuthMetrics metrics) {
+      AuthMetrics metrics,
+      TwoFactorService twoFactor) {
     this.users = users;
     this.tokens = tokens;
     this.notifications = notifications;
@@ -57,6 +59,7 @@ public class OtpLoginService {
     this.principals = principals;
     this.snapshots = snapshots;
     this.metrics = metrics;
+    this.twoFactor = twoFactor;
   }
 
   /** Sends a login code if (and only if) a verified account owns the number. Never throws. */
@@ -89,7 +92,7 @@ public class OtpLoginService {
   }
 
   /** Verifies the code and issues a fresh token family (same as password login). */
-  public TokenPair verify(String rawPhone, String code, DeviceContext device) {
+  public LoginResult verify(String rawPhone, String code, DeviceContext device) {
     String phone = PhoneNumbers.normalise(rawPhone).orElse(null);
     UserAccount user =
         phone == null
@@ -108,6 +111,6 @@ public class OtpLoginService {
     metrics.loginAttempt(AuthMethod.OTP, "success");
     AuthenticatedPrincipal principal = principals.principalFor(user, AuthMethod.OTP);
     // THE CONVERGENCE POINT. familyId == null starts a new family.
-    return tokenService.issueTokenPair(principal, device, null, null, snapshots.snapshotFor(principal));
+    return twoFactor.completeLogin(principal, device);
   }
 }

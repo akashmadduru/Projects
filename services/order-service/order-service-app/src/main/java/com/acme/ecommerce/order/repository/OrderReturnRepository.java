@@ -13,6 +13,11 @@ public interface OrderReturnRepository extends JpaRepository<OrderReturn, UUID> 
 
   Page<OrderReturn> findByStatus(ReturnStatus status, Pageable pageable);
 
+  long countByUserIdAndCreatedAtAfter(UUID userId, java.time.Instant after);
+
+  @Query("select count(distinct r.order.id) from OrderReturn r where r.userId = :userId")
+  long countDistinctOrders(@org.springframework.data.repository.query.Param("userId") UUID userId);
+
   /** Rows of [ReturnStatus, Long] for the admin dashboard. */
   @Query("select r.status, count(r) from OrderReturn r group by r.status")
   List<Object[]> countGroupedByStatus();

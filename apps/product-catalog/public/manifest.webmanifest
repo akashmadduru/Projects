@@ -1,0 +1,14 @@
+{
+  "name": "Cartwise",
+  "short_name": "Cartwise",
+  "description": "Everyday essentials, electronics, home, fashion and more, with honest deals.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#FFF3D6",
+  "theme_color": "#1B7469",
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icon-maskable.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}

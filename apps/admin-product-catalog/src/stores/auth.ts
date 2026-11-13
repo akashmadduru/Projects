@@ -3,7 +3,7 @@ import { defineStore } from 'pinia';
 
 import { apiFetch, registerAuthProvider } from '@/lib/http';
 import { ApiError } from '@/lib/problem';
-import type { LoginRequest, RegisterRequest, TokenResponse, UserResponse } from '@/types/api';
+import type { LoginRequest, MfaChallenge, RegisterRequest, TokenResponse, UserResponse } from '@/types/api';
 
 /**
  * Session state.
@@ -103,8 +103,18 @@ export const useAuthStore = defineStore('auth', () => {
 
   /** Back-office staff: may see the admin catalog screens. */
   const isStaff = computed<boolean>(
-    () => user.value?.roles.some((role) => role === 'ADMIN' || role === 'CATALOG_MANAGER') ?? false,
+    () =>
+      user.value?.roles.some(
+        (role) =>
+          role === 'ADMIN' || role === 'CATALOG_MANAGER' || role === 'SUPPORT' || role === 'FINANCE',
+      ) ?? false,
   );
+
+  /** Phase 10 RBAC helpers (ADMIN always passes). */
+  function hasAnyRole(...roles: readonly string[]): boolean {
+    const held = user.value?.roles ?? [];
+    return held.includes('ADMIN') || roles.some((r) => held.includes(r));
+  }
 
   function clearSession(): void {
     accessToken.value = null;
@@ -158,15 +168,34 @@ export const useAuthStore = defineStore('auth', () => {
     return inFlight;
   }
 
-  async function login(credentials: LoginRequest): Promise<void> {
-    const tokens = await apiFetch<TokenResponse>('/api/auth/login', {
+  async function acceptTokens(tokens: TokenResponse): Promise<void> {
+    accessToken.value = tokens.accessToken;
+    silentRefreshAttempted.value = true;
+    await loadCurrentUser();
+  }
+
+  /** Resolves to an MFA challenge when the account has 2FA enabled, otherwise null (signed in). */
+  async function login(credentials: LoginRequest): Promise<MfaChallenge | null> {
+    const res = await apiFetch<TokenResponse | MfaChallenge>('/api/auth/login', {
       method: 'POST',
       body: credentials,
       authenticated: false,
     });
-    accessToken.value = tokens.accessToken;
-    silentRefreshAttempted.value = true;
-    await loadCurrentUser();
+    if ('mfaRequired' in res && res.mfaRequired) {
+      return res;
+    }
+    await acceptTokens(res as TokenResponse);
+    return null;
+  }
+
+  /** Second step of a 2FA login: authenticator code or a one-time recovery code. */
+  async function verifyMfa(mfaToken: string, code: string, recovery: boolean): Promise<void> {
+    const tokens = await apiFetch<TokenResponse>('/api/auth/2fa/verify', {
+      method: 'POST',
+      body: recovery ? { mfaToken, recoveryCode: code } : { mfaToken, code },
+      authenticated: false,
+    });
+    await acceptTokens(tokens);
   }
 
   async function register(payload: RegisterRequest): Promise<UserResponse> {
@@ -248,7 +277,9 @@ export const useAuthStore = defineStore('auth', () => {
     isAdmin,
     isSeller,
     isStaff,
+    hasAnyRole,
     login,
+    verifyMfa,
     register,
     logout,
     refreshAccessToken,

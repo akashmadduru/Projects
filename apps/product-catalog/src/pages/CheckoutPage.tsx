@@ -9,6 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { AddressForm, formatAddressLines } from '../components/AddressForm'
 import { ErrorAlert } from '../components/ErrorAlert'
+import { ExchangeOffer } from '../components/ExchangeOffer'
 import { Field, LoadingBlock, cardClass, inputClass, primaryButtonClass, secondaryButtonClass } from '../components/Form'
 import { PaymentPanel } from '../components/PaymentPanel'
 import { ProductImage } from '../components/ProductImage'
@@ -20,6 +21,7 @@ import { effectivePrice } from '../lib/price'
 import { orderApi } from '../services/orderApi'
 import { engageApi } from '../services/engageApi'
 import { promotionApi } from '../services/paymentApi'
+import { useT } from '../lib/i18n'
 import { userApi } from '../services/userApi'
 import { useCartStore } from '../stores'
 import type {
@@ -27,6 +29,7 @@ import type {
   AddressRequest,
   AvailableCoupon,
   Coins,
+  ExchangeQuote,
   CouponValidation,
   DeliveryEstimate,
   Order,
@@ -126,6 +129,10 @@ export function CheckoutPage() {
   const [estimate, setEstimate] = useState<DeliveryEstimate | null>(null)
   const [estimateError, setEstimateError] = useState<string | undefined>()
   const [placed, setPlaced] = useState<Order | null>(null)
+  const [exchange, setExchange] = useState<ExchangeQuote | null>(null)
+  // The server's risk engine can switch Cash on Delivery off for this order (PAYMENT_METHOD_UNAVAILABLE / RISK).
+  const [codRisk, setCodRisk] = useState(false)
+  const t = useT()
   const attempt = useRef<{ shape: string; key: string } | null>(null)
 
   const currency = lines[0]?.currency ?? 'INR'
@@ -205,13 +212,16 @@ export function CheckoutPage() {
   const coinsValue = coinsToRedeem * coinUnit
   const baseShipping = estimate?.shippingFee ?? 0
   const shipping = member ? 0 : baseShipping
-  const total = Math.max(subtotal - discount - coinsValue, 0) + shipping
+  const exchangeValue = exchange ? Math.min(exchange.quotedValue, Math.max(subtotal - discount - coinsValue, 0)) : 0
+  const total = Math.max(subtotal - discount - coinsValue - exchangeValue, 0) + shipping
   const walletUsable = !!wallet && wallet.balance > 0 && (wallet.currency == null || wallet.currency === currency)
   const walletCoversAll = walletUsable && wallet.balance >= total && total > 0
   const walletApplied = walletUsable && (useWallet || paymentMethod === 'WALLET') ? Math.min(wallet.balance, total) : 0
   const payable = Math.max(total - walletApplied, 0)
   const codLimit = currency === 'INR' ? COD_LIMIT_INR : COD_LIMIT_OTHER
-  const codReason = !estimate
+  const codReason = codRisk
+    ? 'Cash on Delivery is not available for this order. Please pay online.'
+    : !estimate
     ? 'Choose a deliverable address to check Cash on Delivery.'
     : !estimate.codAvailable
       ? 'Cash on Delivery is not available for this address.'
@@ -300,6 +310,7 @@ export function CheckoutPage() {
       ...(coupon ? { couponCode: coupon.code } : {}),
       ...(walletApplied > 0 ? { useWallet: true } : {}),
       ...(coinsToRedeem > 0 ? { coinsToRedeem } : {}),
+      ...(exchange ? { exchangeQuoteId: exchange.id } : {}),
       ...(buyNowId ? { items: lines.map((l) => ({ productId: l.productId, ...(l.offerId ? { offerId: l.offerId } : {}), ...(l.variantId ? { variantId: l.variantId } : {}), quantity: l.quantity })) } : {}),
     }
     const shape = JSON.stringify(request)
@@ -320,6 +331,14 @@ export function CheckoutPage() {
       goToOrder(order.id, false)
     } catch (err) {
       setShortfalls(stockShortfalls(err))
+      if (isApiError(err) && problemCode(err) === 'PAYMENT_METHOD_UNAVAILABLE' && err.problem['reason'] === 'RISK') {
+        setCodRisk(true)
+        setPaymentMethod('CARD')
+        setPlaceError('Cash on Delivery is not available for this order. Please choose online payment.')
+        attempt.current = null
+        setPlacing(false)
+        return
+      }
       setPlaceError(errorMessage(err))
       // A rejected request may succeed with a new key once the cause is fixed.
       if (isApiError(err) && err.status < 500) attempt.current = null
@@ -334,7 +353,7 @@ export function CheckoutPage() {
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_24rem]">
       <div className="space-y-5">
-        <h1 className="font-display text-2xl font-bold text-on-surface">Checkout</h1>
+        <h1 className="font-display text-2xl font-bold text-on-surface">{t('Checkout')}</h1>
         {placeError && <ErrorAlert message={placeError} onDismiss={() => setPlaceError(undefined)} />}
         {shortfalls.length > 0 && (
           <ul className="space-y-1 rounded-lg border-2 border-ink bg-surface-variant p-4 text-sm text-on-surface" role="alert">
@@ -351,7 +370,7 @@ export function CheckoutPage() {
         )}
 
         <section className="space-y-3">
-          <h2 className="font-bold text-on-surface">Shipping address</h2>
+          <h2 className="font-bold text-on-surface">{t('Shipping address')}</h2>
           {showForm ? (
             <div className={cardClass}>
               <AddressForm
@@ -408,7 +427,7 @@ export function CheckoutPage() {
         </section>
 
         <fieldset className="space-y-3">
-          <legend className="mb-2 font-bold text-on-surface">Payment method</legend>
+          <legend className="mb-2 font-bold text-on-surface">{t('Payment method')}</legend>
           <div role="radiogroup" aria-label="Payment method" className="grid gap-3 sm:grid-cols-2">
             <label className={`${cardClass} block cursor-pointer ${paymentMethod === 'CARD' ? 'ring-2 ring-primary' : ''}`}>
               <input
@@ -441,7 +460,7 @@ export function CheckoutPage() {
                 }}
                 aria-describedby="cod-reason"
               />
-              <span className="font-bold text-on-surface">Cash on Delivery</span>
+              <span className="font-bold text-on-surface">{t('Cash on Delivery')}</span>
               <span id="cod-reason" className="mt-1 block text-sm text-on-surface-muted">
                 {codReason ?? 'Pay when your order arrives'}
               </span>
@@ -511,10 +530,11 @@ export function CheckoutPage() {
             </div>
           )}
         </fieldset>
+        {lines[0] && <ExchangeOffer productId={lines[0].productId} applied={exchange} onApply={setExchange} />}
       </div>
 
       <aside className={`${cardClass} h-fit space-y-4`}>
-        <h2 className="font-bold text-on-surface">Order summary</h2>
+        <h2 className="font-bold text-on-surface">{t('Order summary')}</h2>
         <ul className="divide-y divide-outline">
           {lines.map((line) => (
             <li key={`${line.productId}:${line.variantId ?? ''}`} className="flex gap-3 py-2">
@@ -597,13 +617,19 @@ export function CheckoutPage() {
 
         <dl className="space-y-1 text-sm">
           <div className="flex justify-between">
-            <dt className="text-on-surface-muted">Subtotal</dt>
+            <dt className="text-on-surface-muted">{t('Subtotal')}</dt>
             <dd className="text-on-surface">{formatMoney(subtotal, currency)}</dd>
           </div>
           {discount > 0 && (
             <div className="flex justify-between">
               <dt className="text-on-surface-muted">Discount</dt>
               <dd className="text-success">-{formatMoney(discount, currency)}</dd>
+            </div>
+          )}
+          {exchangeValue > 0 && (
+            <div className="flex justify-between">
+              <dt className="text-on-surface-muted">Exchange value</dt>
+              <dd className="text-success">-{formatMoney(exchangeValue, currency)}</dd>
             </div>
           )}
           {coinsValue > 0 && (
@@ -626,7 +652,7 @@ export function CheckoutPage() {
             <dd className="text-on-surface">{currency === 'INR' ? `~${formatMoney(estimatedTax, currency)}` : '—'}</dd>
           </div>
           <div className="flex items-baseline justify-between border-t-2 border-outline pt-2">
-            <dt className="font-bold text-on-surface">Total</dt>
+            <dt className="font-bold text-on-surface">{t('Total')}</dt>
             <dd className="text-xl font-bold text-on-surface">{formatMoney(total, currency)}</dd>
           </div>
           {walletApplied > 0 && (
@@ -649,7 +675,7 @@ export function CheckoutPage() {
           disabled={placing || !selectedId || showForm || mixedCurrency}
           className={`${primaryButtonClass} w-full`}
         >
-          {placing ? 'Placing order...' : paymentMethod === 'CARD' && payable > 0 ? 'Place order and pay' : 'Place order'}
+          {placing ? t('Placing order...') : paymentMethod === 'CARD' && payable > 0 ? t('Place order and pay') : t('Place order')}
         </button>
       </aside>
     </div>

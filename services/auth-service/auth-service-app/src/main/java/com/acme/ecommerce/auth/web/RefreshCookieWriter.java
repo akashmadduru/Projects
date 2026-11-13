@@ -71,6 +71,35 @@ public class RefreshCookieWriter {
   }
 
   /** Expires the refresh cookie. Used by logout and by reuse detection. */
+  public static final String PENDING_COOKIE = "mfa_pending";
+
+  /** Short-lived HttpOnly cookie carrying the mfaToken of a Google login that needs a second factor. */
+  public void writePending(HttpServletResponse response, String mfaToken, Duration ttl) {
+    CookieSupport.write(
+        response,
+        PENDING_COOKIE,
+        mfaToken,
+        config.path(),
+        ttl,
+        config.secure(),
+        config.sameSite(),
+        config.domain());
+  }
+
+  public Optional<String> readPending(HttpServletRequest request) {
+    return CookieSupport.read(request, PENDING_COOKIE);
+  }
+
+  public void clearPending(HttpServletResponse response) {
+    CookieSupport.clear(
+        response,
+        PENDING_COOKIE,
+        config.path(),
+        config.secure(),
+        config.sameSite(),
+        config.domain());
+  }
+
   public void clear(HttpServletResponse response) {
     CookieSupport.clear(
         response,

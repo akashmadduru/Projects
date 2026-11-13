@@ -11,6 +11,7 @@ import java.util.UUID;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -32,6 +33,12 @@ public class InternalCatalogController {
   public OfferRef offer(@PathVariable UUID id) {
     Offer o = offers.get(id);
     return new OfferRef(o.getId(), o.getProductId(), o.getVariantId(), o.getSellerId(), o.isActive());
+  }
+
+  /** Inventory calls this after seller stock changes so the list-row price follows the buy box. */
+  @PostMapping("/internal/products/{id}/sync-prices")
+  public void syncPrices(@PathVariable UUID id) {
+    offers.syncPrices(id);
   }
 
   private static LocalDate day(String v, LocalDate fallback) {

@@ -39,7 +39,13 @@ public record OrderResponse(
     BigDecimal coinsValue,
     BigDecimal walletAmount,
     boolean membershipFreeShipping,
-    List<ShipmentResponse> shipments) {
+    List<ShipmentResponse> shipments,
+    boolean riskHold,
+    int riskScore,
+    List<String> riskReasons,
+    BigDecimal exchangeValue,
+    BigDecimal exchangeShortfall,
+    UUID exchangeQuoteId) {
 
   /** Copy with the payment block (CARD placement / replay) filled in. */
   public OrderResponse withPayment(PaymentBlockResponse block) {
@@ -76,6 +82,12 @@ public record OrderResponse(
         coinsValue,
         walletAmount,
         membershipFreeShipping,
-        shipments);
+        shipments,
+        riskHold,
+        riskScore,
+        riskReasons,
+        exchangeValue,
+        exchangeShortfall,
+        exchangeQuoteId);
   }
 }

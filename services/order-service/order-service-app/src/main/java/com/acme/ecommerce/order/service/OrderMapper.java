@@ -82,7 +82,27 @@ public class OrderMapper {
         o.getCoinsValue(),
         o.getWalletAmount(),
         o.isMembershipFreeShipping(),
-        o.getShipments().stream().map(s -> toShipment(o, s, now, window)).toList());
+        o.getShipments().stream().map(s -> toShipment(o, s, now, window)).toList(),
+        o.isRiskHold(),
+        o.getRiskScore(),
+        parseReasons(o.getRiskReasons()),
+        o.getExchangeAmount(),
+        o.getExchangeShortfall(),
+        o.getExchangeQuoteId());
+  }
+
+  /** Reasons are stored as a JSON string array written by Order#applyRisk. */
+  static java.util.List<String> parseReasons(String json) {
+    if (json == null || json.length() < 3) {
+      return java.util.List.of();
+    }
+    java.util.List<String> out = new java.util.ArrayList<>();
+    java.util.regex.Matcher m =
+        java.util.regex.Pattern.compile("\"((?:[^\"\\\\]|\\\\.)*)\"").matcher(json);
+    while (m.find()) {
+      out.add(m.group(1).replace("\\\"", "\"").replace("\\\\", "\\"));
+    }
+    return out;
   }
 
   static OrderItemResponse toItem(OrderItem i) {
@@ -200,6 +220,7 @@ public class OrderMapper {
         r.getCreatedAt(),
         r.getUpdatedAt(),
         r.getAdminNote(),
-        r.getShipmentId());
+        r.getShipmentId(),
+        r.isAbuseFlag());
   }
 }

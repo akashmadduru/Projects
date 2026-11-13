@@ -35,6 +35,8 @@ export const DEFAULT_AUTHENTICATED_ROUTE = '/dashboard';
  */
 export function homeRouteFor(roles: readonly string[]): string {
   if (roles.includes('ADMIN') || roles.includes('CATALOG_MANAGER')) return DEFAULT_AUTHENTICATED_ROUTE;
+  if (roles.includes('SUPPORT')) return '/support/tickets';
+  if (roles.includes('FINANCE')) return '/payouts';
   if (roles.includes('SELLER')) return '/seller/listings';
   return '/seller/apply';
 }

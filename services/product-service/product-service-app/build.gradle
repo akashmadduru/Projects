@@ -64,6 +64,7 @@ dependencies {
     implementation libs.spring.cloud.starter.circuitbreaker.resilience4j
 
     implementation libs.micrometer.registry.prometheus
+    implementation libs.bundles.tracing
 
     // Getter/no-arg-constructor generation for the domain entities (Product,
     // Category, ProductImage) - compileOnly + annotationProcessor only, never

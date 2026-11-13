@@ -90,18 +90,20 @@ that; everything after it grows conversion and retention.
 
 ## Phase 9: Marketplace and sellers
 
-| # | Feature | Why it matters | Today | Touches | Size |
-|---|---|---|---|---|---|
-| 1 | **Seller onboarding with KYC** (GST, PAN, bank account verification) | Amazon/Flipkart are marketplaces; catalogue growth comes from sellers | Seller is just a name on a product | **new** seller-service | L |
-| 2 | **Seller portal**: own listings, stock, prices, orders to fulfil | Sellers self-serve instead of the admin team | Admin-only catalogue | **new** seller app, product-service, order-service | L |
-| 3 | **Multiple sellers per product** with a "buy box" winner (price, rating, delivery speed) | Price competition; core marketplace mechanic | One seller per product | product-service, order-service | L |
-| 4 | **Split orders per seller / per warehouse** (sub-orders, separate shipments) | Required once there is more than one seller | One order = one shipment | order-service | M |
-| 5 | **Commission, settlement and payouts** to sellers | Sellers must get paid | — | **new** settlement module in payment-service | L |
-| 6 | **Seller ratings and feedback** shown on PDP and seller page | Trust in third-party sellers | Static seller rating field | rating-service | S |
-| 7 | **Bulk catalogue upload** (CSV/Excel) and listing quality checks | Sellers list thousands of SKUs | One-by-one admin form | product-service, seller portal | M |
-| 8 | **Sponsored products / ads** in search and PDP | Major profit line for both platforms | — | **new** ads module, search ranking | L |
-| 9 | **Seller analytics dashboard** (sales, traffic, conversion, returns) | Keeps sellers investing | — | seller portal, reporting | M |
-| 10 | **Warehouse / fulfilment network** (stock per warehouse, nearest-warehouse routing) | Fast delivery promises | Single stock number | inventory-service | L |
+**Status (2026-11-13): built, prototype-grade, no automated tests.** Integration run: 62 of 62 Phase 9 end-to-end checks, 99 of 99 Phase 6, 68 of 68 Phase 7 and all Phase 8 regression checks passed. One new service, seller-service (:8091), holds onboarding, ledger, payouts, ratings and ads; offers/buy box live in product-service and warehouses in inventory-service. Shortcuts: [techdebt/phase9.md](../techdebt/phase9.md). The "Today" column below is the pre-Phase-9 baseline. Settlement and ads were built in seller-service, not in payment-service/a separate ads module as the "Touches" column planned.
+
+| # | Feature | Why it matters | Today | Touches | Size | Status |
+|---|---|---|---|---|---|---|
+| 1 | **Seller onboarding with KYC** (GST, PAN, bank account verification) | Amazon/Flipkart are marketplaces; catalogue growth comes from sellers | Seller is just a name on a product | **new** seller-service | L | ✅ Built, partial: format-only KYC, static encryption key ([TD-P9-09](../techdebt/phase9.md#td-p9-09)) |
+| 2 | **Seller portal**: own listings, stock, prices, orders to fulfil | Sellers self-serve instead of the admin team | Admin-only catalogue | **new** seller app, product-service, order-service | L | ✅ Built inside the admin SPA (seller area); products go live without moderation ([TD-P9-03](../techdebt/phase9.md#td-p9-03), [TD-P9-18](../techdebt/phase9.md#td-p9-18)) |
+| 3 | **Multiple sellers per product** with a "buy box" winner (price, rating, delivery speed) | Price competition; core marketplace mechanic | One seller per product | product-service, order-service | L | ✅ Built, partial: list price not re-synced on sell-out via orders ([TD-P9-06](../techdebt/phase9.md#td-p9-06)) |
+| 4 | **Split orders per seller / per warehouse** (sub-orders, separate shipments) | Required once there is more than one seller | One order = one shipment | order-service | M | ✅ Built, partial: no per-shipment cancel/refund ([TD-P9-12](../techdebt/phase9.md#td-p9-12), [TD-P9-13](../techdebt/phase9.md#td-p9-13)) |
+| 5 | **Commission, settlement and payouts** to sellers | Sellers must get paid | — | **new** settlement module in payment-service | L | ✅ Built, partial: ledger in seller-service, simulated manual payouts ([TD-P9-07](../techdebt/phase9.md#td-p9-07), [TD-P9-08](../techdebt/phase9.md#td-p9-08)) |
+| 6 | **Seller ratings and feedback** shown on PDP and seller page | Trust in third-party sellers | Static seller rating field | rating-service | S | ✅ Built in seller-service; feedback list not shown on the seller page ([TD-P9-17](../techdebt/phase9.md#td-p9-17)) |
+| 7 | **Bulk catalogue upload** (CSV/Excel) and listing quality checks | Sellers list thousands of SKUs | One-by-one admin form | product-service, seller portal | M | ✅ Built, partial: CSV only, per-row transactions, no quality checks ([TD-P9-04](../techdebt/phase9.md#td-p9-04)) |
+| 8 | **Sponsored products / ads** in search and PDP | Major profit line for both platforms | — | **new** ads module, search ranking | L | ✅ Built, partial: unauthenticated clicks, no fraud controls ([TD-P9-10](../techdebt/phase9.md#td-p9-10)) |
+| 9 | **Seller analytics dashboard** (sales, traffic, conversion, returns) | Keeps sellers investing | — | seller portal, reporting | M | ✅ Built, partial: approximate figures ([TD-P9-14](../techdebt/phase9.md#td-p9-14)) |
+| 10 | **Warehouse / fulfilment network** (stock per warehouse, nearest-warehouse routing) | Fast delivery promises | Single stock number | inventory-service | L | ✅ Built, partial: legacy stock tables still mirrored, no stock events for sellers ([TD-P9-02](../techdebt/phase9.md#td-p9-02), [TD-P9-05](../techdebt/phase9.md#td-p9-05)) |
 
 ## Phase 10: Trust, support and scale
 

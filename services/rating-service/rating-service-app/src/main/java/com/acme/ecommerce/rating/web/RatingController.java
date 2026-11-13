@@ -230,7 +230,7 @@ public class RatingController {
       @AuthenticationPrincipal Jwt jwt) {
     UUID userId = userId(jwt);
     String displayName = eligibility.requireEligibleAuthor(productId, userId);
-    return ratings.create(productId, request, userId, displayName);
+    return ratings.create(productId, request, userId, displayName, eligibility.accountCreatedAt());
   }
 
   @PutMapping("/{id}")

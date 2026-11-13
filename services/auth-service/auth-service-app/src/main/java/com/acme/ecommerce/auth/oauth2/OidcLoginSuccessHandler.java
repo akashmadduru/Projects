@@ -36,6 +36,11 @@ import org.springframework.stereotype.Component;
 @Component
 public class OidcLoginSuccessHandler implements AuthenticationSuccessHandler {
 
+  /** Same lifetime as the challenge itself. */
+  private static final class TwoFactorTtl {
+    static final java.time.Duration TTL = com.acme.ecommerce.auth.service.TwoFactorService.CHALLENGE_TTL;
+  }
+
   private static final Logger log = LoggerFactory.getLogger(OidcLoginSuccessHandler.class);
 
   private final TokenService tokenService;
@@ -44,6 +49,7 @@ public class OidcLoginSuccessHandler implements AuthenticationSuccessHandler {
   private final RequestDeviceContext deviceContexts;
   private final AuthMetrics metrics;
   private final UserSnapshotFactory snapshots;
+  private final com.acme.ecommerce.auth.service.TwoFactorService twoFactor;
 
   public OidcLoginSuccessHandler(
       TokenService tokenService,
@@ -51,13 +57,15 @@ public class OidcLoginSuccessHandler implements AuthenticationSuccessHandler {
       CookieOAuth2AuthorizationRequestRepository authorizationRequests,
       RequestDeviceContext deviceContexts,
       AuthMetrics metrics,
-      UserSnapshotFactory snapshots) {
+      UserSnapshotFactory snapshots,
+      com.acme.ecommerce.auth.service.TwoFactorService twoFactor) {
     this.tokenService = tokenService;
     this.refreshCookies = refreshCookies;
     this.authorizationRequests = authorizationRequests;
     this.deviceContexts = deviceContexts;
     this.metrics = metrics;
     this.snapshots = snapshots;
+    this.twoFactor = twoFactor;
   }
 
   @Override
@@ -76,12 +84,17 @@ public class OidcLoginSuccessHandler implements AuthenticationSuccessHandler {
 
     DeviceContext device = deviceContexts.from(request);
     AuthenticatedPrincipal principal = oidcUser.principal();
-    TokenPair pair =
-        tokenService.issueTokenPair(
-            principal, device, null, null, snapshots.snapshotFor(principal));
+    com.acme.ecommerce.auth.service.LoginResult result = twoFactor.completeLogin(principal, device);
 
-    refreshCookies.write(response, pair);
-    metrics.loginAttempt(AuthMethod.GOOGLE, "success");
+    if (result.mfaRequired()) {
+      // Phase 10 design: NO tokens in URLs. A 2FA user ends the callback with a short-lived
+      // HttpOnly mfa_pending cookie instead of a refresh cookie; the SPA's bootstrap call to
+      // POST /api/auth/refresh then answers 200 {mfaRequired, mfaToken} and clears the cookie.
+      refreshCookies.writePending(response, result.mfaToken(), TwoFactorTtl.TTL);
+    } else {
+      refreshCookies.write(response, result.tokens());
+      metrics.loginAttempt(AuthMethod.GOOGLE, "success");
+    }
 
     String target = authorizationRequests.readRedirectTarget(request);
     authorizationRequests.clearRedirectTarget(response);

@@ -143,7 +143,7 @@ function ShipmentCard({
   const [rating, setRating] = useState(false)
   const [rated, setRated] = useState(false)
   const items = order.items.filter(
-    (i) => (i.shipmentId ? i.shipmentId === shipment.id : shipment.items.includes(i.productId)),
+    (i) => (i.shipmentId ? i.shipmentId === shipment.id : shipment.items.some((x) => x.productId === i.productId)),
   )
   const active = shipment.status !== 'DELIVERED' && shipment.status !== 'CANCELLED'
 
@@ -482,6 +482,11 @@ export function OrderPage() {
         <div className="rounded-xl border-2 border-ink bg-primary-container p-4 text-on-primary-container">
           <p className="font-display text-lg font-bold">Thank you! Your order has been placed.</p>
         </div>
+      )}
+      {order.riskHold && order.status === 'PLACED' && (
+        <p role="status" className="rounded-xl border-2 border-ink bg-surface-variant p-3 text-sm text-on-surface">
+          Your order is being reviewed by our team before it is confirmed. This usually takes a short while; we will email you.
+        </p>
       )}
       <div aria-live="polite" role="status">
         {pollState === 'polling' && (

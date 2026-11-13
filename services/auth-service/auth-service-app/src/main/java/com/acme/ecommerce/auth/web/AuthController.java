@@ -6,6 +6,7 @@ import com.acme.ecommerce.auth.api.dto.AuthMethod;
 import com.acme.ecommerce.auth.api.dto.CodeRequest;
 import com.acme.ecommerce.auth.api.dto.ForgotPasswordRequest;
 import com.acme.ecommerce.auth.api.dto.LoginRequest;
+import com.acme.ecommerce.auth.api.dto.MfaRequiredResponse;
 import com.acme.ecommerce.auth.api.dto.OtpVerifyRequest;
 import com.acme.ecommerce.auth.api.dto.PhoneRequest;
 import com.acme.ecommerce.auth.api.dto.RegisterRequest;
@@ -18,7 +19,9 @@ import com.acme.ecommerce.auth.api.dto.ValidateResponse;
 import com.acme.ecommerce.auth.error.AuthException;
 import com.acme.ecommerce.auth.service.EmailVerificationService;
 import com.acme.ecommerce.auth.service.LoginService;
+import com.acme.ecommerce.auth.service.LoginResult;
 import com.acme.ecommerce.auth.service.OtpLoginService;
+import com.acme.ecommerce.auth.service.TwoFactorService;
 import com.acme.ecommerce.auth.service.PasswordResetService;
 import com.acme.ecommerce.auth.service.PhoneVerificationService;
 import com.acme.ecommerce.auth.service.RegistrationService;
@@ -66,6 +69,7 @@ public class AuthController {
   private final EmailVerificationService emailVerifications;
   private final PhoneVerificationService phones;
   private final OtpLoginService otpLogins;
+  private final TwoFactorService twoFactor;
 
   public AuthController(
       RegistrationService registrationService,
@@ -77,7 +81,8 @@ public class AuthController {
       PasswordResetService passwordResets,
       EmailVerificationService emailVerifications,
       PhoneVerificationService phones,
-      OtpLoginService otpLogins) {
+      OtpLoginService otpLogins,
+      TwoFactorService twoFactor) {
     this.registrationService = registrationService;
     this.loginService = loginService;
     this.refreshTokenService = refreshTokenService;
@@ -88,6 +93,7 @@ public class AuthController {
     this.emailVerifications = emailVerifications;
     this.phones = phones;
     this.otpLogins = otpLogins;
+    this.twoFactor = twoFactor;
   }
 
   /**
@@ -108,15 +114,28 @@ public class AuthController {
 
   /** Password login. Issues a new token family and sets the refresh cookie. */
   @PostMapping("/login")
-  public ResponseEntity<TokenResponse> login(
+  public ResponseEntity<?> login(
       @Valid @RequestBody LoginRequest request,
       HttpServletRequest httpRequest,
       HttpServletResponse httpResponse) {
 
-    TokenPair pair = loginService.login(request, deviceContexts.from(httpRequest));
+    return respond(
+        loginService.login(request, deviceContexts.from(httpRequest)),
+        AuthMethod.PASSWORD,
+        httpResponse);
+  }
+
+  /** Tokens + refresh cookie, or (2FA users) 200 {mfaRequired, mfaToken} and no cookie. */
+  private ResponseEntity<?> respond(
+      LoginResult result, AuthMethod method, HttpServletResponse httpResponse) {
+    if (result.mfaRequired()) {
+      return ResponseEntity.ok(
+          MfaRequiredResponse.of(result.mfaToken(), result.mfaExpiresInSeconds()));
+    }
+    TokenPair pair = result.tokens();
     refreshCookies.write(httpResponse, pair);
     return ResponseEntity.ok(
-        TokenResponse.bearer(pair.accessToken(), pair.expiresInSeconds(), AuthMethod.PASSWORD));
+        TokenResponse.bearer(pair.accessToken(), pair.expiresInSeconds(), method));
   }
 
   /**
@@ -133,8 +152,19 @@ public class AuthController {
    * log out a user who did nothing wrong.
    */
   @PostMapping("/refresh")
-  public ResponseEntity<TokenResponse> refresh(
+  public ResponseEntity<?> refresh(
       HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
+
+    // Google login of a 2FA user: the callback left an mfa_pending cookie instead of a refresh
+    // cookie. Hand the token to the SPA once (in the body, never a URL) and drop the cookie.
+    String pending = refreshCookies.readPending(httpRequest).orElse(null);
+    if (pending != null) {
+      refreshCookies.clearPending(httpResponse);
+      if (twoFactor.isPending(pending)) {
+        return ResponseEntity.ok(
+            MfaRequiredResponse.of(pending, TwoFactorService.CHALLENGE_TTL.toSeconds()));
+      }
+    }
 
     String rawToken = refreshCookies.read(httpRequest).orElse(null);
     TokenPair pair;
@@ -263,16 +293,15 @@ public class AuthController {
 
   /** OTP login: same outcome as password login (token + refresh cookie), method {@code otp}. */
   @PostMapping("/otp/verify")
-  public ResponseEntity<TokenResponse> verifyOtp(
+  public ResponseEntity<?> verifyOtp(
       @Valid @RequestBody OtpVerifyRequest request,
       HttpServletRequest httpRequest,
       HttpServletResponse httpResponse) {
 
-    TokenPair pair =
-        otpLogins.verify(request.phone(), request.code(), deviceContexts.from(httpRequest));
-    refreshCookies.write(httpResponse, pair);
-    return ResponseEntity.ok(
-        TokenResponse.bearer(pair.accessToken(), pair.expiresInSeconds(), AuthMethod.OTP));
+    return respond(
+        otpLogins.verify(request.phone(), request.code(), deviceContexts.from(httpRequest)),
+        AuthMethod.OTP,
+        httpResponse);
   }
 
   /**
@@ -282,7 +311,7 @@ public class AuthController {
    * Parsing the payload segment is cheap (no signature check - we just signed it) and keeps the
    * token package's contract narrow.
    */
-  private static String claimOf(TokenPair pair) {
+  static String claimOf(TokenPair pair) {
     try {
       return com.nimbusds.jwt.SignedJWT.parse(pair.accessToken())
           .getJWTClaimsSet()

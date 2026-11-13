@@ -38,6 +38,7 @@ public class TokenService {
   private final AuthProperties.Refresh refreshConfig;
   private final AuthMetrics metrics;
   private final UserSessionCache sessionCache;
+  private final com.acme.ecommerce.auth.service.LoginAlertService loginAlerts;
 
   TokenService(
       RefreshTokenRepository refreshTokens,
@@ -45,13 +46,15 @@ public class TokenService {
       TimeProvider timeProvider,
       AuthProperties properties,
       AuthMetrics metrics,
-      UserSessionCache sessionCache) {
+      UserSessionCache sessionCache,
+      com.acme.ecommerce.auth.service.LoginAlertService loginAlerts) {
     this.refreshTokens = refreshTokens;
     this.accessTokenIssuer = accessTokenIssuer;
     this.timeProvider = timeProvider;
     this.refreshConfig = properties.refresh();
     this.metrics = metrics;
     this.sessionCache = sessionCache;
+    this.loginAlerts = loginAlerts;
   }
 
   /**
@@ -111,6 +114,11 @@ public class TokenService {
 
     // Deliberately logs identifiers only. Never the access token, never the raw
     // refresh token, never the hash (which is a bearer-equivalent lookup key).
+    if (familyId == null) {
+      // New session (not a rotation): new-device check, fail-open, own transaction.
+      loginAlerts.onSessionStarted(principal.userId(), principal.email(), device);
+    }
+
     log.debug(
         "Issued token pair userId={} familyId={} method={}",
         principal.userId(),

@@ -27,6 +27,12 @@ public final class Roles {
   /** Approved marketplace seller (granted by auth-service when seller-service approves KYC). */
   public static final String SELLER = "SELLER";
 
+  /** Phase 10: customer-support agent (tickets, read access to orders). */
+  public static final String SUPPORT = "SUPPORT";
+
+  /** Phase 10: finance (payouts, refunds, coupons). */
+  public static final String FINANCE = "FINANCE";
+
   // --- prefixed: the GrantedAuthority form ---
   public static final String ROLE_PREFIX = "ROLE_";
 
@@ -34,6 +40,8 @@ public final class Roles {
   public static final String ROLE_CATALOG_MANAGER = ROLE_PREFIX + CATALOG_MANAGER;
   public static final String ROLE_VIEWER = ROLE_PREFIX + VIEWER;
   public static final String ROLE_SELLER = ROLE_PREFIX + SELLER;
+  public static final String ROLE_SUPPORT = ROLE_PREFIX + SUPPORT;
+  public static final String ROLE_FINANCE = ROLE_PREFIX + FINANCE;
 
   private Roles() {
     throw new AssertionError("constants holder");

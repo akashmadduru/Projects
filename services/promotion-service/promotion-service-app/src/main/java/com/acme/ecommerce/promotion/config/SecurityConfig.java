@@ -38,7 +38,8 @@ public class SecurityConfig {
   private static final String[] PUBLIC_ENDPOINTS = {
     "/actuator/health", "/actuator/health/**", "/actuator/info", "/actuator/prometheus",
     "/api/promotions/offers",
-    "/api/promotions/deals/active"
+    "/api/promotions/deals/active",
+    "/api/promotions/exchange/programs"
   };
 
   @Bean

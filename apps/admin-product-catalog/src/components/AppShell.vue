@@ -2,8 +2,13 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter, RouterLink, RouterView } from 'vue-router';
 import {
+  BookOpen,
   Boxes,
+  Coins,
   CreditCard,
+  LifeBuoy,
+  Repeat,
+  ScrollText,
   FolderTree,
   LayoutDashboard,
   MessageSquareText,
@@ -59,24 +64,31 @@ interface NavItem {
   readonly sellerOnly?: boolean;
   /** Visible only to signed-in users without the seller role. */
   readonly applicantOnly?: boolean;
+  /** Phase 10 RBAC: visible to ADMIN or any of these roles (mirrors the route guard). */
+  readonly roles?: readonly string[];
 }
 
 const NAV_ITEMS: readonly NavItem[] = [
-  { name: 'dashboard', label: 'Overview', to: '/dashboard', icon: LayoutDashboard },
-  { name: 'products', label: 'Products', to: '/products', icon: Package },
-  { name: 'categories', label: 'Categories', to: '/categories', icon: FolderTree },
-  { name: 'inventory', label: 'Inventory', to: '/inventory', icon: Boxes },
-  { name: 'orders', label: 'Orders', to: '/orders', icon: ReceiptText, adminOnly: true },
-  { name: 'returns', label: 'Returns', to: '/returns', icon: RotateCcw, adminOnly: true },
-  { name: 'payments', label: 'Payments', to: '/payments', icon: CreditCard, adminOnly: true },
-  { name: 'customers', label: 'Customers', to: '/customers', icon: Users, adminOnly: true },
+  { name: 'dashboard', label: 'Overview', to: '/dashboard', icon: LayoutDashboard, roles: ['CATALOG_MANAGER'] },
+  { name: 'products', label: 'Products', to: '/products', icon: Package, roles: ['CATALOG_MANAGER'] },
+  { name: 'categories', label: 'Categories', to: '/categories', icon: FolderTree, roles: ['CATALOG_MANAGER'] },
+  { name: 'inventory', label: 'Inventory', to: '/inventory', icon: Boxes, roles: ['CATALOG_MANAGER'] },
+  { name: 'orders', label: 'Orders', to: '/orders', icon: ReceiptText, roles: ['SUPPORT'] },
+  { name: 'support-tickets', label: 'Support tickets', to: '/support/tickets', icon: LifeBuoy, roles: ['SUPPORT'] },
+  { name: 'support-articles', label: 'Help articles', to: '/support/articles', icon: BookOpen, roles: ['SUPPORT'] },
+  { name: 'returns', label: 'Returns', to: '/returns', icon: RotateCcw, roles: ['FINANCE'] },
+  { name: 'payments', label: 'Payments', to: '/payments', icon: CreditCard, roles: ['FINANCE'] },
+  { name: 'customers', label: 'Users & roles', to: '/customers', icon: Users, adminOnly: true },
   { name: 'reviews', label: 'Reviews', to: '/reviews', icon: MessageSquareText, adminOnly: true },
-  { name: 'coupons', label: 'Coupons', to: '/coupons', icon: Ticket, adminOnly: true },
-  { name: 'deals', label: 'Deals', to: '/deals', icon: Zap, adminOnly: true },
+  { name: 'exchange-verify', label: 'Exchanges', to: '/exchange', icon: Repeat, adminOnly: true },
+  { name: 'coupons', label: 'Coupons', to: '/coupons', icon: Ticket, roles: ['FINANCE'] },
+  { name: 'deals', label: 'Deals', to: '/deals', icon: Zap, roles: ['CATALOG_MANAGER'] },
   { name: 'campaigns', label: 'Campaigns', to: '/campaigns', icon: Megaphone, adminOnly: true },
   { name: 'admin-sellers', label: 'Sellers', to: '/sellers', icon: BadgeCheck, adminOnly: true },
-  { name: 'admin-payouts', label: 'Payouts', to: '/payouts', icon: Banknote, adminOnly: true },
-  { name: 'admin-warehouses', label: 'Warehouses', to: '/warehouses', icon: Warehouse, adminOnly: true },
+  { name: 'admin-payouts', label: 'Payouts', to: '/payouts', icon: Banknote, roles: ['FINANCE'] },
+  { name: 'admin-warehouses', label: 'Warehouses', to: '/warehouses', icon: Warehouse, roles: ['CATALOG_MANAGER'] },
+  { name: 'audit-log', label: 'Audit log', to: '/audit', icon: ScrollText, adminOnly: true },
+  { name: 'fx-rates', label: 'FX rates', to: '/fx-rates', icon: Coins, adminOnly: true },
   { name: 'settings', label: 'Settings', to: '/settings', icon: SettingsIcon },
 ];
 
@@ -98,6 +110,7 @@ const visibleNavItems = computed<readonly NavItem[]>(() =>
     (item) =>
       (item.name === 'settings' || auth.isStaff) &&
       (!item.adminOnly || auth.isAdmin) &&
+      (item.roles === undefined || auth.hasAnyRole(...item.roles)) &&
       (!item.catalogOnly || auth.canManageCatalog),
   ),
 );
@@ -114,7 +127,7 @@ const PAGE_TITLES: Readonly<Record<string, string>> = {
   'new-product': 'New product',
   categories: 'Categories',
   inventory: 'Inventory',
-  customers: 'Customers',
+  customers: 'Users & roles',
   'customer-detail': 'Customer',
   reviews: 'Reviews',
   payments: 'Payments',
@@ -135,6 +148,12 @@ const PAGE_TITLES: Readonly<Record<string, string>> = {
   'admin-sellers': 'Sellers',
   'admin-payouts': 'Payouts',
   'admin-warehouses': 'Warehouses',
+  'support-tickets': 'Support tickets',
+  'support-ticket-detail': 'Support ticket',
+  'support-articles': 'Help articles',
+  'audit-log': 'Audit log',
+  'exchange-verify': 'Exchange verification',
+  'fx-rates': 'FX rates',
 };
 
 const pageTitle = computed<string>(() => {

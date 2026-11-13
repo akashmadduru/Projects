@@ -145,6 +145,20 @@ public class EmailRenderer {
                   + " has been approved. You can now list products and receive orders.",
               "Open seller dashboard",
               d.get("link"));
+      case LOGIN_ALERT ->
+          layout(
+              "New sign-in to your account",
+              "Hi " + name + ",",
+              "We noticed a sign-in from a new device: "
+                  + d.getOrDefault("device", "unknown device")
+                  + " (network "
+                  + d.getOrDefault("ip", "unknown")
+                  + ") at "
+                  + d.getOrDefault("time", "")
+                  + ". If this was you, nothing to do. If not, secure your account now: change"
+                  + " your password and sign out other sessions.",
+              "Secure my account",
+              d.get("link"));
       case SELLER_REJECTED ->
           layout(
               "Your seller application was not approved",
@@ -154,6 +168,43 @@ public class EmailRenderer {
                   + (d.get("reason") == null ? "." : ": " + d.get("reason") + ".")
                   + " You can fix the details and apply again.",
               "Update application",
+              d.get("link"));
+      case SUPPORT_TICKET_REPLY ->
+          layout(
+              "New reply on your support ticket " + d.getOrDefault("ticketRef", ""),
+              "Hi " + name + ",",
+              "Our support team replied to \"" + d.getOrDefault("subject", "your request") + "\":\n\n"
+                  + d.getOrDefault("message", ""),
+              "View conversation",
+              d.get("link"));
+      case SUPPORT_STATUS ->
+          layout(
+              "Your support ticket " + d.getOrDefault("ticketRef", "") + " is now "
+                  + d.getOrDefault("status", "updated"),
+              "Hi " + name + ",",
+              "The status of \"" + d.getOrDefault("subject", "your request") + "\" changed to "
+                  + d.getOrDefault("status", "updated")
+                  + ". You can reply or rate our support from your account.",
+              "View ticket",
+              d.get("link"));
+      case PRIVACY_EXPORT_READY ->
+          layout(
+              "Your data export is ready",
+              "Hi " + name + ",",
+              "The copy of your data you requested is ready to download. The link works while you"
+                  + " are signed in and expires on "
+                  + d.getOrDefault("expiresAt", "in 24 hours")
+                  + ".",
+              "Download my data",
+              d.get("link"));
+      case PRIVACY_DELETE_SCHEDULED ->
+          layout(
+              "Your account is scheduled for deletion",
+              "Hi " + name + ",",
+              "Your account will be permanently deleted on "
+                  + d.getOrDefault("scheduledFor", "")
+                  + ". Changed your mind? Sign in and cancel the deletion before then.",
+              "Cancel deletion",
               d.get("link"));
     };
   }

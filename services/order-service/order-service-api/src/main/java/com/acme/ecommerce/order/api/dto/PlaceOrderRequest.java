@@ -19,7 +19,8 @@ public record PlaceOrderRequest(
     @Size(max = 40) String couponCode,
     @Size(min = 1, max = 50) List<@Valid OrderLineRequest> items,
     Boolean useWallet,
-    @Min(0) Integer coinsToRedeem) {
+    @Min(0) Integer coinsToRedeem,
+    UUID exchangeQuoteId) {
 
   public enum PaymentMethodRequest {
     CARD,
@@ -33,6 +34,17 @@ public record PlaceOrderRequest(
       PaymentMethodRequest paymentMethod,
       String couponCode,
       List<OrderLineRequest> items) {
-    this(addressId, paymentMethod, couponCode, items, null, null);
+    this(addressId, paymentMethod, couponCode, items, null, null, null);
+  }
+
+  /** Pre-exchange callers (wallet + coins, no exchange quote). */
+  public PlaceOrderRequest(
+      UUID addressId,
+      PaymentMethodRequest paymentMethod,
+      String couponCode,
+      List<OrderLineRequest> items,
+      Boolean useWallet,
+      Integer coinsToRedeem) {
+    this(addressId, paymentMethod, couponCode, items, useWallet, coinsToRedeem, null);
   }
 }

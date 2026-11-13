@@ -13,4 +13,6 @@ public record AdminOrderSummary(
     BigDecimal totalAmount,
     String currency,
     long itemCount,
-    Instant placedAt) {}
+    Instant placedAt,
+    boolean riskHold,
+    int riskScore) {}

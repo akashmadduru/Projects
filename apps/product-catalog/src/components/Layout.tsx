@@ -6,6 +6,8 @@ import { useEffect } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { CartDrawer } from './CartDrawer'
 import { CompareTray } from './CompareTray'
+import { ChatWidget } from './chat/ChatWidget'
+import { CookieBanner } from './CookieBanner'
 import { Footer } from './Footer'
 import { Header } from './Header'
 import { Atom, Boomerang, Starburst } from './Atomic'
@@ -14,6 +16,7 @@ import { Toaster } from './Toaster'
 import { VerifyEmailBanner } from './VerifyEmailBanner'
 import { useReferral } from '../hooks/useReferral'
 import { useScrolled } from '../hooks/useScrolled'
+import { useT } from '../lib/i18n'
 
 /** Starburst laminate wallpaper with a few slow-moving space-age motifs. Purely decorative. */
 function AtomicBackdrop() {
@@ -56,6 +59,7 @@ function BackToTop() {
 
 export function Layout() {
   const { pathname } = useLocation()
+  const t = useT()
   useReferral()
 
   // A new page starts at the top; filter/sort changes on the same page keep the scroll position.
@@ -70,12 +74,12 @@ export function Layout() {
         href="#main"
         className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[80] focus:rounded-lg focus:bg-surface focus:px-4 focus:py-2"
       >
-        Skip to content
+        {t('Skip to content')}
       </a>
       <Header />
       <VerifyEmailBanner />
       {/* Keyed on the path so each page navigation replays the entrance transition. */}
-      <main key={pathname} id="main" className="animate-page-in mx-auto w-full max-w-[1400px] flex-1 px-4 py-6 sm:px-6 lg:px-8">
+      <main key={pathname} id="main" tabIndex={-1} className="animate-page-in mx-auto w-full max-w-[1400px] flex-1 px-4 py-6 sm:px-6 lg:px-8">
         <Outlet />
       </main>
       <Footer />
@@ -83,6 +87,8 @@ export function Layout() {
       <CartDrawer />
       <CompareTray />
       <Toaster />
+      <ChatWidget />
+      <CookieBanner />
     </div>
   )
 }

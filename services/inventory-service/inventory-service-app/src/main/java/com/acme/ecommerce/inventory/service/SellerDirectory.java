@@ -67,6 +67,22 @@ public class SellerDirectory {
     throw new ForbiddenException("Not a seller");
   }
 
+  /** Best-effort, async: product-service recomputes the buy box and the list-row price. */
+  public void syncPricesAsync(UUID productId) {
+    java.util.concurrent.CompletableFuture.runAsync(
+        () -> {
+          try {
+            http.exchange(
+                "http://product-service/internal/products/" + productId + "/sync-prices",
+                HttpMethod.POST,
+                auth(),
+                Void.class);
+          } catch (RuntimeException e) {
+            // fail-open: the price is re-synced on the next offer change
+          }
+        });
+  }
+
   public OfferRef offer(UUID offerId) {
     try {
       return http.exchange(

@@ -50,7 +50,7 @@ public class SellerController {
   }
 
   @GetMapping("/api/admin/sellers")
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasAnyRole('ADMIN','SUPPORT','FINANCE')")
   public Paged<Seller> adminList(
       @RequestParam(required = false) String status,
       @RequestParam(defaultValue = "0") int page,
@@ -59,7 +59,7 @@ public class SellerController {
   }
 
   @GetMapping("/api/admin/sellers/{id}")
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasAnyRole('ADMIN','SUPPORT','FINANCE')")
   public Seller adminGet(@PathVariable UUID id) {
     return sellers.adminGet(id);
   }

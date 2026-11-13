@@ -20,6 +20,7 @@ dependencies {
     // See the alias comment in gradle/libs.versions.toml (Boot 4 modularisation).
     implementation libs.spring.boot.kafka
     implementation libs.micrometer.registry.prometheus
+    implementation libs.bundles.tracing
 
     compileOnly libs.lombok
     annotationProcessor libs.lombok

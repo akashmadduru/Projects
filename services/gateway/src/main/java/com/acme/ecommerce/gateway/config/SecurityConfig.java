@@ -58,6 +58,8 @@ public class SecurityConfig {
     "/api/auth/email/verify",
     "/api/auth/otp/request",
     "/api/auth/otp/verify",
+    // Phase 10: second-factor step of login (authenticated by the single-use mfaToken).
+    "/api/auth/2fa/verify",
     // Public keys are public. Requiring a token here would be a circular dependency - you would
     // need a validated token to fetch the keys used to validate tokens.
     "/.well-known/jwks.json",
@@ -149,6 +151,7 @@ public class SecurityConfig {
                         HttpMethod.GET,
                         "/api/promotions/offers",
                         "/api/promotions/deals/active",
+                        "/api/promotions/exchange/programs",
                         "/api/recommendations/products/*/bought-together")
                     .permitAll()
                     .pathMatchers(HttpMethod.GET, "/api/orders/delivery-estimate")
@@ -173,11 +176,19 @@ public class SecurityConfig {
                     .permitAll()
                     .pathMatchers(HttpMethod.POST, "/api/ads/*/click", "/api/ads/impressions")
                     .permitAll()
+                    // Phase 10 support: help-centre reads, article feedback and the chatbot are
+                    // public (the chat endpoint reads the JWT itself when one is present).
+                    .pathMatchers(
+                        HttpMethod.GET, "/api/support/articles", "/api/support/articles/*")
+                    .permitAll()
+                    .pathMatchers(
+                        HttpMethod.POST, "/api/support/articles/*/feedback", "/api/support/chat")
+                    .permitAll()
                     // Back-office APIs: ADMIN only at the edge as defence in depth. Every
                     // owning service enforces the same rule itself; this stops a service
                     // that forgets from being reachable by a customer token.
                     .pathMatchers("/api/admin/**")
-                    .hasAuthority("ROLE_ADMIN")
+                    .hasAnyAuthority("ROLE_ADMIN", "ROLE_SUPPORT", "ROLE_FINANCE", "ROLE_CATALOG_MANAGER")
                     // /api/auth/me, /api/auth/validate, /api/products POST/PUT/DELETE and anything
                     // added later.
                     .anyExchange()

@@ -92,6 +92,8 @@ export function Carousel({ label, children, itemMinWidth = 240, gap = 16, classN
     'press absolute top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border-2 border-ink bg-surface text-on-surface shadow-cta transition-opacity duration-500 disabled:pointer-events-none disabled:opacity-0'
 
   return (
+    // Arrow-key paging on the carousel region is a keyboard shortcut; every slide control inside stays natively focusable.
+    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
     <div
       role="region"
       aria-roledescription="carousel"

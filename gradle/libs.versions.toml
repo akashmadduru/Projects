@@ -116,6 +116,7 @@ spring-cloud-starter-circuitbreaker-resilience4j = { module = "org.springframewo
 # CircuitBreaker") if only the blocking one is present.
 spring-cloud-starter-circuitbreaker-reactor-resilience4j = { module = "org.springframework.cloud:spring-cloud-starter-circuitbreaker-reactor-resilience4j" }
 feign-core = { module = "io.github.openfeign:feign-core" }
+feign-micrometer = { module = "io.github.openfeign:feign-micrometer" }
 
 # --- JWT / crypto -----------------------------------------------------------
 nimbus-jose-jwt = { module = "com.nimbusds:nimbus-jose-jwt" }
@@ -144,6 +145,8 @@ postgresql = { module = "org.postgresql:postgresql" }
 # --- observability ----------------------------------------------------------
 micrometer-registry-prometheus = { module = "io.micrometer:micrometer-registry-prometheus" }
 micrometer-tracing-bridge-otel = { module = "io.micrometer:micrometer-tracing-bridge-otel" }
+# Phase 10: Boot 4 OpenTelemetry starter = tracing bridge + OTLP span exporter (+ OTLP metrics registry, switched off in config).
+spring-boot-starter-opentelemetry = { module = "org.springframework.boot:spring-boot-starter-opentelemetry" }
 
 # --- messaging ----------------------------------------------------------------
 # BOM-managed, no version.ref, same as every other Boot-BOM-managed starter
@@ -201,6 +204,12 @@ reactor-test = { module = "io.projectreactor:reactor-test" }
 spring-boot-webmvc-test = { module = "org.springframework.boot:spring-boot-webmvc-test" }
 
 [bundles]
+# Distributed tracing: Micrometer Tracing -> OTel bridge -> OTLP/HTTP exporter (Jaeger).
+tracing = [
+    "spring-boot-starter-opentelemetry",
+    # Propagates the trace context over Feign calls (order -> product etc.).
+    "feign-micrometer",
+]
 # Everything a Boot web service needs to register with Eureka and be observable.
 service-web = [
     "spring-boot-starter-web",

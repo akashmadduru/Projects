@@ -37,6 +37,10 @@ dependencies {
     // UserSessionCache's Redis client (Phase 2 - see docs/HLD-event-driven-inventory.md).
     implementation libs.spring.boot.starter.data.redis
 
+    // Phase 10: audit.events producer (AuthAuditPublisher).
+    implementation libs.spring.kafka
+    implementation libs.spring.boot.kafka
+
     implementation libs.spring.boot.starter.security
     // Resource server: /me and /validate authenticate the caller's own Bearer
     // token. auth-service validates its own tokens exactly the way every other
@@ -58,6 +62,7 @@ dependencies {
     implementation libs.bucket4j.core
 
     implementation libs.micrometer.registry.prometheus
+    implementation libs.bundles.tracing
 
     // Lombok for configuration properties and DTO generation
     compileOnly libs.lombok

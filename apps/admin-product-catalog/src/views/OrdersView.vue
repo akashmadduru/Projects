@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
-import { useRoute } from 'vue-router';
+import { RouterLink, useRoute } from 'vue-router';
 
 import ProblemAlert from '@/components/ProblemAlert.vue';
 import {
@@ -11,7 +11,9 @@ import {
   getOrder,
   listOrders,
   money,
+  releaseOrderHold,
 } from '@/lib/adminApi';
+import { useAuthStore } from '@/stores/auth';
 import {
   ORDER_STATUSES,
   type AdminOrderDetail,
@@ -45,7 +47,12 @@ const queryTerm = typeof route.query.q === 'string' ? route.query.q.slice(0, 64)
 const filters = reactive({
   status: (ORDER_STATUSES as readonly string[]).includes(queryStatus) ? queryStatus : '',
   q: queryTerm,
+  riskHold: route.query.riskHold === 'true',
 });
+
+// SUPPORT sees orders read-only; only ADMIN may change status, cancel or release holds.
+const auth = useAuthStore();
+const canWrite = computed<boolean>(() => auth.isAdmin);
 
 async function load(): Promise<void> {
   loading.value = true;
@@ -54,6 +61,7 @@ async function load(): Promise<void> {
     const res = await listOrders({
       status: filters.status || undefined,
       q: filters.q.trim() || undefined,
+      riskHold: filters.riskHold ? true : undefined,
       page: page.value,
       size: PAGE_SIZE,
     });
@@ -169,6 +177,12 @@ function submitShip(): void {
   );
 }
 
+function release(): void {
+  const d = detail.value;
+  if (!d) return;
+  void act(() => releaseOrderHold(d.id));
+}
+
 function submitCancel(): void {
   const d = detail.value;
   if (!d || cancelForm.reason.trim().length === 0) return;
@@ -218,6 +232,16 @@ onMounted(() => {
           data-test="orders-filter-q"
         />
       </div>
+      <label class="label cursor-pointer gap-2">
+        <input
+          v-model="filters.riskHold"
+          type="checkbox"
+          class="checkbox checkbox-sm"
+          data-test="orders-filter-risk"
+          @change="applyFilters"
+        />
+        <span class="label-text">Risk hold only</span>
+      </label>
       <button class="btn btn-primary btn-sm" type="submit">Search</button>
     </form>
 
@@ -255,7 +279,10 @@ onMounted(() => {
             <tr v-for="o in rows" :key="o.id" data-test="orders-row">
               <td class="font-mono text-sm">{{ o.id.slice(0, 8) }}</td>
               <td>{{ o.email ?? '-' }}</td>
-              <td><span class="badge badge-sm" :class="badge(o.status)">{{ o.status }}</span></td>
+              <td>
+                <span class="badge badge-sm" :class="badge(o.status)">{{ o.status }}</span>
+                <span v-if="o.riskHold" class="badge badge-warning badge-sm ml-1" data-test="risk-badge">RISK HOLD</span>
+              </td>
               <td class="text-sm">{{ o.paymentMethod }} · {{ o.paymentStatus }}</td>
               <td class="text-right tabular-nums">{{ o.itemCount }}</td>
               <td class="text-right tabular-nums">{{ money(o.totalAmount, o.currency) }}</td>
@@ -315,6 +342,39 @@ onMounted(() => {
           <p class="mt-1 text-sm opacity-70">
             {{ detail.email ?? 'unknown customer' }} · {{ detail.paymentMethod }} ·
             {{ detail.paymentStatus }}
+          </p>
+
+          <div
+            v-if="detail.riskHold || (detail.riskScore ?? 0) > 0"
+            class="alert mt-3"
+            :class="detail.riskHold ? 'alert-warning' : 'alert-info'"
+            data-test="order-risk"
+          >
+            <div>
+              <p class="font-semibold">
+                Risk score {{ detail.riskScore ?? 0 }}<span v-if="detail.riskHold"> - on hold, release before it can be confirmed</span>
+              </p>
+              <ul v-if="detail.riskReasons?.length" class="list-disc pl-5 text-sm">
+                <li v-for="reason in detail.riskReasons" :key="reason">{{ reason }}</li>
+              </ul>
+            </div>
+            <button
+              v-if="detail.riskHold && canWrite"
+              class="btn btn-sm btn-primary"
+              type="button"
+              data-test="order-release-hold"
+              :disabled="acting"
+              @click="release"
+            >
+              Release hold
+            </button>
+          </div>
+          <p v-if="detail.exchangeQuoteId" class="mt-2 text-sm">
+            Exchange quote
+            <RouterLink :to="{ path: '/exchange', query: { quote: detail.exchangeQuoteId } }" class="link font-mono">
+              {{ detail.exchangeQuoteId.slice(0, 8) }}
+            </RouterLink>
+            <span v-if="detail.exchangeShortfall"> · shortfall {{ money(detail.exchangeShortfall, detail.currency) }}</span>
           </p>
 
           <div class="mt-4 grid gap-4 md:grid-cols-2">
@@ -429,7 +489,7 @@ onMounted(() => {
             </div>
           </form>
 
-          <div v-else class="mt-4 flex flex-wrap items-center gap-2">
+          <div v-else-if="canWrite" class="mt-4 flex flex-wrap items-center gap-2">
             <input
               v-if="nextStatus && nextStatus !== 'SHIPPED'"
               v-model="stepNote"

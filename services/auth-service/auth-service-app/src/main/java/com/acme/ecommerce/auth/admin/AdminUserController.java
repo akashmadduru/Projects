@@ -4,7 +4,10 @@ import com.acme.ecommerce.auth.admin.AdminUserDtos.AdminUserResponse;
 import com.acme.ecommerce.auth.admin.AdminUserDtos.AdminUserStats;
 import com.acme.ecommerce.auth.admin.AdminUserDtos.RolesChangeRequest;
 import com.acme.ecommerce.auth.admin.AdminUserDtos.StatusChangeRequest;
+import com.acme.ecommerce.auth.admin.AdminUserDtos.TargetStatus;
+import com.acme.ecommerce.auth.audit.AuthAuditPublisher;
 import com.acme.ecommerce.auth.domain.UserStatus;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.util.UUID;
 import org.springframework.data.domain.PageRequest;
@@ -14,6 +17,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -31,9 +35,11 @@ public class AdminUserController {
   private static final int MAX_PAGE_SIZE = 50;
 
   private final AdminUserService service;
+  private final AuthAuditPublisher audit;
 
-  public AdminUserController(AdminUserService service) {
+  public AdminUserController(AdminUserService service, AuthAuditPublisher audit) {
     this.service = service;
+    this.audit = audit;
   }
 
   @GetMapping
@@ -64,17 +70,56 @@ public class AdminUserController {
   @PutMapping("/{id}/status")
   public AdminUserResponse changeStatus(
       @AuthenticationPrincipal Jwt jwt,
+      HttpServletRequest http,
       @PathVariable UUID id,
       @Valid @RequestBody StatusChangeRequest request) {
-    return service.changeStatus(actor(jwt), id, request.status());
+    return applyStatus(jwt, http, id, request.status());
+  }
+
+  @PostMapping("/{id}/disable")
+  public AdminUserResponse disable(
+      @AuthenticationPrincipal Jwt jwt, HttpServletRequest http, @PathVariable UUID id) {
+    return applyStatus(jwt, http, id, TargetStatus.DISABLED);
+  }
+
+  @PostMapping("/{id}/enable")
+  public AdminUserResponse enable(
+      @AuthenticationPrincipal Jwt jwt, HttpServletRequest http, @PathVariable UUID id) {
+    return applyStatus(jwt, http, id, TargetStatus.ACTIVE);
+  }
+
+  private AdminUserResponse applyStatus(
+      Jwt jwt, HttpServletRequest http, UUID id, TargetStatus target) {
+    String before = service.get(id).status();
+    AdminUserResponse after = service.changeStatus(actor(jwt), id, target);
+    audit.publish(
+        jwt,
+        http.getRemoteAddr(),
+        target == TargetStatus.DISABLED ? "USER_DISABLE" : "USER_ENABLE",
+        "USER",
+        id.toString(),
+        "{\"status\":" + AuthAuditPublisher.str(before) + "}",
+        "{\"status\":" + AuthAuditPublisher.str(after.status()) + "}");
+    return after;
   }
 
   @PutMapping("/{id}/roles")
   public AdminUserResponse changeRoles(
       @AuthenticationPrincipal Jwt jwt,
+      HttpServletRequest http,
       @PathVariable UUID id,
       @Valid @RequestBody RolesChangeRequest request) {
-    return service.changeRoles(actor(jwt), id, request.roles());
+    java.util.List<String> before = service.get(id).roles();
+    AdminUserResponse after = service.changeRoles(actor(jwt), id, request.roles());
+    audit.publish(
+        jwt,
+        http.getRemoteAddr(),
+        "USER_ROLES_CHANGE",
+        "USER",
+        id.toString(),
+        "{\"roles\":" + AuthAuditPublisher.strArray(before) + "}",
+        "{\"roles\":" + AuthAuditPublisher.strArray(after.roles()) + "}");
+    return after;
   }
 
   /** A non-UUID subject cannot be anyone's id, so it can never match the self-check target. */
