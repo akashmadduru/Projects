@@ -54,7 +54,7 @@ bucket4j = "8.10.1"
 # Stripe Java SDK (payment-service). Not managed by the Boot BOM.
 stripeJava = "34.1.0"
 # OpenPDF (order-service invoice PDFs). Not managed by the Boot BOM.
-openpdf = "2.0.3"
+openpdf = "3.0.5"
 # NOTE: Testcontainers is NOT pinned here. The Spring Boot 4.0.7 BOM already
 # manages it (currently 2.0.5). Importing a second Testcontainers BOM would
 # create a silent version conflict of exactly the kind that bit us with
