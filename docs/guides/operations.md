@@ -505,6 +505,6 @@ curl http://localhost:8084/actuator/health  # Rating service
 ## References
 
 - [Backend-Architecture.md](../architecture/overview.md) — Service architecture and deployment topology
-- [Backend-API.md](../architecture/api.md) — API endpoints and error responses
-- [Backend-EventSystem.md](../architecture/events.md) — Event choreography and Kafka topics
+- [Backend-API.md](../reference/api.md) — API endpoints and error responses
+- [Backend-EventSystem.md](../reference/events.md) — Event choreography and Kafka topics
 - [README.md](../README.md) — Build and local development quickstart

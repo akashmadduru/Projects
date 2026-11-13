@@ -2,7 +2,7 @@
 
 The files live in [`postman/`](../../postman/). The collection covers the Phase 1–2 services only
 (gateway, auth, product, inventory, eureka). For every other endpoint see
-[endpoints.md](../architecture/endpoints.md).
+[endpoints.md](../reference/endpoints.md).
 
 - `postman/ecommerce-platform.postman_collection.json` — requests for every service, in folders:
   Gateway, Auth Service (+ Direct bypass), Product Service (+ Direct bypass),

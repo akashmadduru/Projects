@@ -2,7 +2,7 @@
 
 **Coverage:** the platform map below is current as of 2026-11-14 (Phases 1–10). The detailed sections
 after it describe product, inventory and rating as designed in Phases 1–4. Later services are
-described in their [phase pages](../phases/README.md), and every endpoint is listed in [endpoints.md](endpoints.md).
+described in their [phase pages](../phases/README.md), and every endpoint is listed in [endpoints.md](../reference/endpoints.md).
 
 ## Platform map (current)
 
@@ -432,5 +432,5 @@ Prometheus-compatible metrics exposed on `/actuator/prometheus`:
 - [ADR 0002](adr/0002-event-driven-inventory-kafka-kraft-and-event-contract-duplication.md) — Why event choreography, KRaft, and no schema registry
 - [ADR 0003](adr/0003-choreographed-catalog-saga-and-narrow-read-only-cross-service-call.md) — Why Feign clients only for reads, not writes
 - [HLD: Catalog Enrichment & Saga](design/HLD-catalog-enrichment-and-saga.md) — Phase 3–4 design including event wiring
-- [Backend-EventSystem.md](events.md) — Event types, Kafka topics, and choreography details
-- [Backend-DataModel.md](data-model.md) — Database schemas and entity relationships
+- [Backend-EventSystem.md](../reference/events.md) — Event types, Kafka topics, and choreography details
+- [Backend-DataModel.md](../reference/data-model.md) — Database schemas and entity relationships

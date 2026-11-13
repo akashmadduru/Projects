@@ -21,8 +21,8 @@ Tracks that run alongside the phases:
 | Track | Page |
 |---|---|
 | Storefront UI micro-interactions (previously mislabelled "Phase 1") | [storefront-micro-interactions](storefront-micro-interactions.md) |
-| Delivery: CI/CD pipeline | [operations/ci-cd](../operations/ci-cd.md) |
-| Delivery: AWS (Terraform, EKS, Helm) | [operations/deploy-aws](../operations/deploy-aws.md), [ADR 0004](../architecture/adr/0004-aws-eks-deployment.md) |
+| Delivery: CI/CD pipeline | [operations/ci-cd](../guides/ci-cd.md) |
+| Delivery: AWS (Terraform, EKS, Helm) | [operations/deploy-aws](../guides/deploy-aws.md), [ADR 0004](../architecture/adr/0004-aws-eks-deployment.md) |
 
 ## Numbering
 

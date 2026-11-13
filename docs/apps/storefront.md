@@ -66,6 +66,6 @@ public/           manifest.webmanifest, sw.js, offline.html, icons, robots.txt
 ## Known issues
 
 - Tests: 10 failing, plus `tsc --noEmit` errors in `http.test.ts` and `OverviewPage.test.tsx`
-  ([CI/CD baseline](../operations/ci-cd.md#baseline-to-clear-before-ci_enforcetrue)).
+  ([CI/CD baseline](../guides/ci-cd.md#baseline-to-clear-before-ci_enforcetrue)).
 - The main chunk is large ([TD-P7-18](../techdebt/phase7.md#td-p7-18)).
 - More: [techdebt/frontend.md](../techdebt/frontend.md).

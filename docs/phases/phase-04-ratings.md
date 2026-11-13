@@ -3,7 +3,7 @@
 **Status:** Built.
 **Service:** rating-service (:8084), database `rating_db`.
 **Tech debt:** [techdebt/ratings.md](../techdebt/ratings.md).
-**API:** [Rating Service API](../architecture/api.md#rating-service-api) · **Schema:** [Rating Service Schema](../architecture/data-model.md#rating-service-schema)
+**API:** [Rating Service API](../reference/api.md#rating-service-api) · **Schema:** [Rating Service Schema](../reference/data-model.md#rating-service-schema)
 
 ## What was built
 

@@ -1,7 +1,16 @@
 # Backend Decision Log
 
-**Coverage:** cross-cutting backend decisions from Phases 1–4. Phase-specific decisions live in the [phase pages](../phases/README.md); foundational ones are in [adr/](adr/).  
-**Last Updated:** November 2026
+**Scope:** five cross-cutting backend decisions made in Phases 2–4 and recorded on 2026-11-10.
+Phase-specific decisions live in the [phase pages](../phases/README.md); foundational ones in [adr/](adr/).
+**Status re-checked against the code:** 2026-11-14.
+
+| # | Decision | Status on 2026-11-14 |
+|---|---|---|
+| 5 | Optimistic locking via JPA `@Version` | ✅ Holds for catalog and stock writes |
+| 4 | Event choreography, not orchestration | 🟡 Holds for catalog/inventory/rating. Checkout (Phase 5–6) is orchestrated synchronously by order-service ([Phase 5 D5](../phases/phase-05-customer-accounts.md#decisions)). |
+| 3 | Eventual consistency across services | ✅ Holds. Gap: no outbox, so a lost event is never re-sent ([TD-P6-01](../techdebt/phase6.md#td-p6-01)). |
+| 2 | Feign only for reads, not writes | ❌ **Superseded in Phase 6.** order-service now writes to other services over Feign through `/internal/**` endpoints: stock reservations, payments and refunds, coupon redemption, wallet debit/credit, coins, exchange quotes. |
+| 1 | No schema registry; event classes duplicated | ✅ Holds, although the trigger it set for revisiting it ("a second consumer") has been reached: `product.events` and `inventory.events` have 2 consumers each, `order.events` 3, `user.events` 9. |
 
 ## Purpose
 
@@ -12,8 +21,8 @@ This document records architectural decisions made during backend development. E
 ## Decision 5: Optimistic Locking via JPA @Version
 
 **Phase:** 2 (write endpoints)  
-**Status:** Implemented  
-**Date:** November 2026
+**Status:** see the table at the top  
+**Recorded:** 2026-11-10
 
 ### Context
 
@@ -75,8 +84,8 @@ if (!Objects.equals(product.getVersion(), request.version())) {
 ## Decision 4: Event Choreography, Not Orchestration
 
 **Phase:** 2 (event-driven inventory)  
-**Status:** Implemented  
-**Date:** November 2026
+**Status:** see the table at the top  
+**Recorded:** 2026-11-10
 
 ### Context
 
@@ -129,15 +138,15 @@ public void onProductEvent(ProductEvent event) { ... }
 ### References
 
 - [ADR 0002](adr/0002-event-driven-inventory-kafka-kraft-and-event-contract-duplication.md) — full decision
-- [Backend-EventSystem.md](events.md) — event choreography details
+- [Backend-EventSystem.md](../reference/events.md) — event choreography details
 
 ---
 
 ## Decision 3: Eventual Consistency Across Services
 
 **Phase:** 2–3 (inventory + catalog enrichment)  
-**Status:** Implemented  
-**Date:** November 2026
+**Status:** see the table at the top  
+**Recorded:** 2026-11-10
 
 ### Context
 
@@ -195,15 +204,19 @@ InventoryEventListener.onInventoryEvent(event) {
 ### References
 
 - [Backend-Architecture.md](overview.md) — consistency model section
-- [Backend-EventSystem.md](events.md) — event choreography and failure scenarios
+- [Backend-EventSystem.md](../reference/events.md) — event choreography and failure scenarios
 
 ---
 
 ## Decision 2: Feign Clients Only for Reads, Not Writes
 
+> **Superseded (Phase 6).** Kept for the reasoning. Writes now go through `/internal/**` endpoints
+> guarded by the shared `X-Internal-Token` (TD-P6-12), and cross-service writes after the order
+> commit are best-effort (TD-P6-01).
+
 **Phase:** 3 (catalog enrichment aggregate read)  
-**Status:** Implemented  
-**Date:** November 2026
+**Status:** see the table at the top  
+**Recorded:** 2026-11-10
 
 ### Context
 
@@ -291,8 +304,8 @@ Resilience4j circuit breaker wraps the Feign call:
 ## Decision 1: No Schema Registry; Event Contracts Duplicated
 
 **Phase:** 2 (event-driven inventory)  
-**Status:** Implemented  
-**Date:** November 2026
+**Status:** see the table at the top  
+**Recorded:** 2026-11-10
 
 ### Context
 
@@ -360,23 +373,19 @@ void eventShapeMatchesExpectation() {
 ### References
 
 - [ADR 0002](adr/0002-event-driven-inventory-kafka-kraft-and-event-contract-duplication.md) — full decision
-- [Backend-EventSystem.md](events.md) — event contracts
+- [Backend-EventSystem.md](../reference/events.md) — event contracts
 
 ---
 
-## Future Decisions (Placeholder)
+## Questions this log left open
 
-### To Be Decided
-
-1. **Rating aggregation strategy** — When product.averageRating is denormalized from rating.events, should the product-service fetch a summary from rating-service (slow) or calculate locally from events (error-prone)?
-
-2. **Dead-letter queue strategy** — Where should failed event deserialization messages go? DLQ, S3, or retry topic?
-
-3. **Distributed tracing** — Should correlation IDs be integrated with Jaeger or similar, or is log-based tracing sufficient?
-
-4. **Cache strategy for rating summary** — Should rating aggregates be cached in Redis, or fetched fresh on each product read?
-
-5. **Schema registry migration** — At what consumer count (2, 3, 4+?) should we migrate to Confluent Schema Registry?
+| Question (2026-11-10) | Outcome |
+|---|---|
+| Rating aggregation: fetch a summary from rating-service, or compute from events? | **Decided:** fetch. `RatingEventListener` treats the event as a trigger and calls rating-service for the summary. |
+| Dead-letter strategy for failed messages | **Decided (Phase 10):** retry 3 times, then `<topic>.DLT` (`DlqErrorHandlers`). Six listeners still swallow errors ([TD-BE-17](../techdebt/backend.md#td-be-17)). |
+| Distributed tracing | **Decided (Phase 10):** Micrometer Tracing → OpenTelemetry → Jaeger. |
+| Cache rating summaries in Redis? | **Open.** Not cached; product reads use the denormalized columns. |
+| When to adopt a schema registry | **Open.** The "second consumer" trigger has been met; see Decision 1. |
 
 ---
 

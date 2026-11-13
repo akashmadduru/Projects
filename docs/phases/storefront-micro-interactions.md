@@ -33,4 +33,4 @@ who ask for reduced motion.
 - The stagger delay grows with the index, so card 40 of a large page waits 2.8 s. Cap the delay.
 - No per-instance way to turn off star animation.
 - Tests: `components/__tests__/MicroInteractions.test.tsx` is among the failing storefront tests
-  ([CI/CD baseline](../operations/ci-cd.md#baseline-to-clear-before-ci_enforcetrue)).
+  ([CI/CD baseline](../guides/ci-cd.md#baseline-to-clear-before-ci_enforcetrue)).

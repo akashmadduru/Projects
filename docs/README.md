@@ -10,8 +10,8 @@ All project documentation lives in this folder. Start with **getting started** t
 | Know what's next | [roadmap.md](roadmap.md) |
 | Understand the system | [architecture/overview.md](architecture/overview.md) |
 | Find known shortcuts and risks | [techdebt/](techdebt/README.md), [audit/technical-audit.md](audit/technical-audit.md) |
-| Connect Stripe, email, SMS, push or Google | [operations/setup-integrations.md](operations/setup-integrations.md) |
-| Deploy to AWS | [operations/deploy-aws.md](operations/deploy-aws.md) |
+| Connect Stripe, email, SMS, push or Google | [operations/setup-integrations.md](guides/integrations.md) |
+| Deploy to AWS | [operations/deploy-aws.md](guides/deploy-aws.md) |
 
 ## Layout
 

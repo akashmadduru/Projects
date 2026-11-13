@@ -1,31 +1,55 @@
-# Backend Data Model
+# Data model reference
 
-**Coverage:** product, inventory and rating schemas as of Phase 4. The platform now has 12 databases (`auth_db`, `product_db`, `inventory_db`, `rating_db`, `user_db`, `cart_db`, `order_db`, `payment_db`, `promotion_db`, `notification_db`, `seller_db`, `support_db`). Later schemas are defined by each service’s Flyway migrations under `src/main/resources/db/migration`.  
-**Last Updated:** November 2026
+**Verified against the code:** 2026-11-14. The table list below is generated from the Flyway migrations
+(`services/<service>/**/db/migration/V*.sql`), which are the source of truth for every schema.
 
-## Table of Contents
+## Rules that apply to every database
 
-1. [Database Overview](#database-overview)
-2. [Product Service Schema](#product-service-schema)
-3. [Inventory Service Schema](#inventory-service-schema)
-4. [Rating Service Schema](#rating-service-schema)
-5. [Denormalization Strategy](#denormalization-strategy)
-6. [Indexes & Performance](#indexes--performance)
-7. [Seed Data](#seed-data)
+- **One database per service**, owned by its own role, created by `infra/postgres/init/01-schemas.sql`.
+  No service reads another service's database.
+- **No cross-database foreign keys** (Postgres cannot enforce them). Cross-service ids, such as
+  `productId` in `orders.order_items`, are plain UUIDs kept consistent by events or by
+  re-reading the owning service.
+- **Schema changes ship as a new Flyway migration.** Never edit an applied migration (comments
+  included): Flyway checksums it, and every database that already ran it will refuse to start.
+- **Optimistic locking** (`version` column, JPA `@Version`) on the mutable catalog and stock rows.
+- Scheduled jobs coordinate through a Postgres advisory lock (`JobLock`, ADR 0004), so no lock table exists.
 
----
+## All databases
 
-## Database Overview
+| Database | Schema | Owner role | Service | Migrations | Tables |
+|---|---|---|---|---|---|
+| `auth_db` | `auth` | `auth_service` | auth-service | 4 (V1–V4) | `federated_identities`, `known_devices`, `mfa_challenges`, `one_time_tokens`, `recovery_codes`, `refresh_tokens`, `roles`, `user_credentials`, `user_roles`, `user_totp`, `users` |
+| `cart_db` | `cart` | `cart_service` | cart-service | 5 (V1–V5) | `alerts`, `cart_items`, `carts`, `list_items`, `lists`, `saved_items`, `wishlist_items` |
+| `inventory_db` | `inventory` | `inventory_service` | inventory-service | 7 (V1–V7) | `reservation_releases`, `reservations`, `stock_levels`, `variant_stock`, `warehouse_stock`, `warehouses` |
+| `notification_db` | `notification` | `notification_service` | notification-service | 1 (V1–V1) | `campaigns`, `notifications`, `push_subscriptions`, `settings` |
+| `order_db` | `orders` | `order_service` | order-service | 7 (V1–V7) | `order_items`, `order_return_items`, `order_returns`, `order_shipments`, `order_status_history`, `orders`, `subscriptions` |
+| `payment_db` | `payment` | `payment_service` | payment-service | 2 (V1–V2) | `gift_cards`, `payments`, `processed_events`, `refunds`, `wallet_txns`, `wallets` |
+| `product_db` | `product` | `product_service` | product-service | 8 (V1–V8) | `categories`, `fx_rates`, `offers`, `product_images`, `product_variants`, `product_views`, `products` |
+| `promotion_db` | `promotion` | `promotion_service` | promotion-service | 4 (V1–V4) | `bank_offers`, `coin_ledger`, `coupons`, `deal_claims`, `deals`, `exchange_programs`, `exchange_quotes`, `redemptions` |
+| `rating_db` | `rating` | `rating_service` | rating-service | 5 (V1–V5) | `answers`, `qa_votes`, `questions`, `rating_votes`, `ratings`, `review_media` |
+| `seller_db` | `seller` | `seller_service` | seller-service | 2 (V1–V2) | `ad_campaigns`, `ledger_entries`, `payouts`, `sale_lines`, `seller_feedback`, `sellers` |
+| `support_db` | `support` | `support_service` | support-service | 2 (V1–V2) | `audit_log`, `chat_messages`, `chat_sessions`, `faq_articles`, `ticket_messages`, `tickets` |
+| `user_db` | `users` | `user_service` | user-service | 4 (V1–V4) | `addresses`, `delete_codes`, `deletion_requests`, `export_jobs`, `membership_payments`, `membership_plan_prices`, `membership_plans`, `memberships`, `recently_viewed`, `referral_claims`, `referral_codes`, `user_preferences`, `user_profiles` |
 
-The platform uses three independent Postgres databases, each owned by a service role. No foreign keys cross databases (impossible in Postgres); cross-database references are event-linked only.
+`payment.processed_events` stores the id of every Stripe webhook event handled
+(`INSERT … ON CONFLICT DO NOTHING`), so a redelivered webhook is ignored.
 
-| Database | Schema | Owner | Migrations |
-|----------|--------|-------|------------|
-| product_db | product | product_service | V1–V5 |
-| inventory_db | inventory | inventory_service | V1–V3 |
-| rating_db | rating | rating_service | V1–V2 |
+**Demo seed data (product-service only).** In the `default` profile, Flyway also loads
+`db/seed/R__product_demo_seed.sql`, `R__product_phase7_seed.sql` and `R__product_zz_offers_backfill.sql`.
+These are *repeatable* migrations: Flyway re-runs one whenever its checksum changes, so unlike
+`V*` files they may be edited.
 
----
+## Detailed schemas: product, inventory, rating
+
+The sections below were written for Phases 1–4 and describe the tables as of these migrations:
+product-service V1–V5, inventory-service V1–V3, rating-service V1–V2. Columns and tables added later:
+
+| Service | Later migrations | What they added |
+|---|---|---|
+| product-service | V6 `product_discovery`, V7 `offers_marketplace`, V8 `fx_rates` | Phase 7 discovery (slugs, brand, attributes, variants, search indexes, `product_views`), Phase 9 `offers` and buy box, Phase 10 `fx_rates` |
+| inventory-service | V4 `inventory_reservations`, V5–V6 `variant_stock`, V7 `warehouses_multiseller_stock` | Phase 6 reservations, Phase 7 per-variant stock, Phase 9 warehouses and per-seller stock |
+| rating-service | V3 `one_review_per_user`, V4 `qa_and_review_media`, V5 `rating_fraud_flags` | One review per user, Phase 7 Q&A and review media, Phase 10 fraud flags |
 
 ## Product Service Schema
 
@@ -249,7 +273,7 @@ CREATE INDEX ratings_rating_value_idx ON rating.ratings(rating_value);
 - `user_id` — no FK (auth_db is separate); denormalization source: user_display_name
 - `rating_value` — 1–5 scale (enforced by CHECK and domain logic)
 - `review_title`, `review_text` — optional; a rating can exist without review text
-- `is_verified_purchase` — placeholder for order-service integration
+- `is_verified_purchase` — `true` for every review created since purchase checks were added (`RatingService` sets it after `ReviewEligibilityService` confirms, via order-service, that the user has an order for the product that is not `CANCELLED` or `PENDING_PAYMENT`; delivery is not required); older seed rows may be `false`
 - `helpful_count`, `unhelpful_count` — aggregated vote counts
 - `version` — optimistic concurrency
 - `created_at`, `updated_at` — timestamps
@@ -319,7 +343,7 @@ CREATE INDEX rating_votes_user_id_idx ON rating.rating_votes(user_id);
 **Source of truth:** `Rating` entities in rating_db  
 **Consistency window:** Event-based (eventual)  
 **Update mechanism:** RatingEventListener consumes `RATING_ADDED`, `RATING_UPDATED`, `RATING_DELETED` events  
-**Idempotency:** Recalculated from rating service's aggregate (future implementation)
+**Idempotency:** the listener re-fetches the full summary from rating-service over Feign and overwrites the four columns, so replayed or out-of-order events converge
 
 **Why denormalize?**
 - Product detail page displays aggregate ratings without a cross-service call
@@ -447,7 +471,7 @@ Recovery mechanisms (out of scope for this prototype):
 
 ## References
 
-- [Backend-Architecture.md](overview.md) — Service architecture and deployment
+- [Backend-Architecture.md](../architecture/overview.md) — Service architecture and deployment
 - [Backend-EventSystem.md](events.md) — Event types and denormalization updates
 - [Backend-API.md](api.md) — API endpoints returning these entities
 - Database migrations: `services/*/src/main/resources/db/migration/`

@@ -1,132 +1,148 @@
-# Backend API Reference
+# HTTP API reference
 
-**Coverage:** detailed request/response reference for product, inventory and rating (Phases 1–4) and the Phase 5 customer services, last revised 2026-11-12. For every endpoint added since, see [endpoints.md](endpoints.md) (generated from code) and the [phase pages](../phases/README.md).  
-**Last Updated:** November 2026
+**Verified against the code:** 2026-11-14 (conventions, roles, error codes, rate limits, paging, checkout).
+The request and response examples for product, inventory and rating were written for Phases 1–4.
+All 19 of those endpoints still exist. The examples show the Phase 1–4 fields; for the full current field list read the DTOs in each `-api` module (`ProductResponse`, `InventoryResponse`, `RatingResponse`).
+**Every endpoint in every service:** [endpoints.md](endpoints.md) (309, generated from the controllers).
 
-## Table of Contents
+## Contents
 
-1. [Overview](#overview)
-2. [Authentication & Authorization](#authentication--authorization)
-3. [Error Handling](#error-handling)
-4. [Product Service API](#product-service-api)
-5. [Inventory Service API](#inventory-service-api)
-6. [Rating Service API](#rating-service-api)
-7. [Rate Limiting](#rate-limiting)
-8. [Pagination](#pagination)
-9. [Customer Services API (Phase 5)](#customer-services-api-phase-5)
+1. [Conventions](#conventions)
+2. [Product service](#product-service-api)
+3. [Inventory service](#inventory-service-api)
+4. [Rating service](#rating-service-api)
+5. [Customer services: user, cart, order](#customer-services-user-cart-order)
 
 ---
 
-## Overview
+## Conventions
 
-The platform exposes three independent service APIs, each with its own port and database. All APIs follow REST conventions, return JSON, and use RFC 9457 problem documents for errors.
+### Base URL
 
-| Service | Port | Base Path | Database |
-|---------|------|-----------|----------|
-| Product | 8082 | `/api/products` | `product_db` |
-| Inventory | 8083 | `/api/inventory` | `inventory_db` |
-| Rating | 8084 | `/api/ratings` | `rating_db` |
+Clients call the gateway: `http://localhost:8080` locally. Each service also listens on its own
+port (8081–8092, see [getting started](../getting-started.md#ports)) for debugging; production
+exposes only the gateway. `/internal/**` endpoints are service-to-service only, need
+`X-Internal-Token`, and are not routed by the gateway.
 
----
+### Authentication
 
-## Authentication & Authorization
+Send `Authorization: Bearer <access token>`. auth-service issues RS256 JWTs:
 
-### Token-Based (JWT)
+| Claim | Value |
+|---|---|
+| `sub` | user id (UUID). Every customer endpoint uses this as the user; a resource owned by someone else returns 404. |
+| `roles` | list of roles, mapped to `ROLE_*` authorities by `RolesClaimAuthoritiesConverter` |
+| `aud` | `ecommerce-platform` (`AUTH_JWT_AUDIENCES`) |
+| `iss` | `https://auth.acme-ecommerce.internal` (`AUTH_JWT_ISSUER`) |
+| `email`, `auth_method` | informational (`password`, `google`, `otp`) |
 
-All write endpoints and authenticated reads require an `Authorization: Bearer <jwt>` header.
+Roles: `VIEWER` (default for new customers), `CATALOG_MANAGER`, `ADMIN`, `SELLER` (Phase 9),
+`SUPPORT`, `FINANCE` (Phase 10). The gateway requires `ROLE_ADMIN` for `/api/admin/**` except the
+paths explicitly opened to `SUPPORT` / `FINANCE`, and each service checks again.
 
-The JWT is issued by auth-service and contains:
-- `sub` — user UUID (principal)
-- `scope` — comma-separated list of roles: `ROLE_VIEWER`, `ROLE_CATALOG_MANAGER`, `ROLE_ADMIN`
-- `aud` — audience (must be `ecommerce-platform`)
-- `iss` — issuer (must be `https://auth.acme-ecommerce.internal`)
+### Access rules for the Phase 1–4 endpoints
 
-### RBAC Rules
+| Endpoint | Who |
+|---|---|
+| `GET /api/products/**`, `GET /api/categories/**` | Anyone (no token) |
+| `POST /api/products/{id}/views` | Anyone |
+| `POST`/`PUT`/`DELETE /api/products/**` | `CATALOG_MANAGER` or `ADMIN` |
+| `GET /api/inventory/**` | Any signed-in user |
+| `POST`/`PUT`/`DELETE /api/inventory/**` | `CATALOG_MANAGER` or `ADMIN` |
+| `GET /api/ratings/products/{id}`, `…/summary`, questions, answers, media | Anyone |
+| `POST /api/ratings/products/{id}` (write a review) | A signed-in user with an order for the product that is not `CANCELLED` or `PENDING_PAYMENT` (else 403 `REVIEW_NOT_ELIGIBLE`; 503 `DEPENDENCY_UNAVAILABLE` if order-service cannot be reached), one review per product (else 409 `REVIEW_ALREADY_EXISTS`) |
+| `PUT`/`DELETE /api/ratings/{id}` | The author or `ADMIN` |
+| `POST /api/ratings/{id}/votes/{voteType}` | A signed-in user, not on their own review (409 `CANNOT_VOTE_OWN_REVIEW`) |
 
-| Endpoint | Method | Required Role |
-|----------|--------|----------------|
-| Product list/detail | GET | None (public) |
-| Product catalog aggregate | GET | None (public) |
-| Product create | POST | `CATALOG_MANAGER`, `ADMIN` |
-| Product update | PUT | `CATALOG_MANAGER`, `ADMIN` |
-| Product delete | DELETE | `CATALOG_MANAGER`, `ADMIN` |
-| Inventory list/detail | GET | None (authenticated) |
-| Inventory by-product | GET | None (authenticated) |
-| Inventory create | POST | `CATALOG_MANAGER`, `ADMIN` |
-| Inventory update | PUT | `CATALOG_MANAGER`, `ADMIN` |
-| Inventory delete | DELETE | `CATALOG_MANAGER`, `ADMIN` |
-| Rating list/detail/summary | GET | None (public) |
-| Rating create | POST | Authenticated (any role) |
-| Rating update | PUT | Author or `ADMIN` |
-| Rating delete | DELETE | Author or `ADMIN` |
-| Rating vote | POST | Authenticated (any role) |
+### Errors
 
----
+Every error is an RFC 9457 `application/problem+json` document:
 
-## Error Handling
-
-### RFC 9457 Problem Document
-
-All errors return a JSON problem document as specified in RFC 9457:
-
-```json
-{
-  "type": "https://errors.acme-ecommerce.internal/validation-failed",
-  "status": 400,
-  "title": "Validation failed",
-  "detail": "Product name cannot be empty",
-  "instance": "/api/products",
-  "code": "VALIDATION_FAILED"
-}
-```
-
-**Standard Error Codes:**
-
-| HTTP Status | Code | Meaning |
-|-------------|------|---------|
-| 400 | VALIDATION_FAILED | Request body/parameters failed validation |
-| 401 | UNAUTHENTICATED | No token or invalid token |
-| 403 | FORBIDDEN | Caller lacks required role |
-| 404 | RESOURCE_NOT_FOUND | Resource does not exist |
-| 409 | RESOURCE_CONFLICT | Unique constraint, optimistic lock, or duplicate |
-| 422 | DOMAIN_RULE_VIOLATION | Domain rule rejected the request |
-| 503 | UPSTREAM_UNAVAILABLE | Downstream service unreachable |
-| 500 | INTERNAL_ERROR | Unhandled exception (details in logs) |
-
-### Example Error Responses
-
-**Validation Error (400):**
 ```json
 {
   "type": "https://errors.acme-ecommerce.internal/validation-failed",
   "status": 400,
   "title": "Validation failed",
   "detail": "Price amount must be non-negative",
+  "instance": "/api/products",
   "code": "VALIDATION_FAILED"
 }
 ```
 
-**Version Conflict (409):**
+`type` is `https://errors.acme-ecommerce.internal/` plus the code in lower case with `-` for `_`.
+5xx responses never include exception text; the details are in the service log under the
+`X-Correlation-Id` returned with the response.
+
+All 38 codes (`libs/common-core/.../error/ErrorCode.java`):
+
+| HTTP | Code | Title |
+|---|---|---|
+| 400 | `INVALID_PINCODE` | Invalid pincode |
+| 400 | `VALIDATION_FAILED` | Validation failed |
+| 401 | `INTERNAL_AUTH_FAILED` | Internal authentication failed |
+| 401 | `UNAUTHENTICATED` | Unauthenticated |
+| 402 | `PAYMENT_FAILED` | Payment failed |
+| 403 | `FORBIDDEN` | Forbidden |
+| 403 | `REVIEW_NOT_ELIGIBLE` | Review not eligible |
+| 404 | `ADDRESS_NOT_FOUND` | Address not found |
+| 404 | `PAYMENT_NOT_FOUND` | Payment not found |
+| 404 | `RESOURCE_NOT_FOUND` | Resource not found |
+| 409 | `ACCOUNT_DELETION_BLOCKED` | Account deletion blocked |
+| 409 | `ADDRESS_LIMIT` | Address limit reached |
+| 409 | `CANNOT_VOTE_OWN_REVIEW` | Cannot vote on own review |
+| 409 | `CART_EMPTY` | Cart is empty |
+| 409 | `CART_LIMIT` | Cart limit reached |
+| 409 | `COUPON_USAGE_LIMIT` | Coupon usage limit reached |
+| 409 | `CURRENCY_MISMATCH` | Currency mismatch |
+| 409 | `DEAL_SOLD_OUT` | Deal sold out |
+| 409 | `INSUFFICIENT_BALANCE` | Insufficient balance |
+| 409 | `INVALID_STATUS_TRANSITION` | Invalid status transition |
+| 409 | `ORDER_NOT_CANCELLABLE` | Order not cancellable |
+| 409 | `OUT_OF_STOCK` | Out of stock |
+| 409 | `PRODUCT_UNAVAILABLE` | Product unavailable |
+| 409 | `RESOURCE_CONFLICT` | Resource conflict |
+| 409 | `RETURN_NOT_ALLOWED` | Return not allowed |
+| 409 | `RETURN_WINDOW_EXPIRED` | Return window expired |
+| 409 | `REVIEW_ALREADY_EXISTS` | Review already exists |
+| 409 | `WISHLIST_LIMIT` | Wishlist limit reached |
+| 422 | `COUPON_EXPIRED` | Coupon expired |
+| 422 | `COUPON_INVALID` | Coupon invalid |
+| 422 | `COUPON_NOT_APPLICABLE` | Coupon not applicable |
+| 422 | `DOMAIN_RULE_VIOLATION` | Domain rule violation |
+| 422 | `GIFT_CARD_INVALID` | Gift card invalid |
+| 422 | `PAYMENT_METHOD_UNAVAILABLE` | Payment method unavailable |
+| 429 | `RATE_LIMITED` | Too many requests |
+| 500 | `INTERNAL_ERROR` | Internal server error |
+| 503 | `DEPENDENCY_UNAVAILABLE` | Dependency unavailable |
+| 503 | `UPSTREAM_UNAVAILABLE` | Upstream service unavailable |
+
+### Paging
+
+List endpoints take `page` (0-based, default 0), `size` (default 20) and `sort` (`field,asc|desc`).
+The maximum `size` is **100**, except order-service (**50**) and the admin user list (**50**); a larger
+value is clamped. Responses use Spring's `PagedModel` shape:
+
 ```json
-{
-  "type": "https://errors.acme-ecommerce.internal/resource-conflict",
-  "status": 409,
-  "title": "Resource conflict",
-  "detail": "Product ... has version 5, not 3",
-  "code": "RESOURCE_CONFLICT"
-}
+{ "content": [ ], "page": { "size": 20, "number": 0, "totalElements": 100, "totalPages": 5 } }
 ```
 
-**Not Found (404):**
-```json
-{
-  "type": "https://errors.acme-ecommerce.internal/resource-not-found",
-  "status": 404,
-  "title": "Resource not found",
-  "detail": "Product not found",
-  "code": "RESOURCE_NOT_FOUND"
-}
-```
+### Rate limits
+
+auth-service only (Bucket4j). Limits are **per instance and per client IP per path**, so running
+more replicas multiplies them. There is no gateway-level rate limit yet.
+
+| Paths | Requests per minute |
+|---|---|
+| `/api/auth/login`, `/api/auth/register`, password forgot/reset, email verify and resend, OTP request and verify, `/api/auth/2fa/{setup,enable,disable,verify}`, `/api/auth/me/phone` | 10 (`AUTH_RATE_LIMIT_LOGIN_CAPACITY`) |
+| `/api/auth/refresh` | 60 (`AUTH_RATE_LIMIT_REFRESH_CAPACITY`) |
+
+Exceeding a limit returns 429 `RATE_LIMITED`.
+
+### Idempotency
+
+`POST /api/orders` requires an `Idempotency-Key` header. The same key with the same body returns the
+original order (200); the same key with a different body returns 422 `DOMAIN_RULE_VIOLATION`
+(rule `IDEMPOTENCY_KEY_REUSED`); a missing key returns 400 `VALIDATION_FAILED`.
 
 ---
 
@@ -429,7 +445,7 @@ Content-Type: application/json
 - 400 — validation failed
 - 409 — inventory already exists for this product
 
-**Side Effect:** Publishes `InventoryEvent(INVENTORY_QUANTITY_CHANGED)` to Kafka (if applicable).
+**Side effect:** every successful update publishes `InventoryEvent(INVENTORY_QUANTITY_CHANGED)` after commit, and `INVENTORY_LOW_STOCK` when the quantity is at or below the threshold.
 
 #### Update Inventory
 
@@ -554,22 +570,20 @@ Content-Type: application/json
 {
   "ratingValue": 5,
   "reviewTitle": "Excellent keyboard!",
-  "reviewText": "Great typing experience, highly recommend.",
-  "isVerifiedPurchase": false
+  "reviewText": "Great typing experience, highly recommend."
 }
 ```
 
-**Required:** `ratingValue` (1–5)  
-**Constraints:**
-- `ratingValue` must be 1–5 inclusive
-- One rating per user per product (enforced by service layer)
+**Fields:** `ratingValue` (required, 1–5), `reviewTitle` (at most 200 characters), `reviewText` (at most 5000). These are the only request fields.
+**Rules:** the caller must have bought the product; one review per user per product (unique constraint, Flyway `V3__rating_one_review_per_user`).
 
 **Response (201 CREATED):** RatingResponse
 
 **Errors:**
 - 400 — validation failed
 - 401 — not authenticated
-- 409 — user already has a rating for this product (if enforced)
+- 403 `REVIEW_NOT_ELIGIBLE` — the caller has not bought this product
+- 409 `REVIEW_ALREADY_EXISTS` — the caller already reviewed this product
 
 **Side Effect:** Publishes `RatingEvent(RATING_ADDED)` to `rating.events` Kafka topic.
 
@@ -640,119 +654,81 @@ Authorization: Bearer <jwt>
 
 ---
 
-## Rate Limiting
+## Customer services: user, cart, order
 
-Currently **not implemented**. The platform relies on:
-- Gateway circuit breakers (1s slow-call threshold per route)
-- Database connection pool limits (10 connections per service)
-- Kafka consumer lag monitoring (no explicit backpressure)
+Introduced in [Phase 5](../phases/phase-05-customer-accounts.md). All endpoints need a token (any
+role) and act on the JWT `sub`. The tables below are the Phase 5 core. Membership, referrals,
+lists, alerts, subscriptions, returns, invoices and the rest are listed in [endpoints.md](endpoints.md).
 
-Future implementation should add per-user or per-IP rate limiting on write endpoints.
+| Service | Port | Base paths | Database |
+|---|---|---|---|
+| user-service | 8085 | `/api/users` | `user_db` |
+| cart-service | 8086 | `/api/cart`, `/api/wishlist` | `cart_db` |
+| order-service | 8087 | `/api/orders` | `order_db` |
 
----
-
-## Pagination
-
-All list endpoints return paginated results with the following structure:
-
-```json
-{
-  "content": [ /* array of resource objects */ ],
-  "page": {
-    "size": 20,
-    "number": 0,
-    "totalElements": 100,
-    "totalPages": 5
-  }
-}
-```
-
-**Query Parameters:**
-- `page` — zero-indexed page number (default: 0)
-- `size` — rows per page (default: 20, max: 100 to prevent table scans)
-- `sort` — sort specification, e.g., `sku,asc` or `createdAt,desc` (default: `sku,asc` for products, `productId,asc` for inventory, `createdAt,desc` for ratings)
-
-**Example:**
-```http
-GET /api/products?page=2&size=50&sort=name,desc
-```
-
----
-
-## Customer Services API (Phase 5)
-
-Added with customer accounts; see [Phase5-Feature.md](../phases/phase-05-customer-accounts.md). All endpoints go through the gateway (8080), require `Authorization: Bearer <jwt>` (any role), and use the JWT `sub` as the user. A resource owned by another user returns 404. Errors are RFC 9457 problem documents.
-
-| Service | Port | Base Path | Database |
-|---------|------|-----------|----------|
-| User | 8085 | `/api/users` | `user_db` |
-| Cart | 8086 | `/api/cart`, `/api/wishlist` | `cart_db` |
-| Order | 8087 | `/api/orders` | `order_db` |
-
-### Additional error codes
-
-| HTTP | Code | When |
-|------|------|------|
-| 404 | ADDRESS_NOT_FOUND | Address missing or not owned (checkout) |
-| 409 | ADDRESS_LIMIT | More than 20 addresses |
-| 409 | CART_EMPTY | Checkout with an empty cart |
-| 409 | PRODUCT_UNAVAILABLE | Product inactive, unpriced or gone |
-| 409 | CURRENCY_MISMATCH | Mixed currencies in a cart/order |
-| 422 | DOMAIN_RULE_VIOLATION | Idempotency-Key reused with a different `addressId` (rule `IDEMPOTENCY_KEY_REUSED`), or more than 50 order lines |
-| 400 | VALIDATION_FAILED | Includes a missing or over-long `Idempotency-Key` |
-| 503 | DEPENDENCY_UNAVAILABLE | cart/user/product service failed during checkout |
-
-5xx problem details are generic; specifics are in service logs. Gateway returns 503 for up to ~30-40s after a downstream restart.
-
-### User Service
+### User service
 
 | Method | Path | Body | Response |
 |--------|------|------|----------|
 | GET | `/api/users/me` | | `UserProfileResponse {userId, email, displayName, phone, createdAt}` (created on first call) |
 | PUT | `/api/users/me` | `{displayName, phone}` | profile |
 | GET | `/api/users/me/addresses` | | `AddressResponse[]`, default first |
-| POST | `/api/users/me/addresses` | `AddressRequest` | 201 `AddressResponse` (first address becomes default; max 20) |
+| POST | `/api/users/me/addresses` | `AddressRequest` | 201 `AddressResponse` (the first address becomes the default; at most 20, else 409 `ADDRESS_LIMIT`) |
 | GET | `/api/users/me/addresses/{id}` | | `AddressResponse` |
 | PUT | `/api/users/me/addresses/{id}` | `AddressRequest` (full replace) | `AddressResponse` |
-| DELETE | `/api/users/me/addresses/{id}` | | 204; most recent remaining address becomes default if the default was deleted |
+| DELETE | `/api/users/me/addresses/{id}` | | 204. If it was the default, the most recently created remaining address becomes the default. |
 | PUT | `/api/users/me/addresses/{id}/default` | | `AddressResponse` |
 
-`AddressRequest`: `{label?, fullName, phone?, line1, line2?, city, state?, postalCode, country (ISO-2)}`. `AddressResponse` adds `id`, `isDefault`, `createdAt`, `updatedAt`.
+`AddressRequest`: `{label?, fullName, phone?, line1, line2?, city, state?, postalCode, country (ISO-2)}`.
+`AddressResponse` adds `id`, `isDefault`, `createdAt`, `updatedAt`.
 
-### Cart Service
+### Cart service
 
 | Method | Path | Body | Response |
 |--------|------|------|----------|
-| GET | `/api/cart` | | `CartResponse {items, currency\|null, itemCount, subtotal}`; `itemCount` is total quantity |
-| POST | `/api/cart/items` | `{productId, quantity, name, unitPrice, currency, imageUrl?}` | `CartResponse` (adds quantity, capped at 99) |
-| PUT | `/api/cart/items/{productId}` | `{quantity}` 1..99 | `CartResponse`; 404 if absent |
+| GET | `/api/cart` | | `CartResponse {items, currency\|null, itemCount, subtotal}`; `itemCount` is the total quantity |
+| POST | `/api/cart/items` | `{productId, quantity, name, unitPrice, currency, imageUrl?}` | `CartResponse`; quantity is added and capped at 99 |
+| PUT | `/api/cart/items/{productId}` | `{quantity}` 1–99 | `CartResponse`; 404 if the item is not in the cart |
 | DELETE | `/api/cart/items/{productId}` | | 204 (idempotent) |
 | DELETE | `/api/cart` | | 204 |
-| POST | `/api/cart/merge` | `{items: [...]}` max 100 | `CartResponse` (quantities summed, capped at 99, all-or-nothing) |
+| POST | `/api/cart/merge` | `{items: [...]}`, at most 100 | `CartResponse`; quantities summed and capped at 99; all or nothing |
 | GET | `/api/wishlist` | | `WishlistItemResponse[] {productId, name, price, currency, imageUrl, addedAt}` |
 | PUT | `/api/wishlist/{productId}` | `{name, price, currency, imageUrl?}` | `WishlistItemResponse` (idempotent) |
 | DELETE | `/api/wishlist/{productId}` | | 204 |
-| POST | `/api/wishlist/merge` | `{items: [...]}` max 200 | `WishlistItemResponse[]` (union) |
+| POST | `/api/wishlist/merge` | `{items: [...]}`, at most 200 | `WishlistItemResponse[]` (union) |
 
-A cart holds one currency; adding another returns 409 `CURRENCY_MISMATCH`. `CartItemResponse`: `{productId, quantity, name, unitPrice, currency, imageUrl, lineTotal, addedAt}`. Cart names and prices are display snapshots only.
+A cart holds one currency; adding an item in another currency returns 409 `CURRENCY_MISMATCH`.
+Names and prices in the cart are display copies only: checkout re-prices every line.
 
-### Order Service
+### Order service: place, list, view, cancel
 
 | Method | Path | Notes |
 |--------|------|-------|
-| POST | `/api/orders` | Body `{addressId}`; header `Idempotency-Key` required (max length enforced). 201 new order; 200 original order when the same key and address are replayed. |
-| GET | `/api/orders?page&size` | Max size 50, newest first; paged summaries |
-| GET | `/api/orders/{id}` | 404 if not owned |
-| POST | `/api/orders/{id}/cancel` | PLACED to CANCELLED; already CANCELLED returns 200. No stock release or refund yet. |
+| POST | `/api/orders` | Header `Idempotency-Key` (required). Body below. 201 for a new order, 200 when the same key and body are replayed. |
+| GET | `/api/orders?page&size` | Newest first, at most 50 per page; returns summaries |
+| GET | `/api/orders/{id}` | 404 if the order belongs to someone else |
+| POST | `/api/orders/{id}/cancel` | See cancel rules below |
 
-`OrderResponse`: `{id, status, currency, totalAmount, placedAt, cancelledAt, shipTo{fullName, phone, line1, line2, city, state, postalCode, country}, items[{productId, sku, name, unitPrice, quantity, lineTotal, imageUrl}]}`. `OrderSummaryResponse`: `{id, status, currency, totalAmount, placedAt, itemCount}`.
+Place-order body (`PlaceOrderRequest`):
 
-Unit price is re-read from product-service at checkout: `salePrice` when positive, else `priceAmount`. Orders snapshot address and prices. Limitations: no payment, inventory reservation, shipping or tax ([techdebt/backend.md](../techdebt/backend.md)).
+| Field | Required | Meaning |
+|---|---|---|
+| `addressId` | yes | One of the caller's addresses (404 `ADDRESS_NOT_FOUND` otherwise) |
+| `paymentMethod` | yes | `CARD`, `COD` or `WALLET` |
+| `items` | no | 1–50 lines for Buy Now; when omitted the server cart is used (409 `CART_EMPTY` if it is empty) |
+| `couponCode` | no | At most 40 characters; validated by promotion-service |
+| `useWallet` | no | Apply wallet balance first |
+| `coinsToRedeem` | no | Reward coins to spend (at most 20% of the subtotal) |
+| `exchangeQuoteId` | no | A trade-in quote from promotion-service (Phase 10) |
 
----
+Pricing: each line is re-read from product-service (sale price when above 0, else list price; the
+buy-box offer when the product has several sellers), then coupon, coins, wallet, shipping and GST are
+applied. Placement reserves stock and runs the risk score: a score of 70 or more rejects COD,
+90 or more holds the order.
 
-## References
-
-- [Backend-Architecture.md](overview.md) — System design and service responsibilities
-- [Backend-EventSystem.md](events.md) — Event types and choreography
-- Error codes are documented in [`libs/common-core/src/main/java/com/acme/ecommerce/common/core/error/ErrorCode.java`](../../libs/common-core/src/main/java/com/acme/ecommerce/common/core/error/ErrorCode.java)
+**Cancel rules.** A user (or an admin, via `/api/admin/orders/{id}/cancel`) can cancel only while the
+order and all of its shipments are still cancellable, which ends at `PACKED`; later states return 409
+`ORDER_NOT_CANCELLABLE`. An already-cancelled order returns 200 unchanged. On cancel:
+a captured payment is refunded, then stock is restored and the coupon, coins and wallet amount are
+released. The release steps are best-effort, so a failure is logged and not retried
+([TD-P6-01](../techdebt/phase6.md#td-p6-01)).

@@ -3,7 +3,7 @@
 Review-only audit. No code was modified. Every finding comes from reading files in this repository.
 
 > **Progress since the audit (2026-11-14):**
-> - Done: `.github/workflows/gradle.yml` replaced by `ci.yml`, `security.yml` and `cd-images.yml` ([CI/CD](../operations/ci-cd.md)).
+> - Done: `.github/workflows/gradle.yml` replaced by `ci.yml`, `security.yml` and `cd-images.yml` ([CI/CD](../guides/ci-cd.md)).
 > - Done: the ZooKeeper container and `infra/zookeeper/` were removed.
 > - Done: `IMPLEMENTATION_STATUS.md`, `DOCKER_SUMMARY.md` and `DOCKER_SETUP.md` were deleted, and all docs moved under `docs/`.
 > - Partly done: `db-snapshots/` was removed from the tree and git-ignored. **It is still in git history,

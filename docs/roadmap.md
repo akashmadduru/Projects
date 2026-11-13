@@ -29,7 +29,7 @@ The ordered plan is in the [technical audit](audit/technical-audit.md#e-implemen
 2. **Real payments:** a provider port, plus Razorpay and/or Stripe end to end.
 3. **Tests** for payment and order placement, and for every Phase 5–10 service.
 4. **Reliability:** transactional outbox for `order.events`, dead-letter topics everywhere, gateway rate limiting.
-5. **Production:** Helm, Terraform and observability ([deploy-aws](operations/deploy-aws.md)).
+5. **Production:** Helm, Terraform and observability ([deploy-aws](guides/deploy-aws.md)).
 6. **Phase 10 verification:** an end-to-end run of every Phase 10 feature, then a WCAG 2.2 AA audit (the one Phase 10 item with no work found).
 
 ## Working rules

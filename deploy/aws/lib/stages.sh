@@ -489,7 +489,7 @@ Do these once:
   3. SES     -> new accounts are in the sandbox. Request production access in the SES console,
               otherwise only verified addresses receive email.
   4. Admin   -> self-registration is on and there is no seeded admin: register, then grant the
-              admin role (see docs/operations/deploy-aws.md, "First admin user").
+              admin role (see docs/guides/deploy-aws.md, "First admin user").
   5. SMS     -> no SMS provider is wired; one-time-code SMS is not delivered. Email works.
   6. Alerts  -> confirm the SNS email subscription if you set ALERT_EMAIL.
 

@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# Blocks commits that contain database dumps or stored credential hashes.
+# Enable once per clone:  git config core.hooksPath .githooks
+# Why: docs/guides/runbooks/leaked-database-dump.md
+set -euo pipefail
+
+patterns='-- PostgreSQL database (cluster )?dump|SCRAM-SHA-256\$[0-9]+:|\$argon2(id|i|d)\$v='
+blocked=0
+while IFS= read -r -d '' file; do
+  if git show ":$file" 2>/dev/null | grep -qE -- "$patterns"; then
+    echo "pre-commit: refusing $file (looks like a database dump or a password hash)" >&2
+    blocked=1
+  fi
+done < <(git diff --cached --name-only --diff-filter=ACMR -z)
+
+if command -v gitleaks >/dev/null 2>&1; then
+  gitleaks git --pre-commit --staged --redact --no-banner --config .gitleaks.toml || blocked=1
+fi
+
+if [ "$blocked" -ne 0 ]; then
+  echo "Take snapshots with infra/scripts/db-snapshot.sh (writes outside the repo)." >&2
+  exit 1
+fi

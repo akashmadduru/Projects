@@ -3,11 +3,34 @@ title = "ecommerce-platform gitleaks config"
 [extend]
 useDefault = true
 
+# --- Database dumps ----------------------------------------------------------
+# The default rules did not flag the pg_dump files committed in 5943ec7: password
+# hashes and SCRAM verifiers are not "API keys". These rules catch dump output
+# and stored credential hashes in any file. See docs/guides/runbooks/leaked-database-dump.md.
+
+[[rules]]
+id = "postgres-dump"
+description = "pg_dump / pg_dumpall output committed to the repository"
+regex = '''-- (PostgreSQL database (cluster )?dump)'''
+keywords = ["postgresql database"]
+
+[[rules]]
+id = "postgres-scram-verifier"
+description = "PostgreSQL SCRAM-SHA-256 password verifier"
+regex = '''SCRAM-SHA-256\$\d+:[A-Za-z0-9+/=]{16,}\$[A-Za-z0-9+/=]{20,}:[A-Za-z0-9+/=]{20,}'''
+keywords = ["scram-sha-256"]
+
+[[rules]]
+id = "argon2-password-hash"
+description = "Argon2 password hash (PHC string), e.g. a users table row"
+regex = '''\$argon2(id|i|d)\$v=\d+\$m=\d+,t=\d+,p=\d+\$[A-Za-z0-9+/]{16,}\$[A-Za-z0-9+/]{20,}'''
+keywords = ["$argon2"]
+
 [allowlist]
 description = "Known non-secret fixtures and templates"
 regexTarget = "match"
 regexes = [
-  '''Bearer eyJhbGc\.\.\.''', # truncated placeholder in docs/operations/operations.md
+  '''Bearer eyJhbGc\.\.\.''', # truncated placeholder in docs/guides/operations.md
 ]
 paths = [
   '''services/auth-service/auth-service-app/src/test/resources/.*''', # throwaway test keystore

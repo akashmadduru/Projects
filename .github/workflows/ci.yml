@@ -139,7 +139,7 @@ jobs:
         if: steps.skip.outputs.skip != 'true'
         run: npm ci
       # Type check and tests are report-only until CI_ENFORCE=true: both apps have
-      # failures that predate this pipeline (see docs/operations/ci-cd.md, "Baseline").
+      # failures that predate this pipeline (see docs/guides/ci-cd.md, "Baseline").
       - name: Type check
         if: steps.skip.outputs.skip != 'true'
         continue-on-error: ${{ env.SOFT_FAIL == 'true' }}

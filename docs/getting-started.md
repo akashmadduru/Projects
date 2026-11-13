@@ -1,8 +1,8 @@
 # Getting started
 
 How to build the platform and run it on one machine. Integration settings (Stripe, email, SMS,
-push, Google) are in [setup-integrations.md](operations/setup-integrations.md). Day-two
-operations (migrations, health checks, logs, troubleshooting) are in [operations.md](operations/operations.md).
+push, Google) are in [setup-integrations.md](guides/integrations.md). Day-two
+operations (migrations, health checks, logs, troubleshooting) are in [operations.md](guides/operations.md).
 
 ## Prerequisites
 
@@ -112,4 +112,4 @@ docker compose -f infra/docker-compose.yml down -v   # wipe all volumes (re-runs
 - **Service not healthy:** `docker compose -f infra/docker-compose.yml logs <service>`.
 - **SPA cannot reach the API:** check `curl http://localhost:8080/actuator/health`, then make sure the
   SPA's origin is in `GATEWAY_CORS_ALLOWED_ORIGINS`.
-- More: [operations.md § Troubleshooting](operations/operations.md#troubleshooting).
+- More: [operations.md § Troubleshooting](guides/operations.md#troubleshooting).
