@@ -250,7 +250,7 @@ module "karpenter" {
 # --- AWS Load Balancer Controller ---------------------------------------------------------------
 module "pod_identity_lbc" {
   source  = "terraform-aws-modules/eks-pod-identity/aws"
-  version = "~> 1.7"
+  version = "~> 2.10"
 
   name = "${local.name}-aws-lbc"
 
