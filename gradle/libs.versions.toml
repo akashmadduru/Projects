@@ -30,19 +30,19 @@
 
 [versions]
 # --- platform BOMs ---
-springBoot = "4.0.7"
-springCloud = "2025.1.2"
+springBoot = "4.1.2"
+springCloud = "2025.1.4"
 
 # --- build plugins ---
-spotless = "8.9.0"
+spotless = "8.11.0"
 googleJavaFormat = "1.36.1"
 checkstyleTool = "13.9.0"
 
 # --- libraries not managed by the Boot/Cloud BOMs ---
-bouncycastle = "1.85"
-springdoc = "3.0.3"
+bouncycastle = "1.86"
+springdoc = "3.2.0"
 mapstruct = "1.6.3"
-lombok = "1.18.46"
+lombok = "1.18.48"
 # WHY 8.10.1 AND NOT NEWER: the `com.bucket4j:bucket4j-core` coordinate stops at
 # 8.10.1 on Maven Central; from 8.11 the project split into JDK-specific
 # artifacts (`bucket4j_jdk17-core`). 8.10.1 is the last release of the plain
