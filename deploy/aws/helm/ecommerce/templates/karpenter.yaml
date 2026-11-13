@@ -1,0 +1,89 @@
+{{- if .Values.karpenter.enabled }}
+{{- $k := .Values.karpenter }}
+# Karpenter provisions the nodes the application pods run on (the small fixed "system" node group
+# only hosts cluster add-ons). Two pools:
+#   critical : on-demand only, for auth / order / payment / inventory / gateway (never interrupted)
+#   general  : spot + on-demand, for everything else
+# Both consolidate: empty or under-used nodes are removed after a short quiet period, which is what
+# scales the cluster back down after a traffic peak.
+apiVersion: karpenter.k8s.aws/v1
+kind: EC2NodeClass
+metadata:
+  name: default
+spec:
+  role: {{ required "karpenter.nodeRole" $k.nodeRole }}
+  amiSelectorTerms:
+    - alias: al2023@latest
+  subnetSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: {{ required "karpenter.clusterName" $k.clusterName }}
+  securityGroupSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: {{ $k.clusterName }}
+  blockDeviceMappings:
+    - deviceName: /dev/xvda
+      ebs:
+        volumeSize: 40Gi
+        volumeType: gp3
+        encrypted: true
+        deleteOnTermination: true
+  metadataOptions:
+    httpEndpoint: enabled
+    httpTokens: required
+    # 2 (not the default 1) so the CloudWatch agent pods can still reach the instance metadata
+    # service for the node role's credentials.
+    httpPutResponseHopLimit: 2
+  tags:
+    Project: {{ .Values.global.repositoryPrefix }}
+    ManagedBy: karpenter
+---
+apiVersion: karpenter.sh/v1
+kind: NodePool
+metadata:
+  name: critical
+spec:
+  template:
+    metadata:
+      labels:
+        tier: critical
+    spec:
+      nodeClassRef: { group: karpenter.k8s.aws, kind: EC2NodeClass, name: default }
+      expireAfter: 720h
+      requirements:
+        - { key: kubernetes.io/arch, operator: In, values: ["amd64"] }
+        - { key: kubernetes.io/os, operator: In, values: ["linux"] }
+        - { key: karpenter.sh/capacity-type, operator: In, values: ["on-demand"] }
+        - { key: karpenter.k8s.aws/instance-category, operator: In, values: ["c", "m", "r"] }
+        - { key: karpenter.k8s.aws/instance-generation, operator: Gt, values: ["4"] }
+        - { key: karpenter.k8s.aws/instance-size, operator: NotIn, values: ["nano", "micro", "small", "metal"] }
+  limits:
+    cpu: {{ $k.criticalCpuLimit | quote }}
+  disruption:
+    consolidationPolicy: WhenEmptyOrUnderutilized
+    consolidateAfter: 5m
+---
+apiVersion: karpenter.sh/v1
+kind: NodePool
+metadata:
+  name: general
+spec:
+  template:
+    metadata:
+      labels:
+        tier: general
+    spec:
+      nodeClassRef: { group: karpenter.k8s.aws, kind: EC2NodeClass, name: default }
+      expireAfter: 720h
+      requirements:
+        - { key: kubernetes.io/arch, operator: In, values: ["amd64"] }
+        - { key: kubernetes.io/os, operator: In, values: ["linux"] }
+        - { key: karpenter.sh/capacity-type, operator: In, values: {{ $k.capacityTypes | toJson }} }
+        - { key: karpenter.k8s.aws/instance-category, operator: In, values: ["c", "m", "r"] }
+        - { key: karpenter.k8s.aws/instance-generation, operator: Gt, values: ["4"] }
+        - { key: karpenter.k8s.aws/instance-size, operator: NotIn, values: ["nano", "micro", "small", "metal"] }
+  limits:
+    cpu: {{ $k.generalCpuLimit | quote }}
+  disruption:
+    consolidationPolicy: WhenEmptyOrUnderutilized
+    consolidateAfter: 2m
+{{- end }}

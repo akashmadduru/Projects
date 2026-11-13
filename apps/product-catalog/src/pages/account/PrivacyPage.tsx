@@ -91,6 +91,22 @@ function DeleteCard() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | undefined>()
 
+  // The server is the source of truth for a pending deletion; localStorage is only a first-paint hint.
+  useEffect(() => {
+    privacyApi
+      .deletionStatus()
+      .then((res) => {
+        setScheduled(res.scheduled ? (res.scheduledFor ?? null) : null)
+        try {
+          if (res.scheduled && res.scheduledFor) localStorage.setItem(DELETE_KEY, res.scheduledFor)
+          else localStorage.removeItem(DELETE_KEY)
+        } catch {
+          // Marker only.
+        }
+      })
+      .catch(() => undefined)
+  }, [])
+
   const run = async (fn: () => Promise<void>) => {
     setBusy(true)
     setError(undefined)

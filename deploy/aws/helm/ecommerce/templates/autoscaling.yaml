@@ -1,0 +1,66 @@
+{{- $g := .Values.global }}
+{{- $lean := include "ecommerce.lean" . }}
+{{- range $name, $svc := .Values.services }}
+{{- $s := mergeOverwrite (deepCopy $.Values.serviceDefaults) (deepCopy $svc) }}
+{{- $ctx := dict "name" $name "root" $ }}
+{{- $min := int $s.hpa.min }}
+{{- $max := int $s.hpa.max }}
+{{- if $lean }}
+{{- $min = 1 }}
+{{- $max = min $max 3 }}
+{{- end }}
+{{- if $s.hpa.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ $name }}
+  namespace: {{ $g.namespace }}
+  labels:
+    {{- include "ecommerce.labels" $ctx | nindent 4 }}
+  # To pause autoscaling for an incident or a manual scale: set  serviceDefaults.hpa.enabled=false
+  # (or this service's hpa.enabled=false) and `replicas`, then redeploy. See the README.
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ $name }}
+  minReplicas: {{ $min }}
+  maxReplicas: {{ $max }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ $s.hpa.cpu }}
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      selectPolicy: Max
+      policies:
+        - { type: Percent, value: 100, periodSeconds: 30 }
+        - { type: Pods, value: 4, periodSeconds: 30 }
+    scaleDown:
+      # Five quiet minutes before shrinking, and never more than half the pods in a minute.
+      stabilizationWindowSeconds: 300
+      policies:
+        - { type: Percent, value: 50, periodSeconds: 60 }
+{{- end }}
+{{- $effective := ternary $min (int $s.replicas) $s.hpa.enabled }}
+{{- if and $s.pdb (not $lean) (gt (int $effective) 1) }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ $name }}
+  namespace: {{ $g.namespace }}
+  labels:
+    {{- include "ecommerce.labels" $ctx | nindent 4 }}
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      {{- include "ecommerce.selector" $ctx | nindent 6 }}
+{{- end }}
+{{- end }}

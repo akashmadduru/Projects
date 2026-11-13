@@ -1,5 +1,7 @@
 package com.acme.ecommerce.order.service;
 
+import com.acme.ecommerce.common.web.job.JobLock;
+import org.springframework.beans.factory.annotation.Autowired;
 import com.acme.ecommerce.common.core.error.CodedException;
 import com.acme.ecommerce.common.core.error.ErrorCode;
 import com.acme.ecommerce.common.core.error.ResourceNotFoundException;
@@ -245,8 +247,15 @@ public class SubscriptionService {
 
   // ---- job -----------------------------------------------------------------------------------
 
+  /** Cluster-wide guard so only one replica runs this job per tick. */
+  @Autowired private JobLock jobLock;
+
   @Scheduled(cron = "0 0 6 * * *", zone = "Asia/Kolkata")
   public void dailyJob() {
+    jobLock.runExclusive("order-subscriptions-daily", this::dailyJobLocked);
+  }
+
+  private void dailyJobLocked() {
     try {
       RunSummary s = runDue(pricing.today());
       log.info("Subscription run: {}", s);

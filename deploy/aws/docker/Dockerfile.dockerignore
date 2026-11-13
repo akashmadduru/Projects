@@ -1,0 +1,39 @@
+# Build-context exclusions for deploy/aws/docker/Dockerfile ONLY (BuildKit picks this file up in
+# preference to the repository-root .dockerignore).
+#
+# Keeping deploy/, apps/ and docs out of the context matters for speed: the jar-building stage is
+# cached on the context content, so editing a Helm value or a Terraform file must not invalidate it.
+
+.git/
+.gitignore
+.gradle/
+**/.gradle/
+**/build/
+**/out/
+**/bin/
+**/target/
+.idea/
+.vscode/
+**/*.iml
+oracleJdk-27/
+
+# not needed to compile the Java services
+apps/
+deploy/
+docs/
+techdebt/
+infra/
+postman/
+db-snapshots/
+templates/
+.claude/
+**/node_modules/
+**/*.md
+
+# secrets must never enter a build context
+.env
+.env.*
+**/*.p12
+**/*.jks
+**/*.pem
+**/*.key

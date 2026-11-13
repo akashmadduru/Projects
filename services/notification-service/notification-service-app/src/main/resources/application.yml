@@ -59,7 +59,9 @@ notification:
   internal-token: ${INTERNAL_API_TOKEN:}
   sender: ${NOTIFICATION_SENDER:no-reply@acme.local}
   storefront-base-url: ${STOREFRONT_BASE_URL:http://localhost:3000}
-  sms-mailbox-domain: acme.local
+  # Dev SMS sink (see InternalNotificationController#sms). Blank in production = no sink and no
+  # delivery, so one-time codes are never emailed to an arbitrary domain.
+  sms-mailbox-domain: ${NOTIFICATION_SMS_MAILBOX_DOMAIN:acme.local}
   jwt:
     issuer: ${AUTH_JWT_ISSUER:https://auth.acme-ecommerce.internal}
     audience: ${AUTH_JWT_AUDIENCES:ecommerce-platform}
@@ -120,3 +122,33 @@ logging:
     "[com.acme.ecommerce.notification]": INFO
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%X{correlationId:-}] [%X{traceId:-},%X{spanId:-}] %logger{36} - %msg%n"
+
+---
+# =============================================================================
+# PROFILE: prod
+#
+# Added with the AWS deployment: every other service already had a prod profile, this one did not,
+# which left a committed local database password as the fallback in production.
+# =============================================================================
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+  datasource:
+    # No working default in production.
+    password: ${SPRING_DATASOURCE_PASSWORD}
+
+notification:
+  # Blank = no dev SMS sink in production.
+  sms-mailbox-domain: ${NOTIFICATION_SMS_MAILBOX_DOMAIN:}
+
+management:
+  endpoint:
+    health:
+      show-details: never
+
+logging:
+  level:
+    root: WARN
+    "[com.acme.ecommerce.notification]": INFO

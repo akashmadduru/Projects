@@ -1,0 +1,115 @@
+# =============================================================================
+# Creates the twelve service databases and their least-privilege roles on RDS.
+#
+# This replaces infra/postgres/init/01-schemas.sql and infra/scripts/create-customer-dbs.sql for AWS.
+# It runs INSIDE the cluster because RDS sits in isolated subnets that nothing outside the VPC can
+# reach. Passwords are not in this file: External Secrets syncs them from Secrets Manager
+# (<prefix>/db) and the Job reads them from its environment.
+#
+# Safe to re-run: roles and databases that exist are kept, and each role's password is re-applied
+# from the secret, so rotating a password in Secrets Manager and re-running this Job updates RDS.
+# (Running services keep their old connections until restarted.)
+#
+# Applied by deploy.sh with __NAMESPACE__, __RDS_HOST__ and __SECRET_PREFIX__ substituted.
+# =============================================================================
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: db-bootstrap-secrets
+  namespace: __NAMESPACE__
+spec:
+  refreshInterval: 1h
+  secretStoreRef: { name: aws-secrets-manager, kind: ClusterSecretStore }
+  target: { name: db-bootstrap-secrets, creationPolicy: Owner }
+  dataFrom:
+    - extract: { key: __SECRET_PREFIX__/db }
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: db-bootstrap-script
+  namespace: __NAMESPACE__
+data:
+  bootstrap.sh: |
+    #!/bin/sh
+    set -eu
+
+    export PGHOST="__RDS_HOST__" PGPORT=5432 PGSSLMODE=require PGDATABASE=postgres
+    export PGUSER="$username" PGPASSWORD="$master_password"
+
+    for svc in auth product inventory user cart order rating payment promotion notification seller support; do
+      role="${svc}_service"
+      db="${svc}_db"
+      pw="$(printenv "${svc}_password" || true)"
+      if [ -z "$pw" ]; then
+        echo "ERROR: no password for ${svc} in the db secret" >&2
+        exit 1
+      fi
+      echo "== ${svc}: role ${role}, database ${db}"
+
+      # Role + database. RDS's master user is not a true superuser, so it must be a member of a
+      # role to create a database owned by it; GRANT ... TO CURRENT_USER provides that.
+      psql -v ON_ERROR_STOP=1 -v role="$role" -v pw="$pw" -v db="$db" <<'SQL'
+    SELECT format('CREATE ROLE %I LOGIN PASSWORD %L', :'role', :'pw')
+      WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'role') \gexec
+    SELECT format('ALTER ROLE %I PASSWORD %L', :'role', :'pw') \gexec
+    SELECT format('GRANT %I TO CURRENT_USER', :'role') \gexec
+    SELECT format('CREATE DATABASE %I OWNER %I ENCODING ''UTF8'' LC_COLLATE ''C'' LC_CTYPE ''C'' TEMPLATE template0', :'db', :'role')
+      WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = :'db') \gexec
+    SELECT format('REVOKE CONNECT ON DATABASE %I FROM PUBLIC', :'db') \gexec
+    SELECT format('GRANT CONNECT ON DATABASE %I TO %I', :'db', :'role') \gexec
+    SQL
+
+      # Lock down the public schema: only the owning service may create objects in its database.
+      psql -v ON_ERROR_STOP=1 -d "$db" -v role="$role" <<'SQL'
+    REVOKE ALL ON SCHEMA public FROM PUBLIC;
+    SELECT format('GRANT ALL ON SCHEMA public TO %I', :'role') \gexec
+    SELECT format('ALTER DATABASE %I SET search_path TO public', current_database()) \gexec
+    SQL
+    done
+    echo "database bootstrap complete"
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: db-bootstrap
+  namespace: __NAMESPACE__
+spec:
+  backoffLimit: 4
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: db-bootstrap
+        app.kubernetes.io/part-of: ecommerce-platform
+    spec:
+      restartPolicy: OnFailure
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 70          # the "postgres" user inside the alpine image
+        runAsGroup: 70
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: psql
+          # Public ECR mirror of the official image: no Docker Hub rate limit on the NAT address.
+          image: public.ecr.aws/docker/library/postgres:17-alpine
+          command: ["sh", "/scripts/bootstrap.sh"]
+          envFrom:
+            - secretRef: { name: db-bootstrap-secrets }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests: { cpu: 50m, memory: 64Mi }
+            limits: { memory: 128Mi }
+          volumeMounts:
+            - { name: script, mountPath: /scripts, readOnly: true }
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - name: script
+          configMap: { name: db-bootstrap-script }
+        - { name: tmp, emptyDir: {} }

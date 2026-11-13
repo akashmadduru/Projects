@@ -1,5 +1,7 @@
 package com.acme.ecommerce.cart.reminder;
 
+import com.acme.ecommerce.common.web.job.JobLock;
+import org.springframework.beans.factory.annotation.Autowired;
 import com.acme.ecommerce.cart.client.NotificationFeignClient;
 import com.acme.ecommerce.cart.client.NotificationFeignClient.EmailBody;
 import com.acme.ecommerce.cart.client.NotificationFeignClient.InboxBody;
@@ -40,8 +42,15 @@ public class ReminderService {
     this.storefront = storefront;
   }
 
+  /** Cluster-wide guard so only one replica runs this job per tick. */
+  @Autowired private JobLock jobLock;
+
   @Scheduled(cron = "${cart.reminders.cron:0 7 * * * *}")
   public void scheduled() {
+    jobLock.runExclusive("cart-reminders", this::scheduledLocked);
+  }
+
+  private void scheduledLocked() {
     run(DEFAULT_MIN_AGE_MINUTES);
   }
 

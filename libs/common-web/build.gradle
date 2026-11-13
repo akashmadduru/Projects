@@ -11,6 +11,7 @@ dependencies {
     compileOnly libs.spring.web
     compileOnly libs.spring.webmvc
     compileOnly libs.spring.context
+    compileOnly libs.slf4j.api
     compileOnly libs.jakarta.servlet.api
     compileOnly libs.feign.core
     compileOnly libs.spring.boot.autoconfigure

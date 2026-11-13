@@ -24,6 +24,8 @@ export interface TwoFactorSetup {
 export interface AuthSession {
   familyId: string
   device: string
+  ipAddress?: string | null
+  authMethod?: string | null
   lastUsedAt: string
   current: boolean
   createdAt?: string

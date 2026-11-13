@@ -20,6 +20,10 @@ export const privacyApi = {
     return apiFetch<DeletionStatus>('/api/users/me/delete', { method: 'POST', body: { password } })
   },
 
+  deletionStatus(): Promise<DeletionStatus> {
+    return apiFetch<DeletionStatus>('/api/users/me/delete')
+  },
+
   cancelDeletion(): Promise<void> {
     return apiFetch<void>('/api/users/me/delete/cancel', { method: 'POST' })
   },

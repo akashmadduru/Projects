@@ -1,0 +1,198 @@
+{{- $g := .Values.global }}
+{{- range $name, $svc := .Values.services }}
+{{- $s := mergeOverwrite (deepCopy $.Values.serviceDefaults) (deepCopy $svc) }}
+{{- $ctx := dict "name" $name "root" $ }}
+{{- /* Actuator port: the service port, unless this service declares a separate management port. */}}
+{{- $mport := ternary (int $s.port) (int $s.managementPort) (eq (int $s.managementPort) 0) }}
+{{- $sepMgmt := ne (int $mport) (int $s.port) }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  namespace: {{ $g.namespace }}
+  labels:
+    {{- include "ecommerce.labels" $ctx | nindent 4 }}
+spec:
+  {{- if not $s.hpa.enabled }}
+  replicas: {{ $s.replicas }}
+  {{- end }}
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      {{- include "ecommerce.selector" $ctx | nindent 6 }}
+  {{- if $s.pvc }}
+  # A ReadWriteOnce volume cannot be attached to two pods, so the new pod must wait for the old.
+  strategy:
+    type: Recreate
+  {{- else }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  {{- end }}
+  template:
+    metadata:
+      labels:
+        {{- include "ecommerce.labels" $ctx | nindent 8 }}
+      annotations:
+        # Roll the pods when the discovery map or the generated settings change.
+        checksum/discovery: {{ include (print $.Template.BasePath "/discovery.yaml") $ | sha256sum }}
+    spec:
+      serviceAccountName: {{ $name }}
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: {{ $g.shutdown.gracePeriodSeconds }}
+      {{- if eq $s.tier "critical" }}
+      nodeSelector:
+        tier: critical
+      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              {{- include "ecommerce.selector" $ctx | nindent 14 }}
+      containers:
+        - name: app
+          image: {{ include "ecommerce.image" $ctx }}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: {{ $s.port }}
+            {{- if $sepMgmt }}
+            - name: mgmt
+              containerPort: {{ $mport }}
+            {{- end }}
+          env:
+            - { name: SPRING_PROFILES_ACTIVE, value: "prod" }
+            - { name: SERVER_PORT, value: {{ $s.port | quote }} }
+            # Actuator: on the service port, or (gateway) on a separate management port. A separate
+            # port must listen on the pod IP, not 127.0.0.1 (the gateway's prod default), or the
+            # kubelet probes and the ALB health check can never reach it.
+            - { name: MANAGEMENT_SERVER_PORT, value: {{ $mport | quote }} }
+            {{- if $s.managementAddress }}
+            - { name: MANAGEMENT_SERVER_ADDRESS, value: {{ $s.managementAddress | quote }} }
+            {{- end }}
+            # No Eureka in the cluster: discovery is the ConfigMap mounted at /config plus
+            # Kubernetes Services / CoreDNS (see discovery.yaml).
+            - { name: EUREKA_CLIENT_ENABLED, value: "false" }
+            - { name: SPRING_CONFIG_ADDITIONAL_LOCATION, value: "optional:file:/config/" }
+            - { name: SPRING_LIFECYCLE_TIMEOUT_PER_SHUTDOWN_PHASE, value: {{ $g.shutdown.springTimeout | quote }} }
+            - { name: AUTH_JWT_ISSUER, value: {{ required "global.jwt.issuer" $g.jwt.issuer | quote }} }
+            - { name: AUTH_JWT_AUDIENCES, value: {{ $g.jwt.audience | quote }} }
+            - { name: TRACING_SAMPLING_PROBABILITY, value: {{ if $g.tracing.enabled }}{{ $g.tracing.samplingProbability | quote }}{{ else }}"0.0"{{ end }} }
+            - { name: OTEL_TRACES_ENDPOINT, value: "http://jaeger:4318/v1/traces" }
+            {{- if $s.jwksEnv }}
+            # Keys come straight from auth-service rather than through discovery.
+            - { name: {{ $s.jwksEnv }}, value: "http://auth-service:8081/.well-known/jwks.json" }
+            {{- end }}
+            {{- if $s.database }}
+            - { name: SPRING_DATASOURCE_URL, value: "jdbc:postgresql://{{ required "global.endpoints.rds" $g.endpoints.rds }}:5432/{{ $s.database }}_db?sslmode=require" }
+            - { name: SPRING_DATASOURCE_USERNAME, value: "{{ $s.database }}_service" }
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: db-secrets, key: "{{ $s.database }}_password" }
+            - { name: SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE, value: {{ $s.poolSize | quote }} }
+            {{- end }}
+            {{- if $s.kafka }}
+            - { name: KAFKA_BOOTSTRAP_SERVERS, value: {{ required "global.endpoints.kafka" $g.endpoints.kafka | quote }} }
+            - { name: SPRING_KAFKA_BOOTSTRAP_SERVERS, value: {{ $g.endpoints.kafka | quote }} }
+            {{- end }}
+            {{- if $s.redis }}
+            - { name: REDIS_HOST, value: {{ required "global.endpoints.redis" $g.endpoints.redis | quote }} }
+            - { name: REDIS_PORT, value: "6379" }
+            - { name: SPRING_DATA_REDIS_SSL_ENABLED, value: "true" }
+            {{- end }}
+            {{- if $s.internalToken }}
+            - name: INTERNAL_API_TOKEN
+              valueFrom:
+                secretKeyRef: { name: app-secrets, key: internal_api_token }
+            {{- end }}
+            {{- if eq $name "gateway" }}
+            - { name: GATEWAY_CORS_ALLOWED_ORIGINS, value: "{{ $g.shopUrl }},{{ $g.adminUrl }}" }
+            - { name: GATEWAY_RATE_LIMIT_WRITES, value: {{ $g.gateway.rateLimitWritesPerMinute | quote }} }
+            - { name: GATEWAY_RATE_LIMIT_READS, value: {{ $g.gateway.rateLimitReadsPerMinute | quote }} }
+            - { name: GATEWAY_RATE_LIMIT_TRUSTED_PROXY_HOPS, value: {{ $g.gateway.trustedProxyHops | quote }} }
+            {{- end }}
+            {{- if eq $name "auth-service" }}
+            - { name: AUTH_ALLOWED_REDIRECT_URIS, value: "{{ $g.shopUrl }}/auth/callback,{{ $g.adminUrl }}/auth/callback" }
+            - { name: AUTH_DEFAULT_REDIRECT_URI, value: "{{ $g.shopUrl }}/auth/callback" }
+            {{- end }}
+            {{- if has $name (list "auth-service" "user-service" "cart-service" "notification-service" "seller-service" "support-service") }}
+            - { name: STOREFRONT_BASE_URL, value: {{ $g.shopUrl | quote }} }
+            {{- end }}
+            {{- if eq $name "seller-service" }}
+            - { name: ADMIN_BASE_URL, value: {{ $g.adminUrl | quote }} }
+            {{- end }}
+            {{- if eq $name "notification-service" }}
+            - { name: MAIL_HOST, value: {{ $g.mail.host | quote }} }
+            - { name: MAIL_PORT, value: {{ $g.mail.port | quote }} }
+            - { name: NOTIFICATION_SENDER, value: {{ $g.mail.sender | quote }} }
+            - { name: VAPID_SUBJECT, value: "mailto:{{ $g.mail.sender }}" }
+            {{- end }}
+            {{- range $k, $v := $s.env }}
+            - { name: {{ $k }}, value: {{ $v | quote }} }
+            {{- end }}
+            {{- range $s.secretEnv }}
+            - name: {{ .name }}
+              valueFrom:
+                secretKeyRef: { name: {{ default "app-secrets" .secret }}, key: {{ .key }} }
+            {{- end }}
+          resources:
+            {{- toYaml $s.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          startupProbe:
+            httpGet: { path: /actuator/health/liveness, port: {{ if $sepMgmt }}mgmt{{ else }}http{{ end }} }
+            periodSeconds: 5
+            failureThreshold: 36      # up to 3 minutes for JVM + Flyway on a cold start
+          livenessProbe:
+            httpGet: { path: /actuator/health/liveness, port: {{ if $sepMgmt }}mgmt{{ else }}http{{ end }} }
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            httpGet: { path: /actuator/health/readiness, port: {{ if $sepMgmt }}mgmt{{ else }}http{{ end }} }
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sh", "-c", "sleep {{ $g.shutdown.preStopSleepSeconds }}"]
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+            - { name: discovery, mountPath: /config, readOnly: true }
+            {{- if $s.keystore }}
+            - { name: jwt-keystore, mountPath: /run/secrets, readOnly: true }
+            {{- end }}
+            {{- if $s.pvc }}
+            - { name: data, mountPath: {{ $s.pvc.mountPath }} }
+            {{- end }}
+      volumes:
+        - { name: tmp, emptyDir: {} }
+        - name: discovery
+          configMap: { name: discovery-config }
+        {{- if $s.keystore }}
+        - name: jwt-keystore
+          secret:
+            secretName: jwt-keystore
+            defaultMode: 0440
+        {{- end }}
+        {{- if $s.pvc }}
+        - name: data
+          persistentVolumeClaim: { claimName: {{ $name }}-data }
+        {{- end }}
+{{- end }}

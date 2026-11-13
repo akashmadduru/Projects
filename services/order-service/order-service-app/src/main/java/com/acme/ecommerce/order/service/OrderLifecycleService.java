@@ -1,5 +1,7 @@
 package com.acme.ecommerce.order.service;
 
+import com.acme.ecommerce.common.web.job.JobLock;
+import org.springframework.beans.factory.annotation.Autowired;
 import com.acme.ecommerce.common.core.error.CodedException;
 import com.acme.ecommerce.common.core.error.ErrorCode;
 import com.acme.ecommerce.order.api.dto.AdminRequests.StatusUpdate;
@@ -179,8 +181,15 @@ public class OrderLifecycleService {
   }
 
   /** Every 60s: PENDING_PAYMENT orders older than the expiry window are cancelled. */
+  /** Cluster-wide guard so only one replica runs this job per tick. */
+  @Autowired private JobLock jobLock;
+
   @Scheduled(fixedDelay = 60_000, initialDelay = 60_000)
   public void expireStalePendingOrders() {
+    jobLock.runExclusive("order-expire-pending", this::expireStalePendingOrdersLocked);
+  }
+
+  private void expireStalePendingOrdersLocked() {
     Instant cutoff = Instant.now().minus(props.getPending().getExpiry());
     List<UUID> ids = store.expiredPendingIds(cutoff);
     for (UUID id : ids) {

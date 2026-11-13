@@ -35,6 +35,7 @@ export interface Ticket {
   createdAt: string
   updatedAt: string
   csat?: number | null
+  ref?: string
   messages?: TicketMessage[]
 }
 
@@ -65,8 +66,8 @@ export interface ExportJob {
 }
 
 export interface DeletionStatus {
+  scheduled?: boolean
   scheduledFor?: string | null
-  status?: string
 }
 
 export interface ExchangeProgram {

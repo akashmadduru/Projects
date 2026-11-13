@@ -1,5 +1,7 @@
 package com.acme.ecommerce.product.service;
 
+import com.acme.ecommerce.common.web.job.JobLock;
+import org.springframework.beans.factory.annotation.Autowired;
 import com.acme.ecommerce.common.core.error.ResourceNotFoundException;
 import com.acme.ecommerce.product.api.dto.ProductResponse;
 import com.acme.ecommerce.product.domain.Category;
@@ -181,9 +183,16 @@ public class ProductDiscoveryService {
         .toList();
   }
 
+  /** Cluster-wide guard so only one replica runs this job per tick. */
+  @Autowired private JobLock jobLock;
+
   @Scheduled(cron = "0 17 3 * * *")
   @Transactional
   public void purgeOldViews() {
+    jobLock.runExclusive("product-purge-views", this::purgeOldViewsLocked);
+  }
+
+  private void purgeOldViewsLocked() {
     int n = natives.deleteViewsOlderThanDays(VIEW_RETENTION_DAYS);
     log.info("Purged {} product views older than {} days", n, VIEW_RETENTION_DAYS);
   }

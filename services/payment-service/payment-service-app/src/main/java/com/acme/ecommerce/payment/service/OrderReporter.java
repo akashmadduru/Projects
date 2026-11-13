@@ -1,5 +1,7 @@
 package com.acme.ecommerce.payment.service;
 
+import com.acme.ecommerce.common.web.job.JobLock;
+import org.springframework.beans.factory.annotation.Autowired;
 import com.acme.ecommerce.payment.api.dto.PaymentResultRequest;
 import com.acme.ecommerce.payment.client.OrderFeignClient;
 import com.acme.ecommerce.payment.client.UserFeignClient;
@@ -64,10 +66,17 @@ public class OrderReporter {
     }
   }
 
+  /** Cluster-wide guard so only one replica runs this job per tick. */
+  @Autowired private JobLock jobLock;
+
   @Scheduled(
       fixedDelayString = "${payment.reporter.interval-ms:30000}",
       initialDelayString = "${payment.reporter.interval-ms:30000}")
   public void retryPending() {
+    jobLock.runExclusive("payment-order-reporter", this::retryPendingLocked);
+  }
+
+  private void retryPendingLocked() {
     for (Payment p : payments.findUnreported(50)) {
       report(p);
     }

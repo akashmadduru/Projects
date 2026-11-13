@@ -1,5 +1,7 @@
 package com.acme.ecommerce.user.membership;
 
+import com.acme.ecommerce.common.web.job.JobLock;
+import org.springframework.beans.factory.annotation.Autowired;
 import com.acme.ecommerce.common.core.error.CodedException;
 import com.acme.ecommerce.common.core.error.ErrorCode;
 import com.acme.ecommerce.user.client.PaymentFeignClient;
@@ -239,8 +241,15 @@ public class MembershipService {
   }
 
   /** Daily: flips lapsed memberships to EXPIRED and tells the member. */
+  /** Cluster-wide guard so only one replica runs this job per tick. */
+  @Autowired private JobLock jobLock;
+
   @Scheduled(cron = "${user.membership.expiry-cron:0 15 3 * * *}")
   public void expireLapsed() {
+    jobLock.runExclusive("user-membership-expiry", this::expireLapsedLocked);
+  }
+
+  private void expireLapsedLocked() {
     List<ExpiredRow> rows =
         jdbc.sql(
                 "UPDATE users.memberships SET status = 'EXPIRED', updated_at = now() WHERE status IN"

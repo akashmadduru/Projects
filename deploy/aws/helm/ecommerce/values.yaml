@@ -1,0 +1,238 @@
+# =============================================================================
+# Defaults for every environment. Values that depend on the AWS account (registry, endpoints,
+# certificate ARN, domain...) are NOT here: deploy.sh renders them from `terraform output` into
+# deploy/aws/.state/values-generated.yaml and passes it as a second -f file.
+#
+# Sizing below is the full-HA ("prod") topology. With global.sizeProfile=lean every autoscaler is
+# clamped to min 1 / max 3 and PodDisruptionBudgets are dropped, so the same file runs on a
+# small, cheap cluster.
+# =============================================================================
+
+global:
+  namespace: ecommerce
+  sizeProfile: lean            # lean | prod
+  region: ap-south-1
+  registry: ""                 # <account>.dkr.ecr.<region>.amazonaws.com   (generated)
+  repositoryPrefix: ecommerce  # ECR repository = <registry>/<prefix>/<service>
+  imageTag: ""                 # git SHA, set by deploy.sh
+  secretPrefix: ecommerce-prod # Secrets Manager prefix                      (generated)
+  domain: example.com          #                                             (generated)
+  shopUrl: ""
+  adminUrl: ""
+  apiHost: ""
+  ingressHosts: []             # hosts the ALB answers for: api, shop, admin (generated)
+  vpcCidr: 10.0.0.0/16
+  albCertificateArn: ""
+  cloudfrontPrefixListId: ""   # restricts the ALB to CloudFront when set    (generated)
+
+  jwt:
+    issuer: ""                 # https://auth.<domain>                       (generated)
+    audience: ecommerce-platform
+
+  endpoints:
+    rds: ""
+    redis: ""
+    kafka: ""
+
+  mail:
+    host: ""
+    port: "587"
+    sender: ""
+
+  googleSso: false
+
+  tracing:
+    enabled: true
+    samplingProbability: "0.1"
+
+  gateway:
+    # How many trusted proxies (CloudFront, ALB) append to X-Forwarded-For. See RateLimitWebFilter.
+    trustedProxyHops: 2
+    rateLimitWritesPerMinute: 30
+    rateLimitReadsPerMinute: 300
+
+  shutdown:
+    preStopSleepSeconds: 10    # let the ALB and kube-proxy drop the pod before SIGTERM
+    springTimeout: 30s         # spring.lifecycle.timeout-per-shutdown-phase
+    gracePeriodSeconds: 55     # >= preStop + springTimeout + margin
+
+karpenter:
+  enabled: true
+  clusterName: ""
+  nodeRole: ""
+  capacityTypes: ["spot", "on-demand"]   # general pool
+  generalCpuLimit: "80"
+  criticalCpuLimit: "40"
+
+storage:
+  storageClassName: gp3
+
+# Applied to every service; each service overrides what differs.
+serviceDefaults:
+  port: 8080
+  managementPort: 0            # 0 = actuator shares the service port
+  managementAddress: ""       # bind address for a separate management port
+  replicas: 1                  # used only when hpa.enabled is false
+  tier: general                # critical = on-demand nodes only
+  database: ""                 # <x> => database <x>_db, role <x>_service
+  kafka: true
+  redis: false
+  internalToken: true
+  jwksEnv: ""                  # env var carrying this service's JWKS URI
+  poolSize: 8                  # Hikari max pool; see the connection budget in the README
+  env: {}
+  secretEnv: []                # [{name, key, secret: app-secrets}]
+  keystore: false
+  pvc: {}
+  pdb: true
+  resources:
+    requests: { cpu: 250m, memory: 640Mi }
+    limits: { memory: 640Mi }  # no CPU limit on purpose: it throttles JVM start-up and GC
+  hpa:
+    enabled: true
+    min: 2
+    max: 6
+    cpu: 70
+
+# -----------------------------------------------------------------------------
+# The 13 workloads. The key is the Kubernetes Service name, which is also the Eureka-style service
+# id the code resolves (see templates/discovery.yaml).
+# -----------------------------------------------------------------------------
+services:
+  gateway:
+    port: 8080
+    # The gateway's prod profile serves actuator on its own port (8081). It must listen on the pod
+    # IP, not 127.0.0.1, or the kubelet probes and the ALB health check can never reach it.
+    managementPort: 8081
+    managementAddress: 0.0.0.0
+    tier: critical
+    kafka: false
+    redis: true
+    internalToken: false
+    jwksEnv: GATEWAY_JWKS_URI
+    resources: { requests: { cpu: 300m, memory: 768Mi }, limits: { memory: 768Mi } }
+    hpa: { min: 3, max: 12, cpu: 60 }
+
+  auth-service:
+    port: 8081
+    tier: critical
+    database: auth
+    redis: true
+    keystore: true
+    resources: { requests: { cpu: 300m, memory: 768Mi }, limits: { memory: 768Mi } }
+    hpa: { min: 2, max: 6, cpu: 65 }
+    env:
+      AUTH_COOKIE_SECURE: "true"
+      AUTH_REGISTRATION_ENABLED: "true"
+      # Build the Google sign-in callback URL from the host the visitor used (shop.<domain> or
+      # admin.<domain>), which reaches this service as X-Forwarded-Host / -Proto added by the
+      # gateway. Without it the callback would be http://auth-service:8081/... and Google would
+      # reject it. Safe because only the gateway and same-namespace pods can reach this service.
+      SERVER_FORWARD_HEADERS_STRATEGY: framework
+      PLATFORM_JWT_KEYSTORE_PATH: /run/secrets/jwt-keystore.p12
+      PLATFORM_JWT_KEYSTORE_ALIAS: jwt-signing
+    secretEnv:
+      - { name: PLATFORM_JWT_KEYSTORE_PASSWORD, key: jwt_keystore_password }
+      - { name: AUTH_DATA_KEY, key: auth_data_key }
+      - { name: AUTH_STATE_COOKIE_SECRET, key: auth_state_cookie_secret }
+      - { name: GOOGLE_CLIENT_ID, key: google_client_id }
+      - { name: GOOGLE_CLIENT_SECRET, key: google_client_secret }
+
+  product-service:
+    port: 8082
+    database: product
+    jwksEnv: PRODUCT_JWKS_URI
+    resources: { requests: { cpu: 300m, memory: 768Mi }, limits: { memory: 768Mi } }
+    hpa: { min: 3, max: 12, cpu: 65 }
+
+  inventory-service:
+    port: 8083
+    tier: critical
+    database: inventory
+    jwksEnv: INVENTORY_JWKS_URI
+    hpa: { min: 2, max: 6, cpu: 70 }
+
+  rating-service:
+    port: 8084
+    database: rating
+    jwksEnv: RATING_JWKS_URI
+    # Review media is written to local disk, so this service cannot run more than one replica
+    # until it stores media in S3. One replica, an EBS volume, and Recreate rollouts.
+    hpa: { enabled: false }
+    replicas: 1
+    pdb: false
+    pvc: { size: 10Gi, mountPath: /data/media }
+    env:
+      RATING_MEDIA_DIR: /data/media
+
+  user-service:
+    port: 8085
+    database: user
+    jwksEnv: USER_JWKS_URI
+    hpa: { min: 2, max: 4, cpu: 70 }
+
+  cart-service:
+    port: 8086
+    database: cart
+    jwksEnv: CART_JWKS_URI
+    hpa: { min: 2, max: 8, cpu: 70 }
+
+  order-service:
+    port: 8087
+    tier: critical
+    database: order
+    jwksEnv: ORDER_JWKS_URI
+    resources: { requests: { cpu: 300m, memory: 768Mi }, limits: { memory: 768Mi } }
+    hpa: { min: 2, max: 8, cpu: 70 }
+
+  payment-service:
+    port: 8088
+    tier: critical
+    database: payment
+    jwksEnv: PAYMENT_JWKS_URI
+    hpa: { min: 2, max: 4, cpu: 70 }
+    # payment-service REFUSES TO START under the prod profile without a Stripe secret key.
+    secretEnv:
+      - { name: STRIPE_SECRET_KEY, key: stripe_secret_key }
+      - { name: STRIPE_PUBLISHABLE_KEY, key: stripe_publishable_key }
+      - { name: STRIPE_WEBHOOK_SECRET, key: stripe_webhook_secret }
+
+  promotion-service:
+    port: 8089
+    database: promotion
+    jwksEnv: PROMOTION_JWKS_URI
+    hpa: { min: 2, max: 4, cpu: 70 }
+
+  notification-service:
+    port: 8090
+    database: notification
+    jwksEnv: NOTIFICATION_JWKS_URI
+    # Starts at 1 and stays small: with no VAPID keys configured the first start generates and
+    # stores them, which two simultaneous first starts would race on.
+    hpa: { min: 1, max: 3, cpu: 70 }
+    pdb: false
+    env:
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH: "true"
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE: "true"
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_SSL_ENABLE: "false"
+      # No SMS provider is wired: blank disables the dev "email the SMS text" sink in production.
+      NOTIFICATION_SMS_MAILBOX_DOMAIN: ""
+    secretEnv:
+      - { name: MAIL_USERNAME, key: mail_username }
+      - { name: MAIL_PASSWORD, key: mail_password }
+
+  seller-service:
+    port: 8091
+    database: seller
+    jwksEnv: SELLER_JWKS_URI
+    hpa: { min: 1, max: 3, cpu: 70 }
+    pdb: false
+    secretEnv:
+      - { name: SELLER_DATA_KEY, key: seller_data_key }
+
+  support-service:
+    port: 8092
+    database: support
+    jwksEnv: SUPPORT_JWKS_URI
+    hpa: { min: 1, max: 3, cpu: 70 }
+    pdb: false

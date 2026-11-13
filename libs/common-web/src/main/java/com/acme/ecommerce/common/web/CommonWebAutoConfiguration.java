@@ -9,7 +9,10 @@ import com.acme.ecommerce.common.web.correlation.CorrelationIdFilter;
 import com.acme.ecommerce.common.web.error.GlobalExceptionHandler;
 import com.acme.ecommerce.common.web.error.SecurityProblemExceptionHandler;
 import com.acme.ecommerce.common.web.feign.CorrelationAndAuthForwardingInterceptor;
+import com.acme.ecommerce.common.web.job.JobLock;
 import jakarta.servlet.Servlet;
+import javax.sql.DataSource;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -42,6 +45,13 @@ public class CommonWebAutoConfiguration {
   @ConditionalOnMissingBean(ProblemPayloadFactory.class)
   public ProblemPayloadFactory problemPayloadFactory(TimeProvider timeProvider) {
     return new ProblemPayloadFactory(timeProvider);
+  }
+
+  /** Cluster-wide guard for {@code @Scheduled} jobs; see {@link JobLock}. */
+  @Bean
+  @ConditionalOnMissingBean(JobLock.class)
+  public JobLock jobLock(ObjectProvider<DataSource> dataSource) {
+    return new JobLock(dataSource);
   }
 
   @Bean

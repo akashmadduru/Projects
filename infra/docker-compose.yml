@@ -271,6 +271,10 @@ services:
       AUTH_REGISTRATION_ENABLED: ${AUTH_REGISTRATION_ENABLED:-true}
       # MUST be true behind HTTPS (production): marks the refresh cookie Secure.
       AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-false}
+      # Per-IP auth throttle (code defaults 10 login / 60 refresh per minute stay for production); dev is relaxed
+      # so the multi-user e2e scripts, which all share one client IP, are not throttled.
+      AUTH_RATE_LIMIT_LOGIN_CAPACITY: ${AUTH_RATE_LIMIT_LOGIN_CAPACITY:-200}
+      AUTH_RATE_LIMIT_REFRESH_CAPACITY: ${AUTH_RATE_LIMIT_REFRESH_CAPACITY:-600}
       # UserSessionCache's connection (Phase 2). Resolved on the compose network,
       # not localhost - see the depends_on note above for why this is not a
       # startup gate.

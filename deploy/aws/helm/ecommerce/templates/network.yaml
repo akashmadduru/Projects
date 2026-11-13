@@ -1,0 +1,155 @@
+{{- $g := .Values.global }}
+# =============================================================================
+# NETWORK POLICIES (enforced by the VPC CNI's network-policy agent).
+#
+# Why they matter here: /internal/** on every service is protected by ONE shared token, so a
+# compromised pod must not be able to reach arbitrary things. The policy is "deny everything, then
+# allow":
+#   - pods in this namespace may talk to each other (the service graph is wide and dense);
+#   - only the ALB (inside the VPC) may reach the gateway;
+#   - pods may reach DNS, the data tier (Postgres, Redis, Kafka) and HTTPS/SMTP on the internet
+#     (SES, Google sign-in, Stripe).
+# Kubelet health probes are not affected by network policy.
+# =============================================================================
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: {{ $g.namespace }}
+spec:
+  podSelector: {}
+  policyTypes: ["Ingress", "Egress"]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns
+  namespace: {{ $g.namespace }}
+spec:
+  podSelector: {}
+  policyTypes: ["Egress"]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-same-namespace
+  namespace: {{ $g.namespace }}
+spec:
+  podSelector: {}
+  policyTypes: ["Ingress", "Egress"]
+  ingress:
+    - from:
+        - podSelector: {}
+  egress:
+    - to:
+        - podSelector: {}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-alb-to-gateway
+  namespace: {{ $g.namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: gateway
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - ipBlock: { cidr: {{ $g.vpcCidr }} }
+      ports:
+        - { protocol: TCP, port: {{ .Values.services.gateway.port }} }
+        {{- if .Values.services.gateway.managementPort }}
+        - { protocol: TCP, port: {{ .Values.services.gateway.managementPort }} }   # ALB health check
+        {{- end }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-egress-data-tier
+  namespace: {{ $g.namespace }}
+spec:
+  podSelector: {}
+  policyTypes: ["Egress"]
+  egress:
+    - to:
+        - ipBlock: { cidr: {{ $g.vpcCidr }} }
+      ports:
+        - { protocol: TCP, port: 5432 }   # PostgreSQL
+        - { protocol: TCP, port: 6379 }   # Redis
+        - { protocol: TCP, port: 9092 }   # Kafka (plaintext)
+        - { protocol: TCP, port: 9094 }   # Kafka (TLS)
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-egress-internet-tls-smtp
+  namespace: {{ $g.namespace }}
+spec:
+  podSelector: {}
+  policyTypes: ["Egress"]
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except: ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"]
+      ports:
+        - { protocol: TCP, port: 443 }
+        - { protocol: TCP, port: 587 }
+        - { protocol: TCP, port: 465 }
+---
+# Public entry point. The ALB is created by the AWS Load Balancer Controller from this Ingress.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: gateway
+  namespace: {{ $g.namespace }}
+  annotations:
+    alb.ingress.kubernetes.io/load-balancer-name: {{ $g.secretPrefix }}-alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    # HTTPS only: CloudFront reaches the origin over HTTPS, and with the CloudFront-only security
+    # group below an open port 80 would also use up the security group's rule quota.
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/certificate-arn: {{ required "global.albCertificateArn" $g.albCertificateArn }}
+    alb.ingress.kubernetes.io/ssl-policy: ELBSecurityPolicy-TLS13-1-2-2021-06
+    alb.ingress.kubernetes.io/healthcheck-path: /actuator/health
+    {{- if .Values.services.gateway.managementPort }}
+    # The gateway serves actuator on its own management port, not on the public listener.
+    alb.ingress.kubernetes.io/healthcheck-port: {{ .Values.services.gateway.managementPort | quote }}
+    {{- end }}
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: "15"
+    alb.ingress.kubernetes.io/healthy-threshold-count: "2"
+    alb.ingress.kubernetes.io/success-codes: "200"
+    alb.ingress.kubernetes.io/target-group-attributes: deregistration_delay.timeout_seconds=30
+    # deletion_protection is OFF so a deliberate teardown (destroy.sh) can remove the ALB.
+    alb.ingress.kubernetes.io/load-balancer-attributes: idle_timeout.timeout_seconds=60,deletion_protection.enabled=false,routing.http.drop_invalid_header_fields.enabled=true
+    alb.ingress.kubernetes.io/tags: Project={{ $g.repositoryPrefix }},ManagedBy=aws-load-balancer-controller
+    {{- if $g.cloudfrontPrefixListId }}
+    # Only CloudFront may open a connection to the ALB, so the WAF in front of CloudFront cannot be
+    # bypassed by calling api.<domain> directly.
+    alb.ingress.kubernetes.io/security-group-prefix-lists: {{ $g.cloudfrontPrefixListId }}
+    {{- end }}
+spec:
+  ingressClassName: alb
+  rules:
+    {{- range (default (list (required "global.apiHost" $g.apiHost)) $g.ingressHosts) }}
+    - host: {{ . }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: gateway
+                port:
+                  number: {{ $.Values.services.gateway.port }}
+    {{- end }}

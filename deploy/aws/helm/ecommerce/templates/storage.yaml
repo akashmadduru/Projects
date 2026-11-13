@@ -1,0 +1,33 @@
+{{- $g := .Values.global }}
+# gp3 for volumes created by the EBS CSI driver. WaitForFirstConsumer so the volume is created in
+# the same availability zone as the pod that will use it.
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: {{ .Values.storage.storageClassName }}
+provisioner: ebs.csi.aws.com
+parameters:
+  type: gp3
+  encrypted: "true"
+volumeBindingMode: WaitForFirstConsumer
+allowVolumeExpansion: true
+reclaimPolicy: Delete
+{{- range $name, $svc := .Values.services }}
+{{- $s := mergeOverwrite (deepCopy $.Values.serviceDefaults) (deepCopy $svc) }}
+{{- if $s.pvc }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ $name }}-data
+  namespace: {{ $g.namespace }}
+  labels:
+    {{- include "ecommerce.labels" (dict "name" $name "root" $) | nindent 4 }}
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: {{ $.Values.storage.storageClassName }}
+  resources:
+    requests:
+      storage: {{ $s.pvc.size }}
+{{- end }}
+{{- end }}

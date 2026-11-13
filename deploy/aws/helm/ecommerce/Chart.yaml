@@ -1,0 +1,9 @@
+apiVersion: v2
+name: ecommerce
+description: >-
+  The whole e-commerce platform on Kubernetes: 13 Spring Boot workloads rendered from one values
+  file, plus network policies, External Secrets sync, Karpenter node pools, the ALB ingress and an
+  in-cluster Jaeger for traces.
+type: application
+version: 1.0.0
+appVersion: "0.1.0"

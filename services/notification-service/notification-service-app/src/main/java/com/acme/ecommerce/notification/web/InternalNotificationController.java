@@ -78,7 +78,19 @@ public class InternalNotificationController {
   @ResponseStatus(HttpStatus.ACCEPTED)
   public void sms(@Valid @RequestBody SmsRequest request) {
     String digits = request.to().replaceAll("[^0-9]", "");
-    log.info("SMS to {}: {}", request.to(), request.text());
+    // The text of an SMS is usually a one-time code. It is NEVER logged, and the number is masked,
+    // so reading logs cannot be used to take over an account.
+    log.info(
+        "SMS requested for ***{} ({} chars)",
+        digits.length() > 2 ? digits.substring(digits.length() - 2) : "",
+        request.text() == null ? 0 : request.text().length());
+    String sink = properties.smsMailboxDomain();
+    if (sink == null || sink.isBlank()) {
+      // Production: no SMS provider is wired and the dev "email the text to a sink mailbox" trick
+      // would send one-time codes to an arbitrary domain. Drop the message instead.
+      log.warn("No SMS provider is configured; the message was not delivered");
+      return;
+    }
     EmailContent content =
         renderer.order("SMS to " + request.to(), "SMS", request.text(), null, null);
     mail.send(

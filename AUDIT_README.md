@@ -183,7 +183,7 @@ Common to all 14: multi-stage Dockerfile, layered jar, `eclipse-temurin:25-jre-a
 ## 6. Scaling
 
 **Blockers to running more than one replica:**
-1. 7 of 8 `@Scheduled` jobs have no lock (only `RefreshTokenReaper` uses an advisory lock). The subscription job is safe because its idempotency key is deterministic. Unsafe: ads, reminders, membership, discovery, order lifecycle, payment reporter. Add ShedLock on a JDBC table.
+1. All 8 `@Scheduled` jobs have no lock. *(Correction: an earlier version of this report said `RefreshTokenReaper` used an advisory lock; that was a misread of a comment. It is idempotent, so harmless when it runs on every replica, but unlocked. All 8 are now guarded by `JobLock`, see ADR 0004.)* The subscription job is safe because its idempotency key is deterministic. Unsafe: ads, reminders, membership, discovery, order lifecycle, payment reporter. Add ShedLock on a JDBC table.
 2. Rating media on local disk.
 3. Auth rate limiting is in-memory, so the limit multiplies with replicas.
 4. Kafka consumers are capped by partitions; only `inventory.events` declares 3.
@@ -292,7 +292,7 @@ Secrets via `amazon.aws.secretsmanager_secret` lookups, never vaulted copies. Do
 - `notification/web/InternalNotificationController.java`: stop logging text; real SMS adapter
 - `rating/service/ReviewMediaService.java`: storage port with S3 implementation
 - All 14 `application.yml`: shutdown-phase timeout, JSON logging, tracing, Kafka SASL/TLS
-- 7 unlocked `@Scheduled` classes: ShedLock
+- 8 unlocked `@Scheduled` classes: cluster-wide lock (done: `JobLock`, ADR 0004)
 - `infra/docker-compose.yml`: remove ZooKeeper, bind Postgres to loopback, enable frontends
 - `PaymentPanel.tsx`, storefront `package.json`, `types/account.ts`: Razorpay Checkout
 - `ProductEndpointsIntegrationTest.java`: fix stale assertion
@@ -385,7 +385,7 @@ Secrets via `amazon.aws.secretsmanager_secret` lookups, never vaulted copies. Do
 9. Tests for payment and order placement/compensation paths.
 10. Replace the shared `INTERNAL_API_TOKEN`; add NetworkPolicies.
 11. Transactional outbox for `order.events`.
-12. ShedLock on the 7 unlocked scheduled jobs.
+12. ~~ShedLock on the 7 unlocked scheduled jobs.~~ Done for all 8 with a Postgres advisory lock (`JobLock`).
 13. Move rating media to S3.
 14. Gateway rate limiting (Redis) and ALB forwarded-header trust.
 15. Helm chart + values for 14 services with probes, PDBs, preStop hook.

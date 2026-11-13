@@ -111,12 +111,12 @@ onMounted(load);
             </tr>
           </thead>
           <tbody>
-            <template v-for="r in rows" :key="r.eventId">
+            <template v-for="r in rows" :key="r.id">
               <tr data-test="audit-row">
                 <td class="text-sm">{{ fmtDate(r.at) }}</td>
                 <td class="text-xs">
                   <span class="font-mono">{{ r.actorUserId ? r.actorUserId.slice(0, 8) : '-' }}</span>
-                  <span v-for="role in r.actorRoles ?? []" :key="role" class="badge badge-outline badge-xs ml-1">{{ role }}</span>
+                  <span v-for="role in (r.actorRoles ? r.actorRoles.split(',') : [])" :key="role" class="badge badge-outline badge-xs ml-1">{{ role }}</span>
                 </td>
                 <td class="text-sm font-medium">{{ r.action }}</td>
                 <td class="text-xs">{{ r.resourceType }} <span class="font-mono">{{ r.resourceId ?? '' }}</span></td>
@@ -126,13 +126,13 @@ onMounted(load);
                     v-if="r.before !== undefined || r.after !== undefined"
                     class="btn btn-ghost btn-xs"
                     type="button"
-                    @click="expanded[r.eventId] = !expanded[r.eventId]"
+                    @click="expanded[r.id] = !expanded[r.id]"
                   >
-                    {{ expanded[r.eventId] ? 'Hide' : 'Diff' }}
+                    {{ expanded[r.id] ? 'Hide' : 'Diff' }}
                   </button>
                 </td>
               </tr>
-              <tr v-if="expanded[r.eventId]">
+              <tr v-if="expanded[r.id]">
                 <td colspan="6">
                   <div class="grid gap-2 md:grid-cols-2">
                     <pre class="overflow-x-auto rounded bg-base-200 p-2 text-xs">before: {{ json(r.before ?? null) }}</pre>

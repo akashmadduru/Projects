@@ -108,3 +108,16 @@ pnpm-debug.log*
 coverage/
 .nyc_output/
 oracleJdk-27
+# =============================================================================
+# AWS deployment (deploy/aws)
+# =============================================================================
+# Real secrets (Stripe, Google) once filled in; the template config.example.env IS committed.
+deploy/aws/config.env
+# kubeconfig, generated Helm values, image tag and zone id for a deployed environment.
+deploy/aws/.state/
+# Terraform working files. State lives in S3, never in the repository.
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+crash.log

@@ -1,0 +1,36 @@
+{{- $g := .Values.global }}
+# =============================================================================
+# SERVICE DISCOVERY WITHOUT EUREKA, AND WITHOUT TOUCHING THE JAVA CODE.
+#
+# The services resolve each other by service id (Feign clients named "auth-service"; gateway routes
+# written as lb://AUTH-SERVICE) through Spring Cloud LoadBalancer. With the Eureka client switched
+# off (EUREKA_CLIENT_ENABLED=false), Spring Cloud falls back to its built-in "simple" discovery
+# client, which reads a static instance list from configuration. This ConfigMap is that list, with
+# every service id registered in both spellings (Eureka upper-cases ids, Feign does not), each
+# pointing at the Kubernetes Service of the same name. kube-proxy then load-balances across pods.
+#
+# It is mounted at /config in every pod and picked up through
+# SPRING_CONFIG_ADDITIONAL_LOCATION=optional:file:/config/.
+# =============================================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: discovery-config
+  namespace: {{ $g.namespace }}
+  labels:
+    app.kubernetes.io/part-of: ecommerce-platform
+data:
+  application.yml: |
+    spring:
+      cloud:
+        discovery:
+          client:
+            simple:
+              instances:
+{{- range $name, $svc := .Values.services }}
+{{- $s := mergeOverwrite (deepCopy $.Values.serviceDefaults) (deepCopy $svc) }}
+                {{ $name }}:
+                  - uri: http://{{ $name }}:{{ $s.port }}
+                {{ upper $name }}:
+                  - uri: http://{{ $name }}:{{ $s.port }}
+{{- end }}

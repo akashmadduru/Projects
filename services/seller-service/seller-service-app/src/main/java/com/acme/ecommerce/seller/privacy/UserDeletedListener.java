@@ -17,9 +17,7 @@ import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
-import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.stereotype.Component;
-import org.springframework.util.backoff.FixedBackOff;
 
 /**
  * Phase 10 privacy: consumes USER_DELETED from {@code user.events} (raw JSON string, so a payload
@@ -50,7 +48,7 @@ public class UserDeletedListener {
         new ConcurrentKafkaListenerContainerFactory<>();
     f.setConsumerFactory(
         new DefaultKafkaConsumerFactory<>(props, StringDeserializer::new, StringDeserializer::new));
-    f.setCommonErrorHandler(new DefaultErrorHandler(new FixedBackOff(1000L, 3L)));
+    f.setCommonErrorHandler(com.acme.ecommerce.common.web.kafka.DlqErrorHandlers.create(servers));
     return f;
   }
 

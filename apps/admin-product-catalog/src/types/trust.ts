@@ -28,6 +28,8 @@ export interface Ticket {
   readonly firstResponseAt: string | null;
   readonly resolvedAt: string | null;
   readonly csat: number | null;
+  readonly ref?: string;
+  readonly slaBreached?: boolean;
   /** SLA due timestamps - field names are an assumption, tolerated when absent. */
   readonly firstResponseDueAt?: string | null;
   readonly resolutionDueAt?: string | null;
@@ -80,9 +82,10 @@ export interface FaqArticleRequest {
 }
 
 export interface AuditEntry {
-  readonly eventId: string;
+  readonly id: string;
   readonly actorUserId: string | null;
-  readonly actorRoles?: readonly string[] | null;
+  /** Comma-separated role names as stored by support-service. */
+  readonly actorRoles?: string | null;
   readonly action: string;
   readonly resourceType: string;
   readonly resourceId: string | null;

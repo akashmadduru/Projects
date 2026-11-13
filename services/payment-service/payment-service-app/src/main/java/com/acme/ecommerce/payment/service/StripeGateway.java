@@ -14,6 +14,8 @@ import jakarta.annotation.PostConstruct;
 import java.util.Locale;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.Profiles;
 import org.springframework.stereotype.Component;
 
 /** Thin wrapper over stripe-java so the rest of the service never sees the SDK. */
@@ -26,9 +28,11 @@ public class StripeGateway {
   public record Intent(String id, String clientSecret, String status) {}
 
   private final PaymentProperties properties;
+  private final Environment environment;
 
-  public StripeGateway(PaymentProperties properties) {
+  public StripeGateway(PaymentProperties properties, Environment environment) {
     this.properties = properties;
+    this.environment = environment;
   }
 
   @PostConstruct
@@ -36,6 +40,13 @@ public class StripeGateway {
     if (enabled()) {
       Stripe.apiKey = properties.getStripe().getSecretKey();
       log.info("payment-service running in STRIPE mode");
+    } else if (environment.acceptsProfiles(Profiles.of("prod"))) {
+      // SIMULATED mode lets a customer mark their own card payment as paid through
+      // POST /api/payments/{id}/simulate. That is a dev convenience and must be impossible to
+      // reach in production, so a prod deployment without real keys refuses to start at all.
+      throw new IllegalStateException(
+          "STRIPE_SECRET_KEY is required when the 'prod' profile is active; "
+              + "refusing to start payment-service in SIMULATED mode");
     } else {
       log.warn("STRIPE_SECRET_KEY is blank: payment-service running in SIMULATED mode");
     }

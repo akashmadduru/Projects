@@ -1,5 +1,7 @@
 package com.acme.ecommerce.seller.ads;
 
+import com.acme.ecommerce.common.web.job.JobLock;
+import org.springframework.beans.factory.annotation.Autowired;
 import com.acme.ecommerce.common.core.error.ResourceNotFoundException;
 import com.acme.ecommerce.common.core.error.ValidationException;
 import com.acme.ecommerce.seller.client.ProductFeignClient;
@@ -170,9 +172,16 @@ public class AdService {
     jdbc.sql("UPDATE ad_campaigns SET impressions = impressions + 1 WHERE id IN (:ids)").param("ids", ids.subList(0, Math.min(ids.size(), 50))).update();
   }
 
+  /** Cluster-wide guard so only one replica runs this job per tick. */
+  @Autowired private JobLock jobLock;
+
   @Scheduled(cron = "0 0 0 * * *", zone = "UTC")
   @Transactional
   public void dailyReset() {
+    jobLock.runExclusive("seller-ad-daily-reset", this::dailyResetLocked);
+  }
+
+  private void dailyResetLocked() {
     int n = jdbc.sql("UPDATE ad_campaigns SET spent_today = 0, status = CASE WHEN status = 'EXHAUSTED' THEN 'ACTIVE' ELSE status END WHERE spent_today > 0 OR status = 'EXHAUSTED'").update();
     log.info("Ad budgets reset ({} campaigns)", n);
   }
