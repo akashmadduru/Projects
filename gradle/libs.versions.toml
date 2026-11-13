@@ -2,7 +2,7 @@
 # Gradle Version Catalog - single source of truth for every dependency version
 # used anywhere in the platform.
 #
-# VERIFIED COMBINATION (Phase 1A de-risking - see docs/adr/0001):
+# VERIFIED COMBINATION (Phase 1A de-risking - see docs/architecture/adr/0001):
 #   Java         : 25 (LTS) toolchain, release 25
 #   Gradle       : 9.6.1 (wrapper-pinned)
 #   Spring Boot  : 4.0.7  -> Spring Framework 7.0.8

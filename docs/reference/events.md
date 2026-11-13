@@ -1,6 +1,6 @@
 # Backend Event System
 
-**Status:** Complete (Phases 2–4 slice, prototype-grade)  
+**Coverage:** `product.events`, `inventory.events` and `rating.events` in depth (Phases 2–4). Later topics (`order.events`, `user.events`, `audit.events`) are listed with producers and consumers in the [platform map](overview.md#platform-map-current). Dead-letter handling was added in Phase 10 (`common-web` `DlqErrorHandlers`), so the "no DLQ" statements below describe Phases 2–4 only.  
 **Last Updated:** November 2026
 
 ## Table of Contents
@@ -501,6 +501,6 @@ Use the correlation ID to trace a request across all services.
 
 ## References
 
-- [Backend-Architecture.md](Backend-Architecture.md) — System design and deployment
+- [Backend-Architecture.md](overview.md) — System design and deployment
 - [ADR 0002](adr/0002-event-driven-inventory-kafka-kraft-and-event-contract-duplication.md) — Why choreography and no schema registry
-- [HLD: Catalog Enrichment & Saga](HLD-catalog-enrichment-and-saga.md) — Phase 3–4 event wiring
+- [HLD: Catalog Enrichment & Saga](design/HLD-catalog-enrichment-and-saga.md) — Phase 3–4 event wiring

@@ -57,10 +57,10 @@ public interface InventoryClient {
   /**
    * Fetches the stock-level row for a product, if one has been provisioned.
    *
-   * <p>Added for {@code docs/HLD-catalog-enrichment-and-saga.md} S7.3's narrowly-approved read-only
-   * aggregate call: product-service's {@code CatalogAggregateService} is the first real consumer of
-   * this interface, calling this method through its own {@code aggregateCb} circuit breaker
-   * (docs/adr/0003, Decision 2).
+   * <p>Added for {@code docs/architecture/design/HLD-catalog-enrichment-and-saga.md} S7.3's
+   * narrowly-approved read-only aggregate call: product-service's {@code CatalogAggregateService}
+   * is the first real consumer of this interface, calling this method through its own {@code
+   * aggregateCb} circuit breaker (docs/architecture/adr/0003, Decision 2).
    *
    * <p>An unprovisioned {@code productId} answers 404 with an RFC 9457 problem document carrying
    * {@code code=RESOURCE_NOT_FOUND} - the same "advisory, not authoritative" contract {@link

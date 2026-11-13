@@ -1,5 +1,9 @@
 # High Level Design: Event-Driven Inventory (Phase 2 slice)
 
+> **Historical design (Phase 2, 2026-11-10).** What changed later is listed in
+> [Phase 2, changed since](../../phases/phase-02-event-driven-inventory.md#changed-since).
+> The ZooKeeper container shown here was removed on 2026-11-14.
+
 ## 1. Overview
 
 This feature adds a prototype-grade event-driven slice on top of the existing Phase 1 platform:

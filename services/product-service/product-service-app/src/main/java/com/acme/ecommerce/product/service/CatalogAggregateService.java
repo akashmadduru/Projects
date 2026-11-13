@@ -15,10 +15,10 @@ import org.springframework.stereotype.Service;
  * Composes a product with its stock level in one response.
  *
  * <p>THE ONLY CLASS IN THIS SERVICE THAT MAKES A SYNCHRONOUS OUTBOUND CALL, and scoped exactly to
- * the narrow, explicit exception docs/adr/0003 (Decision 2) carved out of the platform's "no
- * synchronous call between product-service and inventory-service" non-goal - a single, read-only,
- * non-mutating {@code GET}. Do not extend this pattern to any other endpoint without an equally
- * explicit approval-gate decision.
+ * the narrow, explicit exception docs/architecture/adr/0003 (Decision 2) carved out of the
+ * platform's "no synchronous call between product-service and inventory-service" non-goal - a
+ * single, read-only, non-mutating {@code GET}. Do not extend this pattern to any other endpoint
+ * without an equally explicit approval-gate decision.
  *
  * <p>THE PRODUCT LOOKUP FAILS LOUDLY; THE INVENTORY LOOKUP NEVER DOES. {@link
  * ProductCatalogService#findById(UUID)} throws {@link ResourceNotFoundException} exactly as {@code

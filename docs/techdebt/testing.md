@@ -43,3 +43,10 @@ Index: [README](README.md)
 - **Where:** product-service seed (`R__product_demo_seed.sql`): `salePrice == priceAmount` for every product.
 - **Risk:** The checkout price rule (`salePrice > 0 ? salePrice : priceAmount`, `OrderService.unitPrice`) has never been observed choosing the sale price.
 - **Fix:** Seed at least one discounted product, or cover it in an order-service unit test.
+
+<a id="td-test-07"></a>
+## TD-TEST-07 `spotlessCheck` fails on 4 product/inventory files
+- **Severity / Effort:** Med / S
+- **Where:** `InventoryService.java`, `InventoryController.java` (inventory-service-app), `ProductCatalogService.java`, `ProductController.java` (product-service-app).
+- **Risk:** Unsorted and duplicated imports (for example `Platform` imported twice) were committed without formatting, so `./gradlew build` fails Spotless for these modules. Found during the 2026-11-14 docs cleanup, which also left some Javadoc lines there over 100 columns.
+- **Fix:** `./gradlew :services:inventory-service:inventory-service-app:spotlessApply :services:product-service:product-service-app:spotlessApply` and commit the result.

@@ -163,7 +163,7 @@ order:
 # -----------------------------------------------------------------------------
 # Service discovery.
 #
-# TIMING INVARIANT (documented in services/eureka-server/README.md):
+# TIMING INVARIANT (documented in docs/services/eureka-server.md):
 #   lease-expiration-duration-in-seconds >= 3 x lease-renewal-interval-in-seconds
 # A single dropped heartbeat must never be enough to evict a healthy instance.
 # 10s renewal / 30s expiration satisfies it exactly.

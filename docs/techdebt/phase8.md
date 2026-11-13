@@ -1,6 +1,6 @@
 # Tech Debt: Phase 8 "Retention and loyalty"
 
-Index: [README](README.md). Feature scope: [Product Roadmap, Phase 8](../docs/Product-Roadmap.md#phase-8-retention-and-loyalty).
+Index: [README](README.md). Feature scope: [Product Roadmap, Phase 8](../phases/phase-08-retention-and-loyalty.md).
 
 Phase 8 was built under "no tests, no HLD/LLD, record shortcuts as debt". The integration run passed **78 of 78** Phase 8 end-to-end checks, with **99 of 99** Phase 6 and **68 of 68** Phase 7 regression checks still green. Integration also fixed five problems found in the first build (see "Resolved by Phase 8 integration" in the [README](README.md#resolved-by-phase-8-checked-against-the-code)). Paths below are relative to the repo root; `<svc>` means `services/<name>/<name>-app/src/main`. Storefront-only bullets that the frontend agent first appended to [frontend.md](frontend.md#phase-8-storefront-moved) are consolidated here (TD-P8-18).
 

@@ -28,6 +28,10 @@ infra/secrets/
 *.key
 !**/src/test/resources/**/*.p12
 
+# Database dumps (pg_dump output holds password hashes and role verifiers)
+db-snapshots/
+*.dump
+
 # Environment / local overrides
 .env
 .env.*
@@ -36,6 +40,12 @@ infra/secrets/
 **/application-local.yaml
 **/application-local.properties
 **/application-secrets.yml
+
+# =============================================================================
+# Local toolchains
+# =============================================================================
+# A JDK unpacked into the repo root for local builds.
+oracleJdk-27/
 
 # =============================================================================
 # IDE - IntelliJ
@@ -107,7 +117,7 @@ yarn-error.log*
 pnpm-debug.log*
 coverage/
 .nyc_output/
-oracleJdk-27
+
 # =============================================================================
 # AWS deployment (deploy/aws)
 # =============================================================================

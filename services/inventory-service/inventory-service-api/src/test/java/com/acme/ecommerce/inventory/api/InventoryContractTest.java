@@ -37,7 +37,7 @@ class InventoryContractTest {
   @Test
   @DisplayName(
       "findByProductId is mapped to GET /api/inventory/by-product/{productId} - the narrow"
-          + " read-only aggregate-read exception (docs/adr/0003, Decision 2)")
+          + " read-only aggregate-read exception (docs/architecture/adr/0003, Decision 2)")
   void findByProductIdMapping() throws NoSuchMethodException {
     Method method = InventoryClient.class.getMethod("findByProductId", UUID.class);
     GetMapping mapping = method.getAnnotation(GetMapping.class);

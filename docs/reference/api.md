@@ -1,6 +1,6 @@
 # Backend API Reference
 
-**Status:** Complete (Phases 1–4 slice)  
+**Coverage:** detailed request/response reference for product, inventory and rating (Phases 1–4) and the Phase 5 customer services, last revised 2026-11-12. For every endpoint added since, see [endpoints.md](endpoints.md) (generated from code) and the [phase pages](../phases/README.md).  
 **Last Updated:** November 2026
 
 ## Table of Contents
@@ -681,7 +681,7 @@ GET /api/products?page=2&size=50&sort=name,desc
 
 ## Customer Services API (Phase 5)
 
-Added with customer accounts; see [Phase5-Feature.md](Phase5-Feature.md). All endpoints go through the gateway (8080), require `Authorization: Bearer <jwt>` (any role), and use the JWT `sub` as the user. A resource owned by another user returns 404. Errors are RFC 9457 problem documents.
+Added with customer accounts; see [Phase5-Feature.md](../phases/phase-05-customer-accounts.md). All endpoints go through the gateway (8080), require `Authorization: Bearer <jwt>` (any role), and use the JWT `sub` as the user. A resource owned by another user returns 404. Errors are RFC 9457 problem documents.
 
 | Service | Port | Base Path | Database |
 |---------|------|-----------|----------|
@@ -753,6 +753,6 @@ Unit price is re-read from product-service at checkout: `salePrice` when positiv
 
 ## References
 
-- [Backend-Architecture.md](Backend-Architecture.md) — System design and service responsibilities
-- [Backend-EventSystem.md](Backend-EventSystem.md) — Event types and choreography
-- Error codes are documented in [`libs/common-core/src/main/java/com/acme/ecommerce/common/core/error/ErrorCode.java`](../libs/common-core/src/main/java/com/acme/ecommerce/common/core/error/ErrorCode.java)
+- [Backend-Architecture.md](overview.md) — System design and service responsibilities
+- [Backend-EventSystem.md](events.md) — Event types and choreography
+- Error codes are documented in [`libs/common-core/src/main/java/com/acme/ecommerce/common/core/error/ErrorCode.java`](../../libs/common-core/src/main/java/com/acme/ecommerce/common/core/error/ErrorCode.java)

@@ -32,7 +32,7 @@ service out later is far cheaper than merging separate repositories together.
 ## Decision 2 — Gradle (Kotlin DSL) over Maven
 
 The build is a Gradle multi-project build using the Kotlin DSL, with a
-[version catalog](../../gradle/libs.versions.toml) as the single source of truth for versions.
+[version catalog](../../../gradle/libs.versions.toml) as the single source of truth for versions.
 
 **Rationale.**
 
@@ -132,10 +132,13 @@ only when `AccessDeniedException` is on the classpath. Putting them in the main 
 
 ## Decision 5 — ZooKeeper is coordination-only
 
+> **Superseded 2026-11-14.** ZooKeeper was never used and was removed from compose. Scheduled jobs
+> coordinate through a Postgres advisory lock (`JobLock`). Eureka remains the only registry.
+
 ZooKeeper is provisioned in `infra/docker-compose.yml` for distributed locks and leader election.
 **Eureka owns service discovery.** No service may depend on
 `spring-cloud-starter-zookeeper-discovery` — doing so creates two competing registries that disagree
-about instance liveness. See [`infra/zookeeper/README.md`](../../infra/zookeeper/README.md).
+about instance liveness. See [Phase 1, changed since](../../phases/phase-01-foundation.md#changed-since).
 
 ## Consequences
 
@@ -143,7 +146,7 @@ about instance liveness. See [`infra/zookeeper/README.md`](../../infra/zookeeper
   root build; no module can drift.
 - Adding a dependency means adding an alias to `libs.versions.toml` — versions are never inlined.
 - `./gradlew build` is a genuine whole-platform gate from day one, because empty modules for
-  Phases 1B–1E are already wired into `settings.gradle.kts`.
+  Phases 1B–1E are already wired into `settings.gradle`.
 - The Checkstyle `ConstantName` rule was relaxed to permit `log`/`logger`, matching the universal
   Spring-ecosystem idiom.
 - Spotless with google-java-format requires `--add-exports` JVM flags for the Gradle daemon on

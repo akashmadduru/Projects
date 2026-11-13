@@ -8,11 +8,12 @@ import org.springframework.cloud.openfeign.FeignClient;
  *
  * <p>THE FIRST REAL CONSUMER OF {@link InventoryClient}, and the ONLY synchronous outbound call
  * this service makes. Exists solely to back {@code CatalogAggregateService}'s read-only aggregate
- * lookup (docs/HLD-catalog-enrichment-and-saga.md S7.3) - the narrowly-approved, explicitly scoped
- * exception to the platform's "no synchronous call between product-service and inventory-service"
- * non-goal (docs/adr/0003, Decision 2). Do not add a second caller of this interface, and do not
- * add a second {@code @FeignClient} to this service, without an equally explicit approval-gate
- * decision - the non-goal this narrows still applies to everything else.
+ * lookup (docs/architecture/design/HLD-catalog-enrichment-and-saga.md S7.3) - the
+ * narrowly-approved, explicitly scoped exception to the platform's "no synchronous call between
+ * product-service and inventory-service" non-goal (docs/architecture/adr/0003, Decision 2). Do not
+ * add a second caller of this interface, and do not add a second {@code @FeignClient} to this
+ * service, without an equally explicit approval-gate decision - the non-goal this narrows still
+ * applies to everything else.
  *
  * <p>Wired exactly as {@link InventoryClient}'s own javadoc documents: {@code name} matches
  * inventory-service's {@code spring.application.name} (resolved through Eureka via {@code

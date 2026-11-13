@@ -1,15 +1,10 @@
 # Local development infrastructure.
 #
-# Phase 1A provisions BACKING SERVICES ONLY (postgres, zookeeper). The platform
-# services (eureka, gateway, auth, product) are commented-out placeholders below
-# and are filled in by the phase that builds each one.
+# Backing services (postgres, kafka, redis, mailpit, jaeger), eureka, the
+# gateway and all 13 platform services. The two SPAs are commented out below;
+# run them with `npm run dev` (see docs/getting-started.md).
 #
-# WHY PLACEHOLDERS RATHER THAN STUB CONTAINERS: a stub container that starts and
-# immediately exits makes `docker compose up` red and `docker compose ps` noisy,
-# which trains people to ignore both. A commented block is honest about what
-# does not exist yet.
-#
-#   Bring up backing services:  docker compose -f infra/docker-compose.yml up -d
+#   Bring up the stack:         docker compose -f infra/docker-compose.yml up -d
 #   Tear down (keep data):      docker compose -f infra/docker-compose.yml down
 #   Tear down (wipe data):      docker compose -f infra/docker-compose.yml down -v
 # =============================================================================
@@ -50,45 +45,9 @@ services:
       start_period: 15s
 
   # ---------------------------------------------------------------------------
-  # ZooKeeper - generic coordination primitives (distributed locks, leader
-  # election) for later phases.
-  #
-  # IMPORTANT: ZooKeeper is NOT service discovery in this platform. Eureka owns
-  # discovery. No service depends on spring-cloud-starter-zookeeper-discovery,
-  # and adding it would give us two competing registries.
-  # ---------------------------------------------------------------------------
-  zookeeper:
-    image: zookeeper:3.9
-    container_name: ecommerce-zookeeper
-    restart: unless-stopped
-    environment:
-      ZOO_MY_ID: 1
-      ZOO_STANDALONE_ENABLED: "true"
-      # The `ruok` four-letter word is disabled by default from 3.5 onward; the
-      # healthcheck below depends on it being allow-listed.
-      ZOO_4LW_COMMANDS_WHITELIST: "srvr,mntr,ruok,conf"
-      ZOO_TICK_TIME: 2000
-      ZOO_INIT_LIMIT: 5
-      ZOO_SYNC_LIMIT: 2
-    ports:
-      - "${ZOOKEEPER_PORT:-2181}:2181"
-    volumes:
-      - zookeeper-data:/data
-      - zookeeper-datalog:/datalog
-    healthcheck:
-      # "Are you ok?" - answers `imok` when the server is running and healthy.
-      test: ["CMD-SHELL", "echo ruok | nc -w 2 localhost 2181 | grep -q imok"]
-      interval: 10s
-      timeout: 5s
-      retries: 6
-      start_period: 20s
-
-  # ---------------------------------------------------------------------------
   # Kafka (KRaft mode, single broker) - the event backbone for Phase 2's
-  # product.events topic. Deliberately independent of the ZooKeeper container
-  # above: that one is reserved for future app-level coordination primitives,
-  # this one is the message broker, and KRaft mode means Kafka does not need
-  # ZooKeeper for its own metadata any more anyway.
+  # domain event topics. KRaft mode: Kafka keeps its own metadata, so the
+  # platform runs no ZooKeeper at all.
   #
   # `apache/kafka:3.9.0` is the official upstream image, KRaft-only (no
   # ZooKeeper-mode entrypoint at all) - there is no separate "which mode" flag
@@ -171,7 +130,7 @@ services:
 
   # ---------------------------------------------------------------------------
   # Eureka - the service registry (Phase 1B). THE discovery mechanism for this
-  # platform; see the ZooKeeper note above.
+  # platform (there is no ZooKeeper).
   #
   # No `depends_on`: the registry owns no state and talks to nothing. It is the
   # root of the startup graph, not a participant in it.
@@ -808,7 +767,7 @@ services:
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       # Defaults send to the Mailpit container. For a real provider set MAIL_* in infra/.env
-      # (see docs/Setup-Integrations.md).
+      # (see docs/operations/setup-integrations.md).
       MAIL_HOST: ${MAIL_HOST:-mailpit}
       MAIL_PORT: ${MAIL_PORT:-1025}
       MAIL_USERNAME: ${MAIL_USERNAME:-}
@@ -1003,6 +962,4 @@ services:
 volumes:
   rating-media:
   postgres-data:
-  zookeeper-data:
-  zookeeper-datalog:
   kafka-data:

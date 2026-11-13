@@ -21,11 +21,12 @@ import org.springframework.cloud.openfeign.EnableFeignClients;
  * silently, because a route whose target is unregistered is indistinguishable from one whose target
  * is down.
  *
- * <p>{@code @EnableFeignClients} IS NEW HERE (Phase 3, docs/HLD-catalog-enrichment-and-saga.md
- * S7.3). {@code com.acme.ecommerce.product.client.InventoryFeignClient} is this service's first
- * real outbound call - the one narrowly-approved read-only exception to the platform's "no
- * synchronous call between product-service and inventory-service" non-goal (docs/adr/0003, Decision
- * 2). It stays scoped to that single client: nothing else in this service calls out.
+ * <p>{@code @EnableFeignClients} IS NEW HERE (Phase 3,
+ * docs/architecture/design/HLD-catalog-enrichment-and-saga.md S7.3). {@code
+ * com.acme.ecommerce.product.client.InventoryFeignClient} is this service's first real outbound
+ * call - the one narrowly-approved read-only exception to the platform's "no synchronous call
+ * between product-service and inventory-service" non-goal (docs/architecture/adr/0003, Decision 2).
+ * It stays scoped to that single client: nothing else in this service calls out.
  */
 @SpringBootApplication
 @EnableDiscoveryClient

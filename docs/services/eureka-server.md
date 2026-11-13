@@ -7,9 +7,9 @@ class, one `application.yml`, no persistence, no business logic, no public route
 other service will register here and resolve its peers through it, so anything added to
 this module becomes a shared risk.
 
-> **ZooKeeper is not service discovery in this platform.** Eureka owns discovery. No
-> service depends on `spring-cloud-starter-zookeeper-discovery` — adding it would give us
-> two registries that disagree.
+> **Eureka is the only service discovery in this platform.** No service depends on
+> `spring-cloud-starter-zookeeper-discovery` or any second registry. (A ZooKeeper container
+> existed until 2026-11-14 for coordination only; it was never used and has been removed.)
 
 ---
 
@@ -83,7 +83,7 @@ docker build -f services/eureka-server/Dockerfile -t ecommerce/eureka-server .
 
 ## Configuration and the dev/prod split
 
-Everything lives in [`src/main/resources/application.yml`](src/main/resources/application.yml).
+Everything lives in [`src/main/resources/application.yml`](../../services/eureka-server/src/main/resources/application.yml).
 The unprofiled document is dev; a `prod` document in the same file records the overrides, so
 the delta is visible in one place rather than spread across environments.
 

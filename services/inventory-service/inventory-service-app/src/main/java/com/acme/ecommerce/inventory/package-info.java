@@ -12,6 +12,7 @@
  * denormalizeProductSnapshot} - never {@code InventoryController}, which remains reachable
  * exclusively through the HTTP edge. {@code InventoryEventPublisher} publishes the reverse
  * direction, {@code inventory.events}, including the choreographed creation-saga's compensation
- * trigger, {@code INVENTORY_PROVISIONING_FAILED} (docs/HLD-catalog-enrichment-and-saga.md S5).
+ * trigger, {@code INVENTORY_PROVISIONING_FAILED}
+ * (docs/architecture/design/HLD-catalog-enrichment-and-saga.md S5).
  */
 package com.acme.ecommerce.inventory;

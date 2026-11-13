@@ -71,7 +71,7 @@ spring:
     # ends up in production.
     validate-on-migrate: true
 
-  # UserSessionCache's connection (Phase 2 - see docs/HLD-event-driven-inventory.md).
+  # UserSessionCache's connection (Phase 2 - see docs/architecture/design/HLD-event-driven-inventory.md).
   # Backing service only, NOT a startup dependency: see infra/docker-compose.yml's
   # auth-service block for why there is no `depends_on: redis` there - the cache
   # write fails open (UserSessionCache#put), so a Redis outage must never block
@@ -216,7 +216,7 @@ spring.cloud.openfeign:
 # -----------------------------------------------------------------------------
 # Service discovery.
 #
-# TIMING INVARIANT (documented in services/eureka-server/README.md):
+# TIMING INVARIANT (documented in docs/services/eureka-server.md):
 #   lease-expiration-duration-in-seconds >= 3 x lease-renewal-interval-in-seconds
 # A single dropped heartbeat must never be enough to evict a healthy instance.
 # 10s renewal / 30s expiration satisfies it exactly.

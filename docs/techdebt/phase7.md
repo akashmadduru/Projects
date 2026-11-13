@@ -1,6 +1,6 @@
 # Tech Debt: Phase 7 "Discovery and conversion"
 
-Index: [README](README.md). Feature scope: [Product Roadmap, Phase 7](../docs/Product-Roadmap.md#phase-7-discovery-and-conversion).
+Index: [README](README.md). Feature scope: [Product Roadmap, Phase 7](../phases/phase-07-discovery-and-conversion.md).
 
 Phase 7 was built under "no tests, no HLD/LLD, record shortcuts as debt". The integration run passed **68 of 68** Phase 7 end-to-end checks and **99 of 99** Phase 6 regression checks. Integration also fixed five problems found in the first build (see "Resolved by Phase 7 integration" in the [README](README.md#resolved-by-phase-7-checked-against-the-code)). Paths below are relative to the repo root; `<svc>` means `services/<name>/<name>-app/src/main`.
 

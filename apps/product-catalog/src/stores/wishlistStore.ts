@@ -83,7 +83,8 @@ export const useWishlistStore = create<WishlistState>()(
 
       const mutate = (optimistic: (items: WishlistItem[]) => WishlistItem[], call: () => Promise<unknown>) => {
         const previous = get().items
-        const seq = ++mutationSeq
+        // Bump the sequence so any in-flight reconcile from an earlier mutation is discarded.
+        mutationSeq += 1
         set({ items: optimistic(previous) })
         call().catch((error: unknown) => {
           useUiStore.getState().notify(errorMessage(error))

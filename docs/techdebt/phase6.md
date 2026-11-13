@@ -1,6 +1,6 @@
 # Tech Debt: Phase 6 "Sell for real"
 
-Index: [README](README.md). Feature scope: [Product Roadmap, Phase 6](../docs/Product-Roadmap.md#phase-6-sell-for-real-must-have-before-any-real-customer).
+Index: [README](README.md). Feature scope: [Product Roadmap, Phase 6](../phases/phase-06-sell-for-real.md).
 
 Phase 6 was built under "no tests, no HLD/LLD, record shortcuts as debt". The integration run passed 98 of 99 end-to-end checks; the one failure was a bug in the check script, not the product. Only **SIMULATED** payment mode was exercised. Paths below are relative to the repo root; `<svc>` means `services/<name>/<name>-app/src/main`.
 

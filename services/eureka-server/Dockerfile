@@ -17,7 +17,7 @@
 # kernel and the only symptom is the misleading "Gradle build daemon disappeared
 # unexpectedly", with no OOM message and no hs_err file. If you hit that, raise
 # Docker Desktop's memory (Settings -> Resources) rather than hunting the build.
-# CI runners are not affected. See services/eureka-server/README.md.
+# CI runners are not affected. See docs/services/eureka-server.md.
 # =============================================================================
 
 # --- stage 1: build ----------------------------------------------------------

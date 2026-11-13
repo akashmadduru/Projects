@@ -74,7 +74,7 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>THE {@code Map<String,Object>} <-> JSON-STRING BOUNDARY FOR {@code specifications} LIVES HERE,
  * NOT ON {@link Product}. {@code Product.java} deliberately stays free of any JSON-library
  * dependency (see its own javadoc); this class already owns the entity<->DTO translation, so it is
- * the natural, and only, place that boundary belongs (docs/LLD-catalog-enrichment-and-saga.md
+ * the natural, and only, place that boundary belongs (docs/architecture/design/LLD-catalog-enrichment-and-saga.md
  * S2.1).
  *
  * <p>{@code list()} DOES NOT LOAD IMAGES, {@code findById()} DOES. Loading a product's images per
@@ -412,7 +412,7 @@ public class ProductCatalogService {
     // Registered to fire AFTER this @Transactional method's transaction commits -
     // see ProductEventPublisher for the "after commit, never inside" guarantee.
     // initialQuantity rides on the PRODUCT_CREATED payload - the choreographed
-    // creation-saga's entry point (docs/HLD-catalog-enrichment-and-saga.md S5).
+    // creation-saga's entry point (docs/architecture/design/HLD-catalog-enrichment-and-saga.md S5).
     events.publishAfterCommit(
         ProductEventType.PRODUCT_CREATED, response, request.getInitialQuantity());
 

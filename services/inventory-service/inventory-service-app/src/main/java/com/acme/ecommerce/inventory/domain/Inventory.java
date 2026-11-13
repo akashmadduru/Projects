@@ -73,14 +73,16 @@ public class Inventory {
   @Column(name = "quantity", nullable = false)
   private int quantity;
 
-  // NEW (Phase 3 slice, schema enrichment only - see docs/HLD-catalog-enrichment-and-saga.md
+  // NEW (Phase 3 slice, schema enrichment only - see
+  // docs/architecture/design/HLD-catalog-enrichment-and-saga.md
   // S2/S4).
   // Nullable, forward-compatible single-warehouse label - not a real multi-warehouse model.
   @Column(name = "warehouse_code", length = 32)
   private String warehouseCode;
 
   // Denormalized from product-service. Populated ONLY via applyProductSnapshot below, called from
-  // ProductEventListener's PRODUCT_UPDATED consumption (docs/HLD-catalog-enrichment-and-saga.md
+  // ProductEventListener's PRODUCT_UPDATED consumption
+  // (docs/architecture/design/HLD-catalog-enrichment-and-saga.md
   // S2, closing Phase 2 Open Question #4). Null until the first such event is consumed for this
   // productId.
   @Column(name = "product_name", length = 200)

@@ -1,0 +1,54 @@
+version: 2
+updates:
+  # --- backend (Gradle + version catalog) ---
+  - package-ecosystem: gradle
+    directory: /
+    schedule: { interval: weekly, day: monday }
+    open-pull-requests-limit: 5
+    groups:
+      spring:
+        patterns: ['org.springframework*', 'org.springdoc*']
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  # --- frontends ---
+  - package-ecosystem: npm
+    directory: /apps/admin-product-catalog
+    schedule: { interval: weekly, day: monday }
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+  - package-ecosystem: npm
+    directory: /apps/product-catalog
+    schedule: { interval: weekly, day: monday }
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  # --- containers (base images in every Dockerfile) ---
+  - package-ecosystem: docker
+    directories:
+      - /apps/*
+      - /services/**
+      - /deploy/aws/docker
+    schedule: { interval: weekly, day: monday }
+    groups:
+      base-images:
+        patterns: ['*']
+
+  # --- infrastructure as code ---
+  - package-ecosystem: terraform
+    directories:
+      - /deploy/aws/terraform/envs/prod
+      - /deploy/aws/terraform/modules/*
+    schedule: { interval: weekly, day: monday }
+
+  # --- the workflows themselves ---
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly, day: monday }
+    groups:
+      actions:
+        patterns: ['*']

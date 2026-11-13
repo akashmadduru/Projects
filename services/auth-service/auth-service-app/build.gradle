@@ -34,7 +34,7 @@ dependencies {
     implementation libs.spring.cloud.starter.openfeign
     implementation libs.bundles.persistence.postgres
 
-    // UserSessionCache's Redis client (Phase 2 - see docs/HLD-event-driven-inventory.md).
+    // UserSessionCache's Redis client (Phase 2 - see docs/architecture/design/HLD-event-driven-inventory.md).
     implementation libs.spring.boot.starter.data.redis
 
     // Phase 10: audit.events producer (AuthAuditPublisher).

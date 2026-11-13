@@ -9,7 +9,7 @@
 # NOT CONFIGURED HERE, DELIBERATELY:
 #   - No datasource. The registry is an in-memory, self-healing store; a lost
 #     registry re-populates from client heartbeats within one renewal interval.
-#   - No security. See "DASHBOARD EXPOSURE" below and services/eureka-server/README.md.
+#   - No security. See "DASHBOARD EXPOSURE" below and docs/services/eureka-server.md.
 # =============================================================================
 
 spring:

@@ -59,9 +59,10 @@ public class ProductEventPublisher {
 
   /**
    * Publishes a {@link ProductEventType#PRODUCT_CREATED} event carrying the product's current state
-   * and the caller-requested starting stock quantity (docs/HLD-catalog-enrichment-and-saga.md S2,
-   * docs/LLD-catalog-enrichment-and-saga.md S2.1) - the choreographed creation-saga's entry point
-   * onto {@code product.events}.
+   * and the caller-requested starting stock quantity
+   * (docs/architecture/design/HLD-catalog-enrichment-and-saga.md S2,
+   * docs/architecture/design/LLD-catalog-enrichment-and-saga.md S2.1) - the choreographed
+   * creation-saga's entry point onto {@code product.events}.
    *
    * @param type which lifecycle transition occurred (only {@code PRODUCT_CREATED} carries an {@code
    *     initialQuantity} in this pass, but the parameter is not restricted to it)

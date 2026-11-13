@@ -15,6 +15,9 @@ here rather than left implicit in the HLD.
 
 ## Decision 1 — Kafka runs in KRaft mode, independent of the platform's existing ZooKeeper
 
+> **Note 2026-11-14:** the separate ZooKeeper container referred to below has since been removed
+> (see ADR 0001 Decision 5). KRaft mode is unaffected.
+
 Kafka (`apache/kafka:3.9.0`) is provisioned as a single-broker, KRaft-mode cluster in
 `infra/docker-compose.yml`. It does **not** use the ZooKeeper container ADR 0001 already provisions
 for app-level coordination (distributed locks, leader election).

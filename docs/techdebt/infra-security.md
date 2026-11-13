@@ -92,3 +92,10 @@ Index: [README](README.md)
 - **Where:** `infra/postgres/init/01-schemas.sql`, `infra/scripts/create-customer-dbs.sql` (all service DBs, matching existing siblings).
 - **Risk:** Any role can connect; tables are owner-only, so no data access today.
 - **Fix:** `REVOKE CONNECT ON DATABASE <db> FROM PUBLIC` for every service database.
+
+<a id="td-sec-14"></a>
+## TD-SEC-14 Database dumps with credential material remain in git history
+- **Severity / Effort:** High / S
+- **Where:** `db-snapshots/*_20261112-011622.sql`, committed before 2026-11-14. Removed from the tree and git-ignored on 2026-11-14.
+- **Risk:** Anyone with a clone can read SCRAM verifiers for 4 Postgres roles (including the `postgres` superuser), an Argon2id password hash, and refresh-token hashes with IP and user agent.
+- **Fix:** Rotate the affected passwords and revoke the refresh tokens; then, if the repository is or will be shared, purge the folder from history with `git filter-repo` (rewrites history; every clone must re-clone).

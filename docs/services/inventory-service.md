@@ -13,8 +13,8 @@ on product-service in either direction.
 - Database: `inventory_db`, schema `inventory`, role `inventory_service`, table `stock_levels`.
 
 This service and its event stream are documented in full in
-[`docs/HLD-event-driven-inventory.md`](../../docs/HLD-event-driven-inventory.md) and
-[`docs/LLD-event-driven-inventory.md`](../../docs/LLD-event-driven-inventory.md). This README is the
+[`docs/HLD-event-driven-inventory.md`](../architecture/design/HLD-event-driven-inventory.md) and
+[`docs/LLD-event-driven-inventory.md`](../architecture/design/LLD-event-driven-inventory.md). This README is the
 short version for someone running or touching the service, not the design record.
 
 ---

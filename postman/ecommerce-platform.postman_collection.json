@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "e7b3a4c0-6c1a-4a3e-9d2f-ecommerce0001",
     "name": "E-commerce Platform",
-    "description": "Gateway + all backing services (auth-service, product-service, inventory-service, eureka-server) for the Spring Boot microservices monorepo. Folders: Gateway (edge), Auth Service, Product Service, Inventory Service, Eureka Server — each with a client-facing (via gateway) flow and a direct-to-service section for local debugging.\n\nFlow: run \"Login\" in Auth Service first — it captures `accessToken` into a collection variable and Postman's cookie jar picks up the `refresh_token` cookie automatically for the \"Refresh Token\" request. Product/Inventory write requests additionally need a CATALOG_MANAGER or ADMIN role on the logged-in user — a VIEWER-only token gets 403 on those.\n\nEvent-driven note: product writes (POST/PUT/DELETE) publish to Kafka topic `product.events` after the write commits; inventory-service consumes it asynchronously and provisions/removes its own `inventory.stock_levels` row a moment later — a `GET /api/inventory` immediately after `POST /api/products` may still 404 until that catches up (prototype-scope, no synchronous coupling by design — see docs/HLD-event-driven-inventory.md).",
+    "description": "Gateway + all backing services (auth-service, product-service, inventory-service, eureka-server) for the Spring Boot microservices monorepo. Folders: Gateway (edge), Auth Service, Product Service, Inventory Service, Eureka Server — each with a client-facing (via gateway) flow and a direct-to-service section for local debugging.\n\nFlow: run \"Login\" in Auth Service first — it captures `accessToken` into a collection variable and Postman's cookie jar picks up the `refresh_token` cookie automatically for the \"Refresh Token\" request. Product/Inventory write requests additionally need a CATALOG_MANAGER or ADMIN role on the logged-in user — a VIEWER-only token gets 403 on those.\n\nEvent-driven note: product writes (POST/PUT/DELETE) publish to Kafka topic `product.events` after the write commits; inventory-service consumes it asynchronously and provisions/removes its own `inventory.stock_levels` row a moment later — a `GET /api/inventory` immediately after `POST /api/products` may still 404 until that catches up (prototype-scope, no synchronous coupling by design — see docs/architecture/design/HLD-event-driven-inventory.md).",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -349,7 +349,7 @@
               "path": ["api", "products", ":id"],
               "variable": [{ "key": "id", "value": "{{productId}}" }]
             },
-            "description": "Requires CATALOG_MANAGER or ADMIN role. `version` must match the value on the currently-persisted row (returned by Create/Get) or this returns 409 RESOURCE_CONFLICT — optimistic locking, not a soft check. 200 + ProductResponse (with incremented version) on success. Publishes PRODUCT_UPDATED to Kafka after commit (inventory-service currently treats this as log-only — see docs/HLD-event-driven-inventory.md Open Question)."
+            "description": "Requires CATALOG_MANAGER or ADMIN role. `version` must match the value on the currently-persisted row (returned by Create/Get) or this returns 409 RESOURCE_CONFLICT — optimistic locking, not a soft check. 200 + ProductResponse (with incremented version) on success. Publishes PRODUCT_UPDATED to Kafka after commit (inventory-service currently treats this as log-only — see docs/architecture/design/HLD-event-driven-inventory.md Open Question)."
           }
         },
         {
@@ -390,7 +390,7 @@
     },
     {
       "name": "Inventory Service",
-      "description": "Stock-level service, added by the event-driven inventory feature (docs/HLD-event-driven-inventory.md). Reads (GET) need any authenticated user; writes (POST/PUT/DELETE) need CATALOG_MANAGER or ADMIN, same as Product Service. Rows here are also provisioned/removed asynchronously by a Kafka consumer reacting to product.events — a direct POST here is for manual stock adjustments, independent of that pipeline. Requests below go through the gateway (base path /api/inventory). A \"Direct (bypass gateway)\" sub-folder hits inventory-service on :8083 directly.",
+      "description": "Stock-level service, added by the event-driven inventory feature (docs/architecture/design/HLD-event-driven-inventory.md). Reads (GET) need any authenticated user; writes (POST/PUT/DELETE) need CATALOG_MANAGER or ADMIN, same as Product Service. Rows here are also provisioned/removed asynchronously by a Kafka consumer reacting to product.events — a direct POST here is for manual stock adjustments, independent of that pipeline. Requests below go through the gateway (base path /api/inventory). A \"Direct (bypass gateway)\" sub-folder hits inventory-service on :8083 directly.",
       "auth": {
         "type": "bearer",
         "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }]

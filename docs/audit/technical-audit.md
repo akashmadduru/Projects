@@ -2,6 +2,16 @@
 
 Review-only audit. No code was modified. Every finding comes from reading files in this repository.
 
+> **Progress since the audit (2026-11-14):**
+> - Done: `.github/workflows/gradle.yml` replaced by `ci.yml`, `security.yml` and `cd-images.yml` ([CI/CD](../operations/ci-cd.md)).
+> - Done: the ZooKeeper container and `infra/zookeeper/` were removed.
+> - Done: `IMPLEMENTATION_STATUS.md`, `DOCKER_SUMMARY.md` and `DOCKER_SETUP.md` were deleted, and all docs moved under `docs/`.
+> - Partly done: `db-snapshots/` was removed from the tree and git-ignored. **It is still in git history,
+>   and the affected credentials have not been rotated** (decision 6 below is still open).
+> - Done: scheduled-job locking (`JobLock`, item 12).
+>
+> File paths below are as they were at audit time.
+
 > **Snapshot caveat:** Phase 10 work was being edited while this audit ran (2FA gateway routes and `AUTH_DATA_KEY` wiring appeared mid-audit; support-service grew from 4 to 17 Java files). There were 188 uncommitted or untracked paths. Treat Phase 10 findings as a snapshot of work in progress.
 
 ---

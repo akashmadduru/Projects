@@ -20,7 +20,7 @@ with optimistic locking, plus publishing product lifecycle events to Kafka — s
 
 Still not here, on purpose — this remains a *catalog* service, not the rest of Phase 2: search,
 filtering beyond pagination, pricing rules/discounts, inventory/stock (that's `inventory-service`
-now — see [`services/inventory-service/README.md`](../inventory-service/README.md)),
+now — see [`services/inventory-service/README.md`](inventory-service.md)),
 categories/taxonomy, product images, caching.
 
 | Method | Path | Auth | Notes |
@@ -73,7 +73,7 @@ topic on startup if it does not already exist.
 `ProductEvent`/`ProductEventType` live in `com.acme.ecommerce.product.event`
 (`product-service-app`, not `-api`) and are **deliberately duplicated**, not shared, with
 inventory-service's consumer-side copy — see
-[`services/inventory-service/README.md`](../inventory-service/README.md#the-kafka-consumer) for why.
+[`services/inventory-service/README.md`](inventory-service.md#the-kafka-consumer) for why.
 
 ### Pagination shape
 
@@ -257,4 +257,4 @@ curl -s -X PUT http://localhost:8080/api/products/11111111-1111-4111-8111-111111
 - No caching. Correct for now: reads are a primary-key or indexed-scan hit on a handful of rows.
   Revisit when `pg_stat_statements` says to, not before.
 - No schema registry for `ProductEvent`; the DTO is duplicated by hand in inventory-service. See
-  [`services/inventory-service/README.md`](../inventory-service/README.md#the-kafka-consumer).
+  [`services/inventory-service/README.md`](inventory-service.md#the-kafka-consumer).

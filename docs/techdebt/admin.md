@@ -1,6 +1,6 @@
 # Tech Debt: Phase 7 "Admin console completion"
 
-Index: [README](README.md). Feature: [Phase7-Admin-Feature](../docs/Phase7-Admin-Feature.md). Changes: [Phase7-Admin-Changes](../docs/Phase7-Admin-Changes.md).
+Index: [README](README.md). Feature: [Phase7-Admin-Feature](../phases/phase-07-discovery-and-conversion.md#admin-console-completion). Changes: [Phase7-Admin-Changes](../phases/phase-07-discovery-and-conversion.md#changes).
 
 Built on 2026-11-12 under "no test cases, build features fast, record shortcuts here". What was verified: all changed backend modules compile in an `eclipse-temurin:25-jdk` container (Gradle offline). payment-service is the exception, see TD-ADM-12. On the SPA, `vue-tsc --noEmit` and `vite build` are clean, and the existing Vitest suite passes except the 3 tests in TD-ADM-11. **Nothing was run end-to-end against live services.** `<svc>` means `services/<name>/<name>-app/src/main/java/com/acme/ecommerce/<name>`.
 

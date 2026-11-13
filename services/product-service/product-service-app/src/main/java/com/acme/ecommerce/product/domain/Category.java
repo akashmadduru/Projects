@@ -26,8 +26,8 @@ import lombok.ToString;
  * relationship invites an accidental fetch, and this class has no read path that needs the parent
  * loaded eagerly. Depth enforcement (rejecting a category whose own parent already has a parent) is
  * NOT a domain invariant here - checking it needs a repository lookup this entity has no access to
- * - it lives in the service layer that has one (see docs/HLD-catalog-enrichment-and-saga.md S11
- * Open Question #5).
+ * - it lives in the service layer that has one (see
+ * docs/architecture/design/HLD-catalog-enrichment-and-saga.md S11 Open Question #5).
  *
  * <p>NO {@code @PrePersist}/{@code @PreUpdate}, AND NO {@code Instant.now()} ANYWHERE IN THIS
  * CLASS, mirroring {@link Product}: {@code now} is an explicit parameter callers pass to {@link

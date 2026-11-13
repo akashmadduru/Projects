@@ -59,7 +59,7 @@ that staleness cannot itself become an authorization bypass. `infra/docker-compo
 auth-service's startup on Postgres and Eureka only — deliberately **not** on Redis, for the same
 fail-open reason.
 
-See [`docs/HLD-event-driven-inventory.md`](../../docs/HLD-event-driven-inventory.md) §7 and §9 for
+See [`docs/HLD-event-driven-inventory.md`](../architecture/design/HLD-event-driven-inventory.md) §7 and §9 for
 the full consistency/security rationale.
 
 ---

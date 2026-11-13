@@ -303,8 +303,10 @@ class ProductEndpointsIntegrationTest extends AbstractProductIntegrationTest {
 
   @Nested
   @DisplayName("GET /api/products/catalog/products/{id}")
-  // NO EUREKA REGISTRY IN THIS TEST JVM (docs/HLD-catalog-enrichment-and-saga.md S7.3,
-  // docs/adr/0003 Decision 2). InventoryFeignClient's lb://INVENTORY-SERVICE call therefore
+  // NO EUREKA REGISTRY IN THIS TEST JVM
+  // (docs/architecture/design/HLD-catalog-enrichment-and-saga.md S7.3,
+  // docs/architecture/adr/0003 Decision 2). InventoryFeignClient's lb://INVENTORY-SERVICE call
+  // therefore
   // cannot resolve a live instance no matter what productId is requested - which is exactly
   // the "inventory-service unreachable" degradation path CatalogAggregateService exists to
   // handle. These tests prove the aggregate endpoint answers 200 with inventory: null rather

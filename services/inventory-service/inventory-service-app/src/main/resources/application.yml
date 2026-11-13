@@ -107,7 +107,7 @@ spring:
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     # InventoryEventPublisher's producer of inventory.events (Phase 3 slice, see
-    # docs/HLD-catalog-enrichment-and-saga.md S2/S5). Mirrors product-service's
+    # docs/architecture/design/HLD-catalog-enrichment-and-saga.md S2/S5). Mirrors product-service's
     # own producer config for product.events, symmetrically.
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
@@ -162,7 +162,7 @@ inventory:
 # -----------------------------------------------------------------------------
 # Service discovery.
 #
-# TIMING INVARIANT (documented in services/eureka-server/README.md):
+# TIMING INVARIANT (documented in docs/services/eureka-server.md):
 #   lease-expiration-duration-in-seconds >= 3 x lease-renewal-interval-in-seconds
 # A single dropped heartbeat must never be enough to evict a healthy instance.
 # 10s renewal / 30s expiration satisfies it exactly.

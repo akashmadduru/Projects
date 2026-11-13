@@ -13,9 +13,10 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 /**
  * Publishes {@link InventoryEvent}s to {@code inventory.events}, strictly AFTER the enclosing
  * {@code @Transactional} method's transaction commits - never inside it. Structurally identical to
- * product-service's {@code ProductEventPublisher} (docs/LLD-catalog-enrichment-and-saga.md S2.2
- * calls this out as "a mechanical mirror of the existing, already-reviewed class") - every
- * invariant documented there holds here unchanged:
+ * product-service's {@code ProductEventPublisher}
+ * (docs/architecture/design/LLD-catalog-enrichment-and-saga.md S2.2 calls this out as "a mechanical
+ * mirror of the existing, already-reviewed class") - every invariant documented there holds here
+ * unchanged:
  *
  * <p>USES {@code TransactionSynchronizationManager}, NOT AN {@code @TransactionalEventListener}, so
  * the "after commit, never inside" rule is explicit and inspectable in one class rather than
@@ -99,10 +100,10 @@ public class InventoryEventPublisher {
    * best-effort - NOT gated on a transaction commit via {@link TransactionSynchronizationManager}
    * like {@link #publishAfterCommit}. Used exactly once in this design, from inside {@code
    * ProductEventListener}'s catch block for a failed {@code provisionWithQuantity} call
-   * (docs/LLD-catalog-enrichment-and-saga.md S2.2): the persistence attempt that failed never got
-   * far enough to have an open transaction, or one that already rolled back, so there is no commit
-   * left to hang an {@code afterCommit} callback off of, and nothing left to protect against a race
-   * with by waiting for one.
+   * (docs/architecture/design/LLD-catalog-enrichment-and-saga.md S2.2): the persistence attempt
+   * that failed never got far enough to have an open transaction, or one that already rolled back,
+   * so there is no commit left to hang an {@code afterCommit} callback off of, and nothing left to
+   * protect against a race with by waiting for one.
    *
    * @param type which inventory-side change occurred (only {@code INVENTORY_PROVISIONING_FAILED}
    *     uses this method in this pass, but the parameter is not restricted to it)

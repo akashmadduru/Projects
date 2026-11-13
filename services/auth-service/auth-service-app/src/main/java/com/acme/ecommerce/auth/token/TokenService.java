@@ -105,7 +105,7 @@ public class TokenService {
     // NEW - best-effort cache write. Does NOT need the after-commit discipline
     // ProductEventPublisher uses for Kafka: a cache write racing a rollback is
     // at worst a stale/orphaned entry that expires via TTL, not a correctness
-    // bug (see docs/LLD-event-driven-inventory.md S2.3). UserSessionCache#put
+    // bug (see docs/architecture/design/LLD-event-driven-inventory.md S2.3). UserSessionCache#put
     // itself never throws, and snapshot may be null (see the @param note
     // above), so this can never turn a successful issuance into a failure.
     if (snapshot != null) {

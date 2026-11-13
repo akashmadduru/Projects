@@ -7,8 +7,8 @@ import org.springframework.kafka.config.TopicBuilder;
 
 /**
  * Declares the topic this service publishes to, mirroring product-service's own {@code
- * KafkaTopicConfig} for {@code product.events} exactly (docs/HLD-catalog-enrichment-and-saga.md
- * S8).
+ * KafkaTopicConfig} for {@code product.events} exactly
+ * (docs/architecture/design/HLD-catalog-enrichment-and-saga.md S8).
  *
  * <p>3 partitions, keyed by {@code productId} (see {@link InventoryEventPublisher}): all events for
  * one product land in the same partition and are therefore delivered to any single consumer group

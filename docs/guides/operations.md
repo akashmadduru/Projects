@@ -20,7 +20,7 @@
 ### Prerequisites
 
 - **JDK 25** — verify with `java -version`
-- **Docker + Docker Compose** — for Postgres, Kafka, Redis, ZooKeeper, Eureka
+- **Docker + Docker Compose** — for Postgres, Kafka, Redis, Eureka and the services
 - **Git** — to clone the repository
 
 ### Start Local Infrastructure
@@ -29,7 +29,7 @@
 # Navigate to the project root
 cd /path/to/ecommerce-platform
 
-# Start all backing services (Postgres, Kafka, Redis, ZooKeeper, Eureka)
+# Start the stack (Postgres, Kafka, Redis, Mailpit, Jaeger, Eureka, gateway, services)
 docker compose -f infra/docker-compose.yml up -d
 
 # Verify services are running
@@ -504,7 +504,7 @@ curl http://localhost:8084/actuator/health  # Rating service
 
 ## References
 
-- [Backend-Architecture.md](Backend-Architecture.md) — Service architecture and deployment topology
-- [Backend-API.md](Backend-API.md) — API endpoints and error responses
-- [Backend-EventSystem.md](Backend-EventSystem.md) — Event choreography and Kafka topics
+- [Backend-Architecture.md](../architecture/overview.md) — Service architecture and deployment topology
+- [Backend-API.md](../architecture/api.md) — API endpoints and error responses
+- [Backend-EventSystem.md](../architecture/events.md) — Event choreography and Kafka topics
 - [README.md](../README.md) — Build and local development quickstart

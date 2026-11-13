@@ -25,7 +25,7 @@ dependencies {
     // signatures ARE the published contract.
     api project(':services:product-service:product-service-api')
 
-    // Phase 3 (docs/HLD-catalog-enrichment-and-saga.md S7.3, docs/adr/0003 Decision 2): the
+    // Phase 3 (docs/architecture/design/HLD-catalog-enrichment-and-saga.md S7.3, docs/architecture/adr/0003 Decision 2): the
     // narrowly-approved read-only aggregate call needs inventory-service's published contract
     // (InventoryClient/InventoryResponse) to build a Feign client against. This is the ONLY
     // reason this module now depends on inventory-service-api - nothing else here talks to
@@ -53,13 +53,13 @@ dependencies {
     // Phase 1E-3: was on the classpath only so common-web's
     // FeignPropagationConfiguration (@ConditionalOnClass feign.RequestInterceptor)
     // registered the Authorization/X-Correlation-Id relay ahead of any real
-    // consumer. Phase 3 (docs/HLD-catalog-enrichment-and-saga.md S7.3) is that
+    // consumer. Phase 3 (docs/architecture/design/HLD-catalog-enrichment-and-saga.md S7.3) is that
     // consumer: InventoryFeignClient, product-service's first real @FeignClient.
     implementation libs.spring.cloud.starter.openfeign
     // The BLOCKING circuit-breaker starter - NOT spring-cloud-starter-circuitbreaker-
     // reactor-resilience4j, which is the gateway's reactive-only variant and would not
     // register a blocking CircuitBreakerFactory bean for this MVC-on-virtual-threads
-    // service. Backs CatalogAggregateService's aggregateCb breaker (docs/adr/0003
+    // service. Backs CatalogAggregateService's aggregateCb breaker (docs/architecture/adr/0003
     // Decision 2) around the outbound call to inventory-service.
     implementation libs.spring.cloud.starter.circuitbreaker.resilience4j
 

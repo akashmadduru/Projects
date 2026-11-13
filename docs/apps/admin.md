@@ -4,7 +4,7 @@ The platform's **Vue 3 admin SPA**. It is the first client of the whole Phase 1 
 browser → gateway (`:8080`) → auth-service / product-service, with a real JWT and a real
 rotating refresh cookie.
 
-Deliberately **not** a Gradle module and absent from `settings.gradle.kts` — it has its own
+Deliberately **not** a Gradle module and absent from `settings.gradle` — it has its own
 JavaScript toolchain (npm + Vite).
 
 | | |

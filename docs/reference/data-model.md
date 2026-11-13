@@ -1,6 +1,6 @@
 # Backend Data Model
 
-**Status:** Complete (Phases 1–4 slice)  
+**Coverage:** product, inventory and rating schemas as of Phase 4. The platform now has 12 databases (`auth_db`, `product_db`, `inventory_db`, `rating_db`, `user_db`, `cart_db`, `order_db`, `payment_db`, `promotion_db`, `notification_db`, `seller_db`, `support_db`). Later schemas are defined by each service’s Flyway migrations under `src/main/resources/db/migration`.  
 **Last Updated:** November 2026
 
 ## Table of Contents
@@ -447,7 +447,7 @@ Recovery mechanisms (out of scope for this prototype):
 
 ## References
 
-- [Backend-Architecture.md](Backend-Architecture.md) — Service architecture and deployment
-- [Backend-EventSystem.md](Backend-EventSystem.md) — Event types and denormalization updates
-- [Backend-API.md](Backend-API.md) — API endpoints returning these entities
+- [Backend-Architecture.md](overview.md) — Service architecture and deployment
+- [Backend-EventSystem.md](events.md) — Event types and denormalization updates
+- [Backend-API.md](api.md) — API endpoints returning these entities
 - Database migrations: `services/*/src/main/resources/db/migration/`

@@ -1,0 +1,17 @@
+title = "ecommerce-platform gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Known non-secret fixtures and templates"
+regexTarget = "match"
+regexes = [
+  '''Bearer eyJhbGc\.\.\.''', # truncated placeholder in docs/operations/operations.md
+]
+paths = [
+  '''services/auth-service/auth-service-app/src/test/resources/.*''', # throwaway test keystore
+  '''.*\.env\.example$''',
+  '''(^|/)package-lock\.json$''',
+  '''(^|/)node_modules/.*''',
+]

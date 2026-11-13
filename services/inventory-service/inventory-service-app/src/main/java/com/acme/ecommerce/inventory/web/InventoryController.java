@@ -93,9 +93,9 @@ public class InventoryController {
   /**
    * The stock-level row for a product, if one has been provisioned.
    *
-   * <p>Backs {@code docs/HLD-catalog-enrichment-and-saga.md} S7.3's narrowly-approved read-only
+   * <p>Backs {@code docs/architecture/design/HLD-catalog-enrichment-and-saga.md} S7.3's narrowly-approved read-only
    * cross-service call - product-service's {@code CatalogAggregateService} is the one consumer of
-   * this endpoint, calling it through its own {@code aggregateCb} circuit breaker (docs/adr/0003,
+   * this endpoint, calling it through its own {@code aggregateCb} circuit breaker (docs/architecture/adr/0003,
    * Decision 2). Like every other read here, no {@code @PreAuthorize}: {@code
    * anyRequest().authenticated()} in {@code SecurityConfig} already covers it.
    *

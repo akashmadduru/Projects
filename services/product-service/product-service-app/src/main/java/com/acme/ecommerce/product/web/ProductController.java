@@ -192,7 +192,7 @@ public class ProductController {
    * A product composed with its stock level, in one response.
    *
    * <p>THE ONE, NARROWLY-APPROVED READ-ONLY SYNCHRONOUS CALL FROM THIS SERVICE TO inventory-service
-   * (docs/HLD-catalog-enrichment-and-saga.md S7.3, docs/adr/0003 Decision 2) - everything else this
+   * (docs/architecture/design/HLD-catalog-enrichment-and-saga.md S7.3, docs/architecture/adr/0003 Decision 2) - everything else this
    * controller does stays entirely within this service's own database and events. {@code
    * /catalog/products/{id}}, nested under this controller's existing {@code /api/products} mapping
    * rather than a new top-level path, so the gateway's existing {@code Path=/api/products/**} route

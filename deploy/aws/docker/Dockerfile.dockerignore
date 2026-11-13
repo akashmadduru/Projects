@@ -21,11 +21,9 @@ oracleJdk-27/
 apps/
 deploy/
 docs/
-techdebt/
 infra/
 postman/
 db-snapshots/
-templates/
 .claude/
 **/node_modules/
 **/*.md

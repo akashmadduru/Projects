@@ -1,7 +1,54 @@
 # Backend Architecture
 
-**Status:** Complete (Phases 1–4 slice)  
-**Last Updated:** November 2026
+**Coverage:** the platform map below is current as of 2026-11-14 (Phases 1–10). The detailed sections
+after it describe product, inventory and rating as designed in Phases 1–4. Later services are
+described in their [phase pages](../phases/README.md), and every endpoint is listed in [endpoints.md](endpoints.md).
+
+## Platform map (current)
+
+```
+ Browser: storefront (React :3000) / admin + seller portal (Vue :5173)
+        |  Bearer access token (in memory) + HttpOnly refresh cookie
+        v
+ gateway :8080   JWT validation (JWKS), deny-by-default, role rules for /api/admin/**, CORS, circuit breakers
+        |  lb:// via eureka-server :8761
+        v
+ 13 domain services, each with its own Postgres database and role
+        |  Feign: narrow synchronous calls, token relayed; /internal/** guarded by X-Internal-Token
+        |  Kafka (KRaft): domain events, consumers idempotent, dead-letter handlers in common-web
+        v
+ Postgres 17 · Redis (auth user cache) · Mailpit (dev mail) · Jaeger (traces)
+```
+
+| Service | Port | Database | Owns | Since |
+|---|---|---|---|---|
+| gateway | 8080 | — | Edge routing and auth offload | 1D |
+| eureka-server | 8761 | — | Service registry | 1B |
+| auth-service | 8081 | auth_db | Credentials, JWT/JWKS, refresh rotation, Google OIDC, OTP, 2FA, sessions, admin users and roles | 1C |
+| product-service | 8082 | product_db | Catalog, categories, variants, search and facets, offers and buy box, views, sitemap, FX rates | 1E |
+| inventory-service | 8083 | inventory_db | Stock, reservations, warehouses, per-warehouse stock | 2 |
+| rating-service | 8084 | rating_db | Reviews, votes, Q&A, review media, fraud flags | 4 |
+| user-service | 8085 | user_db | Profile, addresses, membership, referrals, preferences, recently viewed, privacy export and deletion | 5 |
+| cart-service | 8086 | cart_db | Cart, wishlist, save for later, lists, alerts, abandoned-cart reminders | 5 |
+| order-service | 8087 | order_db | Checkout, lifecycle, shipments, returns, invoices, subscriptions, buy again, risk scoring, exchange | 5 |
+| payment-service | 8088 | payment_db | Payments (Stripe / SIMULATED), COD, refunds, wallet, gift cards | 6 |
+| promotion-service | 8089 | promotion_db | Coupons, deals, offers, coins, exchange quotes | 6 |
+| notification-service | 8090 | notification_db | Email, SMS stub, in-app inbox, web push, campaigns | 6 |
+| seller-service | 8091 | seller_db | Seller onboarding/KYC, feedback, ledger, payouts, sponsored ads | 9 |
+| support-service | 8092 | support_db | Help centre, tickets, chatbot, audit log | 10 |
+
+| Topic | Producer | Consumers |
+|---|---|---|
+| `product.events` | product-service | inventory-service, cart-service |
+| `inventory.events` | inventory-service | product-service, cart-service |
+| `rating.events` | rating-service | product-service |
+| `order.events` | order-service | notification-service, promotion-service, seller-service |
+| `user.events` | user-service | auth, cart, notification, order, payment, promotion, rating, seller, support |
+| `audit.events` | auth-service and `common-web` `AuditPublisher` | support-service |
+
+Phase 5 to 10 changes to the principles below: order-service orchestrates checkout synchronously
+(Phase 5 decision D5); there is no transactional outbox yet, so post-commit events can be lost (TD-P6-01).
+
 
 ## Table of Contents
 
@@ -253,8 +300,6 @@ kafka:9092
 ├── inventory.events (topic, single partition)
 └── rating.events (topic, single partition)
 
-zookeeper:2181 (coordination only, not Kafka metadata)
-
 redis:6379 (auth-service user-snapshot cache)
 
 eureka-server:8761 (service registry)
@@ -386,6 +431,6 @@ Prometheus-compatible metrics exposed on `/actuator/prometheus`:
 
 - [ADR 0002](adr/0002-event-driven-inventory-kafka-kraft-and-event-contract-duplication.md) — Why event choreography, KRaft, and no schema registry
 - [ADR 0003](adr/0003-choreographed-catalog-saga-and-narrow-read-only-cross-service-call.md) — Why Feign clients only for reads, not writes
-- [HLD: Catalog Enrichment & Saga](HLD-catalog-enrichment-and-saga.md) — Phase 3–4 design including event wiring
-- [Backend-EventSystem.md](Backend-EventSystem.md) — Event types, Kafka topics, and choreography details
-- [Backend-DataModel.md](Backend-DataModel.md) — Database schemas and entity relationships
+- [HLD: Catalog Enrichment & Saga](design/HLD-catalog-enrichment-and-saga.md) — Phase 3–4 design including event wiring
+- [Backend-EventSystem.md](events.md) — Event types, Kafka topics, and choreography details
+- [Backend-DataModel.md](data-model.md) — Database schemas and entity relationships

@@ -1,6 +1,6 @@
 # Tech Debt: Phase 9 "Marketplace and sellers"
 
-Index: [README](README.md). Feature scope: [Product Roadmap, Phase 9](../docs/Product-Roadmap.md#phase-9-marketplace-and-sellers).
+Index: [README](README.md). Feature scope: [Product Roadmap, Phase 9](../phases/phase-09-marketplace-and-sellers.md).
 
 Phase 9 was built under "no tests, no HLD/LLD, record shortcuts as debt". The integration run passed **62 of 62** Phase 9 end-to-end checks, with **99 of 99** Phase 6, **68 of 68** Phase 7 and all Phase 8 regression checks still green. Integration also fixed seven problems found in the first build (see "Resolved by Phase 9 integration" in the [README](README.md#resolved-by-phase-9-checked-against-the-code)). Paths below are relative to the repo root; `<svc>` means `services/<name>/<name>-app/src/main`. Seller-portal and storefront bullets that the admin and frontend agents first recorded are consolidated here (TD-P9-17, TD-P9-18).
 

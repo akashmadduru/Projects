@@ -1,6 +1,6 @@
 # Backend Decision Log
 
-**Status:** Complete (Phases 1–4 slice)  
+**Coverage:** cross-cutting backend decisions from Phases 1–4. Phase-specific decisions live in the [phase pages](../phases/README.md); foundational ones are in [adr/](adr/).  
 **Last Updated:** November 2026
 
 ## Purpose
@@ -67,8 +67,8 @@ if (!Objects.equals(product.getVersion(), request.version())) {
 
 ### References
 
-- [Product domain class](../services/product-service/product-service-app/src/main/java/com/acme/ecommerce/product/domain/Product.java)
-- [ProductCatalogService.update()](../services/product-service/product-service-app/src/main/java/com/acme/ecommerce/product/service/ProductCatalogService.java#L177)
+- [Product domain class](../../services/product-service/product-service-app/src/main/java/com/acme/ecommerce/product/domain/Product.java)
+- [ProductCatalogService.update()](../../services/product-service/product-service-app/src/main/java/com/acme/ecommerce/product/service/ProductCatalogService.java#L177)
 
 ---
 
@@ -129,7 +129,7 @@ public void onProductEvent(ProductEvent event) { ... }
 ### References
 
 - [ADR 0002](adr/0002-event-driven-inventory-kafka-kraft-and-event-contract-duplication.md) — full decision
-- [Backend-EventSystem.md](Backend-EventSystem.md) — event choreography details
+- [Backend-EventSystem.md](events.md) — event choreography details
 
 ---
 
@@ -194,8 +194,8 @@ InventoryEventListener.onInventoryEvent(event) {
 
 ### References
 
-- [Backend-Architecture.md](Backend-Architecture.md) — consistency model section
-- [Backend-EventSystem.md](Backend-EventSystem.md) — event choreography and failure scenarios
+- [Backend-Architecture.md](overview.md) — consistency model section
+- [Backend-EventSystem.md](events.md) — event choreography and failure scenarios
 
 ---
 
@@ -283,8 +283,8 @@ Resilience4j circuit breaker wraps the Feign call:
 ### References
 
 - [ADR 0003](adr/0003-choreographed-catalog-saga-and-narrow-read-only-cross-service-call.md) — full decision
-- [CatalogAggregateService](../services/product-service/product-service-app/src/main/java/com/acme/ecommerce/product/service/CatalogAggregateService.java)
-- [resilience4j configuration](../services/product-service/product-service-app/src/main/resources/application.yml#L171)
+- [CatalogAggregateService](../../services/product-service/product-service-app/src/main/java/com/acme/ecommerce/product/service/CatalogAggregateService.java)
+- [resilience4j configuration](../../services/product-service/product-service-app/src/main/resources/application.yml#L171)
 
 ---
 
@@ -360,7 +360,7 @@ void eventShapeMatchesExpectation() {
 ### References
 
 - [ADR 0002](adr/0002-event-driven-inventory-kafka-kraft-and-event-contract-duplication.md) — full decision
-- [Backend-EventSystem.md](Backend-EventSystem.md) — event contracts
+- [Backend-EventSystem.md](events.md) — event contracts
 
 ---
 
@@ -382,6 +382,6 @@ void eventShapeMatchesExpectation() {
 
 ## References
 
-- [Backend-Architecture.md](Backend-Architecture.md) — System design context
+- [Backend-Architecture.md](overview.md) — System design context
 - [ADR 0002](adr/0002-event-driven-inventory-kafka-kraft-and-event-contract-duplication.md) — ADR for event choreography
 - [ADR 0003](adr/0003-choreographed-catalog-saga-and-narrow-read-only-cross-service-call.md) — ADR for Feign usage

@@ -108,7 +108,7 @@ spring:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
     # InventoryEventListener's consumer of inventory.events (Phase 3 slice, see
-    # docs/HLD-catalog-enrichment-and-saga.md S2/S5). Mirrors inventory-service's
+    # docs/architecture/design/HLD-catalog-enrichment-and-saga.md S2/S5). Mirrors inventory-service's
     # own consumer config for product.events, symmetrically.
     consumer:
       group-id: product-service
@@ -132,7 +132,7 @@ server:
   shutdown: graceful
 
 # -----------------------------------------------------------------------------
-# InventoryFeignClient's outbound HTTP call (Phase 3, docs/HLD-catalog-enrichment-and-saga.md
+# InventoryFeignClient's outbound HTTP call (Phase 3, docs/architecture/design/HLD-catalog-enrichment-and-saga.md
 # S7.3) - product-service's one, narrowly-approved synchronous call to inventory-service. Keyed
 # by the client's `name` (matches inventory-service's spring.application.name, same as
 # InventoryFeignClient's own @FeignClient annotation).
@@ -159,19 +159,19 @@ spring.cloud.openfeign:
         read-timeout: 3000
 
 # -----------------------------------------------------------------------------
-# aggregateCb - the circuit breaker around InventoryFeignClient (docs/adr/0003, Decision 2).
+# aggregateCb - the circuit breaker around InventoryFeignClient (docs/architecture/adr/0003, Decision 2).
 #
 # A SEPARATE, NAMED INSTANCE from every other breaker in the platform (the gateway's productCb/
 # inventoryCb/authCb included): this one protects exactly CatalogAggregateService's one outbound
 # call, so nothing else can trip it and it cannot trip anything else. Same shape as the gateway's
-# per-route instances (docs/HLD-catalog-enrichment-and-saga.md S8) - this is the BLOCKING
+# per-route instances (docs/architecture/design/HLD-catalog-enrichment-and-saga.md S8) - this is the BLOCKING
 # resilience4j starter (spring-cloud-starter-circuitbreaker-resilience4j), not the gateway's
 # reactor variant, but the resilience4j.circuitbreaker.instances.* property shape is identical
 # either way.
 #
 # ignore-exceptions INCLUDES FeignException.NotFound DELIBERATELY: a product genuinely not yet
 # provisioned in inventory-service (the choreographed creation-saga's window,
-# docs/HLD-catalog-enrichment-and-saga.md S7.1) is expected, ordinary behaviour, not a signal
+# docs/architecture/design/HLD-catalog-enrichment-and-saga.md S7.1) is expected, ordinary behaviour, not a signal
 # inventory-service is unhealthy - counting it as a circuit-breaker failure would let a burst of
 # perfectly normal 404s trip the breaker for every OTHER product's aggregate read too.
 # CatalogAggregateService's fallback still turns a 404 into inventory: null either way; this
@@ -221,7 +221,7 @@ product:
 # -----------------------------------------------------------------------------
 # Service discovery.
 #
-# TIMING INVARIANT (documented in services/eureka-server/README.md):
+# TIMING INVARIANT (documented in docs/services/eureka-server.md):
 #   lease-expiration-duration-in-seconds >= 3 x lease-renewal-interval-in-seconds
 # A single dropped heartbeat must never be enough to evict a healthy instance.
 # 10s renewal / 30s expiration satisfies it exactly.

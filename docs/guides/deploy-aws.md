@@ -27,11 +27,11 @@ and no cross-origin setup is needed in the browser.
 
 | Layer | Where it is defined |
 |---|---|
-| Infrastructure (VPC, EKS, RDS, Redis, Kafka, ECR, CloudFront, WAF, SES, IAM, secrets, alarms) | [terraform/](terraform/) |
-| Cluster workloads (13 services, autoscaling, network policies, ingress, Karpenter pools) | [helm/ecommerce/](helm/ecommerce/) |
-| Database bootstrap (12 databases and roles on RDS) | [k8s/db-bootstrap.yaml](k8s/db-bootstrap.yaml) |
-| One image definition for every service | [docker/Dockerfile](docker/Dockerfile) |
-| Orchestration | [deploy.sh](deploy.sh), [destroy.sh](destroy.sh), [lib/](lib/) |
+| Infrastructure (VPC, EKS, RDS, Redis, Kafka, ECR, CloudFront, WAF, SES, IAM, secrets, alarms) | [terraform/](../../deploy/aws/terraform/) |
+| Cluster workloads (13 services, autoscaling, network policies, ingress, Karpenter pools) | [helm/ecommerce/](../../deploy/aws/helm/ecommerce/) |
+| Database bootstrap (12 databases and roles on RDS) | [k8s/db-bootstrap.yaml](../../deploy/aws/k8s/db-bootstrap.yaml) |
+| One image definition for every service | [docker/Dockerfile](../../deploy/aws/docker/Dockerfile) |
+| Orchestration | [deploy.sh](../../deploy/aws/deploy.sh), [destroy.sh](../../deploy/aws/destroy.sh), [lib/](../../deploy/aws/lib/) |
 
 ## Before you start
 
@@ -104,7 +104,7 @@ kubectl -n ecommerce port-forward svc/jaeger 16686:16686      # traces (in-memor
 are tagged with the commit SHA (plus a hash of uncommitted changes), so every deploy is traceable.
 Roll back with `helm -n ecommerce rollback ecommerce`.
 
-**Scaling.** Each service has a CPU-based autoscaler (sizes in [values.yaml](helm/ecommerce/values.yaml):
+**Scaling.** Each service has a CPU-based autoscaler (sizes in [values.yaml](../../deploy/aws/helm/ecommerce/values.yaml):
 for example gateway 3-12, order 2-8, payment 2-4) and Karpenter adds or removes servers to fit. Scale-down
 waits five quiet minutes and never removes more than half the pods per minute.
 
@@ -172,7 +172,7 @@ wrong environment. The KMS key is scheduled for deletion in 7 days (the minimum 
 
 - **No Eureka in the cluster.** The services find each other through the Kubernetes Services. With the
   Eureka client off, Spring Cloud falls back to its built-in static discovery, fed by a ConfigMap
-  ([discovery.yaml](helm/ecommerce/templates/discovery.yaml)) mounted into every pod. **No service code
+  ([discovery.yaml](../../deploy/aws/helm/ecommerce/templates/discovery.yaml)) mounted into every pod. **No service code
   changed for this.** Tested with a real gateway container against a stub backend.
 - **Actuator.** The gateway's `prod` profile serves actuator on `127.0.0.1:8081`, which Kubernetes
   probes and the ALB can never reach. The chart rebinds it to the pod IP and points the probes and the
@@ -207,7 +207,7 @@ wrong environment. The KMS key is scheduled for deletion in 7 days (the minimum 
 2. **Pinned versions** (Helm charts for Karpenter, the Load Balancer Controller, External Secrets and
    metrics-server; Terraform modules; MSK `3.8.x`; RDS `17`) were chosen from what I know and could not
    be checked against a live registry. If one is rejected, the error names it; bump it in
-   [lib/stages.sh](lib/stages.sh) or the Terraform files.
+   [lib/stages.sh](../../deploy/aws/lib/stages.sh) or the Terraform files.
 3. **Kafka is unauthenticated and plaintext inside the VPC**, restricted by security group, like today.
    Several services build their Kafka consumers by hand with only a bootstrap address, so they cannot
    yet use TLS or SASL. The brokers already accept TLS on 9094.
@@ -238,6 +238,6 @@ wrong environment. The KMS key is scheduled for deletion in 7 days (the minimum 
 | `Cannot reach the Kubernetes API` | `KUBERNETES_API_ALLOWED_CIDRS` does not include your current public IP |
 | ALB fails to create with a security-group rule error | set `RESTRICT_ALB_TO_CLOUDFRONT=false` and re-run `--only platform` |
 | smoke test says SIMULATED | payment config was not applied; `kubectl -n ecommerce describe pod -l app.kubernetes.io/name=payment-service` |
-| legitimate requests blocked with 403 | an AWS managed WAF rule matched; open the WAF's sampled requests in the console and set that rule to *count* in [modules/waf](terraform/modules/waf/main.tf) |
+| legitimate requests blocked with 403 | an AWS managed WAF rule matched; open the WAF's sampled requests in the console and set that rule to *count* in [modules/waf](../../deploy/aws/terraform/modules/waf/main.tf) |
 | image build killed | give Docker Desktop more memory (about 6 GB) |
 | `terraform destroy` fails on a subnet/VPC | a controller-created resource survived; run `destroy.sh` again, it sweeps and retries |

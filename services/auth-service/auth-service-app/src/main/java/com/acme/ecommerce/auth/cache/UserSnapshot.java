@@ -16,8 +16,8 @@ import java.util.UUID;
  * this cache cannot silently leak into a token later.
  *
  * <p>Purely a read-side performance aid for a future consumer (see
- * docs/HLD-event-driven-inventory.md S5) - never consulted on any authentication or authorization
- * decision.
+ * docs/architecture/design/HLD-event-driven-inventory.md S5) - never consulted on any
+ * authentication or authorization decision.
  */
 public record UserSnapshot(
     UUID id, String email, String displayName, Set<String> roles, String status) {

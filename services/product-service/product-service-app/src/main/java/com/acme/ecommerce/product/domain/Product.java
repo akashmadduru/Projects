@@ -265,7 +265,7 @@ public class Product {
    * product.events} publication. This method has no access to {@code ProductEventPublisher} at all
    * (this class has zero Kafka/event dependencies, same as today), so there is no code path by
    * which calling it could publish anything - the domain-layer half of the "no ping-pong" guarantee
-   * (docs/LLD-catalog-enrichment-and-saga.md S2.1). Called ONLY from {@code
+   * (docs/architecture/design/LLD-catalog-enrichment-and-saga.md S2.1). Called ONLY from {@code
    * ProductCatalogService.applyInventorySignal}, in reaction to a consumed {@code
    * INVENTORY_QUANTITY_CHANGED} event - never by {@link #create}/{@link #update}.
    *

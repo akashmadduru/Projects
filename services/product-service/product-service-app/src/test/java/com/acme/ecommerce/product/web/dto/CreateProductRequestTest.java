@@ -16,8 +16,9 @@ import org.junit.jupiter.api.Test;
 /**
  * Unit tests for {@code isInitialStockValidWhenActive()}, the {@code
  * RequiresInitialStockIfActiveRule} reclassified as ordinary Bean Validation
- * (docs/HLD-catalog-enrichment-and-saga.md S7.2, docs/LLD-catalog-enrichment-and-saga.md S2.1) -
- * the choreographed creation-saga's synchronous, pre-transaction validation gate.
+ * (docs/architecture/design/HLD-catalog-enrichment-and-saga.md S7.2,
+ * docs/architecture/design/LLD-catalog-enrichment-and-saga.md S2.1) - the choreographed
+ * creation-saga's synchronous, pre-transaction validation gate.
  *
  * <p>Exercises the real {@link jakarta.validation.Validator} - the same engine {@code @Valid} on
  * {@code ProductController} invokes at the HTTP boundary - rather than calling {@code
