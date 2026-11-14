@@ -2,7 +2,7 @@
 # React Product Catalog SPA - Multi-stage build
 # =============================================================================
 # Stage 1: Build the Vite app
-FROM node:20-alpine AS builder
+FROM node:25-alpine AS builder
 
 WORKDIR /app
 
@@ -21,7 +21,7 @@ RUN npm run build
 
 # =============================================================================
 # Stage 2: Serve the built app with Node.js http-server
-FROM node:20-alpine
+FROM node:25-alpine
 
 WORKDIR /app
 
