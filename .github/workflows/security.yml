@@ -53,17 +53,17 @@ jobs:
           - language: javascript-typescript
             build-mode: none
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
         if: matrix.language == 'java-kotlin'
         with:
           distribution: temurin
           java-version: '25'
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
         if: matrix.language == 'java-kotlin'
         with:
           cache-read-only: true
-      - uses: github/codeql-action/init@v3
+      - uses: github/codeql-action/init@v4
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
@@ -71,7 +71,7 @@ jobs:
       - name: Compile (CodeQL traces this)
         if: matrix.language == 'java-kotlin'
         run: ./gradlew compileJava --no-daemon --no-build-cache --no-configuration-cache
-      - uses: github/codeql-action/analyze@v3
+      - uses: github/codeql-action/analyze@v4
         continue-on-error: ${{ env.SOFT_FAIL == 'true' }}
         with:
           category: /language:${{ matrix.language }}
@@ -84,8 +84,8 @@ jobs:
       contents: read
       security-events: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
       - name: Install Semgrep
@@ -97,14 +97,14 @@ jobs:
             --config p/default --config p/owasp-top-ten --config p/java --config p/typescript \
             --exclude node_modules --exclude build --exclude dist \
             --sarif --output semgrep.sarif .
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: semgrep-sarif
           path: semgrep.sarif
           if-no-files-found: ignore
           retention-days: 14
-      - uses: github/codeql-action/upload-sarif@v3
+      - uses: github/codeql-action/upload-sarif@v4
         if: always() && hashFiles('semgrep.sarif') != ''
         continue-on-error: true
         with:
@@ -116,7 +116,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0 # scan full history, not just the tip
       - name: Install gitleaks
@@ -132,8 +132,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: aquasecurity/trivy-action@0.28.0
+      - uses: actions/checkout@v7
+      - uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: fs
           scan-ref: .
@@ -148,8 +148,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: aquasecurity/trivy-action@0.28.0
+      - uses: actions/checkout@v7
+      - uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: config
           scan-ref: .
@@ -166,9 +166,9 @@ jobs:
       contents: read
       pull-requests: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       # Needs the dependency graph: free on public repos, GHAS on private ones.
-      - uses: actions/dependency-review-action@v4
+      - uses: actions/dependency-review-action@v5
         continue-on-error: ${{ env.SOFT_FAIL == 'true' }}
         with:
           fail-on-severity: high
