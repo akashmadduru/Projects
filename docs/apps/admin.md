@@ -16,6 +16,30 @@ JavaScript toolchain (npm + Vite).
 
 ---
 
+## Current state (verified 2026-11-14)
+
+This page was written for Phase 1F (product CRUD and the session model). The session, testing and
+design-system sections still hold. Every screen is gated by role in
+`src/router/index.ts` (the backend enforces the same rules again):
+
+| Area | Routes | Roles |
+|---|---|---|
+| Catalog | `dashboard`, `products`, `categories`, `inventory` | `ADMIN`, `CATALOG_MANAGER` (creating products also) |
+| Merchandising | `deals`, `warehouses` | `ADMIN`, `CATALOG_MANAGER` |
+| Customers and reviews | `customers`, `customers/:id`, `reviews` | `ADMIN` |
+| Orders and support | `orders`, `support/tickets`, `support/tickets/:id`, `support/articles` | `ADMIN`, `SUPPORT` |
+| Money | `payments`, `returns`, `coupons`, `payouts` | `ADMIN`, `FINANCE` |
+| Platform | `campaigns`, `sellers`, `audit`, `exchange`, `fx-rates` | `ADMIN` |
+| Seller portal | `seller/{listings,bulk,orders,finance,analytics,ads,feedback}` | `SELLER` |
+| Any signed-in user | `seller/apply`, `settings` | — |
+| Public | `/login`, `/register`, `/auth/callback` | — |
+
+Phase history: [Phase 7 admin console](../phases/phase-07-discovery-and-conversion.md#admin-console-completion),
+[Phase 9 seller portal](../phases/phase-09-marketplace-and-sellers.md),
+[Phase 10 support, audit, FX, exchange](../phases/phase-10-trust-support-and-scale.md).
+Known issues: [techdebt/admin.md](../techdebt/admin.md); 4 failing unit tests
+([CI/CD baseline](../guides/ci-cd.md#baseline-to-clear-before-ci_enforcetrue)).
+
 ## The session model, which is the whole point of this phase
 
 Three rules, none of them negotiable. They are the reason the code is shaped the way it is.
@@ -127,9 +151,9 @@ Configuration (`.env`, see `.env.example`):
 The backend has to be up for anything beyond the login form to work:
 
 ```bash
-POSTGRES_PORT=15432 docker compose -f infra/docker-compose.yml up -d postgres
+POSTGRES_PORT=15432 docker compose -f deploy/local/docker-compose.yml up -d postgres
 java -jar services/eureka-server/build/libs/eureka-server-0.1.0-SNAPSHOT.jar
-PLATFORM_JWT_KEYSTORE_PATH=infra/secrets/jwt-keystore.p12 \
+PLATFORM_JWT_KEYSTORE_PATH=deploy/local/secrets/jwt-keystore.p12 \
 PLATFORM_JWT_KEYSTORE_PASSWORD=devkeystorepw \
 PLATFORM_JWT_KEYSTORE_ALIAS=jwt-signing \
 SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:15432/auth_db \
@@ -241,7 +265,24 @@ JetBrains Mono (SKUs/prices/quantities/IDs — loaded via `index.html`, referenc
 applied before first paint via an inline script in `index.html` (avoids a flash of the wrong theme),
 with `useTheme.ts`/`ThemeToggle.vue` handling in-app switching.
 
-## Out of scope for Phase 1F (deliberately)
+## Out of scope
 
-User management, i18n, E2E framework (Playwright/Cypress), PWA/service worker, and any state
-persistence beyond the in-memory session above.
+| Item (Phase 1F list) | Status on 2026-11-14 |
+|---|---|
+| User management | **Built in Phase 7** (`customers`: roles, enable/disable, unlock) |
+| i18n | Not in the admin app (the storefront has Hindi since Phase 10) |
+| E2E framework (Playwright/Cypress) | Not added; Vitest unit tests only |
+| PWA / service worker | Not in the admin app |
+| State persistence beyond the in-memory session | Unchanged: the access token is in memory only |
+
+## Theme & branding (ADMIN only, `/theme`)
+
+One published config drives both the console and the storefront.
+
+- **Storage/API:** `product.theme_settings` (single row, Flyway `V9`). Public `GET /api/products/theme` (revalidated on every load, so publishes show up on the next page load; `config: null` = built-in theme); admin `PUT`/`DELETE /api/admin/theme`. `ThemeController` validates a closed schema: `#RRGGBB` colours, allow-listed fonts, bounded text, https/`/path` logo URL, and rejects custom CSS containing `@import`, `url(`, `<`, `>`, `\`, etc.
+- **Design style:** 24 design languages (Minimalism, Flat, Flat 2.0, Material, Fluent, HIG, Dark Mode, Skeuomorphism, Neumorphism, Glassmorphism, Claymorphism, Liquid Glass, Aurora UI, Bento Grid, Editorial/Swiss, Brutalism, Neubrutalism, Retro/Vintage, Y2K, Cyberpunk, Bauhaus, Maximalism, Spatial UI, Conversational/AI-First). A style = runtime effects in `themeEngine.ts` (`STYLE_FX`: card material, page backdrop, heading casing, button treatment, injected via `--fx-*` variables so it works in both apps and both modes) + a starter kit in `themeStyles.ts` (palette, fonts, corners, outline, shadow) that is applied with it unless the admin unticks "Also apply the style's colours, fonts...". `style.id` is stored in the config and allow-listed in `ThemeController`; `default` injects nothing.
+- **Config (four independent sections, each with its own choices, "Changed" badge and reset):** **Colours** (six per mode: primary, accent, background, surface, text, danger), **Fonts** (25 families, 16 one-click pairings), **Borders** (corner radius sharp/soft/round + outline thickness thin/standard/bold), **Shadows** (flat/soft/crisp/retro/lifted). Plus brand (name, tagline, logo) and optional custom CSS. "Complete looks" presets set all four at once. Built-in values (standard width, retro shadow) emit no CSS, so the original stylesheet is untouched. All other tokens (on-colours, containers, outlines, hover shades, starburst wallpaper) are derived, with readable on-colours chosen by WCAG contrast.
+- **Engine:** `src/lib/themeEngine.ts` exists in BOTH apps and must stay identical. It emits storefront HSL-triple tokens or admin daisyUI/`--cw-*` tokens. No config = nothing injected.
+- **Presets:** `themePresets.ts` ships 8 combinations (Space-Age Atomic, Midnight Indigo, Forest Market, Crimson Luxe, Ocean Breeze, Sunset Citrus, Mono Ink, Lavender Bloom); a unit test asserts every preset's text/button pairs meet 4.5:1 in light and dark.
+- **Editor behaviour:** edits preview live on the console; they reach everyone only on **Publish**. Config can be exported/imported as JSON to copy between environments.
+- **Conveniences:** sticky action bar (status, last-published time, Undo/Redo, Discard, Reset, Publish), keyboard shortcuts (Ctrl+S publish, Ctrl+Z / Ctrl+Shift+Z), unsaved-changes warnings on navigation and tab close, colour tools (generate a full accessible palette from one brand colour, derive dark from light, auto-fix contrast, swap light/dark, randomise), and **Comfort options** (text size compact/default/large, motion full/reduced/none). A publish that hits a backend without the theme API (404/405/400) says so instead of showing a bare "Resource not found".

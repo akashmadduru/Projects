@@ -14,13 +14,16 @@ operations (migrations, health checks, logs, troubleshooting) are in [operations
 ## 1. Configure
 
 ```bash
-cp infra/.env.example infra/.env     # then fill in the values
-./infra/scripts/generate-keystore.sh # -> infra/secrets/jwt-keystore.p12 (gitignored)
+cp deploy/local/.env.example deploy/local/.env     # then fill in the values
+./deploy/local/scripts/generate-keystore.sh # -> deploy/local/secrets/jwt-keystore.p12 (gitignored)
+git config core.hooksPath .githooks  # blocks committing DB dumps and password hashes
 ```
 
 Compose refuses to start without these variables: every `*_DB_PASSWORD` (auth, product, inventory,
 rating, user, cart, order, payment, promotion, notification, seller, support), `JWT_KEYSTORE_PASSWORD`,
 `INTERNAL_API_TOKEN`, `SELLER_DATA_KEY` and `AUTH_DATA_KEY` (base64, 32 bytes each).
+Every other variable is optional; they are all listed in the
+[environment variable catalogue](reference/environment-variables.md). Deploying to AWS instead: [cloud setup](guides/cloud-setup.md).
 
 ## 2. Build
 
@@ -35,19 +38,19 @@ Never inline a dependency version. Add an alias to `gradle/libs.versions.toml` a
 ## 3. Run the backend
 
 ```bash
-docker compose -f infra/docker-compose.yml up -d --build
-docker compose -f infra/docker-compose.yml ps
+docker compose -f deploy/local/docker-compose.yml up -d --build
+docker compose -f deploy/local/docker-compose.yml ps
 ```
 
 The gateway answers 503 for about 30 to 40 seconds after a restart, until Eureka registrations
 propagate (TD-BE-08).
 
-On the **first** start, `infra/postgres/init/01-schemas.sql` creates 12 databases, each owned by its
+On the **first** start, `deploy/local/postgres/init/01-schemas.sql` creates 12 databases, each owned by its
 own role. That script only runs on an empty volume. On an **existing** volume, create any databases
 added since (re-runnable):
 
 ```bash
-docker exec -i ecommerce-postgres psql -U postgres < infra/scripts/create-customer-dbs.sql
+docker exec -i ecommerce-postgres psql -U postgres < deploy/local/scripts/create-customer-dbs.sql
 ```
 
 ## 4. Run the SPAs
@@ -62,7 +65,7 @@ Google sign-in callback, so a silent move to another port would break sign-in.
 
 ## Ports
 
-Services are published to `127.0.0.1`, except the gateway (the public edge) and Postgres. Each can
+Services are published to `127.0.0.1` only, except the gateway (the public edge, all interfaces). Each can
 be overridden with the variable shown, for example `POSTGRES_PORT=15432`.
 
 | Port | Component | Variable |
@@ -83,33 +86,34 @@ be overridden with the variable shown, for example `POSTGRES_PORT=15432`.
 | 8090 | notification-service | `NOTIFICATION_PORT` |
 | 8091 | seller-service | `SELLER_PORT` |
 | 8092 | support-service | `SUPPORT_PORT` |
-| 5432 | Postgres (all interfaces; flagged in the [audit](audit/technical-audit.md)) | `POSTGRES_PORT` |
+| 5432 | Postgres (loopback only since 2026-11-14; recreate the container to apply: `docker compose -f deploy/local/docker-compose.yml up -d postgres`) | `POSTGRES_PORT` |
 | 6379 | Redis | `REDIS_PORT` |
 | 8025 | Mailpit UI (dev mail catcher) | `MAILPIT_UI_PORT` |
 | 16686 | Jaeger UI (traces) | — |
 
 Kafka publishes no host port. Only services on the compose network talk to it (`kafka:9092`).
 
-## Dev scripts (`infra/scripts/`)
+## Dev scripts (`deploy/local/scripts/`)
 
 | Script | Use |
 |---|---|
 | `generate-keystore.sh` | Creates the dev JWT signing keystore. Never commit a private key. |
 | `create-customer-dbs.sql` | Creates newer databases on an existing Postgres volume (re-runnable). |
 | `backfill-product-ratings.sh` | Dev-only: copies seed ratings into product-service's denormalized columns ([TD-RT-01](techdebt/ratings.md#td-rt-01)). |
-| `gen-product-images.mjs` → `update-product-images.sql` | Looks up product images on Wikimedia Commons by product name and writes an idempotent SQL update. Re-apply with `docker exec -i ecommerce-postgres psql -U postgres -d product_db < infra/scripts/update-product-images.sql`. |
+| `gen-product-images.mjs` → `update-product-images.sql` | Looks up product images on Wikimedia Commons by product name and writes an idempotent SQL update. Re-apply with `docker exec -i ecommerce-postgres psql -U postgres -d product_db < deploy/local/scripts/update-product-images.sql`. |
+| `db-snapshot.sh` | Dumps the local databases **outside the repository** (default `~/ecommerce-db-snapshots/`); personal-data databases are schema-only unless `--with-personal-data`. Never commit dumps ([runbook](guides/runbooks/leaked-database-dump.md)). |
 
 ## Stop and reset
 
 ```bash
-docker compose -f infra/docker-compose.yml down      # keep data
-docker compose -f infra/docker-compose.yml down -v   # wipe all volumes (re-runs the init script next start)
+docker compose -f deploy/local/docker-compose.yml down      # keep data
+docker compose -f deploy/local/docker-compose.yml down -v   # wipe all volumes (re-runs the init script next start)
 ```
 
 ## Troubleshooting
 
 - **Port already taken:** override it with the variable in the ports table.
-- **Service not healthy:** `docker compose -f infra/docker-compose.yml logs <service>`.
+- **Service not healthy:** `docker compose -f deploy/local/docker-compose.yml logs <service>`.
 - **SPA cannot reach the API:** check `curl http://localhost:8080/actuator/health`, then make sure the
   SPA's origin is in `GATEWAY_CORS_ALLOWED_ORIGINS`.
 - More: [operations.md § Troubleshooting](guides/operations.md#troubleshooting).

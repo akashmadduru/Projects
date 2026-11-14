@@ -15,7 +15,7 @@ import { useLoad } from '../../hooks/useLoad'
 import { DISPLAY_NAME_MAX, PHONE_MAX, displayNameOf, profileCompleteness, validatePhone } from '../../lib/account'
 import { errorMessage } from '../../lib/errors'
 import { userApi } from '../../services/userApi'
-import { useAuthStore, useUiStore } from '../../stores'
+import { useAuthStore, useUiStore, useBrand } from '../../stores'
 
 function Counter({ value, max }: { value: number; max: number }) {
   return (
@@ -35,6 +35,7 @@ function FieldError({ id, message }: { id: string; message?: string }) {
 }
 
 export function ProfilePage() {
+  const { name } = useBrand()
   const user = useAuthStore((s) => s.user)
   const patchUser = useAuthStore((s) => s.patchUser)
   const notify = useUiStore((s) => s.notify)
@@ -142,7 +143,7 @@ export function ProfilePage() {
 
         <SectionCard id="identity" title="Identity" icon={<UserIcon className="h-5 w-5" />}>
           <div className="space-y-5">
-            <Field label="Display name" hint="This is how your name appears on orders and across Cartwise.">
+            <Field label="Display name" hint={`This is how your name appears on orders and across ${name}.`}>
               {(id) => (
                 <div className="space-y-1">
                   <div className="relative">

@@ -3,11 +3,11 @@
 Index: [README](README.md)
 
 <a id="td-sec-01"></a>
-## TD-SEC-01 Real GOOGLE_CLIENT_SECRET in local `infra/.env`
+## TD-SEC-01 Real GOOGLE_CLIENT_SECRET in local `deploy/local/.env`
 - **Severity / Effort:** High / S
-- **Where:** `infra/.env` (a non-empty `GOOGLE_CLIENT_SECRET`). Gitignored (`.gitignore` lines 32-34, `.env.example` excepted), so not in the repo.
+- **Where:** `deploy/local/.env` (a non-empty `GOOGLE_CLIENT_SECRET`). Gitignored (`.gitignore` lines 32-34, `.env.example` excepted), so not in the repo.
 - **Risk:** The secret was pasted into plaintext and handled during this work; anyone with the machine or a shared copy has it.
-- **Fix:** Rotate the secret in Google Cloud Console and update `infra/.env`; use a secrets manager outside local dev. Confirm with `git log -p -- infra/.env` that it was never committed.
+- **Fix:** Rotate the secret in Google Cloud Console and update `deploy/local/.env`; use a secrets manager outside local dev. Confirm with `git log -p -- deploy/local/.env` that it was never committed.
 
 <a id="td-sec-02"></a>
 ## TD-SEC-02 Admin SPA Google login starts via the gateway
@@ -19,35 +19,35 @@ Index: [README](README.md)
 <a id="td-sec-03"></a>
 ## TD-SEC-03 Dev DB passwords committed
 - **Severity / Effort:** Med / S
-- **Where:** `infra/.env.example` (`USER_DB_PASSWORD`, `CART_DB_PASSWORD`, `ORDER_DB_PASSWORD`), `infra/scripts/create-customer-dbs.sql`, `infra/postgres/init/01-schemas.sql`. Compose requires them via `:?`.
+- **Where:** `deploy/local/.env.example` (`USER_DB_PASSWORD`, `CART_DB_PASSWORD`, `ORDER_DB_PASSWORD`), `deploy/local/scripts/create-customer-dbs.sql`, `deploy/local/postgres/init/01-schemas.sql`. Compose requires them via `:?`.
 - **Risk:** Throwaway values, same pattern as sibling services; dangerous if reused outside local dev.
 - **Fix:** Generate per-environment passwords; remove literals from SQL (use psql variables).
 
 <a id="td-sec-04"></a>
 ## TD-SEC-04 Open registration by default
 - **Severity / Effort:** Med / S
-- **Where:** `infra/docker-compose.yml` (`AUTH_REGISTRATION_ENABLED:-true`).
+- **Where:** `deploy/local/docker-compose.yml` (`AUTH_REGISTRATION_ENABLED:-true`).
 - **Risk:** Anyone can create accounts. Email verification exists since Phase 6 but is advisory (see [TD-P6-10](phase6.md#td-p6-10)). Fine for dev, not for production.
 - **Fix:** Default false outside dev.
 
 <a id="td-sec-05"></a>
 ## TD-SEC-05 Manual DB script for existing volumes
 - **Severity / Effort:** Med / M
-- **Where:** `infra/scripts/create-customer-dbs.sql`.
+- **Where:** `deploy/local/scripts/create-customer-dbs.sql`.
 - **Risk:** Init scripts run only on an empty volume. Existing environments must run the script by hand, or user/cart/order services fail to start. No migration runner for infra.
 - **Fix:** A one-shot `db-bootstrap` compose service that runs idempotent role/db creation on every `up`.
 
 <a id="td-sec-06"></a>
 ## TD-SEC-06 Dev admin seed removed, no replacement
 - **Severity / Effort:** Med / S
-- **Where:** `infra/postgres/init/01-schemas.sql`. The old seed inserted into `auth.users` before Flyway had created it (broken).
+- **Where:** `deploy/local/postgres/init/01-schemas.sql`. The old seed inserted into `auth.users` before Flyway had created it (broken).
 - **Risk:** No documented way to get a first ADMIN account for the admin SPA.
 - **Fix:** Dev-only bootstrap in auth-service (property-gated) or a documented SQL step.
 
 <a id="td-sec-07"></a>
 ## TD-SEC-07 rating-service not runnable
 - **Severity / Effort:** Med / M
-- **Where:** included in `settings.gradle` (lines 53-54) but absent from `infra/docker-compose.yml` and gateway routes.
+- **Where:** included in `settings.gradle` (lines 53-54) but absent from `deploy/local/docker-compose.yml` and gateway routes.
 - **Risk:** `/api/ratings` is unreachable end to end; ratings UI cannot work.
 - **Fix:** Add compose block, DB bootstrap and gateway route modeled on inventory-service.
 
@@ -61,7 +61,7 @@ Index: [README](README.md)
 <a id="td-sec-09"></a>
 ## TD-SEC-09 Prod cookie/redirect defaults must be overridden
 - **Severity / Effort:** Med / S
-- **Where:** `services/auth-service/auth-service-app/src/main/resources/application.yml` (`AUTH_COOKIE_SECURE` default false), `infra/docker-compose.yml` (`AUTH_ALLOWED_REDIRECT_URIS` defaults to localhost 5173/3000).
+- **Where:** `services/auth-service/auth-service-app/src/main/resources/application.yml` (`AUTH_COOKIE_SECURE` default false), `deploy/local/docker-compose.yml` (`AUTH_ALLOWED_REDIRECT_URIS` defaults to localhost 5173/3000).
 - **Risk:** Carried into a real deployment, the refresh cookie travels over HTTP and localhost redirects are accepted.
 - **Fix:** Set `AUTH_COOKIE_SECURE=true` and an HTTPS-only allow-list explicitly in prod; confirm the prod profile's `secure: true` is active.
 
@@ -89,13 +89,13 @@ Index: [README](README.md)
 <a id="td-sec-13"></a>
 ## TD-SEC-13 DB `CONNECT` not revoked from PUBLIC
 - **Severity / Effort:** Low / S
-- **Where:** `infra/postgres/init/01-schemas.sql`, `infra/scripts/create-customer-dbs.sql` (all service DBs, matching existing siblings).
+- **Where:** `deploy/local/postgres/init/01-schemas.sql`, `deploy/local/scripts/create-customer-dbs.sql` (all service DBs, matching existing siblings).
 - **Risk:** Any role can connect; tables are owner-only, so no data access today.
 - **Fix:** `REVOKE CONNECT ON DATABASE <db> FROM PUBLIC` for every service database.
 
 <a id="td-sec-14"></a>
 ## TD-SEC-14 Database dumps with credential material remain in git history
 - **Severity / Effort:** High / S
-- **Where:** `db-snapshots/*_20261112-011622.sql`, committed before 2026-11-14. Removed from the tree and git-ignored on 2026-11-14.
+- **Where:** `db-snapshots/*_20261112-011622.sql`, added in commit `5943ec7` (2026-11-12) to the public repository. Deleted from the branch and pushed in `38a92a3`/`97cd7e2` (2026-11-14): the branch tip no longer serves them (HTTP 404), but `5943ec7` still does.
 - **Risk:** Anyone with a clone can read SCRAM verifiers for 4 Postgres roles (including the `postgres` superuser), an Argon2id password hash, and refresh-token hashes with IP and user agent.
-- **Fix:** Rotate the affected passwords and revoke the refresh tokens; then, if the repository is or will be shared, purge the folder from history with `git filter-repo` (rewrites history; every clone must re-clone).
+- **Fix:** Follow the [runbook](../guides/runbooks/leaked-database-dump.md): change the exposed account password, optionally rotate the local role passwords, purge history with `git filter-branch` (rehearsed on a clone: 13 commits rewritten, tip tree otherwise identical) and force-push, then ask GitHub to drop cached views. Prevention (Gitleaks rules, pre-commit hook, `db-snapshot.sh`) is already in place.

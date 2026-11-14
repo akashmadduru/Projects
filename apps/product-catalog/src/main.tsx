@@ -5,7 +5,7 @@
 import React from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from './App'
-import { useAuthStore } from './stores'
+import { useAuthStore, bootstrapBranding } from './stores'
 import './lib/i18n' // applies the saved language (html lang) before first paint
 import './lib/retroLights' // applies the saved "lights off" preference before first paint
 import './style.css'
@@ -17,6 +17,7 @@ if (!rootElement) {
 }
 
 // Restore a session from the refresh cookie (single-flight, safe under StrictMode).
+bootstrapBranding()
 void useAuthStore.getState().bootstrap()
 
 // PWA: offline shell + caching + push share one worker (public/sw.js). Production builds only.

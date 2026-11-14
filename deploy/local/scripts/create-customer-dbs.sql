@@ -2,11 +2,11 @@
 -- One-off bootstrap of the customer-facing service databases for an EXISTING
 -- postgres volume (the init scripts only run on an empty volume).
 --
---   docker exec -i ecommerce-postgres psql -U postgres -v ON_ERROR_STOP=0 < infra/scripts/create-customer-dbs.sql
+--   docker exec -i ecommerce-postgres psql -U postgres -v ON_ERROR_STOP=0 < deploy/local/scripts/create-customer-dbs.sql
 --
 -- Re-runnable: roles/databases that already exist are skipped. Passwords are the
--- local-dev throwaway values that match infra/.env. Mirrors the user_db/cart_db/
--- order_db blocks in infra/postgres/init/01-schemas.sql.
+-- local-dev throwaway values that match deploy/local/.env. Mirrors the user_db/cart_db/
+-- order_db blocks in deploy/local/postgres/init/01-schemas.sql.
 -- =============================================================================
 
 SELECT 'CREATE ROLE user_service WITH LOGIN PASSWORD ''user_service_local_pwd'''

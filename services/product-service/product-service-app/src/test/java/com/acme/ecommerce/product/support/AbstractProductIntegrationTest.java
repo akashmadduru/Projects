@@ -34,7 +34,7 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 @ActiveProfiles("test")
 public abstract class AbstractProductIntegrationTest {
 
-  /** Matches the image used by infra/docker-compose.yml. */
+  /** Matches the image used by deploy/local/docker-compose.yml. */
   protected static final PostgreSQLContainer POSTGRES =
       new PostgreSQLContainer("postgres:17")
           .withDatabaseName("product_db")

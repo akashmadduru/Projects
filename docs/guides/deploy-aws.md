@@ -10,6 +10,10 @@ cp deploy/aws/config.example.env deploy/aws/config.env     # then edit it
 
 Both are bash scripts. On Windows run them from **Git Bash** (installed with Git for Windows) or WSL.
 
+> **Before the first deploy, read [cloud setup](cloud-setup.md)** (account, quotas, domain, Stripe, Google, `config.env`).
+> Every variable is in the [catalogue](../reference/environment-variables.md); how a value travels is
+> [diagram 17](../architecture/diagrams/17-configuration-flow.md).
+
 ## What you get
 
 ```
@@ -119,24 +123,13 @@ waits five quiet minutes and never removes more than half the pods per minute.
   summed over all services, must stay below the database's `max_connections` (about 450 on the lean
   instance). A CloudWatch alarm fires above 350. Lower `poolSize` or add RDS Proxy before raising limits.
 
-**Rotate a secret:** change it in Secrets Manager (`<project>-<env>/app` or `/db`). External Secrets
-refreshes the Kubernetes secret within an hour; restart the affected deployments to pick it up
-(`kubectl -n ecommerce rollout restart deploy/<name>`). For a database password, re-run
-`./deploy/aws/deploy.sh --only database` first so RDS matches.
+**Rotate a secret:** see the [rotate-secrets runbook](runbooks/rotate-secrets.md). Pods read secrets at
+start-up, so a rotated value needs a restart.
 
-**First admin user.** There is no seeded admin. Register on the admin site, then grant the role once:
+**First admin user.** There is no seeded admin: see the [first-admin-user runbook](runbooks/first-admin-user.md).
 
-```bash
-export KUBECONFIG=...   # as above
-PW=$(kubectl -n ecommerce get secret db-secrets -o jsonpath='{.data.master_password}' | base64 -d)
-RDS=$(cd deploy/aws && terraform -chdir=terraform/envs/prod output -raw rds_endpoint)
-kubectl -n ecommerce run psql --rm -it --restart=Never --image=public.ecr.aws/docker/library/postgres:17-alpine \
-  --env=PGPASSWORD="$PW" --env=PGSSLMODE=require -- \
-  psql -h "$RDS" -U dbadmin -d auth_db -c \
-  "INSERT INTO auth.user_roles (user_id, role_id) SELECT u.id, 1 FROM auth.users u WHERE u.email='you@example.com' ON CONFLICT DO NOTHING;"
-```
-
-(role 1 = `ROLE_ADMIN`). Then sign out and in again so the new token carries the role.
+**Configuring AWS, the domain, Stripe, Google and every setting:** see [cloud setup](cloud-setup.md) and the
+[environment variable catalogue](../reference/environment-variables.md).
 
 ## Cost
 

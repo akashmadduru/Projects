@@ -4,7 +4,7 @@ Status: accepted (implemented in `deploy/aws/`), not yet exercised against a liv
 
 ## Context
 
-The platform ran only on a developer's machine through `infra/docker-compose.yml`. The audit
+The platform ran only on a developer's machine through `deploy/local/docker-compose.yml`. The audit
 (`AUDIT_README.md`) found no deployment automation, no Kubernetes manifests, no infrastructure as
 code, and several defects that block a safe production deployment. The target architecture is the
 diagram supplied with the request: Route 53, CloudFront and WAF, S3-hosted SPAs, an ALB in front of the
@@ -49,5 +49,5 @@ gateway, EKS with Karpenter and autoscaling, RDS PostgreSQL, MSK, ElastiCache, S
 - Negative: roughly 100 new files to maintain; pinned chart and module versions need periodic bumps.
 - The Terraform state holds generated passwords and the Stripe/Google values; the state bucket is the
   sensitive asset and must be access-controlled.
-- Not addressed (see `deploy/aws/README.md`, "Known limits"): Razorpay, SMS provider, an outbox for
+- Not addressed (see `docs/guides/deploy-aws.md`, "Known limits"): Razorpay, SMS provider, an outbox for
   events, per-service internal credentials, S3 for review media, RDS Proxy.

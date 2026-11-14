@@ -1,53 +1,71 @@
 # Documentation
 
-All project documentation lives in this folder. Start with **getting started** to run the platform,
-**phases** to see what has been built, and **architecture** to see how it fits together.
+All project documentation lives in this folder, grouped by what you are trying to do.
 
 | I want to… | Read |
 |---|---|
 | Run the platform locally | [getting-started.md](getting-started.md) |
 | Know what each phase built and why | [phases/](phases/README.md) |
-| Know what's next | [roadmap.md](roadmap.md) |
-| Understand the system | [architecture/overview.md](architecture/overview.md) |
+| Know what is next | [roadmap.md](roadmap.md) |
+| Understand how the system fits together | [architecture/overview.md](architecture/overview.md) |
+| Look up an endpoint, error code, table or event | [reference/](#reference) |
+| Operate, debug, deploy or configure | [guides/](#guides) |
+| Set up AWS, the domain, Stripe and Google before deploying | [guides/cloud-setup.md](guides/cloud-setup.md) |
+| Look up what an environment variable does | [reference/environment-variables.md](reference/environment-variables.md) |
+| Respond to a leaked secret or committed DB dump | [guides/runbooks/leaked-database-dump.md](guides/runbooks/leaked-database-dump.md) |
 | Find known shortcuts and risks | [techdebt/](techdebt/README.md), [audit/technical-audit.md](audit/technical-audit.md) |
-| Connect Stripe, email, SMS, push or Google | [operations/setup-integrations.md](guides/integrations.md) |
-| Deploy to AWS | [operations/deploy-aws.md](guides/deploy-aws.md) |
 
-## Layout
+## Categories
 
-```
-docs/
-├── getting-started.md         prerequisites, env, build, run, ports, dev scripts
-├── roadmap.md                 where the product stands and what comes next
-├── phases/                    one page per phase (1–10) plus the UI and delivery tracks
-├── architecture/
-│   ├── overview.md            services, data flow, consistency, deployment topology
-│   ├── api.md                 HTTP API reference (detailed for Phases 1–5)
-│   ├── endpoints.md           every controller endpoint in every service (generated from code)
-│   ├── events.md              Kafka topics, event types, idempotency, failure handling
-│   ├── data-model.md          schemas (detailed for product, inventory, rating)
-│   ├── decision-log.md        cross-cutting backend decisions
-│   ├── adr/                   architecture decision records 0001–0004
-│   ├── design/                HLD and LLD for Phases 2 and 3
-│   └── diagrams/              Mermaid diagrams 01–16
-├── services/                  deep dives: auth-service, gateway, eureka-server, product-service, inventory-service
-├── apps/                      storefront (React) and admin (Vue) SPAs
-├── operations/                operations runbook, CI/CD, AWS deploy, integrations, Postman
-├── techdebt/                  tech debt register (TD-<AREA>-NN ids)
-└── audit/                     technical audit of 2026-11-13/14
-```
+### Start here
+- [getting-started.md](getting-started.md): prerequisites, configuration, build, run, ports, dev scripts.
+- [roadmap.md](roadmap.md): where the product stands and the ordered next steps.
 
-## Coverage and freshness
+### History: phases
+- [phases/](phases/README.md): one page per phase (1–10) plus the storefront UI and delivery tracks.
+  Each page says what was built, why, and what later phases changed.
 
-| Document | Covers | Last checked against code |
-|---|---|---|
-| phases/, getting-started.md, roadmap.md, architecture/overview.md, architecture/endpoints.md | Phases 1–10 | 2026-11-14 |
-| architecture/api.md, data-model.md, events.md, decision-log.md | Detailed for Phases 1–5. Later phases are summarised in the phase pages and listed in endpoints.md. | 2026-11-10 to 11-12 |
-| architecture/design/ (HLD/LLD) | Phase 2 and 3 designs as approved. Later phases changed some details; each phase page has a "Changed since" section. | 2026-11-10 |
-| architecture/diagrams/ 01–12 | Storefront and platform as of Phases 1–4 | 2026-11-10 |
-| architecture/diagrams/ 13–16 | Phase 5 customer accounts | 2026-11-12 |
-| services/ | The five services built in Phases 1–2 | 2026-11-10 |
-| techdebt/ | All phases. Items are re-checked against the code when a phase closes. | 2026-11-13 |
+### Explanation: architecture
+- [architecture/overview.md](architecture/overview.md): platform map (14 applications, 6 topics), principles, observability, limits.
+- [architecture/decision-log.md](architecture/decision-log.md): cross-cutting decisions and whether each still holds.
+- [architecture/adr/](architecture/adr/): ADR 0001–0004.
+- [architecture/design/](architecture/design/): HLD and LLD for Phases 2 and 3 (historical designs).
+- [architecture/diagrams/](architecture/diagrams/README.md): Mermaid diagrams 01–17.
 
-Services added in Phases 5–10 (user, cart, order, payment, promotion, notification, seller, support,
-rating) have no deep-dive page. Their behaviour is described in the phase that introduced them.
+### Reference
+- [reference/endpoints.md](reference/endpoints.md): all 309 HTTP endpoints, generated from the controllers.
+- [reference/api.md](reference/api.md): auth, roles, all 38 error codes, paging, rate limits, idempotency, and detailed request/response for the core endpoints.
+- [reference/events.md](reference/events.md): every Kafka topic, consumer group, payload, and failure path.
+- [reference/environment-variables.md](reference/environment-variables.md): every environment variable, its default, whether production needs it, and where it is set. Generated from the code and checked in CI.
+- [reference/data-model.md](reference/data-model.md): all 12 databases and their tables, from the Flyway migrations.
+
+### Guides
+- [guides/operations.md](guides/operations.md): debugging one service, migrations, health, logs, troubleshooting.
+- [guides/integrations.md](guides/integrations.md): Stripe, email, SMS, push and Google for local development.
+- [guides/cloud-setup.md](guides/cloud-setup.md): what to configure before the first AWS deploy: account, quotas, domain, Stripe, Google, `config.env`.
+- [guides/ci-cd.md](guides/ci-cd.md): GitHub Actions workflows, the enforcement switch, the baseline to clear.
+- [guides/deploy-aws.md](guides/deploy-aws.md): Terraform, EKS and Helm deployment.
+- [guides/postman.md](guides/postman.md): the Postman collection.
+- [guides/runbooks/](guides/runbooks/): [first admin user](guides/runbooks/first-admin-user.md), [rotate a secret](guides/runbooks/rotate-secrets.md), [leaked database dump](guides/runbooks/leaked-database-dump.md).
+
+### Components
+- [services/](services/): deep dives for auth-service, gateway, eureka-server, product-service, inventory-service.
+  The nine services added in Phases 4–10 are described in their phase pages.
+- [apps/storefront.md](apps/storefront.md) and [apps/admin.md](apps/admin.md): the two SPAs.
+
+### Risks
+- [techdebt/](techdebt/README.md): the register, with a stable `TD-<AREA>-NN` id per item.
+- [audit/technical-audit.md](audit/technical-audit.md): the 2026-11-13/14 audit snapshot, with a progress note.
+
+## Freshness
+
+Every page states the date it was last checked against the code.
+
+| Pages | Last checked against code |
+|---|---|
+| getting-started, roadmap, phases/, architecture/overview, architecture/decision-log, reference/ (all four), guides/operations, guides/integrations, guides/runbooks/, services/ (status sections), apps/ (status sections) | 2026-11-14 |
+| guides/ci-cd, guides/deploy-aws | 2026-11-14 (written that day) |
+| guides/cloud-setup, guides/runbooks/first-admin-user, guides/runbooks/rotate-secrets, architecture/diagrams/17 | 2026-11-15 (written that day; AWS steps never run against a real account) |
+| reference/environment-variables | Generated from the code; `--check` in CI keeps it current |
+| techdebt/ | Items dated individually, 2026-11-12 to 2026-11-14 |
+| architecture/adr/, architecture/design/, architecture/diagrams/, audit/ | Historical records. Not rewritten; dated notes mark what has since changed. |

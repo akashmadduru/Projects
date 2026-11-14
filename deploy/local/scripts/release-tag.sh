@@ -2,9 +2,9 @@
 # =============================================================================
 # Create (and optionally push) a SemVer release tag, enforcing the branch rules.
 #
-#   infra/scripts/release-tag.sh v1.2.0-rc.1          # on staging
-#   infra/scripts/release-tag.sh v1.2.0               # on master
-#   infra/scripts/release-tag.sh v1.2.0 --push        # also push the tag
+#   deploy/local/scripts/release-tag.sh v1.2.0-rc.1          # on staging
+#   deploy/local/scripts/release-tag.sh v1.2.0               # on master
+#   deploy/local/scripts/release-tag.sh v1.2.0 --push        # also push the tag
 #
 # Rules (see docs/guides/branching-and-releases.md):
 #   vX.Y.Z-rc.N  only on `staging`  -> CD publishes to the staging environment

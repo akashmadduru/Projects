@@ -148,6 +148,6 @@ Phase 8 was built under "no tests, no HLD/LLD, record shortcuts as debt". The in
 <a id="td-p8-20"></a>
 ## TD-P8-20 notification-service database setup and dev-only config
 - **Severity / Effort:** Low / S
-- **Where:** `infra/scripts/create-customer-dbs.sql`, `infra/postgres/init/01-schemas.sql`, `infra/.env.example` (`NOTIFICATION_DB_PASSWORD`).
+- **Where:** `deploy/local/scripts/create-customer-dbs.sql`, `deploy/local/postgres/init/01-schemas.sql`, `deploy/local/.env.example` (`NOTIFICATION_DB_PASSWORD`).
 - **Risk:** notification-service now has its own database (`notification_db`, role `notification_service`, schema `notification`). Existing volumes need `create-customer-dbs.sql` run manually (extends [TD-SEC-05](infra-security.md#td-sec-05)); the password is a committed throwaway value (extends [TD-SEC-03](infra-security.md#td-sec-03)). Phase 8 images were again built through the offline mirror, not the repo Dockerfiles ([TD-P6-06](phase6.md#td-p6-06)).
 - **Fix:** Migration runner for infra databases; secrets manager for the password; a normal `compose up --build` once Maven Central is reachable.

@@ -9,16 +9,16 @@
 # private key is never written to a developer machine and rotation is automated.
 #
 # Usage:
-#   ./infra/scripts/generate-keystore.sh                      # defaults
-#   ./infra/scripts/generate-keystore.sh -o infra/secrets/jwt-keystore.p12 \
+#   ./deploy/local/scripts/generate-keystore.sh                      # defaults
+#   ./deploy/local/scripts/generate-keystore.sh -o deploy/local/secrets/jwt-keystore.p12 \
 #       -p mypassword -a jwt-signing -d 3650
 #
-# The output path is gitignored (infra/secrets/). Never commit the result.
+# The output path is gitignored (deploy/local/secrets/). Never commit the result.
 # =============================================================================
 
 set -euo pipefail
 
-OUTPUT_PATH="infra/secrets/jwt-keystore.p12"
+OUTPUT_PATH="deploy/local/secrets/jwt-keystore.p12"
 ALIAS="jwt-signing"
 VALIDITY_DAYS=3650
 KEY_SIZE=2048
@@ -112,4 +112,4 @@ echo "  PLATFORM_JWT_KEYSTORE_PATH=${OUTPUT_PATH}"
 echo "  PLATFORM_JWT_KEYSTORE_ALIAS=${ALIAS}"
 echo "  PLATFORM_JWT_KEYSTORE_PASSWORD=<the password you just set>"
 echo
-echo "Put the password in infra/.env (gitignored). Do NOT commit the keystore."
+echo "Put the password in deploy/local/.env (gitignored). Do NOT commit the keystore."

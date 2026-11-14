@@ -1,0 +1,442 @@
+{
+  "vars": {
+    "SPRING_PROFILES_ACTIVE": {
+      "group": "Platform",
+      "usedBy": "all services",
+      "text": "Spring profile. `prod` turns on production behaviour: no default passwords, secure cookies, payments refuse to run in simulated mode. Set by Helm on AWS."
+    },
+    "SERVER_PORT": {
+      "group": "Platform",
+      "defaultText": "per service",
+      "text": "Port the service listens on. Each service has its own default (gateway 8080, auth 8081, product 8082 ... support 8092)."
+    },
+    "MANAGEMENT_SERVER_PORT": {
+      "group": "Platform",
+      "usedBy": "all services (Helm)",
+      "text": "Port for actuator (health, metrics). Equal to the service port for every service except the gateway, whose `prod` profile uses a separate port 8081."
+    },
+    "MANAGEMENT_SERVER_ADDRESS": {
+      "group": "Platform",
+      "usedBy": "gateway (Helm)",
+      "text": "Bind address for a separate management port. The gateway defaults to `127.0.0.1` in `prod`, which Kubernetes probes cannot reach; the chart sets `0.0.0.0`."
+    },
+    "SPRING_CONFIG_ADDITIONAL_LOCATION": {
+      "group": "Platform",
+      "usedBy": "all services (Helm)",
+      "text": "Extra config directory. On AWS it points at `/config/`, where the discovery ConfigMap is mounted."
+    },
+    "SPRING_LIFECYCLE_TIMEOUT_PER_SHUTDOWN_PHASE": {
+      "group": "Platform",
+      "usedBy": "all services (Helm)",
+      "text": "How long a pod may spend finishing in-flight requests on shutdown. Must be shorter than the pod termination grace period."
+    },
+    "SERVER_FORWARD_HEADERS_STRATEGY": {
+      "group": "Platform",
+      "usedBy": "auth (Helm)",
+      "text": "Makes auth-service honour `X-Forwarded-Host/Proto`, so the Google sign-in callback URL uses the public host instead of the internal one."
+    },
+    "RATING_MEDIA_DIR": {
+      "group": "Platform",
+      "text": "Directory where review images are stored. On AWS this is an EBS volume, which is why rating-service runs one replica."
+    },
+    "STOREFRONT_BASE_URL": {
+      "group": "Platform",
+      "text": "Public origin of the storefront. Used in links inside emails (verify, reset password, order, referral) and as a CORS/redirect reference."
+    },
+    "ADMIN_BASE_URL": {
+      "group": "Platform",
+      "text": "Public origin of the admin / seller portal. Used in seller emails."
+    },
+    "SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE": {
+      "group": "Database",
+      "usedBy": "all services (Helm)",
+      "text": "Maximum database connections per pod (the code default is 10; the AWS chart uses 8). Pods x this value, summed over all services, must stay below the database `max_connections`."
+    },
+    "SPRING_DATASOURCE_URL": {
+      "group": "Database",
+      "text": "JDBC URL of the service's own database. On AWS it ends in `?sslmode=require` (RDS refuses unencrypted connections)."
+    },
+    "SPRING_DATASOURCE_USERNAME": {
+      "group": "Database",
+      "text": "Database role of the service (`<name>_service`), created by the database bootstrap."
+    },
+    "SPRING_DATASOURCE_PASSWORD": {
+      "group": "Database",
+      "text": "Password of that role. **No default in the `prod` profile.** On AWS it comes from Secrets Manager (`<project>-<env>/db`)."
+    },
+    "AUTH_JWT_ISSUER": {
+      "group": "Identity and tokens",
+      "text": "Token issuer (`iss`). Must be identical in auth-service, the gateway and every resource server, or every request fails with `invalid_token`."
+    },
+    "AUTH_JWT_AUDIENCES": {
+      "group": "Identity and tokens",
+      "text": "Token audience (`aud`). Same rule as the issuer."
+    },
+    "PLATFORM_JWT_KEYSTORE_PATH": {
+      "group": "Identity and tokens",
+      "text": "Path of the PKCS#12 keystore holding the JWT signing key. Mounted, never baked into an image."
+    },
+    "PLATFORM_JWT_KEYSTORE_PASSWORD": {
+      "group": "Identity and tokens",
+      "text": "Password of the keystore."
+    },
+    "PLATFORM_JWT_KEYSTORE_ALIAS": {
+      "group": "Identity and tokens",
+      "text": "Alias of the key used for signing. May be blank while the keystore has one key; set it during a key rotation."
+    },
+    "AUTH_DATA_KEY": {
+      "group": "Identity and tokens",
+      "text": "AES-256 key (base64, 32 bytes) that encrypts two-factor secrets at rest. Blank: the service starts, but enabling two-factor fails. Losing or changing it locks existing 2FA users out."
+    },
+    "AUTH_STATE_COOKIE_SECRET": {
+      "group": "Identity and tokens",
+      "text": "Signs the OIDC `state` cookie. Must be the same on every auth-service replica."
+    },
+    "AUTH_COOKIE_SECURE": {
+      "group": "Identity and tokens",
+      "text": "Marks the refresh-token cookie `Secure` (HTTPS only). `true` everywhere except local HTTP."
+    },
+    "AUTH_REGISTRATION_ENABLED": {
+      "group": "Identity and tokens",
+      "text": "Allows self-service sign-up. Default `false`; the local template and the AWS chart turn it on so you can register the first admin. Turn it off again once your accounts exist."
+    },
+    "AUTH_ALLOWED_REDIRECT_URIS": {
+      "group": "Identity and tokens",
+      "text": "Comma-separated exact URLs the SPAs may be redirected to after sign-in. No wildcards."
+    },
+    "AUTH_DEFAULT_REDIRECT_URI": {
+      "group": "Identity and tokens",
+      "text": "Redirect used when the caller does not name one."
+    },
+    "AUTH_TRUST_FORWARDED_FOR": {
+      "group": "Identity and tokens",
+      "text": "Read the client IP from `X-Forwarded-For` for login throttling and device alerts. Only safe behind the gateway, which overwrites it."
+    },
+    "AUTH_RATE_LIMIT_LOGIN_CAPACITY": {
+      "group": "Identity and tokens",
+      "text": "Login attempts per window per client (in-memory, per instance)."
+    },
+    "AUTH_RATE_LIMIT_REFRESH_CAPACITY": {
+      "group": "Identity and tokens",
+      "text": "Token refreshes per window per client (in-memory, per instance)."
+    },
+    "GOOGLE_CLIENT_ID": {
+      "group": "Identity and tokens",
+      "text": "Google OAuth client id. Blank disables Google sign-in."
+    },
+    "GOOGLE_CLIENT_SECRET": {
+      "group": "Identity and tokens",
+      "text": "Google OAuth client secret. Blank disables Google sign-in."
+    },
+    "INTERNAL_API_TOKEN": {
+      "group": "Identity and tokens",
+      "text": "Shared secret for service-to-service `/internal/**` calls (`X-Internal-Token`). One value for every service; the same compromise-everything caveat applies."
+    },
+    "SELLER_DATA_KEY": {
+      "group": "Identity and tokens",
+      "requiredInProd": true,
+      "text": "AES-256 key (base64, 32 bytes) that encrypts sellers' bank account numbers. **seller-service refuses to start without it**, or with a key that is not exactly 32 bytes."
+    },
+    "KAFKA_BOOTSTRAP_SERVERS": {
+      "group": "Messaging and cache",
+      "text": "Kafka brokers (`host:port,host:port`). On AWS the MSK plaintext listener, reachable only from the cluster."
+    },
+    "SPRING_KAFKA_BOOTSTRAP_SERVERS": {
+      "group": "Messaging and cache",
+      "usedBy": "all services (Helm)",
+      "text": "Same brokers for the shared audit-event publisher, which reads the Spring name."
+    },
+    "REDIS_HOST": {
+      "group": "Messaging and cache",
+      "text": "Redis host: auth-service user cache and the gateway rate limiter."
+    },
+    "REDIS_PORT": {
+      "group": "Messaging and cache",
+      "text": "Redis port."
+    },
+    "SPRING_DATA_REDIS_SSL_ENABLED": {
+      "group": "Messaging and cache",
+      "usedBy": "auth, gateway (Helm)",
+      "text": "Use TLS to Redis. ElastiCache has in-transit encryption on, so this is `true` on AWS."
+    },
+    "STRIPE_SECRET_KEY": {
+      "group": "Payments",
+      "requiredInProd": true,
+      "text": "Stripe secret key. Blank means SIMULATED mode locally; under the `prod` profile payment-service refuses to start without it."
+    },
+    "STRIPE_PUBLISHABLE_KEY": {
+      "group": "Payments",
+      "secret": false,
+      "text": "Stripe publishable key, handed to the browser."
+    },
+    "STRIPE_WEBHOOK_SECRET": {
+      "group": "Payments",
+      "text": "Signing secret of the Stripe webhook endpoint."
+    },
+    "MAIL_HOST": {
+      "group": "Email, SMS and push",
+      "text": "SMTP server. Locally the Mailpit container; on AWS `email-smtp.<region>.amazonaws.com` (SES)."
+    },
+    "MAIL_PORT": {
+      "group": "Email, SMS and push",
+      "text": "SMTP port (587 with STARTTLS, 465 with SSL)."
+    },
+    "MAIL_USERNAME": {
+      "group": "Email, SMS and push",
+      "text": "SMTP user. On AWS, the SES SMTP credentials Terraform creates."
+    },
+    "MAIL_PASSWORD": {
+      "group": "Email, SMS and push",
+      "text": "SMTP password."
+    },
+    "NOTIFICATION_SENDER": {
+      "group": "Email, SMS and push",
+      "text": "From address of outgoing mail. Must belong to a verified SES identity on AWS."
+    },
+    "NOTIFICATION_SERVICE_URL": {
+      "group": "Email, SMS and push",
+      "usedBy": "auth",
+      "text": "Direct URL of notification-service. Blank resolves it through service discovery."
+    },
+    "NOTIFICATION_SMS_MAILBOX_DOMAIN": {
+      "group": "Email, SMS and push",
+      "text": "Dev-only: SMS text is also emailed to `sms+<digits>@<domain>` so it shows up in Mailpit. **Blank in production**, which disables the sink; there is no SMS provider, so SMS is not delivered."
+    },
+    "SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH": {
+      "group": "Email, SMS and push",
+      "usedBy": "notification",
+      "text": "SMTP authentication on/off. `true` with a real provider."
+    },
+    "SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE": {
+      "group": "Email, SMS and push",
+      "usedBy": "notification",
+      "text": "Upgrade the SMTP connection with STARTTLS (port 587)."
+    },
+    "SPRING_MAIL_PROPERTIES_MAIL_SMTP_SSL_ENABLE": {
+      "group": "Email, SMS and push",
+      "usedBy": "notification",
+      "text": "Implicit TLS (port 465)."
+    },
+    "VAPID_PUBLIC_KEY": {
+      "group": "Email, SMS and push",
+      "secret": false,
+      "text": "Browser-push public key. Blank: generated on first start and stored in the database."
+    },
+    "VAPID_PRIVATE_KEY": {
+      "group": "Email, SMS and push",
+      "text": "Browser-push private key. Blank: generated on first start."
+    },
+    "VAPID_SUBJECT": {
+      "group": "Email, SMS and push",
+      "text": "Contact (`mailto:`) sent to push services."
+    },
+    "GATEWAY_CORS_ALLOWED_ORIGINS": {
+      "group": "Edge, CORS and rate limits",
+      "requiredInProd": true,
+      "text": "Comma-separated exact browser origins allowed to call the API. No wildcards (the refresh cookie needs credentials). **No default in `prod`.**"
+    },
+    "GATEWAY_RATE_LIMIT_ENABLED": {
+      "group": "Edge, CORS and rate limits",
+      "text": "Turns the gateway's per-user / per-IP request limiter on or off."
+    },
+    "GATEWAY_RATE_LIMIT_READS": {
+      "group": "Edge, CORS and rate limits",
+      "text": "Reads (GET) allowed per minute per user or IP."
+    },
+    "GATEWAY_RATE_LIMIT_WRITES": {
+      "group": "Edge, CORS and rate limits",
+      "text": "Writes (POST/PUT/PATCH/DELETE) allowed per minute per user or IP."
+    },
+    "GATEWAY_RATE_LIMIT_TRUSTED_PROXY_HOPS": {
+      "group": "Edge, CORS and rate limits",
+      "usedBy": "gateway (Helm)",
+      "text": "Number of trusted proxies in front of the gateway (CloudFront + ALB = 2). The client IP is read that many entries from the right of `X-Forwarded-For`. 0 = use the socket address."
+    },
+    "EUREKA_CLIENT_ENABLED": {
+      "group": "Service discovery",
+      "text": "Register with and read from Eureka. `false` on AWS, where discovery is a Kubernetes ConfigMap plus Services."
+    },
+    "EUREKA_CLIENT_SERVICEURL_DEFAULTZONE": {
+      "group": "Service discovery",
+      "text": "Eureka server URL (local Compose only)."
+    },
+    "EUREKA_INSTANCE_HOSTNAME": {
+      "group": "Service discovery",
+      "usedBy": "eureka-server",
+      "requiredInProd": true,
+      "text": "Hostname the Eureka server advertises. No default in `prod`."
+    },
+    "ORDER_RISK_VELOCITY_THRESHOLD": {
+      "group": "Business rules",
+      "usedBy": "order (Compose)",
+      "text": "Orders in a short window that trigger a velocity risk flag (Compose default 8). Mapped by Spring onto `order.risk.*`."
+    },
+    "ORDER_RISK_AVG_MIN_ORDERS": {
+      "group": "Business rules",
+      "usedBy": "order (Compose)",
+      "text": "Minimum past orders before the \"unusually large order\" check applies (Compose default 3)."
+    },
+    "ORDER_RISK_AVG_MULTIPLIER": {
+      "group": "Business rules",
+      "usedBy": "order (Compose)",
+      "text": "How many times the customer's average an order may be before it is flagged (Compose default 10)."
+    },
+    "USER_REFERRAL_REWARD_COINS": {
+      "group": "Business rules",
+      "text": "Coins awarded for a successful referral."
+    },
+    "TRACING_SAMPLING_PROBABILITY": {
+      "group": "Observability",
+      "text": "Fraction of requests traced (0 to 1). 0.1 in production, 1.0 in local Compose."
+    },
+    "OTEL_TRACES_ENDPOINT": {
+      "group": "Observability",
+      "text": "OTLP/HTTP trace endpoint. Jaeger locally and in the AWS chart."
+    },
+    "CART_JWKS_URI": {
+      "group": "Service discovery",
+      "usedBy": "cart",
+      "text": "Fixed URL of auth-service's public keys, used by cart to verify tokens. Set it on AWS (`http://auth-service:8081/.well-known/jwks.json`); blank resolves auth-service through discovery."
+    },
+    "CART_JWKS_SERVICE_ID": {
+      "group": "Service discovery",
+      "usedBy": "cart",
+      "text": "Service id used to find auth-service when no fixed JWKS URL is set (default `AUTH-SERVICE`)."
+    },
+    "GATEWAY_JWKS_URI": {
+      "group": "Service discovery",
+      "usedBy": "gateway",
+      "text": "Fixed URL of auth-service's public keys, used by gateway to verify tokens. Set it on AWS (`http://auth-service:8081/.well-known/jwks.json`); blank resolves auth-service through discovery."
+    },
+    "GATEWAY_JWKS_SERVICE_ID": {
+      "group": "Service discovery",
+      "usedBy": "gateway",
+      "text": "Service id used to find auth-service when no fixed JWKS URL is set (default `AUTH-SERVICE`)."
+    },
+    "INVENTORY_JWKS_URI": {
+      "group": "Service discovery",
+      "usedBy": "inventory",
+      "text": "Fixed URL of auth-service's public keys, used by inventory to verify tokens. Set it on AWS (`http://auth-service:8081/.well-known/jwks.json`); blank resolves auth-service through discovery."
+    },
+    "INVENTORY_JWKS_SERVICE_ID": {
+      "group": "Service discovery",
+      "usedBy": "inventory",
+      "text": "Service id used to find auth-service when no fixed JWKS URL is set (default `AUTH-SERVICE`)."
+    },
+    "NOTIFICATION_JWKS_URI": {
+      "group": "Service discovery",
+      "usedBy": "notification",
+      "text": "Fixed URL of auth-service's public keys, used by notification to verify tokens. Set it on AWS (`http://auth-service:8081/.well-known/jwks.json`); blank resolves auth-service through discovery."
+    },
+    "NOTIFICATION_JWKS_SERVICE_ID": {
+      "group": "Service discovery",
+      "usedBy": "notification",
+      "text": "Service id used to find auth-service when no fixed JWKS URL is set (default `AUTH-SERVICE`)."
+    },
+    "ORDER_JWKS_URI": {
+      "group": "Service discovery",
+      "usedBy": "order",
+      "text": "Fixed URL of auth-service's public keys, used by order to verify tokens. Set it on AWS (`http://auth-service:8081/.well-known/jwks.json`); blank resolves auth-service through discovery."
+    },
+    "ORDER_JWKS_SERVICE_ID": {
+      "group": "Service discovery",
+      "usedBy": "order",
+      "text": "Service id used to find auth-service when no fixed JWKS URL is set (default `AUTH-SERVICE`)."
+    },
+    "PAYMENT_JWKS_URI": {
+      "group": "Service discovery",
+      "usedBy": "payment",
+      "text": "Fixed URL of auth-service's public keys, used by payment to verify tokens. Set it on AWS (`http://auth-service:8081/.well-known/jwks.json`); blank resolves auth-service through discovery."
+    },
+    "PAYMENT_JWKS_SERVICE_ID": {
+      "group": "Service discovery",
+      "usedBy": "payment",
+      "text": "Service id used to find auth-service when no fixed JWKS URL is set (default `AUTH-SERVICE`)."
+    },
+    "PRODUCT_JWKS_URI": {
+      "group": "Service discovery",
+      "usedBy": "product",
+      "text": "Fixed URL of auth-service's public keys, used by product to verify tokens. Set it on AWS (`http://auth-service:8081/.well-known/jwks.json`); blank resolves auth-service through discovery."
+    },
+    "PRODUCT_JWKS_SERVICE_ID": {
+      "group": "Service discovery",
+      "usedBy": "product",
+      "text": "Service id used to find auth-service when no fixed JWKS URL is set (default `AUTH-SERVICE`)."
+    },
+    "PROMOTION_JWKS_URI": {
+      "group": "Service discovery",
+      "usedBy": "promotion",
+      "text": "Fixed URL of auth-service's public keys, used by promotion to verify tokens. Set it on AWS (`http://auth-service:8081/.well-known/jwks.json`); blank resolves auth-service through discovery."
+    },
+    "PROMOTION_JWKS_SERVICE_ID": {
+      "group": "Service discovery",
+      "usedBy": "promotion",
+      "text": "Service id used to find auth-service when no fixed JWKS URL is set (default `AUTH-SERVICE`)."
+    },
+    "RATING_JWKS_URI": {
+      "group": "Service discovery",
+      "usedBy": "rating",
+      "text": "Fixed URL of auth-service's public keys, used by rating to verify tokens. Set it on AWS (`http://auth-service:8081/.well-known/jwks.json`); blank resolves auth-service through discovery."
+    },
+    "RATING_JWKS_SERVICE_ID": {
+      "group": "Service discovery",
+      "usedBy": "rating",
+      "text": "Service id used to find auth-service when no fixed JWKS URL is set (default `AUTH-SERVICE`)."
+    },
+    "SELLER_JWKS_URI": {
+      "group": "Service discovery",
+      "usedBy": "seller",
+      "text": "Fixed URL of auth-service's public keys, used by seller to verify tokens. Set it on AWS (`http://auth-service:8081/.well-known/jwks.json`); blank resolves auth-service through discovery."
+    },
+    "SELLER_JWKS_SERVICE_ID": {
+      "group": "Service discovery",
+      "usedBy": "seller",
+      "text": "Service id used to find auth-service when no fixed JWKS URL is set (default `AUTH-SERVICE`)."
+    },
+    "SUPPORT_JWKS_URI": {
+      "group": "Service discovery",
+      "usedBy": "support",
+      "text": "Fixed URL of auth-service's public keys, used by support to verify tokens. Set it on AWS (`http://auth-service:8081/.well-known/jwks.json`); blank resolves auth-service through discovery."
+    },
+    "SUPPORT_JWKS_SERVICE_ID": {
+      "group": "Service discovery",
+      "usedBy": "support",
+      "text": "Service id used to find auth-service when no fixed JWKS URL is set (default `AUTH-SERVICE`)."
+    },
+    "USER_JWKS_URI": {
+      "group": "Service discovery",
+      "usedBy": "user",
+      "text": "Fixed URL of auth-service's public keys, used by user to verify tokens. Set it on AWS (`http://auth-service:8081/.well-known/jwks.json`); blank resolves auth-service through discovery."
+    },
+    "USER_JWKS_SERVICE_ID": {
+      "group": "Service discovery",
+      "usedBy": "user",
+      "text": "Service id used to find auth-service when no fixed JWKS URL is set (default `AUTH-SERVICE`)."
+    }
+  },
+  "vite": {
+    "VITE_API_BASE_URL": "Origin of the API the admin app calls. On AWS it is the admin site itself (CloudFront forwards `/api/*`).",
+    "VITE_APP_ORIGIN": "Public origin of the admin app, used for OAuth redirects.",
+    "VITE_ADMIN_URL": "Link from the storefront footer to the admin site.",
+    "VITE_AUTH_BASE_URL": "Origin the storefront uses to start Google sign-in (`/oauth2/authorization/google`). On AWS the storefront origin.",
+    "VITE_GOOGLE_SSO_ENABLED": "Shows the \"Continue with Google\" button. `deploy.sh` sets it from whether `GOOGLE_CLIENT_ID` is filled in."
+  },
+  "deploy": {
+    "AWS_REGION": "Region for everything except CloudFront certificates and WAF (always us-east-1).",
+    "AWS_PROFILE": "Named AWS CLI profile; blank uses the default credential chain.",
+    "PROJECT": "Name prefix for every resource.",
+    "ENVIRONMENT": "Environment name; with PROJECT it names the environment and is the word `destroy.sh` asks you to type.",
+    "DOMAIN_NAME": "Root domain you control. Serves `shop.`, `admin.` and `api.` subdomains.",
+    "SIZE_PROFILE": "`lean` = cheapest working topology; `prod` = full high availability.",
+    "ALERT_EMAIL": "Address that receives CloudWatch alarms (AWS emails a confirmation link).",
+    "STRIPE_SECRET_KEY": "**Required.** Stripe secret key; payment-service refuses to start in production without it.",
+    "STRIPE_PUBLISHABLE_KEY": "**Required.** Stripe publishable key.",
+    "STRIPE_WEBHOOK_SECRET": "**Required.** Signing secret of the Stripe webhook endpoint.",
+    "GOOGLE_CLIENT_ID": "Optional. Blank disables Google sign-in.",
+    "GOOGLE_CLIENT_SECRET": "Optional. Blank disables Google sign-in.",
+    "KUBERNETES_API_ALLOWED_CIDRS": "Comma-separated CIDRs allowed to reach the Kubernetes API. Narrow it for production.",
+    "RESTRICT_ALB_TO_CLOUDFRONT": "Only CloudFront may connect to the load balancer, so the WAF cannot be bypassed.",
+    "IMAGE_TAG": "Image tag override; default is the git commit (plus a hash of uncommitted changes).",
+    "SKIP_FRONTENDS": "`true` skips building and uploading the two web apps."
+  }
+}

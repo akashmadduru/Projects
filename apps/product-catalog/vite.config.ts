@@ -10,7 +10,7 @@ export default defineConfig({
   server: {
     // Pinned (matches `npm run dev --port 3000` and the Docker image): Google sign-in returns to an
     // exact-match allow-listed callback (http://localhost:3000/auth/callback, see AUTH_ALLOWED_REDIRECT_URIS
-    // in infra/docker-compose.yml), so silently moving to another port would break it.
+    // in deploy/local/docker-compose.yml), so silently moving to another port would break it.
     port: 3000,
     strictPort: true,
     proxy: {

@@ -9,11 +9,11 @@ import { useLoad } from '../../hooks/useLoad'
 import { errorMessage } from '../../lib/errors'
 import { useT } from '../../lib/i18n'
 import { authApi } from '../../services/authApi'
-import { useAuthStore } from '../../stores'
+import { useAuthStore, useBrandStore } from '../../stores'
 import type { TwoFactorSetup } from '../../types'
 
 function downloadCodes(codes: string[]) {
-  const blob = new Blob([`Cartwise recovery codes\n\n${codes.join('\n')}\n`], { type: 'text/plain' })
+  const blob = new Blob([`${useBrandStore.getState().config?.brand.name ?? 'Cartwise'} recovery codes\n\n${codes.join('\n')}\n`], { type: 'text/plain' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url

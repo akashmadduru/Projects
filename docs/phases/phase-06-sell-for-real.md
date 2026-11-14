@@ -24,9 +24,9 @@
 ## Run notes
 
 - New services: payment-service `8088`, promotion-service `8089`, notification-service `8090`; Mailpit (dev mail catcher) UI at http://127.0.0.1:8025.
-- New env vars in `infra/.env`: `INTERNAL_API_TOKEN` (shared service-to-service secret), `PAYMENT_DB_PASSWORD`, `PROMOTION_DB_PASSWORD`, `STRIPE_SECRET_KEY` / `STRIPE_PUBLISHABLE_KEY` / `STRIPE_WEBHOOK_SECRET`, `STOREFRONT_BASE_URL`.
-- Existing Postgres volume: create the new databases with `docker exec -i ecommerce-postgres psql -U postgres < infra/scripts/create-customer-dbs.sql`.
+- New env vars in `deploy/local/.env`: `INTERNAL_API_TOKEN` (shared service-to-service secret), `PAYMENT_DB_PASSWORD`, `PROMOTION_DB_PASSWORD`, `STRIPE_SECRET_KEY` / `STRIPE_PUBLISHABLE_KEY` / `STRIPE_WEBHOOK_SECRET`, `STOREFRONT_BASE_URL`.
+- Existing Postgres volume: create the new databases with `docker exec -i ecommerce-postgres psql -U postgres < deploy/local/scripts/create-customer-dbs.sql`.
 - Payments run in **SIMULATED** mode until Stripe keys are set; the Stripe path has never been exercised ([TD-P6-02](../techdebt/phase6.md#td-p6-02)).
 - Seeded coupons: `WELCOME10`, `FLAT100`, `SAVE5`, `FESTIVE20`.
-- Integration run: 98 of 99 e2e checks passed (the failure was a script bug). Images were built offline because Maven Central returned 403; run `docker compose -f infra/docker-compose.yml up --build` once it is reachable ([TD-P6-06](../techdebt/phase6.md#td-p6-06)).
+- Integration run: 98 of 99 e2e checks passed (the failure was a script bug). Images were built offline because Maven Central returned 403; run `docker compose -f deploy/local/docker-compose.yml up --build` once it is reachable ([TD-P6-06](../techdebt/phase6.md#td-p6-06)).
 - The dev DB still holds test data (an admin user, `p6e2e-*` users, a deactivated test product and coupons); see [TD-P6-25](../techdebt/phase6.md#td-p6-25).

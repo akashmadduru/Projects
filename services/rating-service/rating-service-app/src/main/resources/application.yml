@@ -4,7 +4,7 @@
 # The unprofiled document is the DEV/DOCKER-COMPOSE configuration; the `prod`
 # document at the bottom records which knobs must move for a real environment.
 # Same shape as user-service. NOTHING SECRET HAS A WORKING DEFAULT except the
-# throwaway local database password (same value as infra/postgres/init/01-schemas.sql).
+# throwaway local database password (same value as deploy/local/postgres/init/01-schemas.sql).
 # =============================================================================
 
 spring:

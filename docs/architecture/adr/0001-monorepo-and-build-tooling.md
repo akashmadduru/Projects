@@ -135,7 +135,7 @@ only when `AccessDeniedException` is on the classpath. Putting them in the main 
 > **Superseded 2026-11-14.** ZooKeeper was never used and was removed from compose. Scheduled jobs
 > coordinate through a Postgres advisory lock (`JobLock`). Eureka remains the only registry.
 
-ZooKeeper is provisioned in `infra/docker-compose.yml` for distributed locks and leader election.
+ZooKeeper is provisioned in `deploy/local/docker-compose.yml` for distributed locks and leader election.
 **Eureka owns service discovery.** No service may depend on
 `spring-cloud-starter-zookeeper-discovery` — doing so creates two competing registries that disagree
 about instance liveness. See [Phase 1, changed since](../../phases/phase-01-foundation.md#changed-since).

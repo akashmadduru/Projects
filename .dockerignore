@@ -8,7 +8,7 @@
 # Two reasons this matters beyond image size:
 #   1. Copying a host `build/` or `.gradle/` directory into the build stage lets
 #      stale, host-JDK-compiled output leak into the image and silently win.
-#   2. `infra/secrets/` holds the dev JWT signing keystore. A private key must
+#   2. `deploy/local/secrets/` holds the dev JWT signing keystore. A private key must
 #      never enter a build context - it survives in the image history even if a
 #      later layer deletes it.
 # =============================================================================
@@ -22,7 +22,7 @@
 **/.gradle/
 
 # --- secrets ------------------------------------------------------------------
-infra/secrets/
+deploy/local/secrets/
 **/*.p12
 **/*.jks
 **/*.pem

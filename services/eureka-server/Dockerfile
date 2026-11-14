@@ -3,7 +3,7 @@
 #
 # BUILD CONTEXT IS THE REPOSITORY ROOT, not this directory:
 #   docker build -f services/eureka-server/Dockerfile -t ecommerce/eureka-server .
-# (infra/docker-compose.yml already sets `context: ..` for this reason.)
+# (deploy/local/docker-compose.yml already sets `context: ..` for this reason.)
 # A Gradle multi-project build cannot be built from a single module directory -
 # settings.gradle.kts and the version catalog live at the root.
 #

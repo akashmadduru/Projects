@@ -5,6 +5,7 @@ import {
   BookOpen,
   Boxes,
   Coins,
+  Palette,
   CreditCard,
   LifeBuoy,
   Repeat,
@@ -89,6 +90,7 @@ const NAV_ITEMS: readonly NavItem[] = [
   { name: 'admin-warehouses', label: 'Warehouses', to: '/warehouses', icon: Warehouse, roles: ['CATALOG_MANAGER'] },
   { name: 'audit-log', label: 'Audit log', to: '/audit', icon: ScrollText, adminOnly: true },
   { name: 'fx-rates', label: 'FX rates', to: '/fx-rates', icon: Coins, adminOnly: true },
+  { name: 'theme', label: 'Theme & branding', to: '/theme', icon: Palette, adminOnly: true },
   { name: 'settings', label: 'Settings', to: '/settings', icon: SettingsIcon },
 ];
 
@@ -154,6 +156,7 @@ const PAGE_TITLES: Readonly<Record<string, string>> = {
   'audit-log': 'Audit log',
   'exchange-verify': 'Exchange verification',
   'fx-rates': 'FX rates',
+  theme: 'Theme & branding',
 };
 
 const pageTitle = computed<string>(() => {

@@ -1,7 +1,7 @@
 # =============================================================================
 # Creates the twelve service databases and their least-privilege roles on RDS.
 #
-# This replaces infra/postgres/init/01-schemas.sql and infra/scripts/create-customer-dbs.sql for AWS.
+# This replaces deploy/local/postgres/init/01-schemas.sql and deploy/local/scripts/create-customer-dbs.sql for AWS.
 # It runs INSIDE the cluster because RDS sits in isolated subnets that nothing outside the VPC can
 # reach. Passwords are not in this file: External Secrets syncs them from Secrets Manager
 # (<prefix>/db) and the Job reads them from its environment.

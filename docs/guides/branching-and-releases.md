@@ -26,8 +26,8 @@ Every build also gets an immutable `:sha-<short>`; that is what Promote uses for
 Create tags with the helper, which enforces the branch rule, a clean tree, and that the commit is already on GitHub:
 
 ```bash
-infra/scripts/release-tag.sh v1.2.0-rc.1 --push   # on staging
-infra/scripts/release-tag.sh v1.2.0 --push        # on master
+deploy/local/scripts/release-tag.sh v1.2.0-rc.1 --push   # on staging
+deploy/local/scripts/release-tag.sh v1.2.0 --push        # on master
 ```
 
 Tags that do not match these two shapes are rejected by the workflow (`prep` job fails).

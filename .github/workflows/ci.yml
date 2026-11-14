@@ -68,7 +68,6 @@ jobs:
               - '.github/workflows/ci.yml'
             infra:
               - 'deploy/**'
-              - 'infra/**'
               - '**/Dockerfile'
               - '.github/workflows/ci.yml'
             workflows:
@@ -93,6 +92,9 @@ jobs:
       # `build` = compile + spotlessCheck + checkstyle + tests for every module.
       - name: Build
         run: ./gradlew build --no-daemon --stacktrace
+      - name: Environment variable catalogue is current
+        continue-on-error: ${{ env.SOFT_FAIL == 'true' }}
+        run: node deploy/local/scripts/env-reference.mjs --check
       - name: Upload test and style reports
         if: failure()
         uses: actions/upload-artifact@v4
@@ -199,6 +201,10 @@ jobs:
       - name: Helm lint
         continue-on-error: ${{ env.SOFT_FAIL == 'true' }}
         run: helm lint deploy/aws/helm/ecommerce
+
+      - name: Environment variable catalogue is current
+        continue-on-error: ${{ env.SOFT_FAIL == 'true' }}
+        run: node deploy/local/scripts/env-reference.mjs --check
 
       - name: actionlint (workflow syntax and shell)
         continue-on-error: ${{ env.SOFT_FAIL == 'true' }}

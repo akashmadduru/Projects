@@ -1,4 +1,4 @@
-// Generates infra/scripts/update-product-images.sql: relevant image URLs per product
+// Generates deploy/local/scripts/update-product-images.sql: relevant image URLs per product
 // name (Wikimedia Commons search). Usage: node gen-product-images.mjs
 import { execFileSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';

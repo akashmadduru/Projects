@@ -3,7 +3,7 @@
 #
 # BUILD CONTEXT IS THE REPOSITORY ROOT, not this directory:
 #   docker build -f services/auth-service/auth-service-app/Dockerfile -t ecommerce/auth-service .
-# (infra/docker-compose.yml already sets `context: ..` for this reason.)
+# (deploy/local/docker-compose.yml already sets `context: ..` for this reason.)
 #
 # Follows the pattern established by services/eureka-server/Dockerfile: JDK build
 # stage -> layer-extracted JRE runtime stage, non-root, no Gradle in the shipped
@@ -12,7 +12,7 @@
 # THE SIGNING KEYSTORE IS NOT IN THIS IMAGE AND MUST NEVER BE. It is mounted at
 # runtime (see the compose service). A private key baked into a layer survives in
 # the image history even if a later layer deletes it, and gets pushed to whatever
-# registry the image lands in. `.dockerignore` already excludes infra/secrets/.
+# registry the image lands in. `.dockerignore` already excludes deploy/local/secrets/.
 # =============================================================================
 
 # --- stage 1: build ----------------------------------------------------------

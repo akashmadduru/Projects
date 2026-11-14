@@ -41,13 +41,13 @@ Not included: payment, inventory reservation, shipping/tax, order events. See [t
 
 1. **Create databases (existing postgres volume only).** Init scripts run only on an empty volume. Do not `down -v`; run:
    ```
-   docker exec -i ecommerce-postgres psql -U postgres -v ON_ERROR_STOP=0 < infra/scripts/create-customer-dbs.sql
+   docker exec -i ecommerce-postgres psql -U postgres -v ON_ERROR_STOP=0 < deploy/local/scripts/create-customer-dbs.sql
    ```
-   The script is re-runnable. Fresh volumes get the same databases from `infra/postgres/init/01-schemas.sql`.
-2. **Env.** In `infra/.env` set `USER_DB_PASSWORD`, `CART_DB_PASSWORD`, `ORDER_DB_PASSWORD` (examples in `infra/.env.example`). For Google set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`.
+   The script is re-runnable. Fresh volumes get the same databases from `deploy/local/postgres/init/01-schemas.sql`.
+2. **Env.** In `deploy/local/.env` set `USER_DB_PASSWORD`, `CART_DB_PASSWORD`, `ORDER_DB_PASSWORD` (examples in `deploy/local/.env.example`). For Google set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`.
 3. **Start services.**
    ```
-   docker compose -f infra/docker-compose.yml up -d --build auth-service user-service cart-service order-service
+   docker compose -f deploy/local/docker-compose.yml up -d --build auth-service user-service cart-service order-service
    ```
    Allow ~30-40 seconds after a restart before the gateway stops answering 503 (TD-BE-08).
 4. **Start the storefront.** `npm run dev` inside `apps/product-catalog` serves http://localhost:3000 (pinned with `strictPort`; 3000 is the allow-listed Google callback origin).
@@ -76,10 +76,10 @@ See [techdebt/README.md](../techdebt/README.md). Highest: oversell (TD-BE-01), n
 
 | Path | Change |
 |------|--------|
-| `infra/postgres/init/01-schemas.sql` | Added `user_service`/`cart_service`/`order_service` roles and `user_db`/`cart_db`/`order_db`. Removed the broken admin seed (it inserted into `auth.users` before Flyway ran). |
-| `infra/scripts/create-customer-dbs.sql` | New. Re-runnable bootstrap for existing volumes. |
-| `infra/docker-compose.yml` | Three service blocks bound to `127.0.0.1:8085/8086/8087`, `*_DB_PASSWORD` required. auth-service: `AUTH_REGISTRATION_ENABLED` default true, `AUTH_ALLOWED_REDIRECT_URIS` (5173 + 3000 callbacks), `AUTH_DEFAULT_REDIRECT_URI` (5173). No auth-service code change. |
-| `infra/.env.example` | New password variables. |
+| `deploy/local/postgres/init/01-schemas.sql` | Added `user_service`/`cart_service`/`order_service` roles and `user_db`/`cart_db`/`order_db`. Removed the broken admin seed (it inserted into `auth.users` before Flyway ran). |
+| `deploy/local/scripts/create-customer-dbs.sql` | New. Re-runnable bootstrap for existing volumes. |
+| `deploy/local/docker-compose.yml` | Three service blocks bound to `127.0.0.1:8085/8086/8087`, `*_DB_PASSWORD` required. auth-service: `AUTH_REGISTRATION_ENABLED` default true, `AUTH_ALLOWED_REDIRECT_URIS` (5173 + 3000 callbacks), `AUTH_DEFAULT_REDIRECT_URI` (5173). No auth-service code change. |
+| `deploy/local/.env.example` | New password variables. |
 
 ### Frontend (`apps/product-catalog`)
 

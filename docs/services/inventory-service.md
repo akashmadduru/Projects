@@ -19,17 +19,36 @@ short version for someone running or touching the service, not the design record
 
 ---
 
+## Current state (verified 2026-11-14)
+
+This page was written for the Phase 2 slice. The consumer design and security sections still hold;
+the "Scope" and "Deliberately absent" sections are marked where later phases changed them.
+What the service does **now**:
+
+| Area | Since | Endpoints |
+|---|---|---|
+| Stock rows per product, CRUD (`CATALOG_MANAGER`/`ADMIN` writes), provisioned from `product.events` | 2 | `/api/inventory/**` |
+| Product name and SKU copied onto stock rows from `PRODUCT_CREATED`/`PRODUCT_UPDATED`; publishes `inventory.events` | 3 | — |
+| Read-only lookup called synchronously by product-service's aggregate read | 3 | `GET /api/inventory/by-product/{productId}` |
+| Stock reservations at checkout, released on cancel, payment failure or return | 6 | `/internal/inventory/reservations/**` (order-service only) |
+| Per-variant stock | 7 | `/api/inventory/variants/**` |
+| Warehouses, per-warehouse and per-seller stock, nearest-warehouse reservation | 9 | `/api/admin/warehouses`, `/api/admin/stock`, `/api/seller/{stock,warehouses}` |
+
+All 23 endpoints: [endpoints.md](../reference/endpoints.md#inventory-service-23).
+Known gaps: products or variants with no stock row are treated as unlimited
+([TD-P6-04](../techdebt/phase6.md#td-p6-04)); legacy `stock_levels` and `warehouse_stock` are both
+written ([TD-P9-02](../techdebt/phase9.md#td-p9-02)).
+
 ## Scope, and what this service is not
 
-`inventory.stock_levels` tracks one thing: a `quantity` per `product_id`. It has **no** foreign key
-to `product.products` (a different Postgres database entirely — see below) and **no** denormalized
-product fields (name, SKU, price). A caller who wants "product X's stock and its name" makes two
-calls, one to each service; this service does not stitch that together.
+`inventory.stock_levels` holds a `quantity` per `product_id`. It has **no** foreign key to
+`product.products` (a different Postgres database). *In Phase 2* it held no product fields;
+since Phase 3 it keeps a copy of the product name and SKU, updated from `product.events`.
 
 | Method | Path | Auth | Notes |
 |---|---|---|---|
-| `GET` | `/api/inventory` | Bearer (any role) | Paged. Default `size=20`, sort `productId ASC`, cap `size<=100` — `product_id` is `UNIQUE`, so pages have a stable, deterministic boundary across concurrent writes, mirroring product-service's `sku ASC` default for the same reason. |
-| `GET` | `/api/inventory/{id}` | Bearer (any role) | 404 as RFC 9457 problem+json when unknown. |
+| `GET` | `/api/inventory` | Any signed-in user | Paged. Default `size=20`, sort `productId ASC`, cap `size<=100` — `product_id` is `UNIQUE`, so pages have a stable, deterministic boundary across concurrent writes, mirroring product-service's `sku ASC` default for the same reason. |
+| `GET` | `/api/inventory/{id}` | Any signed-in user | 404 as RFC 9457 problem+json when unknown. |
 | `POST` | `/api/inventory` | `CATALOG_MANAGER` or `ADMIN` | `{productId, quantity}`. `201` / `409` if `productId` already has a row. |
 | `PUT` | `/api/inventory/{id}` | `CATALOG_MANAGER` or `ADMIN` | `{quantity, version}`. `200` / `404` / `409` on a stale `version`. |
 | `DELETE` | `/api/inventory/{id}` | `CATALOG_MANAGER` or `ADMIN` | `204` / `404`. |
@@ -71,14 +90,12 @@ for the rare case of two near-simultaneous deliveries racing past that check. Bo
 the same outcome: a second `PRODUCT_CREATED` for a `product_id` that already has a row is a no-op,
 never an error. `removeIfPresent` is symmetric — deleting an already-absent row is a no-op.
 
-**No DLQ, no retry topic — by design, not oversight.** Spring Kafka's default error handling (log
-the exception, advance past the record) is this prototype's accepted answer for a poison-pill
-message or a down consumer catching up later from its committed offset. If inventory-service is
-offline for an extended period, Kafka retains the topic (broker default retention — no override is
-configured) and this service resumes from where it left off on restart. There is no cap on how long
-an event can sit unconsumed, and no alerting on consumer lag in this iteration. A production
-hardening pass would add a dead-letter topic and lag monitoring — tracked as a Future Improvement in
-the HLD, not in scope here.
+**Retries and dead-lettering.** *In Phase 2* there was no DLQ. Phase 10 wired every listener
+factory to `DlqErrorHandlers` (3 retries, then `product.events.DLT`), but this listener still catches
+and logs every exception itself, so a failing record is skipped without retry or dead-lettering
+([TD-BE-17](../techdebt/backend.md#td-be-17)). A consumer that is down resumes from its committed
+offset; Kafka keeps the topic for the broker default retention (no override). There is no
+consumer-lag alerting.
 
 **`ProductEvent` is duplicated, not shared.** This service has its own `ProductEvent`/
 `ProductEventType` in `com.acme.ecommerce.inventory.event`, structurally identical to
@@ -93,25 +110,15 @@ consumer of `product.events` exists.
 
 ## Deliberately absent
 
-- **No schema registry** (Avro/Protobuf). The event DTO is a hand-maintained JSON POJO, duplicated
-  independently in producer and consumer, per the decision above.
-- **No dead-letter queue or retry topic.** See the Kafka section above.
-- **No exactly-once semantics.** At-least-once delivery, absorbed by an idempotent consumer via a
-  `UNIQUE(product_id)` constraint — not Kafka transactions/EOS.
-- **No cross-database foreign key** between `product.products` and `inventory.stock_levels`. They
-  live in physically separate Postgres databases (`product_db` vs. `inventory_db`); a
-  cross-database FK is not possible in Postgres in the first place, which is exactly why the
-  coupling has to be an event, not a constraint. A hard delete on the product side with no
-  corresponding `PRODUCT_DELETED` consumption (event lost, or a manual `DELETE` bypassing the
-  application) leaves an orphaned inventory row with no referential guard — an accepted prototype
-  gap, not a bug.
-- **No denormalized product fields** (name, SKU, price) on `stock_levels`. A caller needing both
-  stock and product identity makes two calls; see "Scope" above.
-- **No synchronous (REST/Feign) call to or from product-service**, in either direction. The only
-  coupling between the two services is the `product.events` stream.
-- **No `INVENTORY_MANAGER` role.** Writes reuse `CATALOG_MANAGER`/`ADMIN`.
-
----
+| Item | Status on 2026-11-14 |
+|---|---|
+| Schema registry; event class duplicated by hand | Still absent |
+| Dead-letter queue | **Added in Phase 10** (`<topic>.DLT`), but `ProductEventListener` catches and logs every exception, so its failures never reach it ([TD-BE-17](../techdebt/backend.md#td-be-17)) |
+| Exactly-once delivery | Still absent; at-least-once, made safe by `UNIQUE(product_id)` |
+| Cross-database foreign key to `product.products` | Still absent (Postgres cannot enforce one). A lost `PRODUCT_DELETED` leaves an orphan stock row. |
+| Product fields on stock rows | **Added in Phase 3** (name and SKU) |
+| Synchronous call between product- and inventory-service | **Added in Phase 3**, one direction only: product-service reads `GET /api/inventory/by-product/{id}` ([ADR 0003](../architecture/adr/0003-choreographed-catalog-saga-and-narrow-read-only-cross-service-call.md)). order-service also calls the reservation endpoints since Phase 6. |
+| `INVENTORY_MANAGER` role | Still absent; writes use `CATALOG_MANAGER`/`ADMIN`, sellers manage only their own warehouses |
 
 ## Security — this service does not trust the gateway
 
@@ -152,13 +159,16 @@ pointing at the cause.
 Kafka connectivity is **not** a startup dependency. Spring Kafka's listener container retries
 connecting in the background; this service starts and serves CRUD reads/writes normally even if
 Kafka is down, and catches up from its last committed offset once Kafka is reachable again. In
-`infra/docker-compose.yml`, `inventory-service`'s `depends_on: kafka` uses `service_started` (not
+`deploy/local/docker-compose.yml`, `inventory-service`'s `depends_on: kafka` uses `service_started` (not
 `service_healthy`) purely to order container creation for a cleaner `docker compose up` — it is a
 developer convenience, not a correctness requirement.
 
 ---
 
 ## Schema
+
+This section describes the Phase 2 baseline. Seven migrations exist now; the full table list is in
+[data-model.md](../reference/data-model.md#all-databases).
 
 `V1__inventory_baseline.sql` creates `inventory.stock_levels`: `id` (uuid PK), `product_id` (uuid,
 `UNIQUE NOT NULL`, no FK), `quantity` (integer, `NOT NULL DEFAULT 0`, `CHECK (quantity >= 0)`),
@@ -180,7 +190,7 @@ propagated into new code.
 # 1. registry, 2. auth-service, 3. product-service — see services/product-service/README.md
 
 # 4. kafka + redis (backing infra)
-docker compose -f infra/docker-compose.yml up -d kafka redis
+docker compose -f deploy/local/docker-compose.yml up -d kafka redis
 
 # 5. this service
 SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:15432/inventory_db \
@@ -191,7 +201,7 @@ java -jar services/inventory-service/inventory-service-app/build/libs/inventory-
 java -jar services/gateway/build/libs/gateway-0.1.0-SNAPSHOT.jar
 ```
 
-Or `docker compose -f infra/docker-compose.yml up -d inventory-service` (brings up its `postgres`,
+Or `docker compose -f deploy/local/docker-compose.yml up -d inventory-service` (brings up its `postgres`,
 `eureka-server` and `kafka` dependencies via compose's own dependency graph).
 
 Through the gateway, with a real token:

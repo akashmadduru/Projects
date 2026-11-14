@@ -12,7 +12,7 @@
 - `rating.events`, consumed by product-service to keep the denormalized `average_rating`,
   `rating_count`, `review_count` and `rating_distribution` columns current.
 - The storefront review UI.
-- `infra/scripts/backfill-product-ratings.sh`, a dev-only repair for seed ratings that were inserted
+- `deploy/local/scripts/backfill-product-ratings.sh`, a dev-only repair for seed ratings that were inserted
   without publishing events ([TD-RT-01](../techdebt/ratings.md#td-rt-01)).
 
 ## Changed since

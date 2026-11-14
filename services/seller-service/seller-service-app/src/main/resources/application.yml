@@ -7,7 +7,7 @@
 # missed by reading only one of them.
 #
 # NOTHING SECRET HAS A WORKING DEFAULT except the throwaway local database
-# password, which is the same value infra/postgres/init/01-schemas.sql creates on
+# password, which is the same value deploy/local/postgres/init/01-schemas.sql creates on
 # a developer's machine and is never deployed anywhere.
 # =============================================================================
 

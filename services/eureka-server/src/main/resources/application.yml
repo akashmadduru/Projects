@@ -26,7 +26,7 @@ server:
 # DASHBOARD EXPOSURE
 #
 # Nothing here binds the dashboard to a public interface - the process listens on
-# 0.0.0.0 *inside its container*, and infra/docker-compose.yml publishes the port
+# 0.0.0.0 *inside its container*, and deploy/local/docker-compose.yml publishes the port
 # to 127.0.0.1 only. That container-boundary binding is the entire access control
 # story in dev.
 #

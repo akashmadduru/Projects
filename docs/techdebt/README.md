@@ -21,7 +21,7 @@ Shortcuts taken while building customer accounts (login, Google SSO, user/cart/o
 | TD-P6-05 | No tests for Phase 6; auth/storefront tests stale or uncompilable | phase6 | High | L | [phase6.md](phase6.md#td-p6-05) |
 | TD-TEST-01 | No tests for user/cart/order services | testing | High | L | [testing.md](testing.md#td-test-01) |
 | TD-TEST-02 | No frontend tests for auth/cart/checkout | testing | High | M | [testing.md](testing.md#td-test-02) |
-| TD-SEC-01 | Real GOOGLE_CLIENT_SECRET in local infra/.env (rotate) | infra-security | High | S | [infra-security.md](infra-security.md#td-sec-01) |
+| TD-SEC-01 | Real GOOGLE_CLIENT_SECRET in local deploy/local/.env (rotate) | infra-security | High | S | [infra-security.md](infra-security.md#td-sec-01) |
 | TD-SEC-02 | Admin SPA Google login starts via gateway (redirect_uri rejected) | infra-security | High | S | [infra-security.md](infra-security.md#td-sec-02) |
 | TD-P6-06 | Repo Dockerfiles for new services untested (Maven Central 403) | phase6 | Med | S | [phase6.md](phase6.md#td-p6-06) |
 | TD-P6-07 | Notifications fire-and-forget; in-memory de-dupe | phase6 | Med | M | [phase6.md](phase6.md#td-p6-07) |
@@ -163,6 +163,7 @@ Shortcuts taken while building customer accounts (login, Google SSO, user/cart/o
 | TD-P9-17 | Storefront Phase 9 UX shortcuts | phase9 | Low | M | [phase9.md](phase9.md#td-p9-17) |
 | TD-P9-18 | Seller portal assumed API shapes, raw-UUID forms | phase9 | Low | M | [phase9.md](phase9.md#td-p9-18) |
 | TD-P9-19 | Phase 9 test data left in dev (Laptop PDP 404) | phase9 | Low | S | [phase9.md](phase9.md#td-p9-19) |
+| TD-BE-17 | Six Kafka listeners swallow errors, bypassing retry and the DLQ | backend | High | S | [backend.md](backend.md#td-be-17) |
 | TD-SEC-14 | Database dumps with credential material remain in git history | infra-security | High | S | [infra-security.md](infra-security.md#td-sec-14) |
 | TD-TEST-07 | `spotlessCheck` fails on 4 product/inventory files | testing | Med | S | [testing.md](testing.md#td-test-07) |
 
@@ -220,7 +221,7 @@ These were found during Phase 9 integration and fixed. Residuals are tracked in 
 - TD-FE-04 data loss: resolved (quantities clamped to 99, merge chunked, local items kept when merge fails). Remaining: no retry until next sign-in.
 - TD-SEC-07 "rating-service not runnable in compose/gateway": resolved by the ratings feature (rating_db, Dockerfile, compose on 8084, gateway route, `roles`-based admin check). Related product-service listener bug (rating events failed to deserialize; denormalization stub) also fixed.
 - "RouteAuthorizationContractTest not updated": that test does not exist in `services/gateway/src/test`; it is only referenced in a `SecurityConfig` javadoc. Reframed as TD-TEST-04.
-- "Update platform error catalogue": done in [Backend-API.md](../reference/api.md).
+- "Update platform error catalogue": done in [API reference](../reference/api.md).
 - Phase 7: the first-build notes for variant stock via JWT forwarding, non-variant returns, non-variant wishlist, alert payload, and "Deals RBAC unverified" were superseded by the integration fixes above and not filed as items. Gateway body-size and Maven Central notes were merged into TD-P7-14 and TD-P6-06. Test-data notes from the commerce and integration agents were merged into TD-P7-20. Roadmap item 5 (PDP pincode check) was already built in Phase 6 and has no Phase 7 debt.
 - Phase 8: first-build notes superseded by integration fixes (coins currency, wallet/gift-card inbox entries, invoice lines, admin SENDING status) are listed under "Resolved by Phase 8" and not filed as items. The frontend agent's `[p8-fe]` bullets in [frontend.md](frontend.md) were moved into [TD-P8-18](phase8.md#td-p8-18). Duplicates merged: campaign audience (engage + integration) into TD-P8-02, campaign send (engage + admin) into TD-P8-03, no-tests notes into TD-P8-01. The "wallet single currency / coins deviation" notes are kept as separate items (TD-P8-07, TD-P8-09). The `GET /internal/orders/last-order-dates` shape note was folded into TD-P8-02.
 - Phase 9: first-build notes superseded by integration fixes (offers without `variantId`, cart keyed by product + variant, whole-shipment-only ledger reversal, restock without `offerId`, `OrderShipment.items` shape, guessed admin response shapes, "Sell on Acme") are listed under "Resolved by Phase 9" and not filed as items. The `[p9-admin]` and `[p9-fe]` bullets were consolidated into TD-P9-17 and TD-P9-18; no-tests notes into TD-P9-01; seller-cache, platform-rating and views-attribution notes into TD-P9-11; ads notes (seller + frontend) into TD-P9-10.

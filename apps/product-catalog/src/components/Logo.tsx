@@ -3,6 +3,7 @@
  */
 
 import { Link } from 'react-router-dom'
+import { useBrand } from '../stores/brandStore'
 
 export function LogoMark({ className = 'w-9 h-9', orbitClassName = '' }: { className?: string; orbitClassName?: string }) {
   return (
@@ -36,18 +37,35 @@ export function LogoMark({ className = 'w-9 h-9', orbitClassName = '' }: { class
 }
 
 export function Logo() {
+  const { name, logoUrl } = useBrand()
+  const words = name.trim().split(/\s+/)
+  const head = words.length > 1 ? words.slice(0, -1).join(' ') + ' ' : name
+  const tail = words.length > 1 ? words[words.length - 1] : ''
   return (
     <Link
       to="/"
       className="group flex shrink-0 items-center gap-2 rounded-full text-on-brand focus-visible:outline-on-brand"
-      aria-label="Cartwise home"
+      aria-label={`${name} home`}
     >
-      <LogoMark
-        className="w-10 h-10 drop-shadow-[2px_2px_0_hsl(var(--color-ink))] transition-transform duration-1000 ease-[var(--ease-spring)] group-hover:-rotate-12 group-hover:scale-110"
-        orbitClassName="transition-transform duration-1000 group-hover:rotate-[200deg]"
-      />
+      {logoUrl ? (
+        <img src={logoUrl} alt="" className="h-10 w-10 object-contain" />
+      ) : (
+        <LogoMark
+          className="w-10 h-10 drop-shadow-[2px_2px_0_hsl(var(--color-ink))] transition-transform duration-1000 ease-[var(--ease-spring)] group-hover:-rotate-12 group-hover:scale-110"
+          orbitClassName="transition-transform duration-1000 group-hover:rotate-[200deg]"
+        />
+      )}
       <span className="font-display text-2xl leading-none tracking-wide [text-shadow:2px_2px_0_hsl(var(--color-ink))]">
-        Cart<span className="text-accent">wise</span>
+        {name === 'Cartwise' ? (
+          <>
+            Cart<span className="text-accent">wise</span>
+          </>
+        ) : (
+          <>
+            {head}
+            <span className="text-accent">{tail}</span>
+          </>
+        )}
       </span>
     </Link>
   )

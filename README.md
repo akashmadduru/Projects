@@ -14,8 +14,8 @@ Gradle multi-project monorepo.
 ## Quick start
 
 ```bash
-cp infra/.env.example infra/.env && ./infra/scripts/generate-keystore.sh
-docker compose -f infra/docker-compose.yml up -d --build
+cp deploy/local/.env.example deploy/local/.env && ./deploy/local/scripts/generate-keystore.sh
+docker compose -f deploy/local/docker-compose.yml up -d --build
 cd apps/product-catalog && npm install && npm run dev        # http://localhost:3000
 cd apps/admin-product-catalog && npm install && npm run dev  # http://localhost:5173
 ```
@@ -39,8 +39,7 @@ cd apps/admin-product-catalog && npm install && npm run dev  # http://localhost:
 ├── apps/            product-catalog (storefront), admin-product-catalog (admin)   — not Gradle modules
 ├── libs/            common-core, common-web, common-security
 ├── services/        gateway, eureka-server and 13 domain services (most split into -api / -app)
-├── infra/           docker-compose.yml, postgres init SQL, dev scripts
-├── deploy/aws/      Terraform, Helm chart, Dockerfiles, deploy.sh
+├── deploy/          ALL cloud and env config: local/ (compose, .env, DB init, dev scripts), aws/ (Terraform, Helm, deploy.sh)
 ├── postman/         Postman collection and local environment
 ├── config/          Checkstyle rules
 ├── gradle/          version catalog and wrapper

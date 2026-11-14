@@ -14,9 +14,9 @@ Phase 6 was built under "no tests, no HLD/LLD, record shortcuts as debt". The in
 <a id="td-p6-02"></a>
 ## TD-P6-02 Stripe live mode never exercised
 - **Severity / Effort:** High / S
-- **Where:** `services/payment-service/payment-service-app/` (PaymentIntent create/retrieve, refund, webhook parse via `deserializeUnsafe`); `infra/.env`.
+- **Where:** `services/payment-service/payment-service-app/` (PaymentIntent create/retrieve, refund, webhook parse via `deserializeUnsafe`); `deploy/local/.env`.
 - **Risk:** Only SIMULATED mode was verified. Stripe SDK 34.1.0 was chosen without a live account. The webhook endpoint returns 404 unless the webhook secret is set. In SIMULATED mode refunds are only recorded in the DB.
-- **Fix:** Set `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET` in `infra/.env`; run a test-mode pay, fail, refund and webhook cycle (Stripe CLI `listen`); replace `deserializeUnsafe` with version-checked parsing.
+- **Fix:** Set `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET` in `deploy/local/.env`; run a test-mode pay, fail, refund and webhook cycle (Stripe CLI `listen`); replace `deserializeUnsafe` with version-checked parsing.
 
 <a id="td-p6-03"></a>
 ## TD-P6-03 Late payment after cancel; PaymentIntent not cancelled
@@ -44,7 +44,7 @@ Phase 6 was built under "no tests, no HLD/LLD, record shortcuts as debt". The in
 - **Severity / Effort:** Med / S
 - **Where:** `services/{payment,promotion,notification}-service/*-app/Dockerfile`, plus auth, order, rating, product, cart, gateway images.
 - **Risk:** Maven Central returned 403 from the build host, so all Phase 6 images were built through an offline mirror plus a thin runtime Dockerfile kept outside the repo. The stock Dockerfiles have not been run for these services.
-- **Fix:** Once Central is reachable run `docker compose -f infra/docker-compose.yml up --build` from clean and fix what breaks.
+- **Fix:** Once Central is reachable run `docker compose -f deploy/local/docker-compose.yml up --build` from clean and fix what breaks.
 
 <a id="td-p6-07"></a>
 ## TD-P6-07 Notifications are fire-and-forget
@@ -84,7 +84,7 @@ Phase 6 was built under "no tests, no HLD/LLD, record shortcuts as debt". The in
 <a id="td-p6-12"></a>
 ## TD-P6-12 INTERNAL_API_TOKEN is a shared static secret
 - **Severity / Effort:** Med / M
-- **Where:** `InternalTokenFilter`/`SecurityConfig`/`ProblemResponseWriter` copied into order-service, inventory-service, payment-service, promotion-service; `libs/common-web` Feign interceptor; `infra/.env`.
+- **Where:** `InternalTokenFilter`/`SecurityConfig`/`ProblemResponseWriter` copied into order-service, inventory-service, payment-service, promotion-service; `libs/common-web` Feign interceptor; `deploy/local/.env`.
 - **Risk:** One secret for all service-to-service calls: no rotation, no per-caller identity, no mTLS. Comparison is constant-time. The Feign interceptor also forwards the caller's user bearer token to notification-service and payment-service order calls, where it is ignored. Adds to TD-BE-12 (copy-paste).
 - **Fix:** Move the filter into a shared lib; per-service tokens or mTLS/service JWTs; stop relaying user tokens on internal calls.
 
@@ -182,7 +182,7 @@ Phase 6 was built under "no tests, no HLD/LLD, record shortcuts as debt". The in
 <a id="td-p6-26"></a>
 ## TD-P6-26 Notification infra is dev-only
 - **Severity / Effort:** Low / S
-- **Where:** `infra/docker-compose.yml` (Mailpit `axllent/mailpit:latest`); `services/notification-service/`; `payment-service` and `order-service` Kafka config.
+- **Where:** `deploy/local/docker-compose.yml` (Mailpit `axllent/mailpit:latest`); `services/notification-service/`; `payment-service` and `order-service` Kafka config.
 - **Risk:** Mailpit image is unpinned and has no auth; production needs a real SMTP relay via `MAIL_HOST/MAIL_PORT/MAIL_USERNAME/MAIL_PASSWORD`. Emails are hand-built HTML strings (no template engine). Services use the deprecated spring-kafka `JsonDeserializer`; `order.events` is serialized with type headers off and ISO-string times, so consumers must not require `__TypeId__`.
 - **Fix:** Pin the image; add a template engine; move to typed deserializers with a shared event contract (see TD-RT-06).
 

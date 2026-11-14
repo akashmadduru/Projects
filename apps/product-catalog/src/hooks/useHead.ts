@@ -4,6 +4,7 @@
  */
 
 import { useEffect } from 'react'
+import { useBrandStore } from '../stores/brandStore'
 
 export interface HeadConfig {
   title: string
@@ -30,7 +31,10 @@ export function useHead(config: HeadConfig | undefined): void {
   const key = config ? JSON.stringify(config) : ''
   useEffect(() => {
     if (!key) return
-    const cfg = JSON.parse(key) as HeadConfig
+    const raw = JSON.parse(key) as HeadConfig
+    const brand = useBrandStore.getState().config?.brand.name
+    const rebrand = <T extends string | undefined>(v: T): T => (brand && v ? v.replace(/ (||on) Cartwise$/, ` $1 ${brand}`) : v) as T
+    const cfg = { ...raw, title: rebrand(raw.title), description: rebrand(raw.description) }
     const previousTitle = document.title
     const created: Element[] = []
     const descEl = document.head.querySelector<HTMLMetaElement>('meta[name="description"]')

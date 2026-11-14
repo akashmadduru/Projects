@@ -3,7 +3,7 @@
 #
 # BUILD CONTEXT IS THE REPOSITORY ROOT, not this directory:
 #   docker build -f services/product-service/product-service-app/Dockerfile -t ecommerce/product-service .
-# (infra/docker-compose.yml already sets `context: ..` for this reason.)
+# (deploy/local/docker-compose.yml already sets `context: ..` for this reason.)
 #
 # Follows the pattern established by services/eureka-server/Dockerfile: JDK build
 # stage -> layer-extracted JRE runtime stage, non-root, no Gradle in the shipped

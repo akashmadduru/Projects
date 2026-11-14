@@ -63,20 +63,28 @@ Phase 5 to 10 changes to the principles below: order-service orchestrates checko
 
 ## System Overview
 
-The e-commerce platform is built as a microservices architecture with three independent services orchestrated through event choreography and Kafka. Each service owns its database (no shared database), maintains its own schema via Flyway migrations, and communicates with other services through:
+Fourteen Spring Boot applications (gateway, Eureka and 12 domain services) behind one gateway, each
+domain service with its own Postgres database. Services talk in three ways:
 
-1. **Asynchronous events** (Kafka) — for service-to-service notifications and denormalization
-2. **Synchronous reads** (Feign HTTP clients) — narrowly scoped, read-only cross-service calls
-3. **No orchestration layer** — choreography only; services react to events independently
+1. **Kafka events** for denormalization and side effects ([events.md](../reference/events.md)).
+2. **Synchronous Feign calls**, with the caller's token relayed. Reads were the only kind until
+   Phase 5; since Phase 6 order-service also writes to inventory, payment and promotion through
+   `/internal/**` endpoints ([decision log](decision-log.md), Decision 2).
+3. **Orchestration only at checkout.** order-service drives placement step by step on the request
+   thread; everything else is choreographed by events.
+
+The sections from *Service Architecture* to *Cross-Service Communication* describe product,
+inventory and rating as built in Phases 1–4. Later services are described in the
+[phase pages](../phases/README.md).
 
 ### Core Principles
 
-- **Database-per-service:** Three independent Postgres databases, each owned by its service role
-- **Eventual consistency:** Denormalized fields (e.g., product ratings on a product) are eventually consistent, not immediately consistent
-- **No ping-pong:** When a service updates denormalized data from an event, it never publishes a reply event
-- **Optimistic locking:** All mutable entities use JPA `@Version` for concurrency control
-- **No lazy loading:** All domain entities are free of associations (no `@ManyToOne`, no risk of N+1)
-- **TimeProvider abstraction:** No `Instant.now()` in domain code; timestamps are injected
+- **Database per service:** each owned by its own Postgres role; no cross-database foreign keys.
+- **Eventual consistency** for denormalized fields (stock on products, ratings on products, seller ledger).
+- **No ping-pong:** a service that updates a copy from an event never publishes an event about it.
+- **Optimistic locking** (`@Version`) on catalog and stock rows.
+- **No lazy associations** in domain entities, so no N+1 queries.
+- **`TimeProvider`:** no `Instant.now()` in domain code.
 
 ---
 
@@ -144,7 +152,7 @@ All writes enforce version matching. A client must echo the version it read; a s
 #### Key Features
 - Rating list/detail reads (paged by product)
 - Rating write endpoints (create, update, delete) with authentication
-- Verified-purchase flag (placeholder for future order-service integration)
+- Verified-purchase flag: reviews require an order for the product that is not `CANCELLED` or `PENDING_PAYMENT`, checked with order-service
 - Helpful/unhelpful vote tracking with idempotency via unique constraint
 - Denormalized vote counts on Rating (`helpful_count`, `unhelpful_count`)
 - Event publishing: `RatingEvent` (RATING_ADDED, RATING_UPDATED, RATING_DELETED) to `rating.events` Kafka topic
@@ -262,7 +270,7 @@ Denormalized fields are **eventually consistent**. The system operates with the 
 
 1. **Write consistency window:** When a product is updated, the update is persisted immediately. Dependent denormalized fields (e.g., inventory quantity shown on a product) reflect the state at the time of event publication, not the current state.
 
-2. **Event ordering:** Events from a single source (e.g., inventory.events) are consumed in order per partition (single partition per topic in this prototype). A product's denormalized inventory quantity will always advance monotonically, never regress.
+2. **Event ordering:** Events from a single source (e.g., inventory.events) are consumed in order per partition. A product's denormalized inventory quantity will always advance monotonically, never regress.
 
 3. **Duplicate handling:** If the same event is delivered twice (Kafka's at-least-once guarantee), the UNIQUE constraint or idempotent field writes prevent corruption:
    - Inventory: `product_id` UNIQUE prevents duplicate provisions
@@ -287,7 +295,7 @@ Each service's write operations are ACID within its own database:
 ### Containers
 
 ```
-infra/docker-compose.yml
+deploy/local/docker-compose.yml
 
 postgres:5432
 ├── auth_db (auth-service)
@@ -296,9 +304,9 @@ postgres:5432
 └── rating_db (rating-service)
 
 kafka:9092
-├── product.events (topic, single partition)
-├── inventory.events (topic, single partition)
-└── rating.events (topic, single partition)
+├── product.events (3 partitions, key productId)
+├── inventory.events (3 partitions, key productId)
+└── rating.events (1 partition, key ratingId)
 
 redis:6379 (auth-service user-snapshot cache)
 
@@ -371,7 +379,7 @@ All asynchronous, service-to-service updates flow through Kafka.
 
 **Guarantees:**
 - At-least-once delivery (Kafka semantics)
-- Order preserved per partition (single partition per topic)
+- Order preserved per key: product.events and inventory.events have 3 partitions keyed by productId
 - Consumer-group offsets managed by Spring Kafka (auto-commit on successful consumption)
 - No schema registry (event contract duplicated in each producer/consumer module)
 
@@ -379,51 +387,26 @@ All asynchronous, service-to-service updates flow through Kafka.
 
 ## Observability
 
-### Logging
-
-All services log with correlation IDs (X-Correlation-Id header) in the MDC, enabling request tracing across services.
-
-```
-2026-11-09 10:23:45.123 INFO [a1b2c3d4-e5f6-7890-1234-567890abcdef] ProductCatalogService - Created product id=...
-2026-11-09 10:23:45.456 INFO [a1b2c3d4-e5f6-7890-1234-567890abcdef] ProductEventPublisher - Published PRODUCT_CREATED event
-2026-11-09 10:23:45.789 INFO [a1b2c3d4-e5f6-7890-1234-567890abcdef] InventoryEventListener - Received INVENTORY_QUANTITY_CHANGED event
-```
-
-Log levels:
-- Development: INFO (product module), INFO (all others)
-- Production: WARN (root), INFO (application modules)
-
-### Metrics
-
-Prometheus-compatible metrics exposed on `/actuator/prometheus`:
-- HTTP request counts, latencies, status codes (Spring Actuator)
-- Database connection pool usage (HikariCP)
-- Kafka producer/consumer lag
-- Circuit breaker state (open/closed/half-open)
-
-### Health Checks
-
-- **Liveness** (`/actuator/health/live`): process is running
-- **Readiness** (`/actuator/health/ready`): process can handle traffic
-  - DB connection succeeds
-  - Eureka registration is active (for services)
-  - Kafka is reachable (optional; non-blocking startup dependency)
+| Signal | How | Where |
+|---|---|---|
+| Logs | Correlation id from `X-Correlation-Id` (generated if absent) in the MDC of every line and echoed on the response | `docker compose logs <service>` |
+| Traces | Micrometer Tracing → OpenTelemetry → OTLP (`OTEL_TRACES_ENDPOINT`), since Phase 10 | Jaeger UI, http://127.0.0.1:16686 |
+| Metrics | `/actuator/prometheus` on every service (HTTP, HikariCP, Kafka clients, Resilience4j, JVM) | Not scraped locally; the gateway blocks it externally, but it is unauthenticated inside the network |
+| Health | `/actuator/health`, plus `/actuator/health/liveness` and `/actuator/health/readiness` (probes enabled) | Compose health checks call `/actuator/health` |
 
 ---
 
 ## Known Limitations
 
-1. **No schema registry:** Event contracts are duplicated (producer and consumer have identical DTOs). A second consumer would necessitate a shared schema registry.
-
-2. **No dead-letter queue:** Events that fail deserialization are logged and skipped. Production must implement a DLQ.
-
-3. **Single Kafka broker (KRaft):** No replication. A broker outage loses messages not yet consumed.
-
-4. **No distributed tracing:** Correlation IDs are logged but not propagated to a centralized trace collector (e.g., Jaeger).
-
-5. **Synchronous cross-service reads:** The aggregate read (product + inventory) blocks on the inventory-service call. A cache or eventual-consistency read would improve latency.
-
-6. **No saga orchestrator:** Complex multi-service transactions (e.g., order creation spanning product, inventory, and payment) would require explicit compensation logic or a saga orchestrator.
+| Limitation | Tracked as |
+|---|---|
+| No transactional outbox: an event or a post-commit side effect lost between commit and send is never retried | [TD-P6-01](../techdebt/phase6.md#td-p6-01) |
+| Single Kafka broker, replication factor 1, PLAINTEXT | [technical audit](../audit/technical-audit.md#8-security-audit) |
+| Six Kafka listeners swallow errors, so the DLQ never sees their failures | [TD-BE-17](../techdebt/backend.md#td-be-17) |
+| One shared `INTERNAL_API_TOKEN` for every `/internal/**` call | TD-P6-12 |
+| No gateway rate limiting; auth's Bucket4j limits are per instance | [api.md](../reference/api.md#rate-limits) |
+| Duplicated event classes, no schema registry | [decision log](decision-log.md), Decision 1 |
+| The product + inventory aggregate read blocks on inventory-service (falls back to no stock when it is down) | [ADR 0003](adr/0003-choreographed-catalog-saga-and-narrow-read-only-cross-service-call.md) |
 
 ---
 
@@ -432,5 +415,5 @@ Prometheus-compatible metrics exposed on `/actuator/prometheus`:
 - [ADR 0002](adr/0002-event-driven-inventory-kafka-kraft-and-event-contract-duplication.md) — Why event choreography, KRaft, and no schema registry
 - [ADR 0003](adr/0003-choreographed-catalog-saga-and-narrow-read-only-cross-service-call.md) — Why Feign clients only for reads, not writes
 - [HLD: Catalog Enrichment & Saga](design/HLD-catalog-enrichment-and-saga.md) — Phase 3–4 design including event wiring
-- [Backend-EventSystem.md](../reference/events.md) — Event types, Kafka topics, and choreography details
-- [Backend-DataModel.md](../reference/data-model.md) — Database schemas and entity relationships
+- [Event reference](../reference/events.md) — Event types, Kafka topics, and choreography details
+- [Data model reference](../reference/data-model.md) — Database schemas and entity relationships

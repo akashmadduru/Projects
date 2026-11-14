@@ -72,7 +72,7 @@ spring:
     validate-on-migrate: true
 
   # UserSessionCache's connection (Phase 2 - see docs/architecture/design/HLD-event-driven-inventory.md).
-  # Backing service only, NOT a startup dependency: see infra/docker-compose.yml's
+  # Backing service only, NOT a startup dependency: see deploy/local/docker-compose.yml's
   # auth-service block for why there is no `depends_on: redis` there - the cache
   # write fails open (UserSessionCache#put), so a Redis outage must never block
   # this service from starting or serving logins.
@@ -121,9 +121,9 @@ auth:
     # A mismatch produces "invalid_token" with no useful detail, on every request.
     audiences: ${AUTH_JWT_AUDIENCES:ecommerce-platform}
     access-token-ttl: 10m
-    # Produced by infra/scripts/generate-keystore.sh and MOUNTED. Never generated
+    # Produced by deploy/local/scripts/generate-keystore.sh and MOUNTED. Never generated
     # at startup - see JwtKeyProvider.
-    keystore-path: ${PLATFORM_JWT_KEYSTORE_PATH:infra/secrets/jwt-keystore.p12}
+    keystore-path: ${PLATFORM_JWT_KEYSTORE_PATH:deploy/local/secrets/jwt-keystore.p12}
     keystore-password: ${PLATFORM_JWT_KEYSTORE_PASSWORD:}
     # Keystore alias (or RFC 7638 thumbprint) of the SIGNING key. May be blank
     # while the keystore holds exactly one key; must be explicit during a

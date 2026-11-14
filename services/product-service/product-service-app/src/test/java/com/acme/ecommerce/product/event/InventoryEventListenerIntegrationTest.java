@@ -40,7 +40,7 @@ import org.testcontainers.kafka.ConfluentKafkaContainer;
 class InventoryEventListenerIntegrationTest extends AbstractProductIntegrationTest {
 
   // See ProductEventListenerIntegrationTest's identical comment on why
-  // ConfluentKafkaContainer, not the apache/kafka image infra/docker-compose.yml
+  // ConfluentKafkaContainer, not the apache/kafka image deploy/local/docker-compose.yml
   // runs.
   @Container
   static final ConfluentKafkaContainer KAFKA =
