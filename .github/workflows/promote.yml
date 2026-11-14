@@ -1,0 +1,115 @@
+# =============================================================================
+# Promote - move already-built, already-scanned images to the next environment
+# WITHOUT rebuilding (a registry retag, so the bytes that passed staging are the
+# bytes that reach production). Also the rollback path: promote an older sha tag.
+#
+#   dev     -> staging      source tag defaults to :dev
+#   staging -> production   source tag defaults to :staging, target tag :latest
+#
+# Pass `source_tag` (e.g. sha-1a2b3c4) to promote or roll back to a specific build.
+# Approval comes from the target GitHub Environment's required reviewers.
+# =============================================================================
+name: Promote
+
+on:
+  workflow_dispatch:
+    inputs:
+      path:
+        description: Promotion path
+        type: choice
+        required: true
+        options:
+          - dev -> staging
+          - staging -> production
+      source_tag:
+        description: Optional exact source tag (e.g. sha-1a2b3c4); default is the environment tag
+        type: string
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: promote-${{ inputs.path }}
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  prep:
+    name: Resolve promotion
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      target_env: ${{ steps.r.outputs.target_env }}
+      source_tag: ${{ steps.r.outputs.source_tag }}
+      target_tag: ${{ steps.r.outputs.target_tag }}
+    steps:
+      - id: r
+        env:
+          PATH_INPUT: ${{ inputs.path }}
+          SOURCE_TAG_INPUT: ${{ inputs.source_tag }}
+        run: |
+          # Free-text input: validate before it reaches any command or output.
+          if [[ -n "$SOURCE_TAG_INPUT" && ! "$SOURCE_TAG_INPUT" =~ ^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$ ]]; then
+            echo "::error::source_tag is not a valid image tag"; exit 1
+          fi
+          case "$PATH_INPUT" in
+            "dev -> staging")      target_env=staging;    default_src=dev;     target_tag=staging ;;
+            "staging -> production") target_env=production; default_src=staging; target_tag=latest ;;
+            *) echo "::error::Unsupported promotion path"; exit 1 ;;
+          esac
+          {
+            echo "target_env=$target_env"
+            echo "source_tag=${SOURCE_TAG_INPUT:-$default_src}"
+            echo "target_tag=$target_tag"
+          } >> "$GITHUB_OUTPUT"
+
+  promote:
+    name: Promote to ${{ needs.prep.outputs.target_env }}
+    needs: prep
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: ${{ needs.prep.outputs.target_env }}
+    permissions:
+      contents: read
+      packages: write
+    env:
+      SOURCE_TAG: ${{ needs.prep.outputs.source_tag }}
+      TARGET_TAG: ${{ needs.prep.outputs.target_tag }}
+      TARGET_ENV: ${{ needs.prep.outputs.target_env }}
+      DEPLOY_ENABLED: ${{ vars.DEPLOY_ENABLED }}
+      OWNER: ${{ github.repository_owner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Retag images (no rebuild)
+        run: |
+          prefix="${REGISTRY}/${OWNER,,}/ecommerce"
+          images=(gateway auth-service product-service inventory-service rating-service user-service
+                  cart-service order-service payment-service promotion-service notification-service
+                  seller-service support-service admin-product-catalog product-catalog)
+          # Fail before changing anything if any source image is missing.
+          for i in "${images[@]}"; do
+            docker buildx imagetools inspect "$prefix/$i:$SOURCE_TAG" >/dev/null \
+              || { echo "::error::$prefix/$i:$SOURCE_TAG not found"; exit 1; }
+          done
+          for i in "${images[@]}"; do
+            docker buildx imagetools create -t "$prefix/$i:$TARGET_TAG" "$prefix/$i:$SOURCE_TAG"
+            echo "$i: $SOURCE_TAG -> $TARGET_TAG"
+          done
+
+      - name: Deploy hook
+        run: |
+          if [[ "$DEPLOY_ENABLED" != "true" ]]; then
+            echo "DEPLOY_ENABLED is not 'true': images retagged, nothing deployed."
+            exit 0
+          fi
+          ./deploy/ci/deploy.sh "$TARGET_ENV" "$SOURCE_TAG" "${REGISTRY}/${OWNER,,}/ecommerce"

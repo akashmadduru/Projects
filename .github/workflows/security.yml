@@ -15,9 +15,9 @@ name: Security
 
 on:
   push:
-    branches: [main, master, version_v1]
+    branches: [dev, staging, master, version_v1]
   pull_request:
-    branches: [main, master, version_v1]
+    branches: [dev, staging, master, version_v1]
   schedule:
     - cron: '17 3 * * 1' # Mondays 03:17 UTC
   workflow_dispatch:

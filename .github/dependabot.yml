@@ -4,6 +4,7 @@ updates:
   - package-ecosystem: gradle
     directory: /
     schedule: { interval: weekly, day: monday }
+    target-branch: dev
     open-pull-requests-limit: 5
     groups:
       spring:
@@ -15,6 +16,7 @@ updates:
   - package-ecosystem: npm
     directory: /apps/admin-product-catalog
     schedule: { interval: weekly, day: monday }
+    target-branch: dev
     open-pull-requests-limit: 5
     groups:
       minor-and-patch:
@@ -22,6 +24,7 @@ updates:
   - package-ecosystem: npm
     directory: /apps/product-catalog
     schedule: { interval: weekly, day: monday }
+    target-branch: dev
     open-pull-requests-limit: 5
     groups:
       minor-and-patch:
@@ -34,6 +37,7 @@ updates:
       - /services/**
       - /deploy/aws/docker
     schedule: { interval: weekly, day: monday }
+    target-branch: dev
     groups:
       base-images:
         patterns: ['*']
@@ -44,11 +48,13 @@ updates:
       - /deploy/aws/terraform/envs/prod
       - /deploy/aws/terraform/modules/*
     schedule: { interval: weekly, day: monday }
+    target-branch: dev
 
   # --- the workflows themselves ---
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: weekly, day: monday }
+    target-branch: dev
     groups:
       actions:
         patterns: ['*']

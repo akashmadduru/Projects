@@ -8,13 +8,22 @@
 # does not depend on SERVICE, so the `backend-build` job compiles every jar once
 # into the Actions cache and each matrix job only runs the cheap runtime stage.
 #
-# Images: ghcr.io/<owner>/ecommerce/<name>:{sha-<short>, <tag>, latest}
+# Branch -> environment -> image tags
+#   dev      -> GitHub Environment `dev`         -> :sha-<short>, :dev
+#   staging  -> GitHub Environment `staging`     -> :sha-<short>, :staging
+#   master   -> GitHub Environment `production`  -> :sha-<short>, :latest
+#   vX.Y.Z-rc.N -> GitHub Environment `staging`  -> :sha-<short>, :<tag>
+#   vX.Y.Z   -> GitHub Environment `production`  -> :sha-<short>, :<tag>
+# Images: ghcr.io/<owner>/ecommerce/<name>
+#
+# The final `deploy` job is the per-environment hook (see deploy/ci/deploy.sh).
+# Required reviewers / wait timers are configured on the GitHub Environments.
 # =============================================================================
 name: CD images
 
 on:
   push:
-    branches: [main]
+    branches: [dev, staging, master]
     tags: ['v*']
   workflow_dispatch:
 
@@ -30,7 +39,31 @@ env:
   TRIVY_EXIT_CODE: ${{ vars.CI_ENFORCE == 'true' && '1' || '0' }}
 
 jobs:
+  prep:
+    name: Resolve environment
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      env: ${{ steps.r.outputs.env }}
+    steps:
+      - id: r
+        env:
+          REF: ${{ github.ref }}
+        run: |
+          tag="${REF#refs/tags/}"
+          if [[ "$REF" == refs/heads/dev ]]; then env=dev
+          elif [[ "$REF" == refs/heads/staging ]]; then env=staging
+          elif [[ "$REF" == refs/heads/master ]]; then env=production
+          elif [[ "$REF" == refs/tags/* && "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+$ ]]; then env=staging
+          elif [[ "$REF" == refs/tags/* && "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then env=production
+          else
+            echo "::error::No environment is mapped to $REF (use dev, staging, master, vX.Y.Z-rc.N or vX.Y.Z)"; exit 1
+          fi
+          echo "env=$env" >> "$GITHUB_OUTPUT"
+          echo "Deploying $REF -> $env"
+
   backend-build:
+    needs: prep
     name: Compile all backend jars (cached)
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -111,7 +144,9 @@ jobs:
           tags: |
             type=sha,prefix=sha-
             type=ref,event=tag
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=dev,enable=${{ github.ref == 'refs/heads/dev' }}
+            type=raw,value=staging,enable=${{ github.ref == 'refs/heads/staging' }}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/master' }}
 
       # 1) build into the local daemon so it can be scanned BEFORE anything is pushed
       - name: Build (not pushed yet)
@@ -145,3 +180,30 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=${{ steps.img.outputs.scope }}
+
+  # Per-environment deploy hook. Gated by the GitHub Environment (required
+  # reviewers on `production`, optional on `staging`). Does nothing until the
+  # repository variable DEPLOY_ENABLED is 'true' and deploy/ci/deploy.sh is implemented.
+  deploy:
+    name: Deploy hook (${{ needs.prep.outputs.env }})
+    needs: [prep, images]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: ${{ needs.prep.outputs.env }}
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy
+        env:
+          TARGET_ENV: ${{ needs.prep.outputs.env }}
+          DEPLOY_ENABLED: ${{ vars.DEPLOY_ENABLED }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          tag="sha-${GITHUB_SHA::7}"
+          if [[ "$DEPLOY_ENABLED" != "true" ]]; then
+            echo "DEPLOY_ENABLED is not 'true': images are published, nothing is deployed."
+            echo "Environment: $TARGET_ENV, image tag: $tag"
+            exit 0
+          fi
+          ./deploy/ci/deploy.sh "$TARGET_ENV" "$tag" "${REGISTRY}/${OWNER,,}/ecommerce"
