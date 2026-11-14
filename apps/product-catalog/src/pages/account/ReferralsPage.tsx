@@ -8,7 +8,7 @@ import { CopyIcon } from '../../components/Icons'
 import { PageShell } from '../../components/account/PageShell'
 import { useLoad } from '../../hooks/useLoad'
 import { engageApi } from '../../services/engageApi'
-import { useUiStore } from '../../stores'
+import { useUiStore, useBrandStore } from '../../stores'
 
 export function ReferralsPage() {
   const notify = useUiStore((s) => s.notify)
@@ -26,7 +26,7 @@ export function ReferralsPage() {
   const share = async (link: string) => {
     if (navigator.share) {
       try {
-        await navigator.share({ title: 'Join me on Cartwise', url: link })
+        await navigator.share({ title: `Join me on ${useBrandStore.getState().config?.brand.name ?? 'Cartwise'}`, url: link })
         return
       } catch {
         // Dismissed share sheet: fall through to copy.

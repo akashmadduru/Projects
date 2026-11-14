@@ -6,7 +6,7 @@ Phase 10 has been recorded. Treat every row as "code exists", not as "verified w
 Much of it was uncommitted when the [technical audit](../audit/technical-audit.md) ran.
 
 **New service:** support-service (:8092, database `support_db`, Flyway `V1__support_baseline`, `V2__faq_seed`).
-**New env vars** (`infra/.env`): `SUPPORT_DB_PASSWORD`, and `AUTH_DATA_KEY` (encrypts TOTP secrets in auth-service).
+**New env vars** (`deploy/local/.env`): `SUPPORT_DB_PASSWORD`, and `AUTH_DATA_KEY` (encrypts TOTP secrets in auth-service).
 **Tracing:** Micrometer Tracing → OpenTelemetry → OTLP to Jaeger (UI at http://127.0.0.1:16686), set by `OTEL_TRACES_ENDPOINT`.
 
 ## Features
@@ -22,7 +22,7 @@ Much of it was uncommitted when the [technical audit](../audit/technical-audit.m
 | 7 | Progressive Web App | `manifest.webmanifest`, service worker `sw.js`, `offline.html`, maskable icon | `apps/product-catalog/public/` |
 | 8 | Image optimisation | `ProductImage` component (responsive and lazy-loaded images) | storefront `components/ProductImage.tsx` |
 | 9 | Accessibility (WCAG 2.2 AA) | No audit record found | — |
-| 10 | Observability and reliability | OpenTelemetry tracing to Jaeger; Kafka dead-letter handlers (`DlqErrorHandlers` in `common-web`); auth rate limiting (`RateLimitFilter`, Bucket4j) | `gradle/libs.versions.toml` `tracing` bundle; `infra/docker-compose.yml` `jaeger` |
+| 10 | Observability and reliability | OpenTelemetry tracing to Jaeger; Kafka dead-letter handlers (`DlqErrorHandlers` in `common-web`); auth rate limiting (`RateLimitFilter`, Bucket4j) | `gradle/libs.versions.toml` `tracing` bundle; `deploy/local/docker-compose.yml` `jaeger` |
 | 11 | Exchange offers | Trade-in quote and verification: promotion-service quotes, order-service applies it; admin verifies | promotion-service `ExchangeController`; order-service `AdminExchangeController`; storefront `ExchangeOffer.tsx`; admin `ExchangeVerifyView` |
 
 ## Known gaps

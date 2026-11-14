@@ -5,9 +5,9 @@ Index: [README](README.md)
 <a id="td-rt-01"></a>
 ## TD-RT-01 Demo product averages disagree with rating-service
 - **Severity / Effort:** Med / S
-- **Where:** `infra/scripts/backfill-product-ratings.sh` (default run updated only the 18 products that have ratings in `rating_db`).
+- **Where:** `deploy/local/scripts/backfill-product-ratings.sh` (default run updated only the 18 products that have ratings in `rating_db`).
 - **Risk:** The other 17 seed products keep catalog-seeded demo averages, so their cards show ratings with no reviews behind them.
-- **Fix:** Run `infra/scripts/backfill-product-ratings.sh --reset-unrated` (discards the demo numbers), or seed matching reviews.
+- **Fix:** Run `deploy/local/scripts/backfill-product-ratings.sh --reset-unrated` (discards the demo numbers), or seed matching reviews.
 
 <a id="td-rt-02"></a>
 ## TD-RT-02 No scheduled reconcile of product rating fields

@@ -7,7 +7,7 @@
 # missed by reading only one of them.
 #
 # NOTHING SECRET HAS A WORKING DEFAULT except the throwaway local database
-# password, which is the same value infra/postgres/init/01-schemas.sql creates on
+# password, which is the same value deploy/local/postgres/init/01-schemas.sql creates on
 # a developer's machine and is never deployed anywhere.
 # =============================================================================
 
@@ -101,7 +101,7 @@ spring:
   # hard startup dependency - a Kafka outage must not prevent this service from
   # starting or serving reads/writes (HLD S7); the publish happens after commit,
   # best-effort, and a send failure is logged, not thrown. See
-  # infra/docker-compose.yml: product-service does NOT `depends_on: kafka`.
+  # deploy/local/docker-compose.yml: product-service does NOT `depends_on: kafka`.
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     producer:
@@ -303,7 +303,7 @@ logging:
 
 ---
 # =============================================================================
-# PROFILE: default (local runs and infra/docker-compose.yml)
+# PROFILE: default (local runs and deploy/local/docker-compose.yml)
 #
 # Adds the demo catalog seed (db/seed/R__product_demo_seed.sql). Active only
 # when no other profile is - `test` and `prod` never see it, so integration

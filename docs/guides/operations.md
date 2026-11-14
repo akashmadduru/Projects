@@ -1,7 +1,8 @@
 # Backend Operations
 
-**Status:** Complete (Phases 1–4 slice)  
-**Last Updated:** November 2026
+**Verified against the code:** 2026-11-14. Examples use product-service (:8082); every service
+exposes the same actuator endpoints on its own port ([ports](../getting-started.md#ports)).
+First-time setup is in [getting started](../getting-started.md); this page is for running and debugging.
 
 ## Table of Contents
 
@@ -11,104 +12,33 @@
 4. [Monitoring & Metrics](#monitoring--metrics)
 5. [Logging & Correlation IDs](#logging--correlation-ids)
 6. [Troubleshooting](#troubleshooting)
-7. [Deployment Checklist](#deployment-checklist)
+7. [Deployment](#deployment)
 
 ---
 
 ## Local Development Setup
 
-### Prerequisites
-
-- **JDK 25** — verify with `java -version`
-- **Docker + Docker Compose** — for Postgres, Kafka, Redis, Eureka and the services
-- **Git** — to clone the repository
-
-### Start Local Infrastructure
+Start everything with Docker as described in [getting started](../getting-started.md). To debug one
+service from your IDE or Gradle instead, stop its container and run it locally; it registers with
+the same Eureka, so the gateway routes to it:
 
 ```bash
-# Navigate to the project root
-cd /path/to/ecommerce-platform
-
-# Start the stack (Postgres, Kafka, Redis, Mailpit, Jaeger, Eureka, gateway, services)
-docker compose -f infra/docker-compose.yml up -d
-
-# Verify services are running
-docker compose -f infra/docker-compose.yml ps
-
-# View logs for a specific service
-docker compose -f infra/docker-compose.yml logs -f postgres
-docker compose -f infra/docker-compose.yml logs -f kafka
-```
-
-### Generate JWT Signing Keys (Required from Phase 1C)
-
-```bash
-# Generate a dev keystore (RSA-2048, PKCS#12, file mode 600)
-./infra/scripts/generate-keystore.sh
-
-# Output: infra/secrets/jwt-keystore.p12
-# This is .gitignored and never committed
-```
-
-### Build the Platform
-
-```bash
-# Whole-tree build: compile, test, Spotless check, Checkstyle
-./gradlew build
-
-# Tests only
-./gradlew test
-
-# Auto-fix formatting (do this before committing)
-./gradlew spotlessApply
-```
-
-### Start Individual Services
-
-Each service runs on a different port with virtual threads enabled.
-
-```bash
-# Terminal 1: auth-service (port 8081)
-./gradlew :services:auth-service:auth-service-app:bootRun
-
-# Terminal 2: product-service (port 8082)
+docker compose -f deploy/local/docker-compose.yml stop product-service
 ./gradlew :services:product-service:product-service-app:bootRun
-
-# Terminal 3: inventory-service (port 8083)
-./gradlew :services:inventory-service:inventory-service-app:bootRun
-
-# Terminal 4: rating-service (port 8084)
-./gradlew :services:rating-service:rating-service-app:bootRun
-
-# Terminal 5: gateway (port 8080)
-./gradlew :services:gateway:bootRun
-
-# Terminal 6: eureka-server (port 8761)
-docker compose -f infra/docker-compose.yml up -d eureka-server
-open http://localhost:8761/  # Dashboard
 ```
 
-### Verify Services are Running
+The service reads the same variables as its compose block (database password, `INTERNAL_API_TOKEN`,
+Kafka and Eureka addresses). From the host, Postgres is `localhost:5432` and Eureka
+`localhost:8761`; Kafka has no host port, so a service run outside Docker cannot reach it and its
+event publishing and consumers fail (the HTTP API still works).
+
+### Smoke test
 
 ```bash
-# Service registry
-curl http://localhost:8761/actuator/health
-# Output: {"status":"UP"}
-
-# Product service (no auth required for reads)
-curl http://localhost:8082/api/products
-# Output: paginated product list
-
-# Inventory service (requires auth, but health check doesn't)
-curl http://localhost:8083/actuator/health
-# Output: {"status":"UP","components":{...}}
-
-# Rating service
-curl http://localhost:8084/api/ratings/products/11111111-1111-4111-8111-111111111111
-# Output: paginated rating list (empty initially)
+curl http://localhost:8761/actuator/health   # Eureka: {"status":"UP"}
+curl http://localhost:8080/actuator/health   # gateway
+curl http://localhost:8080/api/products      # public catalog through the gateway
 ```
-
----
 
 ## Database Migrations
 
@@ -147,20 +77,18 @@ ALTER TABLE products ADD COLUMN price_amount_new numeric(19, 2);
 ALTER TABLE products DROP COLUMN price_amount;
 ```
 
-### Manual Migration Triggers
+### When migrations run
 
-Migrations run automatically on service startup (validated, not in dev mode):
+Every service runs Flyway at startup (`spring.flyway.enabled: true`, `validate-on-migrate: true`)
+before it accepts traffic. To apply a new migration, restart the service:
 
 ```bash
-# Manually trigger migrations (useful in Docker)
-./gradlew :services:product-service:product-service-app:bootRun
-# Logs will show:
-# INFO c.a.e.product.ProductServiceApplication - Starting ProductServiceApplication ...
-# INFO o.f.c.i.database.base.DatabaseFactory - Attempting to connect to jdbc:postgresql://...
-# INFO o.f.c.i.migration.validate.ValidateOperation - Validating migrations ...
-# INFO o.f.c.i.migration.sql.SqlScriptExecutor - V1__product_baseline.sql ...
-# INFO o.f.c.i.migration.support.MigrationInfoServiceImpl - Successfully validated 5 migrations
+docker compose -f deploy/local/docker-compose.yml up -d --build product-service
+docker compose -f deploy/local/docker-compose.yml logs product-service | grep -i flyway
 ```
+
+If validation fails ("checksum mismatch"), an applied `V*` file was edited. Revert the edit and put
+the change in a new migration.
 
 ### Checking Migration Status
 
@@ -181,45 +109,25 @@ psql -U product_service -d product_db -c "SELECT * FROM product.flyway_schema_hi
 
 ## Health Checks & Readiness
 
-### Liveness Probe
+| Endpoint | Meaning | Used by |
+|---|---|---|
+| `/actuator/health` | Overall status including the database | Compose health checks (each container waits for `"status":"UP"`) |
+| `/actuator/health/liveness` | The process is alive | Kubernetes liveness probe ([Helm chart](deploy-aws.md)) |
+| `/actuator/health/readiness` | The service can take traffic | Kubernetes readiness probe |
 
 ```bash
-curl http://localhost:8082/actuator/health/live
-# Output: {"status":"UP"}
+curl http://localhost:8082/actuator/health/readiness
 ```
-
-**Meaning:** The service process is running. Used by Kubernetes `livenessProbe` to restart unhealthy containers.
-
-### Readiness Probe
-
-```bash
-curl http://localhost:8082/actuator/health/ready
-# Output: {"status":"UP","components":{"db":{"status":"UP"},"kafka":{"status":"UP"}}}
-```
-
-**Meaning:** The service can handle traffic. Checks:
-- Database connectivity (successful connection to datasource)
-- Kafka connectivity (producer/consumer can reach broker)
-- Eureka registration (service is discoverable)
-
-Used by orchestration (Kubernetes, gateway) to route traffic only to ready instances.
 
 ### Eureka Registration
 
 ```bash
-curl http://localhost:8761/actuator/eureka/apps/PRODUCT-SERVICE
-# Output: XML listing all registered product-service instances
+curl -H 'Accept: application/json' http://localhost:8761/eureka/apps/PRODUCT-SERVICE
 ```
 
-**Timing invariant** (documented in services/eureka-server/README.md):
-```
-lease-expiration-duration >= 3 * lease-renewal-interval
-30s >= 3 * 10s  ✓
-```
-
-If heartbeat is missed for 30s, the instance is evicted from the registry.
-
----
+A restarted service takes about 30–40 seconds to become routable through the gateway (Eureka
+registration plus the gateway's registry refresh); until then the gateway answers 503 (TD-BE-08).
+The timing settings are explained in [eureka-server](../services/eureka-server.md).
 
 ## Monitoring & Metrics
 
@@ -238,30 +146,13 @@ curl http://localhost:8082/actuator/prometheus
 - `kafka_producer_record_send_total` — Kafka records sent
 - `kafka_consumer_records_lag_max` — Kafka consumer lag
 
-### Scraping with Prometheus
+### What collects metrics
 
-In a real environment, a Prometheus instance would scrape these endpoints:
-
-```yaml
-# prometheus.yml
-global:
-  scrape_interval: 15s
-
-scrape_configs:
-  - job_name: 'product-service'
-    static_configs:
-      - targets: ['localhost:8082']
-    metrics_path: '/actuator/prometheus'
-```
-
-### Visualizing with Grafana
-
-Grafana can visualize Prometheus data:
-1. Add Prometheus as a data source
-2. Create dashboards for each service (CPU, memory, request latency, error rate)
-3. Set up alerts (e.g., "alert if error rate > 5% for 5m")
-
----
+- **Locally:** nothing scrapes `/actuator/prometheus`; read it directly with `curl`.
+- **On AWS:** the Terraform `observability` module creates CloudWatch alarms for RDS (CPU,
+  storage, connections) and ElastiCache CPU, sent to an SNS topic with an email subscription. No
+  Prometheus or Grafana is provisioned; the [technical audit](../audit/technical-audit.md) lists
+  that as future work.
 
 ## Logging & Correlation IDs
 
@@ -283,7 +174,7 @@ Grafana can visualize Prometheus data:
 ./gradlew :services:product-service:product-service-app:bootRun 2>&1 | grep ERROR
 
 # From Docker container
-docker compose -f infra/docker-compose.yml logs -f product-service
+docker compose -f deploy/local/docker-compose.yml logs -f product-service
 ```
 
 ### Correlation ID Propagation
@@ -339,8 +230,8 @@ org.apache.kafka.common.KafkaException: Failed to construct kafka consumer
 
 **Fix:**
 ```bash
-docker compose -f infra/docker-compose.yml up -d kafka
-docker compose -f infra/docker-compose.yml logs kafka
+docker compose -f deploy/local/docker-compose.yml up -d kafka
+docker compose -f deploy/local/docker-compose.yml logs kafka
 ```
 
 **Note:** Services start successfully even if Kafka is unavailable (not a hard dependency). Event publishing fails at runtime but is logged, not thrown.
@@ -357,8 +248,8 @@ org.postgresql.util.PSQLException: Connection to localhost:5432 refused
 
 **Fix:**
 ```bash
-docker compose -f infra/docker-compose.yml up -d postgres
-docker compose -f infra/docker-compose.yml logs postgres
+docker compose -f deploy/local/docker-compose.yml up -d postgres
+docker compose -f deploy/local/docker-compose.yml logs postgres
 ```
 
 ### Service won't start: "Eureka not found"
@@ -373,7 +264,7 @@ com.sun.jersey.api.client.ClientHandlerException: java.net.ConnectException: Con
 
 **Fix:**
 ```bash
-docker compose -f infra/docker-compose.yml up -d eureka-server
+docker compose -f deploy/local/docker-compose.yml up -d eureka-server
 ```
 
 ### JWT token validation fails: "invalid_token"
@@ -385,7 +276,7 @@ curl -H "Authorization: Bearer eyJhbGc..." http://localhost:8082/api/products/11
 ```
 
 **Causes:**
-1. JWT signing keystore not generated: `./infra/scripts/generate-keystore.sh`
+1. JWT signing keystore not generated: `./deploy/local/scripts/generate-keystore.sh`
 2. JWT issuer/audience mismatch: check `product.jwt.issuer`, `product.jwt.audience` in application.yml match auth-service config
 3. Token is expired or malformed
 
@@ -397,7 +288,7 @@ curl -H "Authorization: Bearer eyJhbGc..." http://localhost:8082/api/products/11
 # Verify `sub` and `scope` claims are present
 
 # Check service logs for specific error
-docker compose -f infra/docker-compose.yml logs product-service | grep "invalid_token"
+docker compose -f deploy/local/docker-compose.yml logs product-service | grep "invalid_token"
 ```
 
 ### Inventory aggregate read returns "inventory: null"
@@ -422,7 +313,7 @@ curl http://localhost:8083/api/inventory/by-product/11111111-1111-4111-8111-1111
 # If 404: no row provisioned
 
 # Check inventory-service logs for event processing errors
-docker compose -f infra/docker-compose.yml logs inventory-service | grep ProductEventListener
+docker compose -f deploy/local/docker-compose.yml logs inventory-service | grep ProductEventListener
 
 # Manually create inventory if needed
 curl -X POST http://localhost:8083/api/inventory \
@@ -432,18 +323,18 @@ curl -X POST http://localhost:8083/api/inventory \
 
 ### Rating denormalization not updating
 
-**Symptom:**
-```
-GET /api/products/11111111-1111-4111-8111-111111111111
-# Returns: averageRating: null, ratingCount: 0
-# But ratings exist for the product
-```
+**Symptom:** a product shows `averageRating: null` or `ratingCount: 0` although
+`GET /api/ratings/products/{id}/summary` returns ratings.
 
-**Cause:** RatingEventListener's `updateRatingDenormalization()` is a placeholder and doesn't actually update the product.
-
-**Current state:** The method exists and is called by the listener, but the implementation is incomplete (see ProductCatalogService line 269-270: TODO comment).
-
-**Workaround:** Rating denormalization will be implemented in a future phase. For now, ratings are queryable directly via `/api/ratings/products/{productId}` and `/api/ratings/products/{productId}/summary`.
+**Causes, in the order to check:**
+1. The ratings were inserted by a seed migration, which publishes no `rating.events`. Run
+   `deploy/local/scripts/backfill-product-ratings.sh` ([TD-RT-01](../techdebt/ratings.md#td-rt-01)).
+2. product-service could not reach rating-service when the event arrived. `RatingEventListener`
+   logs the error and drops the event ([TD-BE-17](../techdebt/backend.md#td-be-17)); the next rating
+   change for that product repairs it, or run the backfill script.
+3. The consumer group is lagging:
+   `kafka-consumer-groups.sh --bootstrap-server localhost:9092 --describe --group product-service-rating-listener`
+   inside `ecommerce-kafka`.
 
 ### Duplicate events / "already processed"
 
@@ -461,50 +352,17 @@ org.postgresql.util.PSQLException: duplicate key value violates unique constrain
 
 ---
 
-## Deployment Checklist
+## Deployment
 
-### Pre-Deployment
+Production deployment is not done from this page:
 
-- [ ] All tests passing: `./gradlew build`
-- [ ] No hardcoded secrets in codebase (use environment variables)
-- [ ] Database migrations are tested (Flyway checksum stable)
-- [ ] Logging is configured (no DEBUG level in production config)
-- [ ] Correlation IDs are enabled
-- [ ] Circuit breakers are configured (timeouts, thresholds)
-- [ ] Kafka topics are created and accessible
-- [ ] Health checks are working locally
-
-### Deployment (Docker Compose Example)
-
-```bash
-# Build Docker images for each service
-./gradlew jibBuildImage
-
-# Start containers
-docker compose -f infra/docker-compose.yml up -d
-
-# Verify health
-curl http://localhost:8080/actuator/health  # Gateway
-curl http://localhost:8082/actuator/health  # Product service
-curl http://localhost:8083/actuator/health  # Inventory service
-curl http://localhost:8084/actuator/health  # Rating service
-```
-
-### Post-Deployment
-
-- [ ] All services report UP in Eureka
-- [ ] Gateway routes requests successfully
-- [ ] Prometheus scrapes all metrics endpoints
-- [ ] Logs are being collected (correlation IDs visible)
-- [ ] Database migrations applied (check flyway_schema_history)
-- [ ] Kafka topics exist and have consumers
-- [ ] No errors in logs (check ERROR and WARN levels)
-
----
+- Images are built and scanned by CI ([ci-cd.md](ci-cd.md)) and published to GHCR on pushes to `main` and `v*` tags.
+- AWS deployment (Terraform, EKS, Helm) is `deploy/aws/deploy.sh`, documented in [deploy-aws.md](deploy-aws.md).
+- Before a real deployment, clear the critical items in the [technical audit](../audit/technical-audit.md#g-top-20-changes-priority-order).
 
 ## References
 
-- [Backend-Architecture.md](../architecture/overview.md) — Service architecture and deployment topology
-- [Backend-API.md](../reference/api.md) — API endpoints and error responses
-- [Backend-EventSystem.md](../reference/events.md) — Event choreography and Kafka topics
-- [README.md](../README.md) — Build and local development quickstart
+- [Architecture overview](../architecture/overview.md) — Service architecture and deployment topology
+- [API reference](../reference/api.md) — API endpoints and error responses
+- [Event reference](../reference/events.md) — Event choreography and Kafka topics
+- [Getting started](../getting-started.md) — build and local quickstart

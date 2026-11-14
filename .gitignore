@@ -17,9 +17,9 @@ gradle-app.setting
 # =============================================================================
 # SECRETS - never commit any of these
 # =============================================================================
-# Dev JWT signing keystore produced by infra/scripts/generate-keystore.sh.
+# Dev JWT signing keystore produced by deploy/local/scripts/generate-keystore.sh.
 # A committed private key is a compromised private key.
-infra/secrets/
+deploy/local/secrets/
 *.p12
 *.pfx
 *.jks

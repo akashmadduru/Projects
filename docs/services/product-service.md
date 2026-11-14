@@ -10,6 +10,25 @@ The platform's **catalog service**, and deliberately the shallowest service in t
 
 ---
 
+## Current state (verified 2026-11-14)
+
+This page was written for Phases 1E–2. The design sections below (security, optimistic locking,
+publish-after-commit, paging) still hold. What the service does **now**:
+
+| Area | Since | Endpoints |
+|---|---|---|
+| Catalog reads, **public** (no token) | 1E, opened in 7 | `GET /api/products`, `/{id}`, `/slug/{slug}`, `/batch`, `/sitemap.xml` |
+| Writes (`CATALOG_MANAGER`/`ADMIN`) with optimistic locking and `product.events` | 2 | `POST`/`PUT`/`DELETE /api/products`, `PUT /{id}/variants` |
+| Categories (two levels), images, specifications, seller name | 3 | `/api/categories/**` |
+| Aggregate read with live stock (Feign to inventory-service, `aggregateCb`) | 3 | `GET /api/products/catalog/products/{id}` |
+| Search: autocomplete, full-text + trigram, facets, variants, views, also-viewed | 7 | `/suggest`, `/facets`, `/{id}/views`, `/{id}/also-viewed` |
+| Marketplace offers and buy box, seller listings, CSV bulk upload | 9 | `/api/seller/offers/**`, `/api/seller/products/**` |
+| FX rates | 10 | `GET /api/products/fx-rates`, `PUT /api/admin/fx-rates` |
+
+All 30 endpoints: [endpoints.md](../reference/endpoints.md#product-service-30). Consumes
+`inventory.events` and `rating.events` ([events](../reference/events.md)). Not implemented:
+response caching.
+
 ## Scope, and what is deliberately absent
 
 Phase 1E existed to prove one thing end to end: **a request survives gateway routing → Eureka
@@ -18,15 +37,13 @@ endpoints over one table. A Phase 2 slice has since added role-gated writes (`PO
 with optimistic locking, plus publishing product lifecycle events to Kafka — see "Writes" and
 "Kafka event publishing" below.
 
-Still not here, on purpose — this remains a *catalog* service, not the rest of Phase 2: search,
-filtering beyond pagination, pricing rules/discounts, inventory/stock (that's `inventory-service`
-now — see [`services/inventory-service/README.md`](inventory-service.md)),
-categories/taxonomy, product images, caching.
+*As of Phase 2* the service had no search, filtering, pricing rules, categories or images. All of
+those were added later (see Current state). Stock still belongs to [inventory-service](inventory-service.md).
 
 | Method | Path | Auth | Notes |
 |---|---|---|---|
-| `GET` | `/api/products` | Bearer (any role) | Paged. Default `size=20`, sort `sku ASC`, cap `size<=100`. |
-| `GET` | `/api/products/{id}` | Bearer (any role) | 404 as RFC 9457 problem+json when unknown. |
+| `GET` | `/api/products` | None (public since Phase 7) | Paged. Default `size=20`, sort `sku ASC`, cap `size<=100`. |
+| `GET` | `/api/products/{id}` | None (public since Phase 7) | 404 as RFC 9457 problem+json when unknown. |
 | `POST` | `/api/products` | `CATALOG_MANAGER` or `ADMIN` | `201` / `400` / `409` (duplicate `sku`). |
 | `PUT` | `/api/products/{id}` | `CATALOG_MANAGER` or `ADMIN` | Requires the current `version` in the body (see "Writes" below). `200` / `400` / `404` / `409` (stale version). |
 | `DELETE` | `/api/products/{id}` | `CATALOG_MANAGER` or `ADMIN` | `204` / `404`. |
@@ -66,8 +83,9 @@ published. This is the single most load-bearing guarantee in the eventing design
 write must never appear to inventory-service as if it happened.
 
 **A publish failure is logged, never thrown.** By the time `afterCommit()` runs, the write has
-already committed and the HTTP response is about to return; a Kafka outage must delay the event, not
-turn a successful write into a 500 the caller never asked for. `KafkaTopicConfig` provisions the
+already committed and the HTTP response is about to return, so a Kafka outage must not turn a
+successful write into a 500. The cost: with no outbox, an event that fails to send is **lost**, not
+delayed, and inventory-service never sees that change ([TD-P6-01](../techdebt/phase6.md#td-p6-01)). `KafkaTopicConfig` provisions the
 topic on startup if it does not already exist.
 
 `ProductEvent`/`ProductEventType` live in `com.acme.ecommerce.product.event`
@@ -156,6 +174,9 @@ down one, so the only symptom is a 503 from `/__fallback/product`.
 
 ## Schema
 
+This section describes migrations V1–V2. Eight migrations and three repeatable seeds exist now; see
+[data-model.md](../reference/data-model.md#all-databases).
+
 `V1__product_baseline.sql` creates `product.products` and seeds **5 rows** (one of them
 `active = false`, so "Phase 1E does not filter on `active`" is an observable fact rather than a
 claim). Fixed UUIDs, so a test or a `curl` can address a known row without listing the catalog first.
@@ -182,7 +203,7 @@ Forward-only, like auth-service's. No down migrations.
 java -jar services/eureka-server/build/libs/eureka-server-0.1.0-SNAPSHOT.jar
 
 # 2. auth-service (needs the dev keystore and Postgres)
-PLATFORM_JWT_KEYSTORE_PATH=infra/secrets/jwt-keystore.p12 \
+PLATFORM_JWT_KEYSTORE_PATH=deploy/local/secrets/jwt-keystore.p12 \
 PLATFORM_JWT_KEYSTORE_PASSWORD=devkeystorepw \
 PLATFORM_JWT_KEYSTORE_ALIAS=jwt-signing \
 SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:15432/auth_db \
@@ -196,7 +217,7 @@ java -jar services/product-service/product-service-app/build/libs/product-servic
 java -jar services/gateway/build/libs/gateway-0.1.0-SNAPSHOT.jar
 ```
 
-Or `docker compose -f infra/docker-compose.yml up -d product-service`.
+Or `docker compose -f deploy/local/docker-compose.yml up -d product-service`.
 
 Through the gateway, with a real token:
 
@@ -248,13 +269,11 @@ curl -s -X PUT http://localhost:8080/api/products/11111111-1111-4111-8111-111111
 
 ---
 
-## Not implemented (tracked)
+## Not implemented
 
-- Search, filtering beyond pagination, pricing rules/discounts, categories/taxonomy, product
-  images, caching — still Phase 2 work this service does not do.
-- **`ProductClient` has no consumer yet.** It is published now so the contract is defined by the
-  service that owns it, rather than reverse-engineered from a URL by whichever service needs it first.
-- No caching. Correct for now: reads are a primary-key or indexed-scan hit on a handful of rows.
-  Revisit when `pg_stat_statements` says to, not before.
-- No schema registry for `ProductEvent`; the DTO is duplicated by hand in inventory-service. See
-  [`services/inventory-service/README.md`](inventory-service.md#the-kafka-consumer).
+- **Response caching.** Reads hit Postgres directly. Search and facets rank in memory over capped
+  id lists ([TD-P7-03](../techdebt/phase7.md#td-p7-03)), which is the first thing to fix before adding a cache.
+- **Schema registry** for `ProductEvent`; the class is duplicated in inventory-service and cart-service
+  ([ADR 0002](../architecture/adr/0002-event-driven-inventory-kafka-kraft-and-event-contract-duplication.md)).
+- **Seller listing moderation:** seller products go live immediately ([TD-P9-03](../techdebt/phase9.md#td-p9-03)).
+

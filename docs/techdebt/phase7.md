@@ -98,14 +98,14 @@ Phase 7 was built under "no tests, no HLD/LLD, record shortcuts as debt". The in
 <a id="td-p7-14"></a>
 ## TD-P7-14 Review media storage is single-node and unhardened
 - **Severity / Effort:** Med / M
-- **Where:** `<rating>/` media service/controller; `infra/docker-compose.yml` volume `rating-media` (`/data/media`); gateway route.
+- **Where:** `<rating>/` media service/controller; `deploy/local/docker-compose.yml` volume `rating-media` (`/data/media`); gateway route.
 - **Risk:** Files sit on a local docker volume: single node only, no CDN or object storage, not covered by backup. No virus scan, no EXIF stripping, no re-encode or thumbnails; files are read fully into memory when streamed. Deletes remove the file before the DB commit, so a DB failure leaves rows pointing at missing files (GET returns 404), and there is no sweeper for files whose row is gone. No per-user upload rate limit or storage quota. Multipart over 6 MB is rejected by Spring before the 5 MB check, so the error body is the generic multipart one, not a field-level 400; the gateway has no explicit body-size cap (default). Admin ReviewsView does not show photos. `media` is always empty in `rating.events` because photos are attached after the review is saved.
 - **Fix:** S3/MinIO with signed or CDN URLs; thumbnailing and re-encode (strips EXIF); delete DB row first then file via a sweeper; quotas; gateway request-size filter.
 
 <a id="td-p7-15"></a>
 ## TD-P7-15 rating-service runs as root
 - **Severity / Effort:** Med / S
-- **Where:** `infra/docker-compose.yml` (rating-service `user: "0:0"`); rating-service Dockerfile and the offline thin Dockerfile.
+- **Where:** `deploy/local/docker-compose.yml` (rating-service `user: "0:0"`); rating-service Dockerfile and the offline thin Dockerfile.
 - **Risk:** The service runs as uid 0 so the fresh named volume is writable. A compromise of an upload path (the only service accepting file uploads) gets root inside the container.
 - **Fix:** `chown` `/data/media` to the app user in the image (both the repo Dockerfile and the thin Dockerfile) and drop the `user:` override. Existing volumes need a one-time chown.
 
@@ -147,6 +147,6 @@ Phase 7 was built under "no tests, no HLD/LLD, record shortcuts as debt". The in
 <a id="td-p7-21"></a>
 ## TD-P7-21 Internal-token wiring and dead code from integration
 - **Severity / Effort:** Low / S
-- **Where:** `infra/docker-compose.yml` (product-service `INTERNAL_API_TOKEN`); product-service Feign inventory client (`getByProductWithAuth`).
+- **Where:** `deploy/local/docker-compose.yml` (product-service `INTERNAL_API_TOKEN`); product-service Feign inventory client (`getByProductWithAuth`).
 - **Risk:** product-service now reads variant stock via `GET /internal/inventory/variants?ids=` with `X-Internal-Token`, adding another consumer of the shared static secret ([TD-P6-12](phase6.md#td-p6-12)). The earlier JWT-forwarding method `getByProductWithAuth` was left in place, unused. Variants with no `variant_stock` row still return `availableQuantity` null (unlimited, see TD-P7-07). All Phase 7 service images were again built through the offline mirror, not the repo Dockerfiles ([TD-P6-06](phase6.md#td-p6-06) covers this).
 - **Fix:** Delete the unused Feign method; fold into the shared-token cleanup.

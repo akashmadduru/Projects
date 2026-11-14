@@ -19,7 +19,7 @@ here rather than left implicit in the HLD.
 > (see ADR 0001 Decision 5). KRaft mode is unaffected.
 
 Kafka (`apache/kafka:3.9.0`) is provisioned as a single-broker, KRaft-mode cluster in
-`infra/docker-compose.yml`. It does **not** use the ZooKeeper container ADR 0001 already provisions
+`deploy/local/docker-compose.yml`. It does **not** use the ZooKeeper container ADR 0001 already provisions
 for app-level coordination (distributed locks, leader election).
 
 **Rationale.**

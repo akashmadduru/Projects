@@ -12,6 +12,7 @@ import { productPath } from '../lib/productPath'
 import { addRecentSearch, clearRecentSearches, getRecentSearches } from '../lib/recentSearches'
 import { discoveryApi } from '../services/discoveryApi'
 import type { SuggestResponse } from '../types'
+import { useBrand } from '../stores/brandStore'
 
 const DEBOUNCE_MS = 200
 const MIN_CHARS = 2
@@ -23,6 +24,7 @@ type Option =
   | { kind: 'didYouMean'; key: string; label: string }
 
 export function SearchBar() {
+  const { name } = useBrand()
   const navigate = useNavigate()
   const location = useLocation()
   const onCatalog = location.pathname === '/'
@@ -142,7 +144,7 @@ export function SearchBar() {
         className="group flex w-full items-stretch overflow-hidden rounded-full border-2 border-ink bg-surface shadow-[3px_3px_0_hsl(var(--color-ink))] transition-all duration-500 focus-within:-translate-y-0.5 focus-within:shadow-[5px_5px_0_hsl(var(--color-ink))]"
       >
         <label htmlFor="site-search" className="sr-only">
-          Search Cartwise
+          Search {name}
         </label>
         <input
           id="site-search"

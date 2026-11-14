@@ -192,7 +192,7 @@ h3,
     flex-direction: column;
     height: 100%;
     background: var(--color-base-100);
-    border-right: 2px solid var(--cw-ink);
+    border-right: var(--cw-bw, 2px) solid var(--cw-ink);
   }
 
   /* Resting nav item: muted, pill-shaped, no border until active/hovered. */
@@ -200,7 +200,7 @@ h3,
     display: flex;
     align-items: center;
     gap: 0.625rem;
-    border: 2px solid transparent;
+    border: var(--cw-bw, 2px) solid transparent;
     border-radius: 9999px;
     font-size: 0.875rem;
     font-weight: 600;
@@ -221,7 +221,7 @@ h3,
     color: var(--cw-ink);
     background: var(--cw-amber);
     border-color: var(--cw-ink);
-    box-shadow: 3px 3px 0 var(--cw-ink);
+    box-shadow: var(--cw-shadow-cta, 3px 3px 0 var(--cw-ink));
     transform: translateX(2px);
   }
 
@@ -231,7 +231,7 @@ h3,
     height: 56px;
     color: var(--cw-on-brand);
     background-image: linear-gradient(135deg, var(--cw-brand) 0%, var(--cw-brand-2) 100%);
-    border-bottom: 2px solid var(--cw-ink);
+    border-bottom: var(--cw-bw, 2px) solid var(--cw-ink);
   }
 
   .app-header::after {
@@ -241,7 +241,7 @@ h3,
     right: 0;
     bottom: -6px;
     height: 4px;
-    border-bottom: 2px solid var(--cw-ink);
+    border-bottom: var(--cw-bw, 2px) solid var(--cw-ink);
     background-image: linear-gradient(
       180deg,
       var(--cw-amber) 0 33%,
@@ -255,7 +255,7 @@ h3,
   .app-brand {
     color: var(--cw-on-brand);
     background-image: linear-gradient(135deg, var(--cw-brand) 0%, var(--cw-brand-2) 100%);
-    border-bottom: 2px solid var(--cw-ink);
+    border-bottom: var(--cw-bw, 2px) solid var(--cw-ink);
     text-decoration: none;
   }
 
@@ -267,9 +267,9 @@ h3,
   /* Compact metric card: printed-catalog look (ink outline + hard offset shadow). */
   .stat-card {
     background: var(--color-base-100);
-    border: 2px solid var(--cw-outline);
+    border: var(--cw-bw, 2px) solid var(--cw-outline);
     border-radius: var(--radius-box);
-    box-shadow: 4px 4px 0 var(--cw-ink);
+    box-shadow: var(--cw-shadow-card, 4px 4px 0 var(--cw-ink));
     padding: 1.25rem;
     transition:
       transform 500ms var(--ease-smooth, ease),
@@ -278,7 +278,7 @@ h3,
 
   a.stat-card:hover {
     transform: translate(-2px, -2px);
-    box-shadow: 6px 6px 0 var(--cw-ink);
+    box-shadow: var(--cw-shadow-card-hover, 6px 6px 0 var(--cw-ink));
   }
 
   /*
@@ -288,15 +288,15 @@ h3,
   .data-card,
   .data-card-elevated {
     background: var(--color-base-100);
-    border: 2px solid var(--cw-outline);
+    border: var(--cw-bw, 2px) solid var(--cw-outline);
     border-radius: var(--radius-box);
-    box-shadow: 4px 4px 0 var(--cw-ink);
+    box-shadow: var(--cw-shadow-card, 4px 4px 0 var(--cw-ink));
     padding: 1.5rem;
   }
 
   .data-card-elevated {
     border-color: var(--cw-ink);
-    box-shadow: 8px 8px 0 var(--cw-ink);
+    box-shadow: var(--cw-shadow-card-hover, 8px 8px 0 var(--cw-ink));
   }
 
   /*
@@ -304,10 +304,10 @@ h3,
    * buttons stay flat. The :not() chain deliberately raises specificity above daisyUI's .btn.
    */
   .btn:not(.btn-ghost):not(.btn-link):not(.btn-square):not(.btn-circle) {
-    border: 2px solid var(--cw-ink);
+    border: var(--cw-bw, 2px) solid var(--cw-ink);
     border-radius: 9999px;
     font-weight: 700;
-    box-shadow: 3px 3px 0 var(--cw-ink);
+    box-shadow: var(--cw-shadow-cta, 3px 3px 0 var(--cw-ink));
     transition:
       transform 380ms var(--ease-spring, ease),
       box-shadow 380ms var(--ease-smooth, ease),

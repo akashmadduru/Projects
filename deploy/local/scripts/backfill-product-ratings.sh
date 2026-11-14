@@ -23,7 +23,7 @@
 #
 # NOTE: this does not bump product.version / updated_at and publishes no events.
 #
-# Usage: infra/scripts/backfill-product-ratings.sh [--reset-unrated]
+# Usage: deploy/local/scripts/backfill-product-ratings.sh [--reset-unrated]
 # Env:   PG_CONTAINER (default ecommerce-postgres), PG_SUPERUSER (default postgres)
 # =============================================================================
 set -euo pipefail

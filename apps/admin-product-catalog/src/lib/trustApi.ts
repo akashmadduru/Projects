@@ -139,3 +139,23 @@ export function getFxRates(): Promise<FxRates> {
 export function saveFxRates(body: FxRates): Promise<FxRates> {
   return apiFetch<FxRates>('/api/admin/fx-rates', { method: 'PUT', body });
 }
+
+// ---- theme & branding -----------------------------------------------------------------------
+
+export interface ThemePayload {
+  /** null until an admin saves one: the built-in theme applies. */
+  config: unknown | null;
+  updatedAt: string | null;
+}
+
+export function getThemeConfig(): Promise<ThemePayload> {
+  return apiFetch<ThemePayload>('/api/products/theme', { authenticated: false });
+}
+
+export function saveThemeConfig(body: unknown): Promise<ThemePayload> {
+  return apiFetch<ThemePayload>('/api/admin/theme', { method: 'PUT', body });
+}
+
+export function resetThemeConfig(): Promise<ThemePayload> {
+  return apiFetch<ThemePayload>('/api/admin/theme', { method: 'DELETE' });
+}

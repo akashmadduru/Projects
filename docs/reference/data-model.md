@@ -5,7 +5,7 @@
 
 ## Rules that apply to every database
 
-- **One database per service**, owned by its own role, created by `infra/postgres/init/01-schemas.sql`.
+- **One database per service**, owned by its own role, created by `deploy/local/postgres/init/01-schemas.sql`.
   No service reads another service's database.
 - **No cross-database foreign keys** (Postgres cannot enforce them). Cross-service ids, such as
   `productId` in `orders.order_items`, are plain UUIDs kept consistent by events or by
@@ -471,7 +471,7 @@ Recovery mechanisms (out of scope for this prototype):
 
 ## References
 
-- [Backend-Architecture.md](../architecture/overview.md) — Service architecture and deployment
-- [Backend-EventSystem.md](events.md) — Event types and denormalization updates
-- [Backend-API.md](api.md) — API endpoints returning these entities
+- [Architecture overview](../architecture/overview.md) — Service architecture and deployment
+- [Event reference](events.md) — Event types and denormalization updates
+- [API reference](api.md) — API endpoints returning these entities
 - Database migrations: `services/*/src/main/resources/db/migration/`

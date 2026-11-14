@@ -20,7 +20,7 @@ this module becomes a shared risk.
 ./gradlew :services:eureka-server:bootRun
 
 # Container, alongside the rest of local infra
-docker compose -f infra/docker-compose.yml up -d eureka-server
+docker compose -f deploy/local/docker-compose.yml up -d eureka-server
 ```
 
 | Surface | URL | Notes |
@@ -36,7 +36,7 @@ docker compose -f infra/docker-compose.yml up -d eureka-server
 **Today (dev) the only access control is the network boundary.** The application has no
 authentication whatsoever.
 
-`infra/docker-compose.yml` publishes the port as `127.0.0.1:8761:8761`, **not** `8761:8761`.
+`deploy/local/docker-compose.yml` publishes the port as `127.0.0.1:8761:8761`, **not** `8761:8761`.
 The short form is shorthand for `0.0.0.0` and would expose the registry on every interface
 of the developer's machine. Services on the compose network reach it at
 `http://eureka-server:8761/eureka/` and never use the published port; the publish exists
@@ -117,7 +117,7 @@ being instantaneous.
 
 ---
 
-## For phases that add Eureka *clients* (1C, 1D, 1E)
+## For services that register with Eureka
 
 Client-side properties belong in the client service, not here, but one invariant is easy to
 get wrong and painful to debug:

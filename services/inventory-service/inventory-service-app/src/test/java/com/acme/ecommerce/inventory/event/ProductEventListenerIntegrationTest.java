@@ -47,7 +47,7 @@ import org.testcontainers.kafka.ConfluentKafkaContainer;
 @Testcontainers
 class ProductEventListenerIntegrationTest extends AbstractInventoryIntegrationTest {
 
-  // NOTE: NOT the same `apache/kafka:3.9.0` image infra/docker-compose.yml runs -
+  // NOTE: NOT the same `apache/kafka:3.9.0` image deploy/local/docker-compose.yml runs -
   // that image's startup sequence is incompatible with testcontainers-kafka
   // 2.0.5's wait strategy in this environment (times out waiting for a log line
   // the image never emits in KRaft-under-Testcontainers mode). ConfluentKafkaContainer

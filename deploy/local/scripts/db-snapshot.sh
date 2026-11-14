@@ -14,9 +14,9 @@
 # Incident runbook: docs/guides/runbooks/leaked-database-dump.md
 #
 # USAGE
-#   ./infra/scripts/db-snapshot.sh                       # -> ~/ecommerce-db-snapshots/<timestamp>/
-#   SNAPSHOT_DIR=/some/dir ./infra/scripts/db-snapshot.sh
-#   ./infra/scripts/db-snapshot.sh --with-personal-data  # full data for every database (still outside the repo)
+#   ./deploy/local/scripts/db-snapshot.sh                       # -> ~/ecommerce-db-snapshots/<timestamp>/
+#   SNAPSHOT_DIR=/some/dir ./deploy/local/scripts/db-snapshot.sh
+#   ./deploy/local/scripts/db-snapshot.sh --with-personal-data  # full data for every database (still outside the repo)
 #
 # RESTORE one database (the dump is plain SQL):
 #   docker exec -i ecommerce-postgres psql -U postgres -d product_db < <dir>/product_db.sql
@@ -24,7 +24,7 @@
 set -euo pipefail
 
 CONTAINER="${POSTGRES_CONTAINER:-ecommerce-postgres}"
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd -P)"
 BASE_DIR="${SNAPSHOT_DIR:-$HOME/ecommerce-db-snapshots}"
 WITH_PERSONAL=false
 [[ "${1:-}" == "--with-personal-data" ]] && WITH_PERSONAL=true

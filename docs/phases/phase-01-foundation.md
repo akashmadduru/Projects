@@ -8,7 +8,7 @@ JWT validation in each service → a real database read and write.
 
 | Sub-phase | Scope | Where it is documented |
 |---|---|---|
-| 1A | Gradle multi-project monorepo, version catalog (`gradle/libs.versions.toml`), shared libraries `common-core` / `common-web` / `common-security`, local infra in `infra/docker-compose.yml` | [ADR 0001](../architecture/adr/0001-monorepo-and-build-tooling.md), [getting started](../getting-started.md) |
+| 1A | Gradle multi-project monorepo, version catalog (`gradle/libs.versions.toml`), shared libraries `common-core` / `common-web` / `common-security`, local infra in `deploy/local/docker-compose.yml` | [ADR 0001](../architecture/adr/0001-monorepo-and-build-tooling.md), [getting started](../getting-started.md) |
 | 1B | Eureka service registry (:8761), loopback-only | [eureka-server](../services/eureka-server.md) |
 | 1C | auth-service (:8081): login, RS256 JWT issuance, JWKS, rotating refresh tokens with reuse detection, Google OIDC | [auth-service](../services/auth-service.md) |
 | 1D | API gateway (:8080): routing, JWT validation, deny-by-default, CORS, Resilience4j circuit breakers | [gateway](../services/gateway.md) |

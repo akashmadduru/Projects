@@ -129,7 +129,7 @@ Phase 9 was built under "no tests, no HLD/LLD, record shortcuts as debt". The in
 <a id="td-p9-16"></a>
 ## TD-P9-16 Gateway routes, notifications and seller-service build setup
 - **Severity / Effort:** Low / S
-- **Where:** `services/gateway` routes; notification-service `SELLER_*` templates; `infra/scripts/create-customer-dbs.sql`, `infra/postgres/init/01-schemas.sql`, `infra/.env.example`.
+- **Where:** `services/gateway` routes; notification-service `SELLER_*` templates; `deploy/local/scripts/create-customer-dbs.sql`, `deploy/local/postgres/init/01-schemas.sql`, `deploy/local/.env.example`.
 - **Risk:** `/api/seller/**` is routed by explicit paths (ledger, payouts, analytics, ads, feedback); any new seller-service path needs a gateway edit, or it 404s. Seller approve/reject emails link to `ADMIN_BASE_URL/seller`; there is no in-app inbox notification. seller-service uses `JdbcClient` directly (no repository layer). It has its own DB (`seller_db`, role `seller_service`, schema `seller`): existing volumes need `create-customer-dbs.sql` run manually (extends [TD-SEC-05](infra-security.md#td-sec-05)); `SELLER_DB_PASSWORD` is a committed throwaway (extends [TD-SEC-03](infra-security.md#td-sec-03)); `SELLER_DATA_KEY` has no default and compose fails fast if unset.
 - **Fix:** Wildcard `/api/seller/**` route with per-path auth; inbox notification; migration runner for infra DBs; secrets manager.
 

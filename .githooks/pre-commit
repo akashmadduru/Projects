@@ -18,6 +18,6 @@ if command -v gitleaks >/dev/null 2>&1; then
 fi
 
 if [ "$blocked" -ne 0 ]; then
-  echo "Take snapshots with infra/scripts/db-snapshot.sh (writes outside the repo)." >&2
+  echo "Take snapshots with deploy/local/scripts/db-snapshot.sh (writes outside the repo)." >&2
   exit 1
 fi

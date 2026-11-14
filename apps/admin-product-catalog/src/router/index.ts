@@ -208,6 +208,12 @@ export const routes: readonly RouteRecordRaw[] = [
         meta: { requiresAuth: true, requiresAnyRole: ['ADMIN'] },
       },
       {
+        path: 'theme',
+        name: 'theme',
+        component: () => import('@/views/ThemeView.vue'),
+        meta: { requiresAuth: true, requiresAnyRole: ['ADMIN'] },
+      },
+      {
         path: 'settings',
         name: 'settings',
         component: () => import('@/views/SettingsView.vue'),

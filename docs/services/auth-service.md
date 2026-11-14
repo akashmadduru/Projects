@@ -55,7 +55,7 @@ in the platform reads this cache to make an allow/deny decision — the JWT `rol
 independently by every resource server, remains the sole authorization source. There is also no
 explicit invalidation on role change or account disable in this iteration: a disabled account's
 stale snapshot can still sit in cache for up to 10 minutes, but since nothing gates access on it,
-that staleness cannot itself become an authorization bypass. `infra/docker-compose.yml` gates
+that staleness cannot itself become an authorization bypass. `deploy/local/docker-compose.yml` gates
 auth-service's startup on Postgres and Eureka only — deliberately **not** on Redis, for the same
 fail-open reason.
 
@@ -101,24 +101,29 @@ service interprets a token identically.
 
 ## Endpoints
 
-| Method | Path | Auth | Notes |
+All 33 endpoints (verified 2026-11-14) are listed in [endpoints.md](../reference/endpoints.md#auth-service-33).
+Rate limits are in [api.md](../reference/api.md#rate-limits).
+
+| Group | Paths | Auth | Since |
 |---|---|---|---|
-| `POST` | `/api/auth/register` | public | Gated by `auth.registration.enabled` (**false** by default). Grants `ROLE_VIEWER` only. |
-| `POST` | `/api/auth/login` | public | Rate-limited per IP. |
-| `POST` | `/api/auth/refresh` | cookie only | Reads the refresh token **only** from the HttpOnly cookie. |
-| `POST` | `/api/auth/logout` | cookie | Always 204. Revokes the whole family. |
-| `GET` | `/api/auth/me` | Bearer | Single query via `@EntityGraph`. |
-| `POST` | `/api/auth/validate` | Bearer | Introspection. **Not** for the gateway. |
-| `GET` | `/.well-known/jwks.json` | public | |
-| `GET` | `/oauth2/authorization/google` | public | 404 unless Google credentials are configured. |
+| Session | `POST /api/auth/login`, `/register`, `/refresh`, `/logout` | public (refresh and logout read the cookie) | 1C |
+| Identity | `GET /api/auth/me`, `POST /api/auth/validate` (introspection, not used by the gateway), `GET /.well-known/jwks.json` | Bearer / public | 1C |
+| Google | `GET /oauth2/authorization/google` (404 unless `GOOGLE_CLIENT_ID` is set) | public | 1C |
+| Recovery and verification | `/api/auth/password/{forgot,reset}`, `/api/auth/email/verify`, `/email/verify/resend` | public (resend: Bearer) | 6 |
+| Phone and OTP login | `/api/auth/otp/{request,verify}`, `/api/auth/me/phone`, `/me/phone/verify` | public / Bearer | 6 |
+| Two-factor (TOTP) and sessions | `/api/auth/2fa/{setup,enable,disable,status,verify}`, `GET /api/auth/sessions`, `DELETE /sessions/{familyId}`, `POST /sessions/revoke-others` | Bearer (`2fa/verify`: public, completes an MFA login) | 10 |
+| Admin users | `/api/admin/users/**` (list, stats, detail, status, roles, enable, disable) | `ROLE_ADMIN` | 7 |
+| Internal | `/internal/privacy/users/{id}/{export,verify-password}`, `POST /internal/users/{id}/roles` (seller approval grants `ROLE_SELLER`) | `X-Internal-Token` | 9–10 |
+
+**Registration** is controlled by `auth.registration.enabled` (`AUTH_REGISTRATION_ENABLED`): the
+application default is **false**; `deploy/local/docker-compose.yml` sets it to **true** for local use.
+New accounts get `ROLE_VIEWER` only.
 
 Refresh cookie: `HttpOnly; Secure; SameSite=Lax; Path=/api/auth`.
 
 The refresh token is **never** in a response body and **never** in a redirect URL. After a Google
 login the SPA lands on its callback with only a cookie set, and calls `/api/auth/refresh` to get
 its first access token.
-
----
 
 ## Refresh rotation and reuse detection
 
@@ -158,20 +163,20 @@ add ~100ms to the hottest path and buy nothing).
 
 ```bash
 # 1. keystore (once) — NEVER generated at startup
-./infra/scripts/generate-keystore.sh -o infra/secrets/jwt-keystore.p12 -p devkeystorepw -a jwt-signing
+./deploy/local/scripts/generate-keystore.sh -o deploy/local/secrets/jwt-keystore.p12 -p devkeystorepw -a jwt-signing
 
 # 2. Postgres (POSTGRES_PORT override if 5432 is taken)
-POSTGRES_PORT=15432 docker compose -f infra/docker-compose.yml up -d postgres
+POSTGRES_PORT=15432 docker compose -f deploy/local/docker-compose.yml up -d postgres
 
 # 2b. Redis — OPTIONAL, for the user-snapshot cache only (see above). Login/refresh
 # work normally without it; UserSessionCache.put fails open.
-docker compose -f infra/docker-compose.yml up -d redis
+docker compose -f deploy/local/docker-compose.yml up -d redis
 
 # 3. the service — Flyway migrates on startup
 SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:15432/auth_db \
 SPRING_DATASOURCE_USERNAME=auth_service \
 SPRING_DATASOURCE_PASSWORD=auth_service_local_pwd \
-PLATFORM_JWT_KEYSTORE_PATH=infra/secrets/jwt-keystore.p12 \
+PLATFORM_JWT_KEYSTORE_PATH=deploy/local/secrets/jwt-keystore.p12 \
 PLATFORM_JWT_KEYSTORE_PASSWORD=devkeystorepw \
 PLATFORM_JWT_KEYSTORE_ALIAS=jwt-signing \
 REDIS_HOST=localhost \

@@ -4,6 +4,7 @@
  */
 
 import { create } from 'zustand'
+import { useBrandStore } from '../stores/brandStore'
 
 export type Lang = 'en' | 'hi'
 export const LANGS: { code: Lang; label: string }[] = [
@@ -69,5 +70,9 @@ if (typeof document !== 'undefined') {
 /** Hook returning a translate function; re-renders when the language or dictionary changes. */
 export function useT(): (text: string) => string {
   const dict = useLocale((s) => s.dict)
-  return (text) => dict[text] ?? text
+  const brand = useBrandStore((s) => s.config?.brand.name)
+  return (text) => {
+    const out = dict[text] ?? text
+    return brand && brand !== 'Cartwise' ? out.replace(/Cartwise/g, brand) : out
+  }
 }

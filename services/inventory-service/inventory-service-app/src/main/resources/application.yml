@@ -7,7 +7,7 @@
 # missed by reading only one of them.
 #
 # NOTHING SECRET HAS A WORKING DEFAULT except the throwaway local database
-# password, which is the same value infra/postgres/init/01-schemas.sql creates on
+# password, which is the same value deploy/local/postgres/init/01-schemas.sql creates on
 # a developer's machine and is never deployed anywhere.
 # =============================================================================
 
@@ -102,7 +102,7 @@ spring:
   # starting or serving CRUD reads/writes (HLD S7, mirroring product-service's
   # producer-side stance); Spring Kafka's listener container retries connecting
   # in the background and this service catches up from its last committed
-  # offset once Kafka is reachable again. See infra/docker-compose.yml for the
+  # offset once Kafka is reachable again. See deploy/local/docker-compose.yml for the
   # corresponding `depends_on` decision.
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}

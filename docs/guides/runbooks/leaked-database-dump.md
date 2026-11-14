@@ -17,11 +17,11 @@ was pushed on 2026-11-13. On 2026-11-14 both the branch tip and the commit URL s
 
 | # | Step | Status (2026-11-14) |
 |---|---|---|
-| 1 | Stop tracking `db-snapshots/` and git-ignore it (also `*.dump`) | ✅ Done in the working tree. Takes effect on GitHub when pushed. |
+| 1 | Stop tracking `db-snapshots/` and git-ignore it (also `*.dump`) | ✅ Done and pushed (`97cd7e2`). The branch tip returns 404 for the files; commit `5943ec7` still serves them until step 8. |
 | 2 | Detect it automatically: Gitleaks rules `postgres-dump`, `postgres-scram-verifier`, `argon2-password-hash` in `.gitleaks.toml` | ✅ Done. A scan of full history finds exactly the 13 secrets in `5943ec7` and nothing else; the working tree is clean. |
-| 3 | Block it locally before it is pushed: `.githooks/pre-commit` | ✅ Done. Enable it per clone with `git config core.hooksPath .githooks`. |
-| 4 | Make the safe path the easy path: `infra/scripts/db-snapshot.sh` | ✅ Done. Writes outside the repository and refuses paths inside it. Databases with personal data are dumped schema-only by default. |
-| 5 | Bind Postgres to `127.0.0.1` (the superuser password is the known value `postgres`) | ✅ Done in `infra/docker-compose.yml`. Apply with `docker compose -f infra/docker-compose.yml up -d postgres`. |
+| 3 | Block it locally before it is pushed: `.githooks/pre-commit` | ✅ Done and enabled in this clone. Every other clone must run `git config core.hooksPath .githooks` once ([getting started](../../getting-started.md#1-configure)). |
+| 4 | Make the safe path the easy path: `deploy/local/scripts/db-snapshot.sh` | ✅ Done. Writes outside the repository and refuses paths inside it. Databases with personal data are dumped schema-only by default. |
+| 5 | Bind Postgres to `127.0.0.1` (the superuser password is the known value `postgres`) | ✅ Done in `deploy/local/docker-compose.yml`. Apply with `docker compose -f deploy/local/docker-compose.yml up -d postgres`. |
 | 6 | Change the exposed account's password, and anywhere else that password was used | ⏳ **Owner action.** Sign in → Account → Security → change password, then "Sign out other sessions". If the same password is used for the Gmail account or anywhere else, change it there first. |
 | 7 | Rotate the four local Postgres role passwords | ⏳ Optional (local only). See below. |
 | 8 | Remove the files from git history and force-push `version_v1` | ⏳ **Needs approval.** See below. |
@@ -30,20 +30,20 @@ was pushed on 2026-11-13. On 2026-11-14 both the branch tip and the commit URL s
 ## Step 7: rotate local role passwords
 
 Run once per role (`auth_service`, `product_service`, `inventory_service`), then put the new value in
-`infra/.env` (`AUTH_DB_PASSWORD`, `PRODUCT_DB_PASSWORD`, `INVENTORY_DB_PASSWORD`) and restart that
+`deploy/local/.env` (`AUTH_DB_PASSWORD`, `PRODUCT_DB_PASSWORD`, `INVENTORY_DB_PASSWORD`) and restart that
 service:
 
 ```bash
 NEW=$(openssl rand -base64 24 | tr -d '/+=')
 docker exec -i ecommerce-postgres psql -U postgres -c "ALTER ROLE auth_service PASSWORD '$NEW'"
-# edit AUTH_DB_PASSWORD in infra/.env, then:
-docker compose -f infra/docker-compose.yml up -d auth-service
+# edit AUTH_DB_PASSWORD in deploy/local/.env, then:
+docker compose -f deploy/local/docker-compose.yml up -d auth-service
 ```
 
 ## Step 8: purge from history
 
 Only one commit added the files, and nothing has been forked. Rewriting changes the SHA of
-`5943ec7` and of every commit after it (9 commits on `version_v1`). Anyone else with a clone must
+`5943ec7` and of every commit after it (11 commits on `version_v1` as of `97cd7e2`, 2026-11-14). Anyone else with a clone must
 re-clone.
 
 ```bash
@@ -79,9 +79,9 @@ commit SHA `5943ec7` (and the new SHA list if they ask), stating there are no fo
 ## Taking snapshots from now on
 
 ```bash
-./infra/scripts/db-snapshot.sh                       # ~/ecommerce-db-snapshots/<timestamp>/
-SNAPSHOT_DIR=/somewhere/else ./infra/scripts/db-snapshot.sh
-./infra/scripts/db-snapshot.sh --with-personal-data  # full data, still outside the repo
+./deploy/local/scripts/db-snapshot.sh                       # ~/ecommerce-db-snapshots/<timestamp>/
+SNAPSHOT_DIR=/somewhere/else ./deploy/local/scripts/db-snapshot.sh
+./deploy/local/scripts/db-snapshot.sh --with-personal-data  # full data, still outside the repo
 ```
 
 What it dumps by default:

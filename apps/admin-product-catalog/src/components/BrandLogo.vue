@@ -1,5 +1,8 @@
 <script setup lang="ts">
+import { computed } from 'vue';
+
 import BrandMark from '@/components/BrandMark.vue';
+import { useBranding } from '@/composables/useBranding';
 
 /**
  * "Cartwise Admin" lockup. Two placements:
@@ -18,6 +21,17 @@ withDefaults(
   }>(),
   { tone: 'on-brand', collapsed: false, tag: true, large: false },
 );
+
+const { name, logoUrl } = useBranding();
+
+/** Multi-word names accent the last word; a single word stays one colour. */
+const parts = computed(() => {
+  const words = name.value.trim().split(/\s+/);
+  return words.length > 1
+    ? { head: words.slice(0, -1).join(' ') + ' ', tail: words[words.length - 1] }
+    : { head: name.value, tail: '' };
+});
+const accentLetters = computed(() => name.value === 'Cartwise');
 </script>
 
 <template>
@@ -25,16 +39,25 @@ withDefaults(
     class="brand inline-flex items-center gap-2"
     :class="[tone === 'on-brand' ? 'brand-on-brand' : 'brand-surface']"
     role="img"
-    aria-label="Cartwise Admin"
+    :aria-label="`${name} Admin`"
   >
+    <img
+      v-if="logoUrl"
+      :src="logoUrl"
+      alt=""
+      class="brand-mark shrink-0 object-contain"
+      :class="large ? 'h-16 w-16' : 'h-9 w-9'"
+    />
     <BrandMark
+      v-else
       :orbit="tone"
       class="brand-mark shrink-0"
       :class="large ? 'h-16 w-16' : 'h-9 w-9'"
     />
     <template v-if="!collapsed">
       <span class="font-display leading-none tracking-wide" :class="large ? 'text-4xl' : 'text-xl'">
-        Cart<span class="brand-accent">wise</span>
+        <template v-if="accentLetters">Cart<span class="brand-accent">wise</span></template>
+        <template v-else>{{ parts.head }}<span class="brand-accent">{{ parts.tail }}</span></template>
       </span>
       <span v-if="tag" class="brand-tag" :class="large ? 'text-xs' : 'text-[10px]'">Admin</span>
     </template>

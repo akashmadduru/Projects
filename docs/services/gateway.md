@@ -49,16 +49,30 @@ two different spellings of the same fact.
 the auto-locator publishes *every* registered service at the public edge, including eureka-server,
 with no deliberate authorization rule.
 
-| Route id | Predicate | Target | Auth |
-|---|---|---|---|
-| `auth-public` | `/api/auth/{login,register,refresh,logout}` | `lb://AUTH-SERVICE` | permitAll |
-| `auth-secured` | `/api/auth/me`, `/api/auth/validate` | `lb://AUTH-SERVICE` | authenticated (Bearer) |
-| `auth-jwks` | `/.well-known/jwks.json` | `lb://AUTH-SERVICE` | permitAll |
-| `auth-oauth2` | `/oauth2/**`, `/login/oauth2/**` | `lb://AUTH-SERVICE` | permitAll (state + PKCE enforced upstream) |
-| `product` | `/api/products/**` | `lb://PRODUCT-SERVICE` | authenticated (Bearer) |
-| — | `/actuator/health/**` | local | permitAll (see below) |
-| — | `/actuator/**` (all else) | local | **denyAll** |
-| — | anything else | — | `anyExchange().authenticated()` — deny by default |
+15 routes, from `services/gateway/src/main/resources/application.yml` (verified 2026-11-14).
+Who may call each path is decided by `SecurityConfig`, not by the route; see
+[api.md](../reference/api.md#authentication) and [endpoints.md](../reference/endpoints.md).
+
+| Route id | Target | Paths |
+|---|---|---|
+| `auth-public` | AUTH-SERVICE | `/api/auth/{login,register,refresh,logout}`, password forgot/reset, email verify, OTP request/verify, `/api/auth/2fa/verify` (permitAll) |
+| `auth-secured` | AUTH-SERVICE | `/api/auth/me/**`, `/validate`, `/email/verify/resend`, `/2fa/**`, `/sessions/**`, `/api/admin/users/**` |
+| `auth-jwks` | AUTH-SERVICE | `/.well-known/jwks.json` (permitAll) |
+| `auth-oauth2` | AUTH-SERVICE | `/oauth2/**`, `/login/oauth2/**` (permitAll; state and PKCE enforced upstream) |
+| `product` | PRODUCT-SERVICE | `/api/products/**`, `/api/categories/**`, `/sitemap.xml`, `/api/admin/fx-rates`, `/api/seller/{offers,products}/**` |
+| `inventory` | INVENTORY-SERVICE | `/api/inventory/**`, `/api/seller/{stock,warehouses}`, `/api/admin/{warehouses,stock}/**` |
+| `user` | USER-SERVICE | `/api/users/**`, `/api/membership/**`, `/api/referrals/**` |
+| `cart` | CART-SERVICE | `/api/cart/**`, `/api/wishlist/**`, `/api/alerts/**`, `/api/lists/**` |
+| `order` | ORDER-SERVICE | `/api/orders/**`, `/api/subscriptions/**`, `/api/recommendations/**`, `/api/seller/shipments/**`, `/api/admin/{orders,returns,exchange}/**` |
+| `rating` | RATING-SERVICE | `/api/ratings/**`, `/api/admin/ratings/**` |
+| `payment` | PAYMENT-SERVICE | `/api/payments/**`, `/api/wallet/**`, `/api/gift-cards/**`, `/api/admin/payments/**` |
+| `promotion` | PROMOTION-SERVICE | `/api/promotions/**`, `/api/coins/**`, `/api/admin/{coupons,deals}/**` |
+| `notification` | NOTIFICATION-SERVICE | `/api/notifications/**`, `/api/push/**`, `/api/admin/campaigns/**` |
+| `seller` | SELLER-SERVICE | `/api/sellers/**`, `/api/ads/**`, `/api/seller/{ledger,payouts,analytics,feedback,ads}/**`, `/api/admin/{sellers,payouts}/**` |
+| `support` | SUPPORT-SERVICE | `/api/support/**`, `/api/admin/support/**`, `/api/admin/audit/**` |
+
+Not routed: `/internal/**` (service-to-service only), `/actuator/**` except `/actuator/health/**`
+(denyAll), and anything else (`anyExchange().authenticated()`, deny by default).
 
 The route table and `SecurityConfig`'s `authorizeExchange` rules are two halves of one statement, and
 `GatewayEdgeIntegrationTest.RouteAuthorizationContract` asserts them against each other. When they
@@ -125,13 +139,26 @@ and can never be `*`.
 
 ## Resilience4j sizing
 
-| | `authCb` | `productCb` |
-|---|---|---|
-| slow-call threshold | **4s** | **1s** |
-| route response-timeout | 10s | 5s (global) |
-| time limiter | 11s | 6s |
+One circuit breaker per route (verified 2026-11-14). Slow-call threshold and time limiter per breaker:
 
-Two instances with different slow-call thresholds is the point: Argon2id login is *legitimately*
+| Breaker | Slow-call threshold | Time limiter |
+|---|---|---|
+| `authCb` | 4s | 11s |
+| `orderCb` | 4s | 11s |
+| `paymentCb` | 3s | 11s |
+| `sellerCb` | 2s | 11s |
+| `supportCb` | 2s | 11s |
+| `ratingCb` | 2s | 8s |
+| `productCb` | 1s | 6s |
+| `inventoryCb` | 1s | 6s |
+| `userCb` | 1s | 6s |
+| `cartCb` | 1s | 6s |
+| `promotionCb` | 1s | 6s |
+| `notificationCb` | not declared: Resilience4j default (60s) | 6s (default) |
+
+`notificationCb` is referenced by the `notification` route but has no `instances` entry, so it uses only the shared `default` config.
+
+Different slow-call thresholds per route are the point: Argon2id login is *legitimately*
 slow, and a single platform-wide 1s threshold would classify every normal login as a slow call and
 trip the auth circuit under ordinary load — taking down login because login is working as designed.
 
@@ -177,7 +204,7 @@ why it is not in the permit-all list.
 java -jar services/eureka-server/build/libs/eureka-server-0.1.0-SNAPSHOT.jar
 
 # 2. auth-service (needs the dev keystore and Postgres)
-PLATFORM_JWT_KEYSTORE_PATH=infra/secrets/jwt-keystore.p12 \
+PLATFORM_JWT_KEYSTORE_PATH=deploy/local/secrets/jwt-keystore.p12 \
 PLATFORM_JWT_KEYSTORE_PASSWORD=devkeystorepw \
 PLATFORM_JWT_KEYSTORE_ALIAS=jwt-signing \
 SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:15432/auth_db \
@@ -187,7 +214,7 @@ java -jar services/auth-service/auth-service-app/build/libs/auth-service-app-0.1
 java -jar services/gateway/build/libs/gateway-0.1.0-SNAPSHOT.jar
 ```
 
-Or `docker compose -f infra/docker-compose.yml up -d gateway`.
+Or `docker compose -f deploy/local/docker-compose.yml up -d gateway`.
 
 ### Environment variables
 
@@ -205,13 +232,12 @@ nothing in either service's log pointing at the cause.
 
 ---
 
-## Not implemented (tracked, out of Phase 1 scope)
+## Not implemented
 
-- **Per-client rate limiting at the edge** (`RequestRateLimiter` + Redis). Today the only throttle in
-  the platform is auth-service's per-instance, in-memory one, which weakens with every replica added.
-- **TLS termination**, WAF / IP reputation ahead of the gateway.
-- **Distributed tracing** (`micrometer-tracing` + OTel). The correlation id is propagated end to end,
-  but there are no spans yet.
-- **auth-service's own CORS config** could arguably be removed once everything goes through the edge.
-  It is kept for now because auth-service is directly reachable in dev and in its own tests; the
-  gateway's `DedupeResponseHeader` makes the overlap harmless either way.
+| Item | Status on 2026-11-14 |
+|---|---|
+| Per-client rate limiting at the edge (`RequestRateLimiter` + Redis) | Not implemented. The only throttle is auth-service's per-instance Bucket4j limit, which weakens with each replica. |
+| TLS termination, WAF | Not in the gateway. On AWS the ALB terminates TLS and the Terraform `waf` module provides the WAF ([deploy-aws](../guides/deploy-aws.md)); locally there is no TLS. |
+| Distributed tracing | **Implemented in Phase 10**: Micrometer Tracing with OpenTelemetry export to Jaeger. |
+| Removing auth-service's own CORS configuration | Not done. It is kept because auth-service is reachable directly in dev and in its tests; the gateway's `DedupeResponseHeader` makes the overlap harmless. |
+

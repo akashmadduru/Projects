@@ -57,7 +57,7 @@ public record AuthProperties(
    * @param accessTokenTtl 10 minutes. Short enough that a leaked access token is a bounded
    *     incident, long enough that the SPA is not refreshing constantly.
    * @param keystorePath PKCS#12 keystore holding the RSA signing key(s). Produced by {@code
-   *     infra/scripts/generate-keystore.sh} and MOUNTED, never generated at startup - a key
+   *     deploy/local/scripts/generate-keystore.sh} and MOUNTED, never generated at startup - a key
    *     generated in-process is a different key on every replica and after every restart, so every
    *     token would be unverifiable by everyone else.
    * @param keystorePassword no default; supplied from the environment / secret manager
@@ -69,7 +69,7 @@ public record AuthProperties(
       @DefaultValue("https://auth.acme-ecommerce.internal") String issuer,
       @DefaultValue("ecommerce-platform") List<String> audiences,
       @DefaultValue("10m") Duration accessTokenTtl,
-      @DefaultValue("infra/secrets/jwt-keystore.p12") String keystorePath,
+      @DefaultValue("deploy/local/secrets/jwt-keystore.p12") String keystorePath,
       String keystorePassword,
       @DefaultValue("") String activeKid) {}
 

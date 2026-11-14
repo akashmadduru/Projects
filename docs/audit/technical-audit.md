@@ -4,7 +4,7 @@ Review-only audit. No code was modified. Every finding comes from reading files 
 
 > **Progress since the audit (2026-11-14):**
 > - Done: `.github/workflows/gradle.yml` replaced by `ci.yml`, `security.yml` and `cd-images.yml` ([CI/CD](../guides/ci-cd.md)).
-> - Done: the ZooKeeper container and `infra/zookeeper/` were removed.
+> - Done: the ZooKeeper container and `deploy/local/zookeeper/` were removed.
 > - Done: `IMPLEMENTATION_STATUS.md`, `DOCKER_SUMMARY.md` and `DOCKER_SETUP.md` were deleted, and all docs moved under `docs/`.
 > - Partly done: `db-snapshots/` was removed from the tree and git-ignored. **It is still in git history,
 >   and the affected credentials have not been rotated** (decision 6 below is still open).
@@ -60,7 +60,7 @@ A Java 25 / Spring Boot 4.0.7 / Spring Cloud 2025.1.2 Gradle monorepo: 14 backen
 There is no outbox and no dead-letter topic anywhere (`order/event/OrderEventPublisher.java:17`).
 
 ### Databases
-Database-per-service, no cross-database foreign keys (`infra/postgres/init/01-schemas.sql`). Flyway with `validate-on-migrate: true`, `ddl-auto: none`, `open-in-view: false` everywhere. Cross-service data is plain UUIDs plus price/address snapshots.
+Database-per-service, no cross-database foreign keys (`deploy/local/postgres/init/01-schemas.sql`). Flyway with `validate-on-migrate: true`, `ddl-auto: none`, `open-in-view: false` everywhere. Cross-service data is plain UUIDs plus price/address snapshots.
 
 ### Authentication flow
 1. auth-service signs RS256 JWTs (10 min TTL) from a PKCS#12 keystore; multiple `kid`s supported for rotation (`JwtKeyProvider.java`).
@@ -174,7 +174,7 @@ Common to all 14: multi-stage Dockerfile, layered jar, `eclipse-temurin:25-jre-a
 
 ## 5. Docker and Kubernetes Readiness
 
-**Already in place:** multi-stage builds, layered jars, non-root, `exec` PID 1, graceful shutdown, liveness/readiness probes, env-var config, no baked secrets (`.dockerignore` excludes `infra/secrets/` and `*.p12`).
+**Already in place:** multi-stage builds, layered jars, non-root, `exec` PID 1, graceful shutdown, liveness/readiness probes, env-var config, no baked secrets (`.dockerignore` excludes `deploy/local/secrets/` and `*.p12`).
 
 **Gaps:**
 - Every image runs `COPY . .` and a full Gradle bootJar: 14 images each rebuild the tree. Build jars once in CI and use thin runtime Dockerfiles (or Jib).
@@ -303,7 +303,7 @@ Secrets via `amazon.aws.secretsmanager_secret` lookups, never vaulted copies. Do
 - `rating/service/ReviewMediaService.java`: storage port with S3 implementation
 - All 14 `application.yml`: shutdown-phase timeout, JSON logging, tracing, Kafka SASL/TLS
 - 8 unlocked `@Scheduled` classes: cluster-wide lock (done: `JobLock`, ADR 0004)
-- `infra/docker-compose.yml`: remove ZooKeeper, bind Postgres to loopback, enable frontends
+- `deploy/local/docker-compose.yml`: remove ZooKeeper, bind Postgres to loopback, enable frontends
 - `PaymentPanel.tsx`, storefront `package.json`, `types/account.ts`: Razorpay Checkout
 - `ProductEndpointsIntegrationTest.java`: fix stale assertion
 
@@ -323,7 +323,7 @@ Secrets via `amazon.aws.secretsmanager_secret` lookups, never vaulted copies. Do
 - Eureka discovery with Kubernetes DNS (on approval)
 
 **Deprecate / remove:**
-- ZooKeeper container and `infra/zookeeper/` (unused)
+- ZooKeeper container and `deploy/local/zookeeper/` (unused)
 - `db-snapshots/` (purge from history)
 - `IMPLEMENTATION_STATUS.md`, `DOCKER_SUMMARY.md`, `DOCKER_SETUP.md`
 - The simulate endpoint outside dev profiles

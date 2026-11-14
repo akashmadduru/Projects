@@ -21,7 +21,6 @@ oracleJdk-27/
 apps/
 deploy/
 docs/
-infra/
 postman/
 db-snapshots/
 .claude/

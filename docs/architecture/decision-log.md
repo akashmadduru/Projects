@@ -138,7 +138,7 @@ public void onProductEvent(ProductEvent event) { ... }
 ### References
 
 - [ADR 0002](adr/0002-event-driven-inventory-kafka-kraft-and-event-contract-duplication.md) — full decision
-- [Backend-EventSystem.md](../reference/events.md) — event choreography details
+- [Event reference](../reference/events.md) — event choreography details
 
 ---
 
@@ -203,8 +203,8 @@ InventoryEventListener.onInventoryEvent(event) {
 
 ### References
 
-- [Backend-Architecture.md](overview.md) — consistency model section
-- [Backend-EventSystem.md](../reference/events.md) — event choreography and failure scenarios
+- [Architecture overview](overview.md) — consistency model section
+- [Event reference](../reference/events.md) — event choreography and failure scenarios
 
 ---
 
@@ -373,7 +373,7 @@ void eventShapeMatchesExpectation() {
 ### References
 
 - [ADR 0002](adr/0002-event-driven-inventory-kafka-kraft-and-event-contract-duplication.md) — full decision
-- [Backend-EventSystem.md](../reference/events.md) — event contracts
+- [Event reference](../reference/events.md) — event contracts
 
 ---
 
@@ -391,6 +391,6 @@ void eventShapeMatchesExpectation() {
 
 ## References
 
-- [Backend-Architecture.md](overview.md) — System design context
+- [Architecture overview](overview.md) — System design context
 - [ADR 0002](adr/0002-event-driven-inventory-kafka-kraft-and-event-contract-duplication.md) — ADR for event choreography
 - [ADR 0003](adr/0003-choreographed-catalog-saga-and-narrow-read-only-cross-service-call.md) — ADR for Feign usage

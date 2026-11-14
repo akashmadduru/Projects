@@ -1,11 +1,11 @@
 # Setup guide: environment variables, payments, email and other services
 
-Everything the platform reads from the environment, and how to connect each external service. All values go in **`infra/.env`** (gitignored; copy from `infra/.env.example`), which `infra/docker-compose.yml` passes to the containers.
+How to connect each external service for local development. **The complete list of environment variables is generated from the code in the [environment variable catalogue](../reference/environment-variables.md); to configure AWS see [cloud setup](cloud-setup.md).** All values go in **`deploy/local/.env`** (gitignored; copy from `deploy/local/.env.example`), which `deploy/local/docker-compose.yml` passes to the containers.
 
 ```bash
-cp infra/.env.example infra/.env      # then edit
-./infra/scripts/generate-keystore.sh -p "<your-keystore-password>"   # JWT signing key (once)
-docker compose -f infra/docker-compose.yml --env-file infra/.env up -d --build
+cp deploy/local/.env.example deploy/local/.env      # then edit
+./deploy/local/scripts/generate-keystore.sh -p "<your-keystore-password>"   # JWT signing key (once)
+docker compose -f deploy/local/docker-compose.yml --env-file deploy/local/.env up -d --build
 ```
 
 **Status of each integration today**
@@ -24,9 +24,13 @@ docker compose -f infra/docker-compose.yml --env-file infra/.env up -d --build
 
 | Variable | What it is | How to set it |
 |---|---|---|
-| `AUTH_DB_PASSWORD`, `PRODUCT_DB_PASSWORD`, `INVENTORY_DB_PASSWORD`, `USER_DB_PASSWORD`, `CART_DB_PASSWORD`, `ORDER_DB_PASSWORD`, `RATING_DB_PASSWORD`, `PAYMENT_DB_PASSWORD`, `PROMOTION_DB_PASSWORD`, `NOTIFICATION_DB_PASSWORD` | One Postgres role per service | The example values match `infra/postgres/init/01-schemas.sql`, which creates the roles **on first volume creation only**. Changing a password later means `ALTER ROLE ... PASSWORD` in Postgres as well as the `.env` value. |
-| `JWT_KEYSTORE_PASSWORD` | Password of `infra/secrets/jwt-keystore.p12` | The same `-p` value you passed to `generate-keystore.sh`. |
+| `AUTH_DB_PASSWORD`, `PRODUCT_DB_PASSWORD`, `INVENTORY_DB_PASSWORD`, `USER_DB_PASSWORD`, `CART_DB_PASSWORD`, `ORDER_DB_PASSWORD`, `RATING_DB_PASSWORD`, `PAYMENT_DB_PASSWORD`, `PROMOTION_DB_PASSWORD`, `NOTIFICATION_DB_PASSWORD`, `SELLER_DB_PASSWORD`, `SUPPORT_DB_PASSWORD` | One Postgres role per service (12) | The example values match `deploy/local/postgres/init/01-schemas.sql`, which creates the roles **on first volume creation only**. Changing a password later means `ALTER ROLE ... PASSWORD` in Postgres as well as the `.env` value. |
+| `JWT_KEYSTORE_PASSWORD` | Password of `deploy/local/secrets/jwt-keystore.p12` | The same `-p` value you passed to `generate-keystore.sh`. |
 | `INTERNAL_API_TOKEN` | Shared secret for service-to-service `/internal/**` calls (`X-Internal-Token`) | Long random string: `openssl rand -base64 48`. Every service gets the same value. |
+| `SELLER_DATA_KEY` | AES-256-GCM key that encrypts seller bank account numbers (Phase 9) | Base64 of 32 random bytes: `openssl rand -base64 32`. Losing it makes stored account numbers unreadable. |
+| `AUTH_DATA_KEY` | AES-256-GCM key that encrypts users’ TOTP secrets (Phase 10) | Base64 of 32 random bytes: `openssl rand -base64 32`. Losing it disables every enrolled authenticator. |
+
+**Tracing** needs no variable locally: compose sets `OTEL_TRACES_ENDPOINT=http://jaeger:4318/v1/traces` for every service.
 
 ## 2. Optional variables, by area
 
@@ -58,7 +62,7 @@ docker compose -f infra/docker-compose.yml --env-file infra/.env up -d --build
 ### Ports (change if something local collides)
 `GATEWAY_PORT` 8080, `AUTH_PORT` 8081, `PRODUCT_PORT` 8082, `INVENTORY_PORT` 8083, `RATING_PORT` 8084, `USER_PORT` 8085, `CART_PORT` 8086, `ORDER_PORT` 8087, `PAYMENT_PORT` 8088, `PROMOTION_PORT` 8089, `NOTIFICATION_PORT` 8090, `SELLER_PORT` 8091, `SUPPORT_PORT` 8092, `EUREKA_PORT` 8761, `POSTGRES_PORT` 5432, `REDIS_PORT` 6379, `MAILPIT_UI_PORT` 8025, `PRODUCT_CATALOG_PORT` 3000, `ADMIN_CATALOG_PORT` 3001.
 
-### Frontend build/dev variables (Vite, set in each app's own `.env`, not `infra/.env`)
+### Frontend build/dev variables (Vite, set in each app's own `.env`, not `deploy/local/.env`)
 | App | Variable | Default | Notes |
 |---|---|---|---|
 | Admin (`apps/admin-product-catalog`) | `VITE_API_BASE_URL` | `http://localhost:8080` | The gateway origin. |
@@ -98,13 +102,13 @@ Shipping fees, GST, COD limits and the return window are properties of order-ser
    stripe listen --forward-to localhost:8080/api/payments/webhook
    ```
    It prints a signing secret `whsec_...`.
-4. Put all three in `infra/.env`:
+4. Put all three in `deploy/local/.env`:
    ```env
    STRIPE_SECRET_KEY=sk_test_...
    STRIPE_PUBLISHABLE_KEY=pk_test_...
    STRIPE_WEBHOOK_SECRET=whsec_...
    ```
-5. Recreate the service: `docker compose -f infra/docker-compose.yml --env-file infra/.env up -d --force-recreate payment-service`.
+5. Recreate the service: `docker compose -f deploy/local/docker-compose.yml --env-file deploy/local/.env up -d --force-recreate payment-service`.
 6. Check `curl http://localhost:8080/api/payments/config` reports mode `STRIPE`.
 
 The gateway exposes `POST /api/payments/webhook` without a JWT on purpose; it is authenticated by Stripe's signature. **Without `STRIPE_WEBHOOK_SECRET` the endpoint returns 404**, and card orders stay unpaid.
@@ -132,7 +136,7 @@ notification-service sends: order confirmation and status emails (from the `orde
 Nothing to configure. All mail goes to **Mailpit**: open http://127.0.0.1:8025. Reset links point at `STOREFRONT_BASE_URL`.
 
 ### Real provider
-Set these in `infra/.env`, then `docker compose ... up -d --force-recreate notification-service`.
+Set these in `deploy/local/.env`, then `docker compose ... up -d --force-recreate notification-service`.
 
 | Provider | `MAIL_HOST` | `MAIL_PORT` | `MAIL_USERNAME` / `MAIL_PASSWORD` | Flags |
 |---|---|---|---|---|
@@ -179,7 +183,7 @@ Browsers only allow push on **HTTPS** (and `localhost`). If you replace the data
 2. **Authorised redirect URI** (this is auth-service's callback, not the SPA's):
    - local: `http://localhost:8081/login/oauth2/code/google`
    - production: `https://<your-auth-domain>/login/oauth2/code/google`
-3. Put the client id and secret in `infra/.env`:
+3. Put the client id and secret in `deploy/local/.env`:
    ```env
    GOOGLE_CLIENT_ID=...apps.googleusercontent.com
    GOOGLE_CLIENT_SECRET=...
@@ -189,7 +193,7 @@ Browsers only allow push on **HTTPS** (and `localhost`). If you replace the data
 
 Known issue: the **admin** SPA's Google button can start through the gateway and be rejected ([TD-SEC-02](../techdebt/infra-security.md#td-sec-02)). Use password login for the admin console until it is fixed.
 
-> **Security note:** an earlier `infra/.env` on a dev machine held a real `GOOGLE_CLIENT_SECRET` ([TD-SEC-01](../techdebt/infra-security.md#td-sec-01)). If that file was ever shared, **rotate the secret** in Google Cloud.
+> **Security note:** an earlier `deploy/local/.env` on a dev machine held a real `GOOGLE_CLIENT_SECRET` ([TD-SEC-01](../techdebt/infra-security.md#td-sec-01)). If that file was ever shared, **rotate the secret** in Google Cloud.
 
 ---
 
@@ -210,7 +214,7 @@ Known issue: the **admin** SPA's Google button can start through the gateway and
 
 | Symptom | Likely cause |
 |---|---|
-| Compose stops with `set X in infra/.env` | A required variable (section 1) is missing. |
+| Compose stops with `set X in deploy/local/.env` | A required variable (section 1) is missing. |
 | Every request returns 401 `invalid_token` | Issuer or audience differs between services, or the keystore password is wrong. |
 | Checkout shows the simulated panel when you expect Stripe | `STRIPE_SECRET_KEY` empty, or `payment-service` was not recreated after editing `.env`. |
 | Card paid in Stripe but the order stays unpaid | `STRIPE_WEBHOOK_SECRET` missing or wrong, or `stripe listen` is not running. |

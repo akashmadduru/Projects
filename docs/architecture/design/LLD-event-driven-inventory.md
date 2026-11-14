@@ -625,7 +625,7 @@ strictly additive — no existing column is widened or renamed.
 
 `inventory.stock_levels` is a **new table in a new schema in a new database** (`inventory_db`,
 schema `inventory`, owned by an `inventory_service` role — same provisioning pattern
-`infra/postgres/init/01-schemas.sql` already uses for `auth_db`/`product_db`; the init script itself
+`deploy/local/postgres/init/01-schemas.sql` already uses for `auth_db`/`product_db`; the init script itself
 is an infra artifact, not written here). `product.products` and `inventory.stock_levels` share no
 foreign key, no schema, and no database — see §4a below.
 

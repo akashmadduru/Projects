@@ -191,7 +191,7 @@ public class JwtKeyProvider {
       throw new IllegalStateException(
           "Unable to load JWT signing keystore from '"
               + jwt.keystorePath()
-              + "'. Generate one with infra/scripts/generate-keystore.sh and mount it; "
+              + "'. Generate one with deploy/local/scripts/generate-keystore.sh and mount it; "
               + "auth-service will not start without it.",
           e);
     }

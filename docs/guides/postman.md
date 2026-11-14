@@ -14,7 +14,7 @@ The files live in [`postman/`](../../postman/). The collection covers the Phase 
 ## Use
 
 1. Import both files into Postman, select the "E-commerce Platform - Local" environment.
-2. Start the platform (`docker compose -f infra/docker-compose.yml up -d`, then the Gradle
+2. Start the platform (`docker compose -f deploy/local/docker-compose.yml up -d`, then the Gradle
    services / `apps/admin-product-catalog` as needed).
 3. Run **Auth Service → Login** first — it captures `accessToken` into a collection variable
    used by every Bearer-protected request, and Postman's cookie jar picks up the

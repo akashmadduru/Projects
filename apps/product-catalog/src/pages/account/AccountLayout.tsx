@@ -24,7 +24,7 @@ import {
 } from '../../components/Icons'
 import { displayNameOf } from '../../lib/account'
 import { useT } from '../../lib/i18n'
-import { useAuthStore, useWishlistStore } from '../../stores'
+import { useAuthStore, useWishlistStore, useBrand } from '../../stores'
 
 const navLink = ({ isActive }: { isActive: boolean }) =>
   `press group flex shrink-0 items-center gap-2.5 rounded-full border-2 px-4 py-2 text-sm font-bold transition-all duration-700 lg:w-full ${
@@ -51,6 +51,7 @@ function formatMonthYear(iso: string): string {
 }
 
 export function AccountLayout() {
+  const { name: brandName } = useBrand()
   const user = useAuthStore((s) => s.user)
   const wishlistCount = useWishlistStore((s) => s.items.length)
   const t = useT()
@@ -76,7 +77,7 @@ export function AccountLayout() {
         <div className="flex flex-wrap items-center gap-5 sm:gap-6">
           <Avatar name={user.displayName} email={user.email} size="xl" />
           <div className="min-w-0 space-y-2">
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-vivid-amber">Your Cartwise account</p>
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-vivid-amber">Your {brandName} account</p>
             <h1
               id="account-title"
               className="font-display break-words text-3xl leading-tight [text-shadow:3px_3px_0_hsl(var(--color-ink))] sm:text-4xl"

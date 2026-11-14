@@ -8,6 +8,7 @@ import { LogoMark } from './Logo'
 import { toSearchString } from '../hooks'
 import { useConsent } from '../lib/consent'
 import { useT } from '../lib/i18n'
+import { useBrand } from '../stores/brandStore'
 
 const shop = [
   { label: 'All products', search: '' },
@@ -18,6 +19,7 @@ const shop = [
 
 export function Footer() {
   const t = useT()
+  const { name } = useBrand()
   const reopenConsent = useConsent((s) => s.reopen)
   return (
     <footer className="bg-brand-gradient relative isolate mt-12 overflow-hidden border-t-2 border-ink text-on-brand">
@@ -92,7 +94,7 @@ export function Footer() {
       </div>
       <div className="border-t border-on-brand/10">
         <p className="mx-auto max-w-[1400px] px-4 py-4 text-xs text-on-brand/60 sm:px-6 lg:px-8">
-          &copy; {new Date().getFullYear()} Cartwise. All rights reserved.
+          &copy; {new Date().getFullYear()} {name}. All rights reserved.
         </p>
       </div>
     </footer>
