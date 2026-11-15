@@ -174,6 +174,15 @@ detection, the production/SQL guards, planner scaling and the LLM pool builder (
 * *Adding a second dataset* → use a different `--seed` (ids, emails, SKUs, slugs, codes are seed-salted).
 * *Duplicate key on a re-run with the same seed* → the chunk already exists; this is detected and skipped.
 
+## Product images (local GPU)
+`imagegen.bat` starts **Product Image Studio** at http://127.0.0.1:8765: SDXL runs on the local NVIDIA GPU, controlled from the
+browser (queue next N / a range / failed, pause, skip, stop, per-product redo and preview, steps/size/guidance/prompt). It
+needs no Docker or database: it reads `output/products.jsonl`, written once by
+`.venv-images\Scripts\python.exe tools\export_products.py` while the scratch DB is up. Output: `output/images/<product_id>.jpg`
+and `manifest.jsonl` (prompt, seed, settings per image); a product with an existing .jpg counts as done. The venv needs
+torch (CUDA), diffusers, transformers, accelerate, psycopg and psutil; the model is cached in `.hf/`.
+RTX 2070 (8 GB): about 22-30 s per 1024px image at 20 steps.
+
 ## Limitations
 * Loads with the schema's indexes live (never drops or alters them); expect the 10 GB load to be bounded by Postgres
   index maintenance. Use a fast local disk and `fsync=off` on scratch servers.

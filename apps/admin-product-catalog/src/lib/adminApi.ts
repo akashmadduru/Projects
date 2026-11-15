@@ -338,3 +338,31 @@ export function sendCampaign(id: string): Promise<Campaign | undefined> {
     method: 'POST',
   });
 }
+
+// ---- Cartwise AI-1: semantic-search index ------------------------------------------------
+
+/** GET /api/products/admin/embeddings/status - coverage of the active catalog. */
+export interface EmbeddingStatus {
+  enabled: boolean;
+  provider: string;
+  model: string;
+  dims: number;
+  active: number;
+  embedded: number;
+  stale: number;
+  failed: number;
+  lastRunAt: string | null;
+  oldestStaleAt: string | null;
+}
+
+export function getEmbeddingStatus(): Promise<EmbeddingStatus> {
+  return apiFetch<EmbeddingStatus>('/api/products/admin/embeddings/status');
+}
+
+/** Queues a re-embed of the whole catalog (or one product); the reconciler does the work. */
+export function reindexEmbeddings(productId?: string): Promise<{ queued: number }> {
+  return apiFetch<{ queued: number }>('/api/products/admin/embeddings/reindex', {
+    method: 'POST',
+    query: productId ? { productId } : {},
+  });
+}

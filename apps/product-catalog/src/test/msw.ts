@@ -10,6 +10,20 @@ export const handlers = [
     return HttpResponse.json(backendProductPage, { status: 200 })
   }),
 
+  // Cartwise AI-1 hybrid search. Declared before '/api/products/:id' so "search" is not taken for an id.
+  http.get('/api/products/search', () => {
+    return HttpResponse.json(
+      {
+        ...backendProductPage,
+        effectiveMode: 'hybrid',
+        degraded: false,
+        interpretedFilters: { minPrice: null, maxPrice: 60000, minRating: null, brand: null },
+        matchedBy: {},
+      },
+      { status: 200 },
+    )
+  }),
+
   http.get('/api/products/:id', ({ params }) => {
     const productId = params['id']
     const product = backendProductPage.content.find((p) => p.id === productId)

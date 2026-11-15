@@ -169,17 +169,20 @@ Request and response shapes for Phases 1–5 are in [api.md](api.md); later phas
 | GET | `/internal/privacy/users/{userId}/export` | PrivacyExportController |
 | POST | `/internal/subscriptions/run-due` | InternalSubscriptionController |
 
-## payment-service (16)
+## payment-service (19)
 
 | Method | Path | Controller |
 |---|---|---|
 | GET | `/api/gift-cards` | WalletController |
 | POST | `/api/gift-cards` | WalletController |
 | POST | `/api/gift-cards/redeem` | WalletController |
+| POST | `/api/payments/{paymentId}/razorpay/verify` | PaymentController |
 | POST | `/api/payments/{paymentId}/simulate` | PaymentController |
 | GET | `/api/payments/config` | PaymentController |
 | GET | `/api/payments/orders/{orderId}` | PaymentController |
+| POST | `/api/payments/orders/{orderId}/provider` | PaymentController |
 | POST | `/api/payments/webhook` | PaymentController |
+| POST | `/api/payments/webhook/razorpay` | PaymentController |
 | GET | `/api/wallet` | WalletController |
 | GET | `/api/admin/payments` | AdminPaymentController |
 | GET | `/api/admin/payments/{id}` | AdminPaymentController |
@@ -211,6 +214,10 @@ Request and response shapes for Phases 1–5 are in [api.md](api.md); later phas
 | GET | `/api/products/catalog/products/{id}` | ProductController |
 | GET | `/api/products/facets` | ProductController |
 | GET | `/api/products/fx-rates` | FxRateController |
+| GET | `/api/products/search` | ProductSearchController |
+| GET | `/api/products/search/facets` | ProductSearchController |
+| GET | `/api/products/admin/embeddings/status` | EmbeddingAdminController |
+| POST | `/api/products/admin/embeddings/reindex` | EmbeddingAdminController |
 | GET | `/api/products/slug/{slug}` | ProductController |
 | GET | `/api/products/suggest` | ProductController |
 | GET | `/sitemap.xml` | SitemapController |

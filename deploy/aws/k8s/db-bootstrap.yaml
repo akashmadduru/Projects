@@ -66,6 +66,15 @@ data:
     SELECT format('GRANT ALL ON SCHEMA public TO %I', :'role') \gexec
     SELECT format('ALTER DATABASE %I SET search_path TO public', current_database()) \gexec
     SQL
+
+      # Cartwise AI-1: pgvector for product-service semantic search. `vector` is not a trusted
+      # extension, so the service role cannot create it; the master user (rds_superuser) does it
+      # here, in `public` because this runs before Flyway creates the `product` schema. RDS PostgreSQL
+      # 17 offers pgvector (UNVERIFIED against the deployed engine minor version: if CREATE EXTENSION
+      # reports "extension is not available", upgrade the RDS engine version first).
+      if [ "$svc" = "product" ]; then
+        psql -v ON_ERROR_STOP=1 -d "$db" -c "CREATE EXTENSION IF NOT EXISTS vector SCHEMA public"
+      fi
     done
     echo "database bootstrap complete"
 ---

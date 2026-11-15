@@ -79,6 +79,13 @@ REVOKE ALL ON SCHEMA public FROM PUBLIC;
 GRANT ALL ON SCHEMA public TO product_service;
 ALTER DATABASE product_db SET search_path TO public;
 
+-- Cartwise AI-1: pgvector for semantic product search. `vector` is NOT a trusted extension, so the
+-- non-superuser product_service role cannot create it (verified: "permission denied to create
+-- extension"). It is created here, as the bootstrap superuser, in `public`: that schema exists
+-- before Flyway creates `product`, and Flyway would refuse to start in a pre-populated one.
+-- Requires the pgvector/pgvector image (docker-compose.yml); plain postgres has no vector.control.
+CREATE EXTENSION IF NOT EXISTS vector SCHEMA public;
+
 \connect inventory_db
 REVOKE ALL ON SCHEMA public FROM PUBLIC;
 GRANT ALL ON SCHEMA public TO inventory_service;

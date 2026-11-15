@@ -12,11 +12,11 @@ Phase 6 was built under "no tests, no HLD/LLD, record shortcuts as debt". The in
 - **Fix:** Transactional outbox table written in the order transaction, relayed by a poller to inventory, promotion, cart and Kafka; retries plus a dead-letter state.
 
 <a id="td-p6-02"></a>
-## TD-P6-02 Stripe live mode never exercised
+## TD-P6-02 Stripe and Razorpay live mode never exercised
 - **Severity / Effort:** High / S
 - **Where:** `services/payment-service/payment-service-app/` (PaymentIntent create/retrieve, refund, webhook parse via `deserializeUnsafe`); `deploy/local/.env`.
-- **Risk:** Only SIMULATED mode was verified. Stripe SDK 34.1.0 was chosen without a live account. The webhook endpoint returns 404 unless the webhook secret is set. In SIMULATED mode refunds are only recorded in the DB.
-- **Fix:** Set `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET` in `deploy/local/.env`; run a test-mode pay, fail, refund and webhook cycle (Stripe CLI `listen`); replace `deserializeUnsafe` with version-checked parsing.
+- **Risk:** Only SIMULATED mode and unit tests with mocked HTTP were verified. Razorpay (added 2026-11-15, [ADR 0005](../architecture/adr/0005-multiple-payment-providers.md)) was written from public API documentation and never called; its request shapes, the `X-Refund-Idempotency` header and event names are unconfirmed. Stripe: Stripe SDK 34.1.0 was chosen without a live account. The webhook endpoint returns 404 unless the webhook secret is set. In SIMULATED mode refunds are only recorded in the DB.
+- **Fix:** Run the Razorpay test-mode checklist in [integrations §3b](../guides/integrations.md#3b-payment-gateway-razorpay) (pay, fail, refund, webhook replay, tampered signature). Stripe: set `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET` in `deploy/local/.env`; run a test-mode pay, fail, refund and webhook cycle (Stripe CLI `listen`); replace `deserializeUnsafe` with version-checked parsing.
 
 <a id="td-p6-03"></a>
 ## TD-P6-03 Late payment after cancel; PaymentIntent not cancelled
@@ -206,3 +206,24 @@ Phase 6 was built under "no tests, no HLD/LLD, record shortcuts as debt". The in
 - **Where:** new code in payment, promotion, notification, auth, order, cart services.
 - **Risk:** Lines over 100 columns may exist; CI's `spotlessCheck` would fail. See also TD-BE-16.
 - **Fix:** Run `./gradlew spotlessApply` once the build works.
+
+<a id="td-p6-30"></a>
+## TD-P6-30 Razorpay order creation has no idempotency key
+- **Severity / Effort:** Low / S
+- **Where:** `RazorpayGateway.createOrder`, `PaymentService.provision`.
+- **Risk:** Razorpay's Orders API takes no idempotency key. Two concurrent first requests for one order can each create a Razorpay order; the loser is an orphan that is never paid (harmless, but clutters the dashboard). The paid-elsewhere check logs "DOUBLE CHARGE" if money ever arrives on an order we no longer track.
+- **Fix:** Take a row lock (`SELECT ... FOR UPDATE` on the payment) before calling Razorpay, or look the order up by `receipt` first.
+
+<a id="td-p6-31"></a>
+## TD-P6-31 Razorpay refunds are recorded as done once accepted
+- **Severity / Effort:** Med / M
+- **Where:** `PaymentService.refundRazorpay`, `refunds.provider_refund_id`.
+- **Risk:** Razorpay refunds can be `pending` for days and can fail later. We mark the refund succeeded when the API accepts it and do not consume `refund.processed` / `refund.failed` webhooks.
+- **Fix:** Store the refund as PENDING, subscribe the webhook to `refund.*`, and settle or alert on the result.
+
+<a id="td-p6-32"></a>
+## TD-P6-32 Razorpay is INR only, with no seller-side or recurring support
+- **Severity / Effort:** Low / M
+- **Where:** `PaymentProviders.resolve`, `PaymentService.pickProvider`.
+- **Risk:** A non-INR order falls back to Stripe, or is refused (HTTP 4xx) if Razorpay was named and Stripe is off. Automatic capture must be enabled in the Razorpay dashboard; with manual capture, payments authorise but never settle. Payouts (RazorpayX) stay out of scope ([TD-P9-08](phase9.md)).
+- **Fix:** Document and alert on manual capture; add multi-currency once the business enables it in Razorpay.

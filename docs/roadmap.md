@@ -26,7 +26,7 @@ cannot yet take real money.
 The ordered plan is in the [technical audit](audit/technical-audit.md#e-implementation-roadmap). In short:
 
 1. **Critical fixes:** simulated payment must fail closed; stop logging OTP codes; purge the DB dumps from git history and rotate credentials; atomic webhook dedup; get CI green.
-2. **Real payments:** a provider port, plus Razorpay and/or Stripe end to end.
+2. **Real payments:** ✅ Razorpay now sits beside Stripe, and the customer picks at checkout ([ADR 0005](architecture/adr/0005-multiple-payment-providers.md)). Still to do: run the test-mode checklists for both ([TD-P6-02](techdebt/phase6.md#td-p6-02)).
 3. **Tests** for payment and order placement, and for every Phase 5–10 service.
 4. **Reliability:** transactional outbox for `order.events`, dead-letter topics everywhere, gateway rate limiting.
 5. **Production:** Helm, Terraform and observability ([deploy-aws](guides/deploy-aws.md)).

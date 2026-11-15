@@ -22,3 +22,5 @@ Mermaid sources; GitHub renders them inline. 01–12 were drawn on 2026-11-10 fo
 | 16 | [Customer Accounts Component Diagram](16-customer-components.md) |
 | 17 | [Configuration flow: how a setting reaches a service](17-configuration-flow.md) |
 | 18 | [Online payment with Stripe or Razorpay](18-razorpay-payment-sequence.md) |
+| 20 | [Hybrid product search (AI-1)](20-hybrid-search-sequence.md) |
+| 21 | [Product embedding pipeline (AI-1)](21-embedding-pipeline.md) |

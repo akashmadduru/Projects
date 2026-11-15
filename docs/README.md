@@ -28,7 +28,8 @@ All project documentation lives in this folder, grouped by what you are trying t
 ### Explanation: architecture
 - [architecture/overview.md](architecture/overview.md): platform map (14 applications, 6 topics), principles, observability, limits.
 - [architecture/decision-log.md](architecture/decision-log.md): cross-cutting decisions and whether each still holds.
-- [architecture/adr/](architecture/adr/): ADR 0001–0005.
+- [architecture/adr/](architecture/adr/): ADR 0001–0006.
+- [architecture/design/HLD-ai-platform.md](architecture/design/HLD-ai-platform.md): AI roadmap AI-1..AI-5 (AI-1 semantic search built).
 - [architecture/design/](architecture/design/): HLD and LLD for Phases 2 and 3 (historical designs).
 - [architecture/diagrams/](architecture/diagrams/README.md): Mermaid diagrams 01–18.
 
@@ -46,10 +47,10 @@ All project documentation lives in this folder, grouped by what you are trying t
 - [guides/ci-cd.md](guides/ci-cd.md): GitHub Actions workflows, the enforcement switch, the baseline to clear.
 - [guides/deploy-aws.md](guides/deploy-aws.md): Terraform, EKS and Helm deployment.
 - [guides/postman.md](guides/postman.md): the Postman collection.
-- [guides/runbooks/](guides/runbooks/): [first admin user](guides/runbooks/first-admin-user.md), [rotate a secret](guides/runbooks/rotate-secrets.md), [leaked database dump](guides/runbooks/leaked-database-dump.md).
+- [guides/runbooks/](guides/runbooks/): [first admin user](guides/runbooks/first-admin-user.md), [rotate a secret](guides/runbooks/rotate-secrets.md), [leaked database dump](guides/runbooks/leaked-database-dump.md), [payment problems](guides/runbooks/payment-problems.md).
 
 ### Components
-- [services/](services/): deep dives for auth-service, gateway, eureka-server, product-service, inventory-service.
+- [services/](services/): deep dives for auth-service, gateway, eureka-server, product-service, inventory-service, [payment-service](services/payment-service.md).
   The nine services added in Phases 4–10 are described in their phase pages.
 - [apps/storefront.md](apps/storefront.md) and [apps/admin.md](apps/admin.md): the two SPAs.
 

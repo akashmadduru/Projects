@@ -4,7 +4,7 @@
 
 import { analyticsAllowed } from '../lib/consent'
 import { apiFetch } from '../lib/http'
-import { toProduct, toQueryParams } from './productApi'
+import { toProduct, toQueryParams, toSearchParams, usesSmartSearch } from './productApi'
 import type {
   AlertRequest,
   BackendProductResponse,
@@ -38,7 +38,18 @@ export const discoveryApi = {
     return apiFetch<SuggestResponse>('/api/products/suggest', { params: { q, limit } })
   },
 
-  facets(query: ProductQuery): Promise<FacetsResponse> {
+  async facets(query: ProductQuery): Promise<FacetsResponse> {
+    // Facets must describe the same candidates the list shows, so a smart search uses its own facets.
+    if (usesSmartSearch(query)) {
+      try {
+        const params: Record<string, string | number> = toSearchParams(0, 1, { ...query, sort: undefined })
+        delete params['page']
+        delete params['size']
+        return await apiFetch<FacetsResponse>('/api/products/search/facets', { params })
+      } catch {
+        // Fall through to the catalog facets, matching productApi.list's own fallback.
+      }
+    }
     const params = toQueryParams(0, 1, { ...query, sort: undefined })
     delete params['page']
     delete params['size']

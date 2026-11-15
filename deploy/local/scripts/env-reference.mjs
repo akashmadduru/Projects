@@ -121,7 +121,7 @@ const stale = Object.keys(desc.vars ?? {}).filter((n) => !vars.has(n));
 
 // -- 5. render -----------------------------------------------------------------------------------
 const GROUP_ORDER = ['Platform', 'Identity and tokens', 'Database', 'Messaging and cache', 'Payments', 'Email, SMS and push',
-  'Edge, CORS and rate limits', 'Service discovery', 'Business rules', 'Observability', 'Other'];
+  'Edge, CORS and rate limits', 'Service discovery', 'Business rules', 'AI and search', 'Observability', 'Other'];
 const groupOf = (n) => descOf(n)?.group ?? 'Other';
 
 const short = (s) => (s.length > 38 ? s.slice(0, 35) + '...' : s);

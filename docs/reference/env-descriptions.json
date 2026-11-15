@@ -146,6 +146,44 @@
       "usedBy": "all services (Helm)",
       "text": "Same brokers for the shared audit-event publisher, which reads the Spring name."
     },
+    "EMBEDDING_PROVIDER": {
+      "group": "AI and search",
+      "usedBy": "product-service",
+      "text": "Embedding provider for semantic product search (Cartwise AI-1): `none` (default, feature off, `GET /api/products/search` answers keyword-only with `degraded=true`), `bedrock`, or `fake` (deterministic non-semantic vectors, refused unless the `dev-fake` profile is active)."
+    },
+    "EMBEDDING_BEDROCK_MODEL_ID": {
+      "group": "AI and search",
+      "usedBy": "product-service",
+      "text": "Bedrock embedding model. Default `amazon.titan-embed-text-v2:0`, called with 1024 dimensions. The vector column is `vector(1024)`, so a model with another width needs a new table and a cutover, not just this setting."
+    },
+    "EMBEDDING_RECONCILER_ENABLED": {
+      "group": "AI and search",
+      "usedBy": "product-service",
+      "text": "`false` stops the background job that (re)embeds new and changed products. Search keeps using the vectors already stored."
+    },
+    "AWS_REGION": {
+      "group": "AI and search",
+      "usedBy": "product-service",
+      "text": "AWS region of the Bedrock endpoint. Needed only when `EMBEDDING_PROVIDER=bedrock`."
+    },
+    "AWS_ACCESS_KEY_ID": {
+      "group": "AI and search",
+      "usedBy": "product-service (local Compose only)",
+      "secret": true,
+      "text": "Passed through from the developer's shell for local Bedrock use; leave unset otherwise. Never set on AWS, where IRSA supplies credentials. The identity needs `bedrock:InvokeModel`."
+    },
+    "AWS_SECRET_ACCESS_KEY": {
+      "group": "AI and search",
+      "usedBy": "product-service (local Compose only)",
+      "secret": true,
+      "text": "Pair of `AWS_ACCESS_KEY_ID`, passed through from the shell for local Bedrock use only."
+    },
+    "AWS_SESSION_TOKEN": {
+      "group": "AI and search",
+      "usedBy": "product-service (local Compose only)",
+      "secret": true,
+      "text": "Session token for temporary local AWS credentials (SSO / assumed role), passed through from the shell."
+    },
     "REDIS_HOST": {
       "group": "Messaging and cache",
       "text": "Redis host: auth-service user cache and the gateway rate limiter."

@@ -125,6 +125,15 @@ public enum ErrorCode {
   /** A collaborating service needed to complete the request is unavailable. */
   DEPENDENCY_UNAVAILABLE("DEPENDENCY_UNAVAILABLE", 503, "Dependency unavailable"),
 
+  // --- Cartwise AI -------------------------------------------------------------
+
+  /**
+   * An AI feature is disabled (no provider configured) or its provider is down / breaker open. Used
+   * where there is no sensible degraded answer (admin reindex); public search degrades to keyword
+   * results instead of failing.
+   */
+  AI_UNAVAILABLE("AI_UNAVAILABLE", 503, "AI feature unavailable"),
+
   /** Anything unhandled. Deliberately opaque - details go to logs, never to the caller. */
   INTERNAL_ERROR("INTERNAL_ERROR", 500, "Internal server error");
 

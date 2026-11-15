@@ -97,6 +97,10 @@ public class ProductCatalogService {
   @org.springframework.beans.factory.annotation.Value("${INTERNAL_API_TOKEN:}")
   private String internalToken;
 
+  /** Optional: absent in plain unit tests; keeps the image server in step with product changes. */
+  @org.springframework.beans.factory.annotation.Autowired(required = false)
+  private com.acme.ecommerce.product.imagestore.ProductImageService imageFiles;
+
   private final ObjectMapper objectMapper;
   private final TimeProvider timeProvider;
 
@@ -490,8 +494,15 @@ public class ProductCatalogService {
     // stale value) - a client acting on that response would send the next PUT with
     // a version that is already wrong.
     Product saved = products.saveAndFlush(product);
+    List<String> previousImageUrls =
+        images.findByProductIdOrderByDisplayOrderAsc(id).stream().map(ProductImage::getUrl).toList();
     images.deleteByProductId(id);
     List<ProductImage> savedImages = images.saveAll(toImageEntities(id, request.getImages(), now));
+    // Images the update dropped must also leave the image server (files are keyed by URL).
+    Set<String> keptImageUrls = new HashSet<>();
+    savedImages.forEach(i -> keptImageUrls.add(i.getUrl()));
+    deleteImageFilesAfterCommit(
+        previousImageUrls.stream().filter(u -> !keptImageUrls.contains(u)).toList());
     if (Offer.PLATFORM_SELLER_ID.equals(saved.getSellerId())) {
       offerService.upsertPlatformOffer(id, request.getPriceAmount(), request.getPriceCurrency());
       offerService.syncPrices(id);
@@ -547,8 +558,31 @@ public class ProductCatalogService {
   public void delete(UUID id) {
     Product product =
         products.findById(id).orElseThrow(() -> new ResourceNotFoundException("Product", id));
+    List<String> imageUrls =
+        images.findByProductIdOrderByDisplayOrderAsc(id).stream().map(ProductImage::getUrl).toList();
     products.delete(product);
+    deleteImageFilesAfterCommit(imageUrls);
     events.publishAfterCommit(ProductEventType.PRODUCT_DELETED, id, null);
+  }
+
+  /** Removes image files from the image server once the DB change has committed (no-op if unset). */
+  private void deleteImageFilesAfterCommit(List<String> urls) {
+    if (imageFiles == null || urls.isEmpty()) {
+      return;
+    }
+    if (org.springframework.transaction.support.TransactionSynchronizationManager
+        .isSynchronizationActive()) {
+      org.springframework.transaction.support.TransactionSynchronizationManager
+          .registerSynchronization(
+              new org.springframework.transaction.support.TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                  imageFiles.deleteFiles(urls);
+                }
+              });
+    } else {
+      imageFiles.deleteFiles(urls);
+    }
   }
 
   /**

@@ -7,7 +7,7 @@ environment variables at start-up, so **a rotated value only takes effect after 
 |---|---|---|---|
 | Database passwords (`<service>_password`) | `<project>-<env>/db` | re-run the bootstrap Job so RDS matches | restart of every service you changed |
 | `internal_api_token` | `<project>-<env>/app` | restart **all** services together | internal calls fail between old and new pods during the roll |
-| Stripe keys, webhook secret | `<project>-<env>/app` (set via `config.env`) | change `config.env`, `--only infra,platform` | payments only |
+| Stripe or Razorpay keys, webhook secrets | `<project>-<env>/app` (set via `config.env`) | change `config.env`, `--only infra,platform` | payments only |
 | Google client secret | `<project>-<env>/app` | same as Stripe | Google sign-in only |
 | `jwt-keystore` (signing key) | `<project>-<env>/jwt-keystore` | **do not replace casually** | replacing it signs everybody out |
 | `auth_data_key`, `seller_data_key` | `<project>-<env>/app` | **do not rotate** | existing 2FA secrets / bank numbers become unreadable |

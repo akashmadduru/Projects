@@ -130,6 +130,10 @@ spec:
             {{- if has $name (list "auth-service" "user-service" "cart-service" "notification-service" "seller-service" "support-service") }}
             - { name: STOREFRONT_BASE_URL, value: {{ $g.shopUrl | quote }} }
             {{- end }}
+            {{- if eq $name "product-service" }}
+            {{- /* Cartwise AI-1: Bedrock lives in the cluster's own region unless values override it. */}}
+            - { name: AWS_REGION, value: {{ default $g.region $s.bedrockRegion | quote }} }
+            {{- end }}
             {{- if eq $name "seller-service" }}
             - { name: ADMIN_BASE_URL, value: {{ $g.adminUrl | quote }} }
             {{- end }}

@@ -24,7 +24,7 @@
 | `inventory_db` | `inventory` | `inventory_service` | inventory-service | 7 (V1–V7) | `reservation_releases`, `reservations`, `stock_levels`, `variant_stock`, `warehouse_stock`, `warehouses` |
 | `notification_db` | `notification` | `notification_service` | notification-service | 1 (V1–V1) | `campaigns`, `notifications`, `push_subscriptions`, `settings` |
 | `order_db` | `orders` | `order_service` | order-service | 7 (V1–V7) | `order_items`, `order_return_items`, `order_returns`, `order_shipments`, `order_status_history`, `orders`, `subscriptions` |
-| `payment_db` | `payment` | `payment_service` | payment-service | 2 (V1–V2) | `gift_cards`, `payments`, `processed_events`, `refunds`, `wallet_txns`, `wallets` |
+| `payment_db` | `payment` | `payment_service` | payment-service | 3 (V1–V3) | `gift_cards`, `payments`, `processed_events`, `refunds`, `wallet_txns`, `wallets` |
 | `product_db` | `product` | `product_service` | product-service | 8 (V1–V8) | `categories`, `fx_rates`, `offers`, `product_images`, `product_variants`, `product_views`, `products` |
 | `promotion_db` | `promotion` | `promotion_service` | promotion-service | 4 (V1–V4) | `bank_offers`, `coin_ledger`, `coupons`, `deal_claims`, `deals`, `exchange_programs`, `exchange_quotes`, `redemptions` |
 | `rating_db` | `rating` | `rating_service` | rating-service | 5 (V1–V5) | `answers`, `qa_votes`, `questions`, `rating_votes`, `ratings`, `review_media` |
@@ -32,8 +32,13 @@
 | `support_db` | `support` | `support_service` | support-service | 2 (V1–V2) | `audit_log`, `chat_messages`, `chat_sessions`, `faq_articles`, `ticket_messages`, `tickets` |
 | `user_db` | `users` | `user_service` | user-service | 4 (V1–V4) | `addresses`, `delete_codes`, `deletion_requests`, `export_jobs`, `membership_payments`, `membership_plan_prices`, `membership_plans`, `memberships`, `recently_viewed`, `referral_claims`, `referral_codes`, `user_preferences`, `user_profiles` |
 
-`payment.processed_events` stores the id of every Stripe webhook event handled
+`payment.processed_events` stores the id of every Stripe or Razorpay webhook event handled
 (`INSERT … ON CONFLICT DO NOTHING`), so a redelivered webhook is ignored.
+
+**payment V3 `razorpay`** (additive): `payments.mode` now allows `STRIPE`, `RAZORPAY`, `SIMULATED`
+(constraint `ck_payments_mode`); `payments.provider_order_id` (Razorpay `order_…`, indexed) and
+`payments.provider_payment_id` (Razorpay `pay_…`) are new and null for Stripe rows; `refunds.provider_refund_id`
+holds the Razorpay refund id. `method` stays `CARD`/`COD`: `CARD` means "paid online", whatever the provider.
 
 **Demo seed data (product-service only).** In the `default` profile, Flyway also loads
 `db/seed/R__product_demo_seed.sql`, `R__product_phase7_seed.sql` and `R__product_zz_offers_backfill.sql`.

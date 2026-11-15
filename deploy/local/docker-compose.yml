@@ -16,7 +16,12 @@ services:
   # PostgreSQL - one instance hosting a separate database per service.
   # ---------------------------------------------------------------------------
   postgres:
-    image: postgres:17
+    # Cartwise AI-1: the official postgres:17 image plus the pgvector extension (semantic product
+    # search). Same major version and the same data directory, so an existing volume starts
+    # unchanged; the extension itself is created by deploy/local/postgres/init/01-schemas.sql on
+    # a new volume, or by deploy/local/scripts/create-customer-dbs.sql on an existing one.
+    # Pinned to a pgvector 0.8.x build (iterative index scans need >= 0.8.0).
+    image: pgvector/pgvector:0.8.7-pg17
     container_name: ecommerce-postgres
     restart: unless-stopped
     environment:
@@ -454,6 +459,24 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       # Phase 7: X-Internal-Token for inventory-service /internal/inventory/variants.
       INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?set INTERNAL_API_TOKEN in deploy/local/.env}
+      # Product images live on the image-server: the backend uploads/deletes through the internal URL
+      # and stores the browser-facing URL on each image row.
+      IMAGE_STORE_URL: http://image-server
+      IMAGE_STORE_PUBLIC_URL: http://localhost:${IMAGE_SERVER_PORT:-8090}/images
+      IMAGE_STORE_TOKEN: ${IMAGE_SERVER_TOKEN:?set IMAGE_SERVER_TOKEN in deploy/local/.env}
+      # Cartwise AI-1 semantic search. `none` (default) = feature disabled, search is keyword-only.
+      # `bedrock` needs AWS credentials from the SDK default chain (see .env.example); no key is
+      # ever set here. `fake` (deterministic, non-semantic vectors) is refused unless the profile
+      # above is changed to `default,dev-fake` - it is for demos and tests only.
+      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-none}
+      AWS_REGION: ${AWS_REGION:-}
+      EMBEDDING_BEDROCK_MODEL_ID: ${EMBEDDING_BEDROCK_MODEL_ID:-amazon.titan-embed-text-v2:0}
+      # Pass-through of the standard AWS credential variables from the developer's shell (no value
+      # here: unset on the host = unset in the container, so the SDK chain falls through). Only
+      # needed for EMBEDDING_PROVIDER=bedrock.
+      AWS_ACCESS_KEY_ID:
+      AWS_SECRET_ACCESS_KEY:
+      AWS_SESSION_TOKEN:
     ports:
       # Loopback only, like every service except the gateway: nothing outside the
       # host has any business reaching the catalog directly.
@@ -465,6 +488,31 @@ services:
       retries: 6
       # Boot + Hibernate + Flyway is slower to start than the registry.
       start_period: 60s
+
+  # ---------------------------------------------------------------------------
+  # image-server - static product images with CRUD (nginx + WebDAV). Browsers read
+  # http://localhost:${IMAGE_SERVER_PORT:-8090}/images/<path>; product-service (and the image
+  # generator tooling) write with PUT/DELETE plus the X-Image-Token header.
+  # ---------------------------------------------------------------------------
+  image-server:
+    image: nginx:1.27-alpine
+    container_name: ecommerce-image-server
+    restart: unless-stopped
+    environment:
+      IMAGE_SERVER_TOKEN: ${IMAGE_SERVER_TOKEN:?set IMAGE_SERVER_TOKEN in deploy/local/.env}
+      NGINX_ENVSUBST_FILTER: IMAGE_SERVER_
+    volumes:
+      - image-data:/data
+      - ./image-server/default.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ./image-server/10-prepare-data.sh:/docker-entrypoint.d/10-prepare-data.sh:ro
+    ports:
+      # Published on loopback: the browser loads images straight from here.
+      - "127.0.0.1:${IMAGE_SERVER_PORT:-8090}:80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/healthz | grep -q ok"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
 
   # ---------------------------------------------------------------------------
   # inventory-service (Phase 2, Kafka consumer wired in Phase 3) - owns stock
@@ -966,6 +1014,7 @@ services:
       - "127.0.0.1:16686:16686"
 
 volumes:
+  image-data:
   rating-media:
   postgres-data:
   kafka-data:

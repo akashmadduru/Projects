@@ -166,6 +166,18 @@ service-level setting (add it under that service's `env:` in `values.yaml`). Rel
 | `ORDER_RISK_VELOCITY_THRESHOLD` | order (Compose) | _Spring default_ |  | compose | Orders in a short window that trigger a velocity risk flag (Compose default 8). Mapped by Spring onto `order.risk.*`. |
 | `USER_REFERRAL_REWARD_COINS` | user | `100` |  | - | Coins awarded for a successful referral. |
 
+## AI and search
+
+| Variable | Used by | Default | Required | Set in | What it does |
+|---|---|---|---|---|---|
+| `AWS_ACCESS_KEY_ID` 🔒 | product-service (local Compose only) | _Spring default_ |  | .env | Passed through from the developer's shell for local Bedrock use; leave unset otherwise. Never set on AWS, where IRSA supplies credentials. The identity needs `bedrock:InvokeModel`. |
+| `AWS_REGION` | product-service | `""` |  | .env + helm | AWS region of the Bedrock endpoint. Needed only when `EMBEDDING_PROVIDER=bedrock`. |
+| `AWS_SECRET_ACCESS_KEY` 🔒 | product-service (local Compose only) | _Spring default_ |  | .env | Pair of `AWS_ACCESS_KEY_ID`, passed through from the shell for local Bedrock use only. |
+| `AWS_SESSION_TOKEN` 🔒 | product-service (local Compose only) | _Spring default_ |  | .env | Session token for temporary local AWS credentials (SSO / assumed role), passed through from the shell. |
+| `EMBEDDING_BEDROCK_MODEL_ID` | product-service | `amazon.titan-embed-text-v2:0` |  | .env + helm | Bedrock embedding model. Default `amazon.titan-embed-text-v2:0`, called with 1024 dimensions. The vector column is `vector(1024)`, so a model with another width needs a new table and a cutover, not just this setting. |
+| `EMBEDDING_PROVIDER` | product-service | `none` |  | .env + helm | Embedding provider for semantic product search (Cartwise AI-1): `none` (default, feature off, `GET /api/products/search` answers keyword-only with `degraded=true`), `bedrock`, or `fake` (deterministic non-semantic vectors, refused unless the `dev-fake` profile is active). |
+| `EMBEDDING_RECONCILER_ENABLED` | product-service | `true` |  | .env | `false` stops the background job that (re)embeds new and changed products. Search keeps using the vectors already stored. |
+
 ## Observability
 
 | Variable | Used by | Default | Required | Set in | What it does |
@@ -184,6 +196,7 @@ Set when the app is **built**, not at runtime: they are compiled into the JavaSc
 | `VITE_APP_ORIGIN` | admin-product-catalog | Public origin of the admin app, used for OAuth redirects. |
 | `VITE_AUTH_BASE_URL` | product-catalog | Origin the storefront uses to start Google sign-in (`/oauth2/authorization/google`). On AWS the storefront origin. |
 | `VITE_GOOGLE_SSO_ENABLED` | product-catalog | Shows the "Continue with Google" button. `deploy.sh` sets it from whether `GOOGLE_CLIENT_ID` is filled in. |
+| `VITE_STOREFRONT_ORIGIN` | admin-product-catalog | _undescribed_ |
 
 ## Deploy script settings (`deploy/aws/config.env`)
 

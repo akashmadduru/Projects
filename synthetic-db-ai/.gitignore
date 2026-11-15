@@ -4,3 +4,6 @@ state/
 cache/
 output/
 .env
+output/
+.venv-images/
+.hf/

@@ -7,6 +7,12 @@ import ProblemAlert from '@/components/ProblemAlert.vue';
 import ProductFormModal from '@/components/ProductFormModal.vue';
 import { useProductMutations } from '@/composables/useProductMutations';
 import { useProducts } from '@/composables/useProducts';
+import {
+  errorInfo,
+  getEmbeddingStatus,
+  reindexEmbeddings,
+  type EmbeddingStatus,
+} from '@/lib/adminApi';
 import { useAuthStore } from '@/stores/auth';
 import type { Product } from '@/types/api';
 
@@ -95,8 +101,47 @@ const errorCorrelationId = computed<string | null>(() =>
 const pageNumber = computed<number>(() => catalog.page.value);
 const pageCount = computed<number>(() => Math.max(catalog.totalPages.value, 1));
 
+/**
+ * Cartwise AI-1: semantic-search coverage. Advisory - a failure here only hides the badge, it
+ * never blocks the catalog table.
+ */
+const embedding = ref<EmbeddingStatus | null>(null);
+const reindexing = ref(false);
+const reindexNote = ref('');
+
+async function loadEmbeddingStatus(): Promise<void> {
+  try {
+    embedding.value = await getEmbeddingStatus();
+  } catch {
+    embedding.value = null;
+  }
+}
+
+async function reindexAll(): Promise<void> {
+  reindexing.value = true;
+  reindexNote.value = '';
+  try {
+    const { queued } = await reindexEmbeddings();
+    reindexNote.value = `${queued} queued for re-embedding`;
+    await loadEmbeddingStatus();
+  } catch (error) {
+    reindexNote.value = errorInfo(error).message;
+  } finally {
+    reindexing.value = false;
+  }
+}
+
+const embeddingLabel = computed<string>(() => {
+  const s = embedding.value;
+  if (!s) return '';
+  if (!s.enabled) return 'Semantic search off';
+  const pct = s.active === 0 ? 100 : Math.floor((s.embedded / s.active) * 100);
+  return `Semantic index ${pct}% (${s.embedded}/${s.active})`;
+});
+
 onMounted(() => {
   void catalog.load(0);
+  if (auth.canManageCatalog) void loadEmbeddingStatus();
 });
 
 /**
@@ -131,6 +176,30 @@ function formatPrice(product: Product): string {
         <span v-if="status === 'success'" class="text-sm opacity-70">
           {{ catalog.totalElements.value }} total
         </span>
+        <span
+          v-if="embedding"
+          class="badge badge-sm"
+          :class="embedding.enabled && embedding.failed === 0 ? 'badge-ghost' : 'badge-warning'"
+          :title="
+            embedding.enabled
+              ? `${embedding.model} · ${embedding.stale} stale · ${embedding.failed} failed`
+              : 'No embedding provider configured: search is keyword-only'
+          "
+          data-test="embedding-status"
+        >
+          {{ embeddingLabel }}
+        </span>
+        <button
+          v-if="embedding?.enabled"
+          type="button"
+          class="btn btn-ghost btn-sm"
+          :disabled="reindexing"
+          data-test="embedding-reindex"
+          @click="reindexAll"
+        >
+          {{ reindexing ? 'Queuing…' : 'Reindex search' }}
+        </button>
+        <span v-if="reindexNote" class="text-xs opacity-70" role="status">{{ reindexNote }}</span>
         <RouterLink
           v-if="auth.canManageCatalog"
           class="btn btn-primary btn-sm"

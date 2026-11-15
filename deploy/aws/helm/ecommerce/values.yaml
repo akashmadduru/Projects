@@ -144,6 +144,15 @@ services:
     jwksEnv: PRODUCT_JWKS_URI
     resources: { requests: { cpu: 300m, memory: 768Mi }, limits: { memory: 768Mi } }
     hpa: { min: 3, max: 12, cpu: 65 }
+    # Cartwise AI-1 semantic search. "none" = feature OFF: GET /api/products/search answers
+    # keyword-only (degraded=true) and nothing calls Bedrock. NO KEYS BELONG HERE OR IN secretEnv:
+    # to turn it on set EMBEDDING_PROVIDER to "bedrock" AND give this pod an IRSA role allowing
+    # bedrock:InvokeModel on the model (annotate the product-service ServiceAccount; not wired yet).
+    # AWS_REGION defaults to global.region (template); override with `bedrockRegion:` if Bedrock
+    # runs elsewhere.
+    env:
+      EMBEDDING_PROVIDER: "none"
+      EMBEDDING_BEDROCK_MODEL_ID: "amazon.titan-embed-text-v2:0"
 
   inventory-service:
     port: 8083

@@ -96,7 +96,7 @@ Common to all 14: multi-stage Dockerfile, layered jar, `eclipse-temurin:25-jre-a
 
 | Feature | Current status | Missing | Priority |
 |---|---|---|---|
-| Payment gateway | Partial. Stripe PaymentIntents, webhook, refunds, COD, wallet. Never run live (TD-P6-02). No Razorpay. | Provider abstraction, Razorpay adapter, schema changes, audit log, reconciliation | P0 |
+| Payment gateway | Partial. Stripe PaymentIntents and Razorpay orders (added 2026-11-15, side by side), webhooks, refunds, COD, wallet. Neither run live (TD-P6-02). | Provider abstraction, Razorpay adapter, schema changes, audit log, reconciliation | P0 |
 | AWS integration | Missing. No AWS SDK or config. | Everything in section 4 | P1 |
 | Docker | Mostly done. 16 Dockerfiles; compose covers backends. | Frontends commented out of compose; `http-server` frontend images; every image rebuilds the whole tree | P1 |
 | Kubernetes | Missing. No manifests, Helm or Kustomize. | Section 5 | P1 |
