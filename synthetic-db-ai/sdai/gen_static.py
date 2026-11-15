@@ -40,7 +40,7 @@ def emit_static(ctx, emit):
     names = np.array([n.encode() for n in cat_["name"]])
     created = np.full(N, T0 - 30 * 86400)
     emit("product_db", "categories", dict(
-        id=W.uid_s(w, "cat", idx), name=names, parent_category_id=nul(W.uid_s(w, "cat", np.maximum(par, 0)), par < 0), created_at=e_ts(created), updated_at=e_ts(created),
+        id=W.cat_id(w, idx), name=names, parent_category_id=nul(W.cat_id(w, np.maximum(par, 0)), par < 0), created_at=e_ts(created), updated_at=e_ts(created),
         description=cat(b"Browse our selection of ", np.char.lower(names), b" from trusted brands and verified sellers."), depth_level=e_int((par >= 0).astype(np.int64)),
         is_active=e_bool(np.ones(N, bool)), version=e_int(np.zeros(N))))
     # ---- promotion_db
@@ -73,7 +73,7 @@ def emit_static(ctx, emit):
     pi = np.arange(P)
     pa = program_attrs(w, pi)
     emit("promotion_db", "exchange_programs", dict(
-        id=W.uid_s(w, "program", pi), category_id=W.uid_s(w, "cat", pa["cat_idx"]), brand=nul(pick(voc["brands"], pi, "xp.b", w.seed), uni(pi, "xp.nb", w.seed) < 0.5),
+        id=W.uid_s(w, "program", pi), category_id=W.cat_id(w, pa["cat_idx"]), brand=nul(pick(voc["brands"], pi, "xp.b", w.seed), uni(pi, "xp.nb", w.seed) < 0.5),
         title=cat(np.array([x.encode() for x in V.ROOTS])[V.N_ROOT * 0 + np.array([V.SUBS[i][0] for i in pa["sub"]])], b" trade-in - up to ", e_int(pa["max_cents"] // 100), b" off"),
         max_value=m4(pa["max_cents"]), currency=np.full(P, b"USD"), active=e_bool(np.ones(P, bool)), created_at=e_ts(np.full(P, T0))))
     # ---- seller_db.sellers (rating_* start at 0 and are set from the feedback tally in the finalize step)

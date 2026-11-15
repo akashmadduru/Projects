@@ -272,7 +272,7 @@ def _finalize(settings: Settings, cat: Catalog, w: W.World, agg_path: Path, plan
     if sf is not None:
         s = np.flatnonzero(sf[: w.S, 1] > 0)
         ids = W.uid_s(w, "seller", s)
-        rows = [(ids[k].decode(), f"{sf[s[k], 0] / sf[s[k], 1]:.2f}", int(sf[s[k], 1])) for k in range(s.size)]
+        rows = [(ids[k].decode(), f"{(int(sf[s[k], 0]) * 200 + int(sf[s[k], 1])) // (2 * int(sf[s[k], 1])) / 100:.2f}", int(sf[s[k], 1])) for k in range(s.size)]
         tb = cat.find("seller_db", "sellers")
         with target(settings, "seller_db") as t:
             t.conn.autocommit = False

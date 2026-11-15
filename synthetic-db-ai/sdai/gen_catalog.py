@@ -67,7 +67,7 @@ def catalog_chunk(ctx, lo, hi, emit):
     specs = cat(b'{"weight_g": ', e_int(pr["weight"]), b', "material": "', pr["material"], b'", "warranty_months": ', e_int(rint(p, "p.war", 6, 37, w.seed)), b"}")
     emit("product_db", "products", dict(
         id=W.uid_s(w, "product", p), sku=pr["sku"], name=name, price_amount=m2(cents), price_currency=np.full(n, b"USD"), active=e_bool(uni(p, "p.act", w.seed) < 0.95),
-        created_at=e_ts(created), updated_at=e_ts(upd), version=e_int(np.zeros(n)), category_id=W.uid_s(w, "cat", pr["sub"] + 10), seller_name=np.where(acme, b"Acme Retail", sl["name"]),
+        created_at=e_ts(created), updated_at=e_ts(upd), version=e_int(np.zeros(n)), category_id=W.cat_id(w, pr["sub"] + 10), seller_name=np.where(acme, b"Acme Retail", sl["name"]),
         specifications=specs, last_known_quantity=e_int(qty), description=desc, list_price=m2(cents), sale_price=nul(m2(np.maximum(sale, 0)), sale < 0),
         discount_percent=nul(e_money((disc_pct * 100).astype(np.int64), 2), sale < 0), thumbnail_url=thumb,
         video_urls=nul(cat(b'["https://cdn.shop.example.com/v/', base36(p, 7), b'.mp4"]'), uni(p, "p.vid", w.seed) > 0.4),
@@ -131,6 +131,6 @@ def catalog_chunk(ctx, lo, hi, emit):
         kw = cat(b"{", np.char.lower(pr["noun"][am]), b",", np.char.lower(pr["brand"][am]), b"}")
         emit("seller_db", "ad_campaigns", dict(
             id=W.uid_s(w, "ad", p[am]), seller_id=W.seller_code_to_uid_s(w, sc[am]), product_id=W.uid_s(w, "product", p[am]), keywords=kw,
-            category_id=W.uid_s(w, "cat", pr["sub"][am] + 10), bid_cpc=m2(rng.integers(5, 150, am.size)), daily_budget=m2(budget * 100), currency=np.full(am.size, b"USD"),
+            category_id=W.cat_id(w, pr["sub"][am] + 10), bid_cpc=m2(rng.integers(5, 150, am.size)), daily_budget=m2(budget * 100), currency=np.full(am.size, b"USD"),
             status=np.where(spent >= budget, b"EXHAUSTED", rng.choice([b"ACTIVE", b"PAUSED"], am.size, p=[0.8, 0.2])), spent_today=m2(spent * 100),
             clicks=e_int(rng.integers(0, 20000, am.size)), impressions=e_int(rng.integers(1000, 900000, am.size)), created_at=e_ts(acr)))

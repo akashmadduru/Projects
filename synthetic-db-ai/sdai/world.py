@@ -328,3 +328,8 @@ def deal_price_usd(w: World, dl: dict) -> np.ndarray:
 def seed_tag(w: World) -> bytes:
     """2-char tag that keeps natural unique keys (sku, slug, codes) distinct between runs with different seeds."""
     return base36(np.array([w.seed % 1296]), 2)[0]
+
+
+def cat_id(w: World, idx) -> np.ndarray:
+    """Category ids ignore the seed: every run shares ONE category tree (the static stage is skipped when it exists)."""
+    return uid("cat", idx, 0).s()
