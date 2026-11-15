@@ -3,7 +3,10 @@
     .venv-images\\Scripts\\python.exe tools\\imagegen_server.py        ->  http://127.0.0.1:8765
 
 Reads output/products.jsonl (written once by tools/export_products.py); needs no database or Docker.
-Writes output/images/<product_id>.jpg + manifest.jsonl; an existing .jpg means the product is done.
+Writes to:
+  - output/images/<product_id>.jpg + manifest.jsonl (generation)
+  - product-images/images/<product_id>.jpg + metadata/<product_id>.json (local storage)
+  - static/images/<product_id>.jpg + metadata/<product_id>.json (S3 staging)
 """
 from __future__ import annotations
 
@@ -43,6 +46,11 @@ STATIC = ROOT / "static"
 STATIC_IMAGES = STATIC / "images"
 STATIC_META = STATIC / "metadata"
 UPLOADS_FILE = STATIC / "uploads.jsonl"
+
+PRODUCT_IMAGES = ROOT / "product-images"
+PRODUCT_IMAGES_FOLDER = PRODUCT_IMAGES / "images"
+PRODUCT_META = PRODUCT_IMAGES / "metadata"
+
 UUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
 FIELDS = ("name", "brand", "color", "material", "category")
 SIZES = (512, 640, 768, 896, 1024)
@@ -56,13 +64,6 @@ DEFAULTS = {
                  "caption, multiple objects, blurry, low quality, deformed, cropped"),
 }
 
-DB_CONFIG = {
-    "host": os.environ.get("SDAI_PG_HOST", "127.0.0.1"),
-    "port": int(os.environ.get("SDAI_PG_PORT", "55432")),
-    "dbname": "product_db",
-    "user": os.environ.get("SDAI_PG_USER", "postgres"),
-    "password": os.environ.get("SDAI_PG_PASSWORD", "sdai_scratch"),
-}
 
 
 def _read_json(path: Path, default):
@@ -130,37 +131,18 @@ class Engine:
         self.session_done = 0
         self.fail_streak = 0
         self._gpu_cache = (0.0, None)
-        self.db_written: set = set()
-        self.db_failed: dict = {}
-        self._load_db_state()
         self.s3_uploaded: set = set()
         self.s3_failed: dict = {}
-        self._init_static_folder()
+        self._init_folders()
         self._load_s3_state()
 
-    # ---- db state ---------------------------------------------------------------------------------
-    def _load_db_state(self):
-        db_state_file = OUT / "db_state.json"
-        try:
-            state = json.loads(db_state_file.read_text(encoding="utf-8"))
-            self.db_written = set(state.get("written", []))
-            self.db_failed = state.get("failed", {})
-        except (OSError, ValueError):
-            self.db_written = set()
-            self.db_failed = {}
-
-    def _save_db_state(self):
-        db_state_file = OUT / "db_state.json"
-        tmp = db_state_file.with_suffix(".tmp")
-        tmp.write_text(json.dumps({
-            "written": sorted(self.db_written),
-            "failed": self.db_failed
-        }, indent=1), encoding="utf-8")
-        tmp.replace(db_state_file)
-
-    def _init_static_folder(self):
+    # ---- folders ---------------------------------------------------------------------------------
+    def _init_folders(self):
+        """Initialize all required folders."""
         STATIC_IMAGES.mkdir(parents=True, exist_ok=True)
         STATIC_META.mkdir(parents=True, exist_ok=True)
+        PRODUCT_IMAGES_FOLDER.mkdir(parents=True, exist_ok=True)
+        PRODUCT_META.mkdir(parents=True, exist_ok=True)
 
     def _load_s3_state(self):
         try:
@@ -177,25 +159,18 @@ class Engine:
             pass
 
     def _save_to_static(self, product_id: str, image_path: Path, product: dict, settings: dict) -> bool:
-        """Copy image to static folder and save metadata."""
+        """Copy image to both static and product-images folders with metadata."""
         try:
             if not isinstance(image_path, Path):
                 image_path = Path(image_path)
             if not image_path.exists():
-                self._say(f"image not found for static save: {image_path}")
+                self._say(f"image not found: {image_path}")
                 return False
 
-            STATIC_IMAGES.mkdir(parents=True, exist_ok=True)
-            STATIC_META.mkdir(parents=True, exist_ok=True)
-
-            dest = STATIC_IMAGES / f"{product_id}.jpg"
-            shutil.copy2(str(image_path), str(dest))
-
+            # Create metadata
             meta = {
                 "product_id": product_id,
                 "name": product.get("name"),
-                "file_path": str(dest.relative_to(ROOT)),
-                "file_size": dest.stat().st_size,
                 "prompt": settings.get("prompt"),
                 "negative": settings.get("negative"),
                 "seed": product.get("seed"),
@@ -203,41 +178,35 @@ class Engine:
                 "guidance": settings.get("guidance"),
                 "size": settings.get("size"),
                 "created_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
-                "uploaded": False,
-                "s3_url": None,
             }
-            meta_file = STATIC_META / f"{product_id}.json"
-            meta_file.write_text(json.dumps(meta, indent=1), encoding="utf-8")
+
+            # Save to product-images (main location)
+            prod_dest = PRODUCT_IMAGES_FOLDER / f"{product_id}.jpg"
+            shutil.copy2(str(image_path), str(prod_dest))
+            meta["file_path"] = str(prod_dest.relative_to(ROOT))
+            meta["file_size"] = prod_dest.stat().st_size
+
+            prod_meta_file = PRODUCT_META / f"{product_id}.json"
+            prod_meta_file.write_text(json.dumps(meta, indent=1), encoding="utf-8")
+
+            # Also save to static for S3 staging
+            static_dest = STATIC_IMAGES / f"{product_id}.jpg"
+            shutil.copy2(str(image_path), str(static_dest))
+            meta_s3 = dict(meta)
+            meta_s3["file_path"] = str(static_dest.relative_to(ROOT))
+            meta_s3["uploaded"] = False
+            meta_s3["s3_url"] = None
+
+            static_meta_file = STATIC_META / f"{product_id}.json"
+            static_meta_file.write_text(json.dumps(meta_s3, indent=1), encoding="utf-8")
+
             with self.lock:
                 self.s3_failed.pop(product_id, None)
-            self._say(f"saved to static: {product_id}")
+            self._say(f"saved: product-images/ + static/")
             return True
         except Exception as e:
             msg = str(e)[:100]
-            self._say(f"failed to save to static: {product_id}: {msg}")
-            return False
-
-    def _write_to_db(self, product_id: str, image_path: str = None):
-        if not image_path:
-            image_path = f"output/images/{product_id}.jpg"
-        try:
-            import psycopg
-            import image_store  # tools/image_store.py: PUT to the image server, then write the URL
-            data = Path(image_path).read_bytes()
-            with psycopg.connect(**DB_CONFIG) as conn:
-                with conn.cursor() as cur:
-                    image_store.push(cur, product_id, data)
-                    conn.commit()
-            with self.lock:
-                self.db_written.add(product_id)
-                self.db_failed.pop(product_id, None)
-            self._say(f"image written to DB: {product_id}")
-            return True
-        except Exception as e:
-            msg = f"{type(e).__name__}: {e}"[:200]
-            with self.lock:
-                self.db_failed[product_id] = {"error": msg, "at": time.strftime("%Y-%m-%d %H:%M:%S")}
-            self._say(f"DB write failed for {product_id}: {msg}")
+            self._say(f"failed to save image: {product_id}: {msg}")
             return False
 
     # ---- queue control -------------------------------------------------------------------------
@@ -482,11 +451,8 @@ class Engine:
                 self.recent.append(pid)
                 self.session_done += 1
             self._say(f"done #{self.index[pid]} {p['name']} ({took:.1f}s)")
-            self._write_to_db(pid)
             p["seed"] = seed
             self._save_to_static(pid, OUT / f"{pid}.jpg", p, s)
-            with self.lock:
-                self._save_db_state()
         self.times.append(took)
         self.fail_streak = 0
 
@@ -555,7 +521,6 @@ class Engine:
                 "settings": self.settings,
                 "recent": [{"id": i, "name": self.products[self.index[i]]["name"], "v": self._ver(i)} for i in reversed(self.recent)],
                 "preview": self.last_preview,
-                "db_written": len(self.db_written), "db_failed": len(self.db_failed),
                 "log": list(self.log)[-40:],
                 "gpu": self._gpu(), "ram": ram,
             }
@@ -671,41 +636,6 @@ class Engine:
             rec = {"bucket": bucket, "prefix": prefix, "at": time.strftime("%Y-%m-%d %H:%M:%S")}
             f.write(json.dumps(rec) + "\n")
 
-    # ---- database writes -----------------------------------------------------------------------
-    def write_all_done(self):
-        """Write all completed images to the database."""
-        with self.lock:
-            to_write = [pid for pid in self.done if pid not in self.db_written and pid not in self.db_failed]
-        count = 0
-        for pid in to_write:
-            if self._write_to_db(pid):
-                count += 1
-        with self.lock:
-            self._save_db_state()
-        self._say(f"wrote {count} images to DB")
-        return {"written": count}
-
-    def retry_failed_writes(self):
-        """Retry failed database writes."""
-        with self.lock:
-            failed_ids = list(self.db_failed.keys())
-        count = 0
-        for pid in failed_ids:
-            if self._write_to_db(pid):
-                count += 1
-        with self.lock:
-            self._save_db_state()
-        self._say(f"retried {len(failed_ids)} failed writes, succeeded: {count}")
-        return {"attempted": len(failed_ids), "succeeded": count}
-
-    def get_db_status(self):
-        """Get database write statistics."""
-        with self.lock:
-            return {
-                "written": len(self.db_written),
-                "failed": len(self.db_failed),
-                "failed_list": list(self.db_failed.keys())[:10]
-            }
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -744,8 +674,6 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, UI.read_bytes(), "text/html; charset=utf-8")
         if u.path == "/api/status":
             return self._json(self.engine.status())
-        if u.path == "/api/db/status":
-            return self._json(self.engine.get_db_status())
         if u.path == "/api/static/status":
             return self._json(self.engine.get_static_status())
         if u.path == "/api/static/images":
@@ -798,8 +726,6 @@ class Handler(BaseHTTPRequestHandler):
             "/api/redo": lambda: E.redo(str(body.get("id"))),
             "/api/generate": lambda: E.generate_one(str(body.get("id"))),
             "/api/preview": lambda: E.preview(str(body.get("id"))),
-            "/api/db/write-all": E.write_all_done,
-            "/api/db/retry-failed": E.retry_failed_writes,
             "/api/s3/upload": lambda: E.upload_to_s3(
                 str(body.get("bucket", "")),
                 str(body.get("prefix", "products/")),
