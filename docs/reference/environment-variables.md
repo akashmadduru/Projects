@@ -88,8 +88,13 @@ service-level setting (add it under that service's `env:` in `values.yaml`). Rel
 
 | Variable | Used by | Default | Required | Set in | What it does |
 |---|---|---|---|---|---|
+| `PAYMENT_DEFAULT_PROVIDER` | payment | `""` |  | .env | `STRIPE` or `RAZORPAY`: the provider preselected at checkout when both are configured. Blank means the first configured one (Stripe, then Razorpay). Customers can switch before paying. |
+| `RAZORPAY_BASE_URL` | payment | `https://api.razorpay.com` |  | - | Razorpay API base URL. Change only to point at a mock server in tests. |
+| `RAZORPAY_KEY_ID` | payment | `""` |  | .env + helm | Razorpay key id (`rzp_test_...` / `rzp_live_...`), handed to the browser. Razorpay is on only when this and `RAZORPAY_KEY_SECRET` are both set. INR payments only. |
+| `RAZORPAY_KEY_SECRET` 🔒 | payment | `""` |  | .env + helm | Razorpay key secret. Used server side for the API and to verify the checkout signature. Never sent to the browser. |
+| `RAZORPAY_WEBHOOK_SECRET` 🔒 | payment | `""` |  | .env + helm | Secret of the Razorpay webhook (`<site>/api/payments/webhook/razorpay`, events `payment.captured` and `order.paid`). Without it the webhook is rejected and payments settle only through the browser callback and the order-page re-check. |
 | `STRIPE_PUBLISHABLE_KEY` | payment | `""` |  | .env + helm | Stripe publishable key, handed to the browser. |
-| `STRIPE_SECRET_KEY` 🔒 | payment | `""` | yes | .env + helm | Stripe secret key. Blank means SIMULATED mode locally; under the `prod` profile payment-service refuses to start without it. |
+| `STRIPE_SECRET_KEY` 🔒 | payment | `""` |  | .env + helm | Stripe secret key. Stripe is on when this is set. At least one of Stripe or Razorpay must be configured under the `prod` profile or payment-service refuses to start; with neither it runs SIMULATED locally. |
 | `STRIPE_WEBHOOK_SECRET` 🔒 | payment | `""` |  | .env + helm | Signing secret of the Stripe webhook endpoint. |
 
 ## Email, SMS and push
@@ -193,9 +198,12 @@ Read by `deploy.sh` / `destroy.sh`. Commented-out lines in the template are opti
 | `DOMAIN_NAME` | `example.com` | Root domain you control. Serves `shop.`, `admin.` and `api.` subdomains. |
 | `SIZE_PROFILE` | `lean` | `lean` = cheapest working topology; `prod` = full high availability. |
 | `ALERT_EMAIL` | `""` | Address that receives CloudWatch alarms (AWS emails a confirmation link). |
-| `STRIPE_SECRET_KEY` 🔒 |  | **Required.** Stripe secret key; payment-service refuses to start in production without it. |
-| `STRIPE_PUBLISHABLE_KEY` | `""` | **Required.** Stripe publishable key. |
-| `STRIPE_WEBHOOK_SECRET` 🔒 |  | **Required.** Signing secret of the Stripe webhook endpoint. |
+| `STRIPE_SECRET_KEY` 🔒 |  | **One provider required.** Stripe secret key. Set all three Stripe values or none. |
+| `STRIPE_PUBLISHABLE_KEY` | `""` | Stripe publishable key (all three Stripe values or none). |
+| `STRIPE_WEBHOOK_SECRET` 🔒 |  | Signing secret of the Stripe webhook endpoint (all three Stripe values or none). |
+| `RAZORPAY_KEY_ID` | `""` | **One provider required.** Razorpay key id. Set all three Razorpay values or none. You may configure Stripe, Razorpay or both. |
+| `RAZORPAY_KEY_SECRET` 🔒 |  | Razorpay key secret (all three Razorpay values or none). |
+| `RAZORPAY_WEBHOOK_SECRET` 🔒 |  | Secret of the Razorpay webhook endpoint (all three Razorpay values or none). |
 | `GOOGLE_CLIENT_ID` | `""` | Optional. Blank disables Google sign-in. |
 | `GOOGLE_CLIENT_SECRET` 🔒 |  | Optional. Blank disables Google sign-in. |
 | `KUBERNETES_API_ALLOWED_CIDRS` | `0.0.0.0/0` | Comma-separated CIDRs allowed to reach the Kubernetes API. Narrow it for production. |

@@ -35,7 +35,7 @@ gateway, EKS with Karpenter and autoscaling, RDS PostgreSQL, MSK, ElastiCache, S
 
 | Change | Why it was required |
 |---|---|
-| `StripeGateway` refuses to start under the `prod` profile without a Stripe key | otherwise a blank key silently enables SIMULATED mode and customers could mark their own orders paid |
+| `PaymentProviders` refuses to start under the `prod` profile with no payment provider (was: `StripeGateway` without a Stripe key) | otherwise a blank key silently enables SIMULATED mode and customers could mark their own orders paid |
 | SMS text no longer logged; no dev mail sink in production | one-time codes were logged in plaintext and would have been emailed to an arbitrary domain |
 | `JobLock` (Postgres advisory lock) around all 8 `@Scheduled` jobs | every replica ran every job; non-idempotent jobs would run N times |
 | `RateLimitWebFilter` can read the client address from `X-Forwarded-For` (`trusted-proxy-hops`) | behind CloudFront and the ALB every anonymous user shared one rate-limit bucket |

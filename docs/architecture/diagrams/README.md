@@ -21,3 +21,4 @@ Mermaid sources; GitHub renders them inline. 01–12 were drawn on 2026-11-10 fo
 | 15 | [Customer Data ER (user_db, cart_db, order_db)](15-customer-data-er.md) |
 | 16 | [Customer Accounts Component Diagram](16-customer-components.md) |
 | 17 | [Configuration flow: how a setting reaches a service](17-configuration-flow.md) |
+| 18 | [Online payment with Stripe or Razorpay](18-razorpay-payment-sequence.md) |

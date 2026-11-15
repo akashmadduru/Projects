@@ -16,6 +16,13 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class PaymentProperties {
   @Builder.Default private Jwt jwt = new Jwt();
   @Builder.Default private Stripe stripe = new Stripe();
+  @Builder.Default private Razorpay razorpay = new Razorpay();
+
+  /**
+   * Provider preselected at checkout (STRIPE or RAZORPAY) when more than one is configured. Blank
+   * means the first configured one.
+   */
+  @Builder.Default private String defaultProvider = "";
 
   /** Shared secret for /internal/** (header X-Internal-Token). */
   @Builder.Default private String internalToken = "";
@@ -32,6 +39,27 @@ public class PaymentProperties {
 
     public boolean enabled() {
       return secretKey != null && !secretKey.isBlank();
+    }
+  }
+
+  /**
+   * Razorpay keys. A blank key id or key secret disables Razorpay. Orders are INR only unless the
+   * Razorpay account has international payments enabled.
+   */
+  @Data
+  @NoArgsConstructor
+  @AllArgsConstructor
+  @Builder
+  public static class Razorpay {
+    @Builder.Default private String keyId = "";
+    @Builder.Default private String keySecret = "";
+    @Builder.Default private String webhookSecret = "";
+    @Builder.Default private String baseUrl = "https://api.razorpay.com";
+    @Builder.Default private Duration connectTimeout = Duration.ofSeconds(3);
+    @Builder.Default private Duration readTimeout = Duration.ofSeconds(10);
+
+    public boolean enabled() {
+      return keyId != null && !keyId.isBlank() && keySecret != null && !keySecret.isBlank();
     }
   }
 

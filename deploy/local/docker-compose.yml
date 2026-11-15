@@ -790,7 +790,7 @@ services:
       start_period: 60s
 
   # ---------------------------------------------------------------------------
-  # payment-service - Phase 6. Own database (payment_db) + role. STRIPE_SECRET_KEY blank =>
+  # payment-service - Phase 6. Own database (payment_db) + role. No Stripe or Razorpay key =>
   # SIMULATED mode. Calls order-service /internal/** with X-Internal-Token.
   # ---------------------------------------------------------------------------
   payment-service:
@@ -819,6 +819,10 @@ services:
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
       STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY:-}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
+      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:-}
+      RAZORPAY_WEBHOOK_SECRET: ${RAZORPAY_WEBHOOK_SECRET:-}
+      PAYMENT_DEFAULT_PROVIDER: ${PAYMENT_DEFAULT_PROVIDER:-}
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     ports:
       - "127.0.0.1:${PAYMENT_PORT:-8088}:8088"

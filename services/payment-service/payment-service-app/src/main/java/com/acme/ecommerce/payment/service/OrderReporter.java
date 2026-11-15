@@ -1,7 +1,6 @@
 package com.acme.ecommerce.payment.service;
 
 import com.acme.ecommerce.common.web.job.JobLock;
-import org.springframework.beans.factory.annotation.Autowired;
 import com.acme.ecommerce.payment.api.dto.PaymentResultRequest;
 import com.acme.ecommerce.payment.client.OrderFeignClient;
 import com.acme.ecommerce.payment.client.UserFeignClient;
@@ -10,6 +9,7 @@ import com.acme.ecommerce.payment.repository.PaymentRepository;
 import com.acme.ecommerce.payment.repository.PaymentRepository.Payment;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 

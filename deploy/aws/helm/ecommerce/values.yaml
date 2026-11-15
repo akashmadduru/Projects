@@ -191,11 +191,15 @@ services:
     database: payment
     jwksEnv: PAYMENT_JWKS_URI
     hpa: { min: 2, max: 4, cpu: 70 }
-    # payment-service REFUSES TO START under the prod profile without a Stripe secret key.
+    # payment-service REFUSES TO START under the prod profile unless Stripe or Razorpay (or both)
+    # is fully configured. An unconfigured provider has empty values and is simply not offered.
     secretEnv:
       - { name: STRIPE_SECRET_KEY, key: stripe_secret_key }
       - { name: STRIPE_PUBLISHABLE_KEY, key: stripe_publishable_key }
       - { name: STRIPE_WEBHOOK_SECRET, key: stripe_webhook_secret }
+      - { name: RAZORPAY_KEY_ID, key: razorpay_key_id }
+      - { name: RAZORPAY_KEY_SECRET, key: razorpay_key_secret }
+      - { name: RAZORPAY_WEBHOOK_SECRET, key: razorpay_webhook_secret }
 
   promotion-service:
     port: 8089

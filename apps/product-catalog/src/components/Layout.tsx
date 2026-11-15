@@ -13,6 +13,7 @@ import { Header } from './Header'
 import { Atom, Boomerang, Starburst } from './Atomic'
 import { ArrowUpIcon } from './Icons'
 import { Toaster } from './Toaster'
+import { ThemePreviewBanner } from './ThemePreviewBanner'
 import { VerifyEmailBanner } from './VerifyEmailBanner'
 import { useReferral } from '../hooks/useReferral'
 import { useScrolled } from '../hooks/useScrolled'
@@ -77,6 +78,7 @@ export function Layout() {
         {t('Skip to content')}
       </a>
       <Header />
+      <ThemePreviewBanner />
       <VerifyEmailBanner />
       {/* Keyed on the path so each page navigation replays the entrance transition. */}
       <main key={pathname} id="main" tabIndex={-1} className="animate-page-in mx-auto w-full max-w-[1400px] flex-1 px-4 py-6 sm:px-6 lg:px-8">

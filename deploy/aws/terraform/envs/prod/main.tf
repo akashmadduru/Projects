@@ -321,6 +321,10 @@ module "secrets" {
   stripe_publishable_key = var.stripe_publishable_key
   stripe_webhook_secret  = var.stripe_webhook_secret
 
+  razorpay_key_id         = var.razorpay_key_id
+  razorpay_key_secret     = var.razorpay_key_secret
+  razorpay_webhook_secret = var.razorpay_webhook_secret
+
   smtp_username = module.ses.smtp_username
   smtp_password = module.ses.smtp_password
 }

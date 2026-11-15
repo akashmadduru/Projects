@@ -3,7 +3,7 @@
  */
 
 import { apiFetch } from '../lib/http'
-import type { AvailableCoupon, CouponValidation, PaymentConfig, PaymentInfo } from '../types'
+import type { AvailableCoupon, CouponValidation, PaymentConfig, PaymentInfo, PaymentProvider } from '../types'
 
 export class PaymentApiClient {
   config(): Promise<PaymentConfig> {
@@ -12,6 +12,19 @@ export class PaymentApiClient {
 
   forOrder(orderId: string): Promise<PaymentInfo> {
     return apiFetch<PaymentInfo>(`/api/payments/orders/${orderId}`)
+  }
+
+  /** Pick another provider for a payment that is still unpaid. */
+  switchProvider(orderId: string, provider: PaymentProvider): Promise<PaymentInfo> {
+    return apiFetch<PaymentInfo>(`/api/payments/orders/${orderId}/provider`, { method: 'POST', body: { provider } })
+  }
+
+  /** Razorpay Checkout finished: the server verifies the signature and settles the payment. */
+  verifyRazorpay(
+    paymentId: string,
+    body: { razorpayOrderId: string; razorpayPaymentId: string; razorpaySignature: string },
+  ): Promise<PaymentInfo> {
+    return apiFetch<PaymentInfo>(`/api/payments/${paymentId}/razorpay/verify`, { method: 'POST', body })
   }
 
   /** SIMULATED mode only; the server answers 404 otherwise. */

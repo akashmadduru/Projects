@@ -51,13 +51,33 @@ stage_preflight() {
   # --- configuration ------------------------------------------------------------------------
   [[ "$SIZE_PROFILE" == "lean" || "$SIZE_PROFILE" == "prod" ]] || die "SIZE_PROFILE must be 'lean' or 'prod'."
   [[ -n "${DOMAIN_NAME:-}" && "$DOMAIN_NAME" != "example.com" ]] || die "Set DOMAIN_NAME in config.env to a domain you control."
-  [[ -n "${STRIPE_SECRET_KEY:-}" && -n "${STRIPE_PUBLISHABLE_KEY:-}" && -n "${STRIPE_WEBHOOK_SECRET:-}" ]] \
-    || die "STRIPE_SECRET_KEY, STRIPE_PUBLISHABLE_KEY and STRIPE_WEBHOOK_SECRET are required: payment-service refuses to start in production without them."
-  case "$STRIPE_SECRET_KEY" in
-    sk_live_*|rk_live_*) : ;;
-    sk_test_*|rk_test_*) warn "STRIPE_SECRET_KEY is a TEST key: no real money will move." ;;
-    *) warn "STRIPE_SECRET_KEY does not look like a Stripe key (expected sk_live_... or sk_test_...)." ;;
-  esac
+  # Payments: Stripe and Razorpay can both be on (the customer chooses). At least one must be
+  # complete, and a half-filled one is refused so it is never silently left off.
+  local stripe_any=0 stripe_all=0 rzp_any=0 rzp_all=0
+  [[ -n "${STRIPE_SECRET_KEY:-}${STRIPE_PUBLISHABLE_KEY:-}${STRIPE_WEBHOOK_SECRET:-}" ]] && stripe_any=1
+  [[ -n "${STRIPE_SECRET_KEY:-}" && -n "${STRIPE_PUBLISHABLE_KEY:-}" && -n "${STRIPE_WEBHOOK_SECRET:-}" ]] && stripe_all=1
+  [[ -n "${RAZORPAY_KEY_ID:-}${RAZORPAY_KEY_SECRET:-}${RAZORPAY_WEBHOOK_SECRET:-}" ]] && rzp_any=1
+  [[ -n "${RAZORPAY_KEY_ID:-}" && -n "${RAZORPAY_KEY_SECRET:-}" && -n "${RAZORPAY_WEBHOOK_SECRET:-}" ]] && rzp_all=1
+  [[ $stripe_any -eq 0 || $stripe_all -eq 1 ]] \
+    || die "Stripe is half configured: set all of STRIPE_SECRET_KEY, STRIPE_PUBLISHABLE_KEY and STRIPE_WEBHOOK_SECRET, or none."
+  [[ $rzp_any -eq 0 || $rzp_all -eq 1 ]] \
+    || die "Razorpay is half configured: set all of RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET and RAZORPAY_WEBHOOK_SECRET, or none."
+  [[ $stripe_all -eq 1 || $rzp_all -eq 1 ]] \
+    || die "Configure at least one payment provider (Stripe and/or Razorpay) in config.env: payment-service refuses to start in production without one."
+  if [[ $stripe_all -eq 1 ]]; then
+    case "$STRIPE_SECRET_KEY" in
+      sk_live_*|rk_live_*) : ;;
+      sk_test_*|rk_test_*) warn "STRIPE_SECRET_KEY is a TEST key: no real money will move." ;;
+      *) warn "STRIPE_SECRET_KEY does not look like a Stripe key (expected sk_live_... or sk_test_...)." ;;
+    esac
+  fi
+  if [[ $rzp_all -eq 1 ]]; then
+    case "$RAZORPAY_KEY_ID" in
+      rzp_live_*) : ;;
+      rzp_test_*) warn "RAZORPAY_KEY_ID is a TEST key: no real money will move." ;;
+      *) warn "RAZORPAY_KEY_ID does not look like a Razorpay key (expected rzp_live_... or rzp_test_...)." ;;
+    esac
+  fi
 
   if [[ "$KUBERNETES_API_ALLOWED_CIDRS" == "0.0.0.0/0" ]]; then
     warn "KUBERNETES_API_ALLOWED_CIDRS is 0.0.0.0/0: the Kubernetes API is reachable from the whole internet (it still needs AWS credentials). Restrict it to your office / CI addresses for production."
@@ -463,7 +483,7 @@ stage_smoke() {
   check "gateway + auth reachable (JWKS)" "$shop/.well-known/jwks.json" '"keys"'
   check "catalog API responds"           "$shop/api/products?page=0&size=1"
   # SIMULATED would mean payments can be self-approved: the single most important check.
-  check "payments run against Stripe, not the simulator" "$shop/api/payments/config" 'STRIPE' 'SIMULATED'
+  check "payments run against a real provider, not the simulator" "$shop/api/payments/config" '"providers":[{' '"mode":"SIMULATED"'
 
   if [[ $failed -ne 0 ]]; then
     die "One or more smoke tests failed. kubectl -n $NAMESPACE get pods / logs <pod>, and the CloudFront + ALB target health in the AWS console."
@@ -480,9 +500,13 @@ ${C_GREEN}Deployed: $NAME${C_OFF}
   API        : https://shop.$DOMAIN_NAME/api   (also https://api.$DOMAIN_NAME, reachable via CloudFront only)
 
 Do these once:
-  1. Stripe  -> add a webhook endpoint  https://shop.$DOMAIN_NAME/api/payments/webhook
-              (events payment_intent.succeeded, payment_intent.payment_failed) and make sure
-              STRIPE_WEBHOOK_SECRET in config.env is its signing secret.
+  1. Payments -> for each provider you configured, add its webhook:
+              Stripe    https://shop.$DOMAIN_NAME/api/payments/webhook
+                        (events payment_intent.succeeded, payment_intent.payment_failed)
+                        signing secret = STRIPE_WEBHOOK_SECRET in config.env
+              Razorpay  https://shop.$DOMAIN_NAME/api/payments/webhook/razorpay
+                        (events payment.captured, order.paid; set the webhook secret to
+                        RAZORPAY_WEBHOOK_SECRET) and turn on automatic capture in the dashboard.
   2. Google  -> if you use Google sign-in, add redirect URIs
               https://shop.$DOMAIN_NAME/login/oauth2/code/google and
               https://admin.$DOMAIN_NAME/login/oauth2/code/google

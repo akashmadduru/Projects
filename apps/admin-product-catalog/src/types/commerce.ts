@@ -236,7 +236,7 @@ export interface AdminPayment {
   readonly orderId: string;
   readonly userId: string;
   readonly method: 'CARD' | 'COD';
-  readonly mode: 'STRIPE' | 'SIMULATED';
+  readonly mode: 'STRIPE' | 'RAZORPAY' | 'SIMULATED';
   readonly amount: number;
   readonly currency: string;
   readonly status: string;

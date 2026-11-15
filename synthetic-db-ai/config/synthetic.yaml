@@ -1,0 +1,22 @@
+# synthetic-db-ai configuration.  Every value can be overridden with an SDAI_* env var
+# (see sdai/config.py) or by --config <file>.
+target:
+  host: ${SDAI_PG_HOST:-127.0.0.1}
+  port: ${SDAI_PG_PORT:-5432}
+  user: ${SDAI_PG_USER:-postgres}
+  password: ${SDAI_PG_PASSWORD:-}
+  # Hosts the generator is allowed to write to.  Anything else (e.g. an RDS endpoint) is refused.
+  allowed_hosts: [localhost, 127.0.0.1, "::1", host.docker.internal, postgres, sdai-pg]
+generation:
+  seed: 20260101
+  workers: 0            # 0 = cpu_count - 1
+  as_of: null           # ISO date the synthetic "now" is pinned to; null = today (stored in the plan)
+  orders_per_user: 5.5  # mean orders / customer (zero-inflated, heavy tail)
+  rows_per_copy_buffer: 250000
+  index_overhead: 1.0   # multiplier on the index-size estimate used by the planner
+llm:
+  provider: none        # none | anthropic | openai
+  model_anthropic: claude-haiku-5-5
+  model_openai: gpt-4o-mini
+  pool_size: 400        # texts requested per pool (descriptions, reviews, tickets...)
+  max_calls: 60

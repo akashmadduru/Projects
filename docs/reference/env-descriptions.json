@@ -161,8 +161,7 @@
     },
     "STRIPE_SECRET_KEY": {
       "group": "Payments",
-      "requiredInProd": true,
-      "text": "Stripe secret key. Blank means SIMULATED mode locally; under the `prod` profile payment-service refuses to start without it."
+      "text": "Stripe secret key. Stripe is on when this is set. At least one of Stripe or Razorpay must be configured under the `prod` profile or payment-service refuses to start; with neither it runs SIMULATED locally."
     },
     "STRIPE_PUBLISHABLE_KEY": {
       "group": "Payments",
@@ -412,6 +411,27 @@
       "group": "Service discovery",
       "usedBy": "user",
       "text": "Service id used to find auth-service when no fixed JWKS URL is set (default `AUTH-SERVICE`)."
+    },
+    "RAZORPAY_KEY_ID": {
+      "group": "Payments",
+      "secret": false,
+      "text": "Razorpay key id (`rzp_test_...` / `rzp_live_...`), handed to the browser. Razorpay is on only when this and `RAZORPAY_KEY_SECRET` are both set. INR payments only."
+    },
+    "RAZORPAY_KEY_SECRET": {
+      "group": "Payments",
+      "text": "Razorpay key secret. Used server side for the API and to verify the checkout signature. Never sent to the browser."
+    },
+    "RAZORPAY_WEBHOOK_SECRET": {
+      "group": "Payments",
+      "text": "Secret of the Razorpay webhook (`<site>/api/payments/webhook/razorpay`, events `payment.captured` and `order.paid`). Without it the webhook is rejected and payments settle only through the browser callback and the order-page re-check."
+    },
+    "RAZORPAY_BASE_URL": {
+      "group": "Payments",
+      "text": "Razorpay API base URL. Change only to point at a mock server in tests."
+    },
+    "PAYMENT_DEFAULT_PROVIDER": {
+      "group": "Payments",
+      "text": "`STRIPE` or `RAZORPAY`: the provider preselected at checkout when both are configured. Blank means the first configured one (Stripe, then Razorpay). Customers can switch before paying."
     }
   },
   "vite": {
@@ -429,14 +449,17 @@
     "DOMAIN_NAME": "Root domain you control. Serves `shop.`, `admin.` and `api.` subdomains.",
     "SIZE_PROFILE": "`lean` = cheapest working topology; `prod` = full high availability.",
     "ALERT_EMAIL": "Address that receives CloudWatch alarms (AWS emails a confirmation link).",
-    "STRIPE_SECRET_KEY": "**Required.** Stripe secret key; payment-service refuses to start in production without it.",
-    "STRIPE_PUBLISHABLE_KEY": "**Required.** Stripe publishable key.",
-    "STRIPE_WEBHOOK_SECRET": "**Required.** Signing secret of the Stripe webhook endpoint.",
+    "STRIPE_SECRET_KEY": "**One provider required.** Stripe secret key. Set all three Stripe values or none.",
+    "STRIPE_PUBLISHABLE_KEY": "Stripe publishable key (all three Stripe values or none).",
+    "STRIPE_WEBHOOK_SECRET": "Signing secret of the Stripe webhook endpoint (all three Stripe values or none).",
     "GOOGLE_CLIENT_ID": "Optional. Blank disables Google sign-in.",
     "GOOGLE_CLIENT_SECRET": "Optional. Blank disables Google sign-in.",
     "KUBERNETES_API_ALLOWED_CIDRS": "Comma-separated CIDRs allowed to reach the Kubernetes API. Narrow it for production.",
     "RESTRICT_ALB_TO_CLOUDFRONT": "Only CloudFront may connect to the load balancer, so the WAF cannot be bypassed.",
     "IMAGE_TAG": "Image tag override; default is the git commit (plus a hash of uncommitted changes).",
-    "SKIP_FRONTENDS": "`true` skips building and uploading the two web apps."
+    "SKIP_FRONTENDS": "`true` skips building and uploading the two web apps.",
+    "RAZORPAY_KEY_ID": "**One provider required.** Razorpay key id. Set all three Razorpay values or none. You may configure Stripe, Razorpay or both.",
+    "RAZORPAY_KEY_SECRET": "Razorpay key secret (all three Razorpay values or none).",
+    "RAZORPAY_WEBHOOK_SECRET": "Secret of the Razorpay webhook endpoint (all three Razorpay values or none)."
   }
 }

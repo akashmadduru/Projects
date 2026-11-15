@@ -954,3 +954,49 @@ export function writeCachedTheme(cfg: ThemeConfig | null): void {
     // Private mode / quota: the theme just won't survive a reload before the network answers.
   }
 }
+
+// ---- shareable preview links ----------------------------------------------------------------
+
+/**
+ * URL-hash key the storefront watches for a draft to render WITHOUT publishing it:
+ * `https://shop.example/#cwpreview=<base64url JSON>`. The storefront paints it for that tab only,
+ * never caches it, and shows a "preview" banner. Admins use it to check a draft on the real site.
+ */
+export const PREVIEW_HASH_KEY = 'cwpreview';
+
+function toBase64Url(s: string): string {
+  const bytes = new TextEncoder().encode(s);
+  let bin = '';
+  bytes.forEach((b) => {
+    bin += String.fromCharCode(b);
+  });
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function fromBase64Url(s: string): string {
+  const b64 = s.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((s.length + 3) % 4);
+  const bin = atob(b64);
+  return new TextDecoder().decode(Uint8Array.from(bin, (c) => c.charCodeAt(0)));
+}
+
+export function encodeThemeForUrl(cfg: ThemeConfig): string {
+  return toBase64Url(JSON.stringify(cfg));
+}
+
+/** Null when the payload is not a decodable theme; whatever decodes is still run through normalizeTheme. */
+export function decodeThemeFromUrl(encoded: string): ThemeConfig | null {
+  try {
+    return normalizeTheme(JSON.parse(fromBase64Url(encoded)));
+  } catch {
+    return null;
+  }
+}
+
+/** Reads `#cwpreview=...` from a location hash (tolerates other `&`-separated hash params). */
+export function readPreviewFromHash(hash: string): ThemeConfig | null {
+  const part = hash
+    .replace(/^#/, '')
+    .split('&')
+    .find((p) => p.startsWith(PREVIEW_HASH_KEY + '='));
+  return part ? decodeThemeFromUrl(part.slice(PREVIEW_HASH_KEY.length + 1)) : null;
+}

@@ -185,12 +185,19 @@ export interface OrderItem {
   shipmentId?: string | null
 }
 
+export type PaymentProvider = 'STRIPE' | 'RAZORPAY'
+
 export interface PaymentInfo {
   paymentId: string
   status: string
-  mode: 'STRIPE' | 'SIMULATED'
+  mode: PaymentProvider | 'SIMULATED'
   clientSecret?: string | null
+  /** Stripe publishable key, or the Razorpay key id. Both are browser-safe. */
   publishableKey?: string | null
+  /** RAZORPAY only: the order the checkout window pays against. */
+  providerOrderId?: string | null
+  amount?: number
+  currency?: string
 }
 
 export interface TimelineEntry {
@@ -282,9 +289,20 @@ export interface DeliveryEstimate {
   codAvailable: boolean
 }
 
+export interface PaymentProviderOption {
+  id: PaymentProvider
+  label: string
+  publicKey: string
+  methods: string[]
+  /** Empty = any currency. */
+  currencies: string[]
+}
+
 export interface PaymentConfig {
-  mode: 'STRIPE' | 'SIMULATED'
+  mode: PaymentProvider | 'SIMULATED'
   publishableKey?: string | null
+  providers?: PaymentProviderOption[]
+  defaultProvider?: PaymentProvider | null
 }
 
 export interface CouponValidation {

@@ -175,3 +175,14 @@ describe('palette tools and comfort options', () => {
     expect(normalizeTheme({ options: { textScale: 'huge', motion: 'x' } }).options).toEqual({ textScale: 'default', motion: 'full' });
   });
 });
+
+describe('preview links', () => {
+  it('round-trips a config through the URL hash, including non-ASCII brand text', async () => {
+    const { encodeThemeForUrl, readPreviewFromHash } = await import('@/lib/themeEngine');
+    const cfg = { ...DEFAULT_THEME, brand: { ...DEFAULT_THEME.brand, name: 'Café Ünïcode ✦', tagline: 'हिन्दी' } };
+    const hash = `#other=1&cwpreview=${encodeThemeForUrl(cfg)}`;
+    expect(readPreviewFromHash(hash)).toEqual(cfg);
+    expect(readPreviewFromHash('#cwpreview=not-base64!!')).toBeNull();
+    expect(readPreviewFromHash('#nothing')).toBeNull();
+  });
+});

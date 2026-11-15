@@ -14,8 +14,6 @@ import jakarta.annotation.PostConstruct;
 import java.util.Locale;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.core.env.Environment;
-import org.springframework.core.env.Profiles;
 import org.springframework.stereotype.Component;
 
 /** Thin wrapper over stripe-java so the rest of the service never sees the SDK. */
@@ -28,27 +26,16 @@ public class StripeGateway {
   public record Intent(String id, String clientSecret, String status) {}
 
   private final PaymentProperties properties;
-  private final Environment environment;
 
-  public StripeGateway(PaymentProperties properties, Environment environment) {
+  public StripeGateway(PaymentProperties properties) {
     this.properties = properties;
-    this.environment = environment;
   }
 
   @PostConstruct
   void init() {
     if (enabled()) {
       Stripe.apiKey = properties.getStripe().getSecretKey();
-      log.info("payment-service running in STRIPE mode");
-    } else if (environment.acceptsProfiles(Profiles.of("prod"))) {
-      // SIMULATED mode lets a customer mark their own card payment as paid through
-      // POST /api/payments/{id}/simulate. That is a dev convenience and must be impossible to
-      // reach in production, so a prod deployment without real keys refuses to start at all.
-      throw new IllegalStateException(
-          "STRIPE_SECRET_KEY is required when the 'prod' profile is active; "
-              + "refusing to start payment-service in SIMULATED mode");
-    } else {
-      log.warn("STRIPE_SECRET_KEY is blank: payment-service running in SIMULATED mode");
+      log.info("Stripe enabled");
     }
   }
 
@@ -56,11 +43,13 @@ public class StripeGateway {
     return properties.getStripe().enabled();
   }
 
-  public String mode() {
-    return enabled() ? "STRIPE" : "SIMULATED";
+  public Intent createIntent(String orderId, long minorAmount, String currency) {
+    return createIntent(orderId, minorAmount, currency, "pi-" + orderId);
   }
 
-  public Intent createIntent(String orderId, long minorAmount, String currency) {
+  /** Explicit idempotency key: a fresh intent after the previous one was cancelled. */
+  public Intent createIntent(
+      String orderId, long minorAmount, String currency, String idempotencyKey) {
     try {
       PaymentIntentCreateParams params =
           PaymentIntentCreateParams.builder()
@@ -74,7 +63,7 @@ public class StripeGateway {
               .build();
       PaymentIntent pi =
           PaymentIntent.create(
-              params, RequestOptions.builder().setIdempotencyKey("pi-" + orderId).build());
+              params, RequestOptions.builder().setIdempotencyKey(idempotencyKey).build());
       return new Intent(pi.getId(), pi.getClientSecret(), pi.getStatus());
     } catch (StripeException e) {
       throw upstream(e);
@@ -85,6 +74,15 @@ public class StripeGateway {
     try {
       PaymentIntent pi = PaymentIntent.retrieve(intentId);
       return new Intent(pi.getId(), pi.getClientSecret(), pi.getStatus());
+    } catch (StripeException e) {
+      throw upstream(e);
+    }
+  }
+
+  /** Cancels an unpaid intent so a customer who switched provider cannot pay it later. */
+  public void cancel(String intentId) {
+    try {
+      PaymentIntent.retrieve(intentId).cancel();
     } catch (StripeException e) {
       throw upstream(e);
     }

@@ -28,9 +28,9 @@ All project documentation lives in this folder, grouped by what you are trying t
 ### Explanation: architecture
 - [architecture/overview.md](architecture/overview.md): platform map (14 applications, 6 topics), principles, observability, limits.
 - [architecture/decision-log.md](architecture/decision-log.md): cross-cutting decisions and whether each still holds.
-- [architecture/adr/](architecture/adr/): ADR 0001–0004.
+- [architecture/adr/](architecture/adr/): ADR 0001–0005.
 - [architecture/design/](architecture/design/): HLD and LLD for Phases 2 and 3 (historical designs).
-- [architecture/diagrams/](architecture/diagrams/README.md): Mermaid diagrams 01–17.
+- [architecture/diagrams/](architecture/diagrams/README.md): Mermaid diagrams 01–18.
 
 ### Reference
 - [reference/endpoints.md](reference/endpoints.md): all 309 HTTP endpoints, generated from the controllers.

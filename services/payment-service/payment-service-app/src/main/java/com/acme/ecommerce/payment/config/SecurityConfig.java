@@ -28,8 +28,8 @@ import org.springframework.web.client.RestTemplate;
 
 /**
  * payment-service as a resource server. {@code /internal/**} is guarded by {@link
- * InternalTokenFilter} (shared secret), the Stripe webhook by its signature, {@code
- * /api/payments/config} is public, everything else needs a valid bearer token.
+ * InternalTokenFilter} (shared secret), the Stripe and Razorpay webhooks by their signatures,
+ * {@code /api/payments/config} is public, everything else needs a valid bearer token.
  */
 @Configuration(proxyBeanMethods = false)
 @EnableMethodSecurity
@@ -41,7 +41,8 @@ public class SecurityConfig {
     "/actuator/info",
     "/actuator/prometheus",
     "/api/payments/config",
-    "/api/payments/webhook"
+    "/api/payments/webhook",
+    "/api/payments/webhook/razorpay"
   };
 
   @Bean

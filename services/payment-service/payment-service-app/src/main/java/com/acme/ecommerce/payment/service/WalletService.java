@@ -74,27 +74,28 @@ public class WalletService {
     AtomicBoolean fresh = new AtomicBoolean(false);
     Balance result =
         tx.execute(
-        status -> {
-          wallets.ensure(userId, currency);
-          Wallet w = wallets.lock(userId).orElseThrow();
-          if (wallets.txnExists(key)) {
-            return new Balance(w.balance(), w.currency());
-          }
-          String walletCurrency = w.currency();
-          if (!walletCurrency.equals(currency)) {
-            if (w.balance().signum() != 0) {
-              throw new CodedException(
-                  ErrorCode.CURRENCY_MISMATCH,
-                  "Wallet is held in " + walletCurrency + ", cannot credit " + currency);
-            }
-            walletCurrency = currency;
-          }
-          BigDecimal after = w.balance().add(amount);
-          wallets.update(userId, after, walletCurrency);
-          wallets.insertTxn(userId, "CREDIT", amount, walletCurrency, why, referenceId, key, after);
-          fresh.set(true);
-          return new Balance(after, walletCurrency);
-        });
+            status -> {
+              wallets.ensure(userId, currency);
+              Wallet w = wallets.lock(userId).orElseThrow();
+              if (wallets.txnExists(key)) {
+                return new Balance(w.balance(), w.currency());
+              }
+              String walletCurrency = w.currency();
+              if (!walletCurrency.equals(currency)) {
+                if (w.balance().signum() != 0) {
+                  throw new CodedException(
+                      ErrorCode.CURRENCY_MISMATCH,
+                      "Wallet is held in " + walletCurrency + ", cannot credit " + currency);
+                }
+                walletCurrency = currency;
+              }
+              BigDecimal after = w.balance().add(amount);
+              wallets.update(userId, after, walletCurrency);
+              wallets.insertTxn(
+                  userId, "CREDIT", amount, walletCurrency, why, referenceId, key, after);
+              fresh.set(true);
+              return new Balance(after, walletCurrency);
+            });
     if (fresh.get()) {
       notifyCredit(userId, amount, result.currency(), why);
     }

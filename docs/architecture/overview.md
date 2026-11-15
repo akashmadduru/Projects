@@ -31,7 +31,7 @@ described in their [phase pages](../phases/README.md), and every endpoint is lis
 | user-service | 8085 | user_db | Profile, addresses, membership, referrals, preferences, recently viewed, privacy export and deletion | 5 |
 | cart-service | 8086 | cart_db | Cart, wishlist, save for later, lists, alerts, abandoned-cart reminders | 5 |
 | order-service | 8087 | order_db | Checkout, lifecycle, shipments, returns, invoices, subscriptions, buy again, risk scoring, exchange | 5 |
-| payment-service | 8088 | payment_db | Payments (Stripe / SIMULATED), COD, refunds, wallet, gift cards | 6 |
+| payment-service | 8088 | payment_db | Payments (Stripe and/or Razorpay, SIMULATED in dev), COD, refunds, wallet, gift cards | 6 |
 | promotion-service | 8089 | promotion_db | Coupons, deals, offers, coins, exchange quotes | 6 |
 | notification-service | 8090 | notification_db | Email, SMS stub, in-app inbox, web push, campaigns | 6 |
 | seller-service | 8091 | seller_db | Seller onboarding/KYC, feedback, ledger, payouts, sponsored ads | 9 |
