@@ -163,7 +163,7 @@ resource "aws_iam_role_policy_attachment" "ebs_csi" {
 
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
-  version = "~> 20.31"
+  version = "~> 21.29"
 
   cluster_name    = local.name
   cluster_version = var.kubernetes_version
@@ -230,7 +230,7 @@ module "eks" {
 # --- Karpenter: node IAM role, controller role (Pod Identity), interruption queue ------------------
 module "karpenter" {
   source  = "terraform-aws-modules/eks/aws//modules/karpenter"
-  version = "~> 20.31"
+  version = "~> 21.29"
 
   cluster_name = module.eks.cluster_name
 
