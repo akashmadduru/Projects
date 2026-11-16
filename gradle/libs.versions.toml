@@ -54,7 +54,7 @@ bucket4j = "8.10.1"
 # Stripe Java SDK (payment-service). Not managed by the Boot BOM.
 stripeJava = "34.1.0"
 # OpenPDF (order-service invoice PDFs). Not managed by the Boot BOM.
-openpdf = "2.0.3"
+openpdf = "3.0.5"
 # WHY THE AWS SDK v2 `bedrockruntime` CLIENT AND NOT SPRING AI (Cartwise AI-1 spike, 2026-11):
 # spring-ai 2.0.2's bedrock autoconfigure module declares spring-boot-autoconfigure 4.1.2,
 # spring-messaging 7.0.10, micrometer-observation 1.17.2 and Jackson 3.1.7 - all past what
