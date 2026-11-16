@@ -15,7 +15,7 @@ Shortcuts taken while building customer accounts (login, Google SSO, user/cart/o
 | ID | Title | Area | Severity | Effort | File |
 |----|-------|------|----------|--------|------|
 | TD-P6-01 | No outbox: stock/coupon/event side effects after commit can be lost | phase6 | High | L | [phase6.md](phase6.md#td-p6-01) |
-| TD-P6-02 | Stripe live mode never exercised (only SIMULATED) | phase6 | High | S | [phase6.md](phase6.md#td-p6-02) |
+| TD-P6-02 | Stripe and Razorpay live mode never exercised (only SIMULATED) | phase6 | High | S | [phase6.md](phase6.md#td-p6-02) |
 | TD-P6-03 | Late payment after cancel; PaymentIntent not cancelled | phase6 | High | M | [phase6.md](phase6.md#td-p6-03) |
 | TD-P6-04 | Stock reservation gaps (no inventory row = unlimited) | phase6 | High | M | [phase6.md](phase6.md#td-p6-04) |
 | TD-P6-05 | No tests for Phase 6; auth/storefront tests stale or uncompilable | phase6 | High | L | [phase6.md](phase6.md#td-p6-05) |
@@ -90,6 +90,9 @@ Shortcuts taken while building customer accounts (login, Google SSO, user/cart/o
 | TD-P6-27 | Admin order list N+1 | phase6 | Low | S | [phase6.md](phase6.md#td-p6-27) |
 | TD-P6-28 | Saved-for-later price snapshots go stale | phase6 | Low | S | [phase6.md](phase6.md#td-p6-28) |
 | TD-P6-29 | Spotless not run on Phase 6 code | phase6 | Low | S | [phase6.md](phase6.md#td-p6-29) |
+| TD-P6-30 | Razorpay order creation has no idempotency key | phase6 | Low | S | [phase6.md](phase6.md#td-p6-30) |
+| TD-P6-31 | Razorpay refunds recorded as done once accepted | phase6 | Med | M | [phase6.md](phase6.md#td-p6-31) |
+| TD-P6-32 | Razorpay INR only; manual capture not detected | phase6 | Low | M | [phase6.md](phase6.md#td-p6-32) |
 | TD-ADM-01 | No tests for admin APIs/screens (last-admin, self-change, 403 rules) | admin | High | M | [admin.md](admin.md#td-adm-01) |
 | TD-ADM-02 | Disable/demote leaves issued access tokens valid until TTL | admin | Med | M | [admin.md](admin.md#td-adm-02) |
 | TD-ADM-03 | Dashboard stats scan orders; "today" is the UTC day | admin | Med | S | [admin.md](admin.md#td-adm-03) |
@@ -166,6 +169,14 @@ Shortcuts taken while building customer accounts (login, Google SSO, user/cart/o
 | TD-BE-17 | Six Kafka listeners swallow errors, bypassing retry and the DLQ | backend | High | S | [backend.md](backend.md#td-be-17) |
 | TD-SEC-14 | Database dumps with credential material remain in git history | infra-security | High | S | [infra-security.md](infra-security.md#td-sec-14) |
 | TD-TEST-07 | `spotlessCheck` fails on 4 product/inventory files | testing | Med | S | [testing.md](testing.md#td-test-07) |
+| TD-AI-01 | pgvector integration tests written but never run | ai | High | S | [ai.md](ai.md#td-ai-01) |
+| TD-AI-02 | No IRSA role or NetworkPolicy egress for Bedrock | ai | Med | S | [ai.md](ai.md#td-ai-02) |
+| TD-AI-03 | No search-specific rate limit | ai | Med | M | [ai.md](ai.md#td-ai-03) |
+| TD-AI-04 | Search relevance never evaluated | ai | Med | M | [ai.md](ai.md#td-ai-04) |
+| TD-AI-05 | Search and facets each run retrieval | ai | Low | S | [ai.md](ai.md#td-ai-05) |
+| TD-AI-06 | product-service formatting debt spans 27 files | ai | Low | S | [ai.md](ai.md#td-ai-06) |
+| TD-AI-08 | env-reference generator drops unknown groups silently | ai | Low | S | [ai.md](ai.md#td-ai-08) |
+| TD-AI-09 | Node 26 breaks admin auth-store and guard tests | ai | Low | S | [ai.md](ai.md#td-ai-09) |
 
 ## Resolved by Phase 6 (checked against the code)
 

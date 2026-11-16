@@ -1,0 +1,6 @@
+# GPU image for tools/generate_product_images.py (run with --gpus all)
+FROM pytorch/pytorch:2.4.1-cuda12.4-cudnn9-runtime
+RUN pip install --no-cache-dir diffusers==0.30.3 transformers==4.44.2 accelerate==0.34.2 safetensors "psycopg[binary]>=3.1" "numpy<2"
+ENV PYTHONUNBUFFERED=1 HF_HOME=/hf
+WORKDIR /repo/synthetic-db-ai
+ENTRYPOINT ["python", "tools/generate_product_images.py"]

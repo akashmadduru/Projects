@@ -27,11 +27,14 @@ public class PaymentRepository {
       BigDecimal refundedAmount,
       boolean reported,
       String purpose,
-      UUID referenceId) {}
+      UUID referenceId,
+      String providerOrderId,
+      String providerPaymentId) {}
 
   private static final String COLS =
       "id, order_id, user_id, method, mode, amount, currency, status, "
-          + "stripe_payment_intent_id, refunded_amount, reported, purpose, reference_id";
+          + "stripe_payment_intent_id, refunded_amount, reported, purpose, reference_id, "
+          + "provider_order_id, provider_payment_id";
 
   private final JdbcClient jdbc;
 
@@ -53,7 +56,9 @@ public class PaymentRepository {
         rs.getBigDecimal("refunded_amount"),
         rs.getBoolean("reported"),
         rs.getString("purpose"),
-        rs.getObject("reference_id", UUID.class));
+        rs.getObject("reference_id", UUID.class),
+        rs.getString("provider_order_id"),
+        rs.getString("provider_payment_id"));
   }
 
   public Optional<Payment> findByOrderId(UUID orderId) {
@@ -77,6 +82,13 @@ public class PaymentRepository {
         .optional();
   }
 
+  public Optional<Payment> findByProviderOrderId(String providerOrderId) {
+    return jdbc.sql("SELECT " + COLS + " FROM payment.payments WHERE provider_order_id = :i")
+        .param("i", providerOrderId)
+        .query(PaymentRepository::map)
+        .optional();
+  }
+
   /** Row lock for the refund critical section. */
   public Optional<Payment> lockById(UUID id) {
     return jdbc.sql("SELECT " + COLS + " FROM payment.payments WHERE id = :i FOR UPDATE")
@@ -95,11 +107,12 @@ public class PaymentRepository {
       String currency,
       String status,
       String intentId,
+      String providerOrderId,
       String purpose) {
     return jdbc.sql(
             "INSERT INTO payment.payments (order_id, user_id, method, mode, amount, currency, "
-                + "status, stripe_payment_intent_id, purpose, reference_id) "
-                + "VALUES (:o, :u, :m, :mode, :a, :c, :s, :i, :p, :o) "
+                + "status, stripe_payment_intent_id, provider_order_id, purpose, reference_id) "
+                + "VALUES (:o, :u, :m, :mode, :a, :c, :s, :i, :po, :p, :o) "
                 + "ON CONFLICT (order_id) DO NOTHING")
         .param("o", orderId)
         .param("u", userId)
@@ -110,6 +123,35 @@ public class PaymentRepository {
         .param("s", status)
         .param("p", purpose)
         .param("i", intentId)
+        .param("po", providerOrderId)
+        .update();
+  }
+
+  /**
+   * Customer picked another provider before paying. Only while still awaiting payment. Returns rows
+   * changed. The id of the provider moved away from is kept so a late webhook can still find the
+   * payment.
+   */
+  public int switchProvider(UUID id, String mode, String intentId, String providerOrderId) {
+    return jdbc.sql(
+            "UPDATE payment.payments SET mode = :m, "
+                + "stripe_payment_intent_id = COALESCE(:i, stripe_payment_intent_id), "
+                + "provider_order_id = COALESCE(:po, provider_order_id), updated_at = now() "
+                + "WHERE id = :id AND status = 'REQUIRES_PAYMENT' AND method = 'CARD'")
+        .param("m", mode)
+        .param("i", intentId)
+        .param("po", providerOrderId)
+        .param("id", id)
+        .update();
+  }
+
+  /** Remembers the Razorpay payment that settled a payment (needed to refund it). */
+  public void setProviderPaymentId(UUID id, String providerPaymentId) {
+    jdbc.sql(
+            "UPDATE payment.payments SET provider_payment_id = :p WHERE id = :i "
+                + "AND provider_payment_id IS NULL")
+        .param("p", providerPaymentId)
+        .param("i", id)
         .update();
   }
 
@@ -178,16 +220,29 @@ public class PaymentRepository {
   }
 
   public void insertRefund(
-      UUID paymentId, BigDecimal amount, String reason, String stripeRefundId, String key) {
+      UUID paymentId,
+      BigDecimal amount,
+      String reason,
+      String stripeRefundId,
+      String providerRefundId,
+      String key) {
     jdbc.sql(
             "INSERT INTO payment.refunds (payment_id, amount, reason, stripe_refund_id, "
-                + "idempotency_key) VALUES (:p, :a, :r, :s, :k)")
+                + "provider_refund_id, idempotency_key) VALUES (:p, :a, :r, :s, :pr, :k)")
         .param("p", paymentId)
         .param("a", amount)
         .param("r", reason)
         .param("s", stripeRefundId)
+        .param("pr", providerRefundId)
         .param("k", key)
         .update();
+  }
+
+  public boolean eventProcessed(String eventId) {
+    return jdbc.sql("SELECT EXISTS (SELECT 1 FROM payment.processed_events WHERE event_id = :e)")
+        .param("e", eventId)
+        .query(Boolean.class)
+        .single();
   }
 
   /** True when the event was new (first time seen). */

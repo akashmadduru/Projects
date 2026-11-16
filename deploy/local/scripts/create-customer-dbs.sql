@@ -103,3 +103,11 @@ WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'support_db')\gexec
 REVOKE ALL ON SCHEMA public FROM PUBLIC;
 GRANT ALL ON SCHEMA public TO support_service;
 ALTER DATABASE support_db SET search_path TO public;
+
+-- --- Cartwise AI-1: pgvector for product-service -------------------------------
+-- The init script only runs on an empty volume, so an EXISTING volume gets the extension here.
+-- Requires the pgvector/pgvector image (docker-compose.yml) - plain postgres has no vector.control.
+-- `vector` is not a trusted extension: product_service cannot create it, a superuser must.
+-- Lives in `public` (not `product` like pg_trgm): this runs before Flyway creates `product`.
+\connect product_db
+CREATE EXTENSION IF NOT EXISTS vector SCHEMA public;

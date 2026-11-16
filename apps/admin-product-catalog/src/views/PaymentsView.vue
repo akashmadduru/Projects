@@ -147,7 +147,7 @@ onMounted(load);
             >
               <td class="font-mono text-xs">{{ p.id.slice(0, 8) }}</td>
               <td class="font-mono text-xs">{{ p.orderId.slice(0, 8) }}</td>
-              <td class="text-sm">{{ p.method }}<span v-if="p.mode === 'SIMULATED'" class="badge badge-ghost badge-xs ml-1">sim</span></td>
+              <td class="text-sm">{{ p.method }}<span v-if="p.method === 'CARD' || p.mode === 'SIMULATED'" class="badge badge-ghost badge-xs ml-1">{{ p.mode === 'SIMULATED' ? 'sim' : p.mode.toLowerCase() }}</span></td>
               <td><span class="badge badge-sm" :class="statusBadge(p.status)">{{ p.status }}</span></td>
               <td class="text-right tabular-nums">{{ money(p.amount, p.currency) }}</td>
               <td class="text-right tabular-nums">{{ p.refundedAmount > 0 ? money(p.refundedAmount, p.currency) : '-' }}</td>

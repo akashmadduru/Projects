@@ -16,8 +16,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Read-only payment ledger for the admin console. Refunds are NOT issued here: they run through
- * the order-service return flow ({@code POST /api/admin/returns/{id}/status REFUNDED}), which keeps
+ * Read-only payment ledger for the admin console. Refunds are NOT issued here: they run through the
+ * order-service return flow ({@code POST /api/admin/returns/{id}/status REFUNDED}), which keeps
  * order, stock and payment state consistent.
  */
 @RestController

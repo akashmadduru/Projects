@@ -160,12 +160,13 @@ public class SecurityConfig {
                     .pathMatchers(
                         HttpMethod.GET, "/api/push/vapid-public-key", "/api/lists/shared/*")
                     .permitAll()
-                    // Payments (Phase 6): the mode/publishable-key config is public; the Stripe
-                    // webhook carries no JWT (it is authenticated by its Stripe-Signature header,
-                    // verified in payment-service over the raw body).
+                    // Payments (Phase 6): the provider/publishable-key config is public; the Stripe
+                    // and Razorpay webhooks carry no JWT (authenticated by Stripe-Signature /
+                    // X-Razorpay-Signature, verified in payment-service over the raw body).
                     .pathMatchers(HttpMethod.GET, "/api/payments/config")
                     .permitAll()
-                    .pathMatchers(HttpMethod.POST, "/api/payments/webhook")
+                    .pathMatchers(
+                        HttpMethod.POST, "/api/payments/webhook", "/api/payments/webhook/razorpay")
                     .permitAll()
                     // Phase 9 marketplace: /api/sellers/me is the caller's own record; the seller
                     // public profile, public feedback list and the ad click/impression beacons

@@ -1,0 +1,8 @@
+psycopg[binary]>=3.1
+numpy>=1.26
+Faker>=24.0
+PyYAML>=6.0
+pytest>=8.0
+# Optional LLM text enrichment (only imported when --llm is used)
+anthropic>=0.40
+openai>=1.40

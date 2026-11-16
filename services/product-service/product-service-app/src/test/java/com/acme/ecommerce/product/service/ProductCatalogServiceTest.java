@@ -15,13 +15,16 @@ import com.acme.ecommerce.common.core.error.ResourceConflictException;
 import com.acme.ecommerce.common.core.error.ResourceNotFoundException;
 import com.acme.ecommerce.common.core.time.FixedTimeProvider;
 import com.acme.ecommerce.product.api.dto.ProductResponse;
+import com.acme.ecommerce.product.client.InventoryServiceClient;
 import com.acme.ecommerce.product.domain.Product;
 import com.acme.ecommerce.product.domain.ProductImage;
 import com.acme.ecommerce.product.event.ProductEventPublisher;
 import com.acme.ecommerce.product.event.ProductEventType;
 import com.acme.ecommerce.product.repository.ProductFilter;
 import com.acme.ecommerce.product.repository.ProductImageRepository;
+import com.acme.ecommerce.product.repository.ProductNativeQueries;
 import com.acme.ecommerce.product.repository.ProductRepository;
+import com.acme.ecommerce.product.repository.ProductVariantRepository;
 import com.acme.ecommerce.product.web.dto.CreateProductRequest;
 import com.acme.ecommerce.product.web.dto.ProductImageRequest;
 import com.acme.ecommerce.product.web.dto.UpdateProductRequest;
@@ -68,6 +71,10 @@ class ProductCatalogServiceTest {
   @Mock private ProductRepository products;
   @Mock private ProductImageRepository images;
   @Mock private ProductEventPublisher events;
+  @Mock private ProductVariantRepository variants;
+  @Mock private ProductNativeQueries natives;
+  @Mock private InventoryServiceClient inventory;
+  @Mock private OfferService offers;
 
   // Built in @BeforeEach, NOT as a field initializer: a field initializer runs during instance
   // construction, before MockitoExtension injects @Mock fields, so `products`/`events` would still
@@ -80,7 +87,15 @@ class ProductCatalogServiceTest {
     // Jackson operation, not a collaborator whose interactions are worth verifying.
     service =
         new ProductCatalogService(
-            products, images, new ObjectMapper(), new FixedTimeProvider(NOW), events);
+            products,
+            images,
+            variants,
+            natives,
+            inventory,
+            new ObjectMapper(),
+            new FixedTimeProvider(NOW),
+            events,
+            offers);
   }
 
   @Test
@@ -143,6 +158,8 @@ class ProductCatalogServiceTest {
                 null,
                 null,
                 null,
+                null,
+                null,
                 null));
 
     assertThat(response.getSku()).isEqualTo("SKU-NEW-01");
@@ -178,6 +195,8 @@ class ProductCatalogServiceTest {
                 categoryId,
                 "Acme Sellers",
                 Map.of("color", "red", "weightGrams", 500),
+                null,
+                null,
                 List.of(new ProductImageRequest("https://img/1.png", 0))));
 
     assertThat(response.getCategoryId()).isEqualTo(categoryId);
@@ -212,6 +231,8 @@ class ProductCatalogServiceTest {
                         null,
                         null,
                         null,
+                        null,
+                        null,
                         null)))
         .isInstanceOf(ResourceConflictException.class);
 
@@ -236,6 +257,8 @@ class ProductCatalogServiceTest {
                         "USD",
                         true,
                         1L,
+                        null,
+                        null,
                         null,
                         null,
                         null,
@@ -265,7 +288,17 @@ class ProductCatalogServiceTest {
         service.update(
             id,
             new UpdateProductRequest(
-                "Renamed", new BigDecimal("19.99"), "EUR", false, 0L, null, null, null, null));
+                "Renamed",
+                new BigDecimal("19.99"),
+                "EUR",
+                false,
+                0L,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null));
 
     assertThat(response.getName()).isEqualTo("Renamed");
     assertThat(response.getVersion()).isEqualTo(1L);
@@ -324,9 +357,11 @@ class ProductCatalogServiceTest {
 
   @Test
   @DisplayName("findById() loads images ordered by displayOrder, unlike list()")
-  void findByIdLoadsImages() {
+  void findByIdLoadsImages() throws Exception {
     UUID id = UUID.randomUUID();
     Product product = newTestProduct();
+    // detail() loads images by the entity's own id, as it would after a real findById.
+    setId(product, id);
     ProductImage image =
         ProductImage.builder()
             .productId(id)

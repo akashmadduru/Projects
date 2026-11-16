@@ -14,6 +14,7 @@ import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 import lombok.ToString;
 
 /**
@@ -53,6 +54,7 @@ public class ProductImage {
   @Column(name = "product_id", nullable = false, updatable = false)
   private UUID productId;
 
+  @Setter
   @Column(name = "url", nullable = false, length = 2048)
   private String url;
 

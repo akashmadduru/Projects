@@ -55,6 +55,18 @@ bucket4j = "8.10.1"
 stripeJava = "34.1.0"
 # OpenPDF (order-service invoice PDFs). Not managed by the Boot BOM.
 openpdf = "2.0.3"
+# WHY THE AWS SDK v2 `bedrockruntime` CLIENT AND NOT SPRING AI (Cartwise AI-1 spike, 2026-11):
+# spring-ai 2.0.2's bedrock autoconfigure module declares spring-boot-autoconfigure 4.1.2,
+# spring-messaging 7.0.10, micrometer-observation 1.17.2 and Jackson 3.1.7 - all past what
+# Boot 4.0.7 / Spring Cloud 2025.1.2 manage. Exactly the springdoc 3.1.0 failure mode above:
+# Gradle conflict resolution would silently lift the whole Boot platform off 4.0.7. The AWS SDK
+# has no Spring dependency at all, so it cannot move the Boot BOM, and product-service only
+# needs one call (InvokeModel on an embedding model) behind its own EmbeddingPort. Both modules
+# are pinned to ONE version (no AWS BOM import: a second BOM is the springdoc trap again).
+# `sts` is required at runtime for IRSA (web-identity) credentials in the default chain;
+# netty-nio-client is excluded in product-service-app (sync client only, and it would otherwise
+# be pulled onto the Boot-managed Netty line).
+awsSdk = "2.59.1"
 # NOTE: Testcontainers is NOT pinned here. The Spring Boot 4.0.7 BOM already
 # manages it (currently 2.0.5). Importing a second Testcontainers BOM would
 # create a silent version conflict of exactly the kind that bit us with
@@ -125,6 +137,10 @@ bouncycastle-bcpkix = { module = "org.bouncycastle:bcpkix-jdk18on", version.ref 
 
 # --- rate limiting ----------------------------------------------------------
 bucket4j-core = { module = "com.bucket4j:bucket4j-core", version.ref = "bucket4j" }
+
+# --- AI providers -----------------------------------------------------------
+aws-bedrockruntime = { module = "software.amazon.awssdk:bedrockruntime", version.ref = "awsSdk" }
+aws-sts = { module = "software.amazon.awssdk:sts", version.ref = "awsSdk" }
 
 # --- payments ---------------------------------------------------------------
 stripe-java = { module = "com.stripe:stripe-java", version.ref = "stripeJava" }

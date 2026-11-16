@@ -144,6 +144,15 @@ services:
     jwksEnv: PRODUCT_JWKS_URI
     resources: { requests: { cpu: 300m, memory: 768Mi }, limits: { memory: 768Mi } }
     hpa: { min: 3, max: 12, cpu: 65 }
+    # Cartwise AI-1 semantic search. "none" = feature OFF: GET /api/products/search answers
+    # keyword-only (degraded=true) and nothing calls Bedrock. NO KEYS BELONG HERE OR IN secretEnv:
+    # to turn it on set EMBEDDING_PROVIDER to "bedrock" AND give this pod an IRSA role allowing
+    # bedrock:InvokeModel on the model (annotate the product-service ServiceAccount; not wired yet).
+    # AWS_REGION defaults to global.region (template); override with `bedrockRegion:` if Bedrock
+    # runs elsewhere.
+    env:
+      EMBEDDING_PROVIDER: "none"
+      EMBEDDING_BEDROCK_MODEL_ID: "amazon.titan-embed-text-v2:0"
 
   inventory-service:
     port: 8083
@@ -191,11 +200,15 @@ services:
     database: payment
     jwksEnv: PAYMENT_JWKS_URI
     hpa: { min: 2, max: 4, cpu: 70 }
-    # payment-service REFUSES TO START under the prod profile without a Stripe secret key.
+    # payment-service REFUSES TO START under the prod profile unless Stripe or Razorpay (or both)
+    # is fully configured. An unconfigured provider has empty values and is simply not offered.
     secretEnv:
       - { name: STRIPE_SECRET_KEY, key: stripe_secret_key }
       - { name: STRIPE_PUBLISHABLE_KEY, key: stripe_publishable_key }
       - { name: STRIPE_WEBHOOK_SECRET, key: stripe_webhook_secret }
+      - { name: RAZORPAY_KEY_ID, key: razorpay_key_id }
+      - { name: RAZORPAY_KEY_SECRET, key: razorpay_key_secret }
+      - { name: RAZORPAY_WEBHOOK_SECRET, key: razorpay_webhook_secret }
 
   promotion-service:
     port: 8089

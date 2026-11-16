@@ -40,6 +40,17 @@ product:
     # matches these exactly.
     issuer: https://auth.acme-ecommerce.internal
     audience: ecommerce-platform
+  # Cartwise AI-1. The deterministic FAKE embedding provider exists ONLY here (profile `test`); the
+  # reconciler is off so tests drive it explicitly instead of racing a background thread.
+  embedding:
+    provider: fake
+    # The fake provider's vectors are LEXICAL: two texts sharing one word sit at cosine distance
+    # ~0.67 and unrelated ones at ~1.0. The production default (0.65) is tuned for a real model;
+    # 0.8 lets single-shared-word fixtures through while still dropping unrelated products.
+    search:
+      max-distance: 0.8
+    reconciler:
+      enabled: false
 
 eureka:
   client:

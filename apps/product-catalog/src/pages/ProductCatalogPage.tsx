@@ -94,6 +94,14 @@ export function ProductCatalogPage() {
                     Offline demo data
                   </span>
                 )}
+                {state.status === 'success' && state.data.search && !state.data.search.degraded && (
+                  <span
+                    className="ml-2 rounded bg-primary/10 px-1.5 py-0.5 text-xs font-semibold text-primary"
+                    title="Ranked by meaning as well as keywords"
+                  >
+                    Smart search
+                  </span>
+                )}
               </p>
             </div>
             <div className="flex items-center gap-2">

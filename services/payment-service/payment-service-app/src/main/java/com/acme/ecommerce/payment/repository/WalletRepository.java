@@ -34,7 +34,8 @@ public class WalletRepository {
     return jdbc.sql("SELECT user_id, balance, currency FROM payment.wallets WHERE user_id = :u")
         .param("u", userId)
         .query(
-            (rs, n) -> new Wallet(rs.getObject(1, UUID.class), rs.getBigDecimal(2), rs.getString(3)))
+            (rs, n) ->
+                new Wallet(rs.getObject(1, UUID.class), rs.getBigDecimal(2), rs.getString(3)))
         .optional();
   }
 
@@ -43,7 +44,8 @@ public class WalletRepository {
             "SELECT user_id, balance, currency FROM payment.wallets WHERE user_id = :u FOR UPDATE")
         .param("u", userId)
         .query(
-            (rs, n) -> new Wallet(rs.getObject(1, UUID.class), rs.getBigDecimal(2), rs.getString(3)))
+            (rs, n) ->
+                new Wallet(rs.getObject(1, UUID.class), rs.getBigDecimal(2), rs.getString(3)))
         .optional();
   }
 

@@ -14,13 +14,18 @@ import {
   clearTheme,
   normalizeTheme,
   readCachedTheme,
+  readPreviewFromHash,
   writeCachedTheme,
+  PREVIEW_HASH_KEY,
   type ThemeConfig,
 } from '../lib/themeEngine'
 
 interface BrandState {
   config: ThemeConfig | null
+  /** True while rendering an unpublished draft from a `#cwpreview=` link (this tab only, never cached). */
+  preview: boolean
   set: (raw: unknown | null) => void
+  exitPreview: () => void
 }
 
 const BUILT_IN_TITLE = /^Cartwise\b/
@@ -35,13 +40,26 @@ function paint(cfg: ThemeConfig | null): void {
   }
 }
 
-export const useBrandStore = create<BrandState>((set) => ({
+export const useBrandStore = create<BrandState>((set, get) => ({
   config: null,
+  preview: false,
   set: (raw) => {
+    if (get().preview) return // a preview tab ignores server reconciles until the admin exits preview
     const cfg = raw ? normalizeTheme(raw) : null
     writeCachedTheme(cfg)
     paint(cfg)
     set({ config: cfg })
+  },
+  exitPreview: () => {
+    const url = new URL(window.location.href)
+    url.hash = url.hash
+      .replace(/^#/, '')
+      .split('&')
+      .filter((part) => part && !part.startsWith(PREVIEW_HASH_KEY + '='))
+      .join('&')
+    window.history.replaceState(null, '', url.toString())
+    set({ preview: false })
+    bootstrapBranding()
   },
 }))
 
@@ -51,6 +69,12 @@ export function useBrand() {
 }
 
 export function bootstrapBranding(): void {
+  const previewed = readPreviewFromHash(window.location.hash)
+  if (previewed) {
+    paint(previewed)
+    useBrandStore.setState({ config: previewed, preview: true })
+    return
+  }
   const cached = readCachedTheme()
   if (cached) {
     paint(cached)

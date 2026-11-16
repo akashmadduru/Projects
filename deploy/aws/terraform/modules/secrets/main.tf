@@ -34,15 +34,35 @@ variable "google_client_secret" {
 
 variable "stripe_secret_key" {
   type      = string
+  default   = ""
   sensitive = true
 }
 
 variable "stripe_publishable_key" {
-  type = string
+  type    = string
+  default = ""
 }
 
 variable "stripe_webhook_secret" {
   type      = string
+  default   = ""
+  sensitive = true
+}
+
+variable "razorpay_key_id" {
+  type    = string
+  default = ""
+}
+
+variable "razorpay_key_secret" {
+  type      = string
+  default   = ""
+  sensitive = true
+}
+
+variable "razorpay_webhook_secret" {
+  type      = string
+  default   = ""
   sensitive = true
 }
 
@@ -133,6 +153,9 @@ resource "aws_secretsmanager_secret_version" "app" {
     stripe_secret_key        = var.stripe_secret_key
     stripe_publishable_key   = var.stripe_publishable_key
     stripe_webhook_secret    = var.stripe_webhook_secret
+    razorpay_key_id          = var.razorpay_key_id
+    razorpay_key_secret      = var.razorpay_key_secret
+    razorpay_webhook_secret  = var.razorpay_webhook_secret
     mail_username            = var.smtp_username
     mail_password            = var.smtp_password
   })

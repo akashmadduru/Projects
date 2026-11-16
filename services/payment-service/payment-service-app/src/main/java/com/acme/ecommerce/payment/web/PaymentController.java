@@ -2,7 +2,9 @@ package com.acme.ecommerce.payment.web;
 
 import com.acme.ecommerce.payment.api.dto.PaymentConfigResponse;
 import com.acme.ecommerce.payment.api.dto.PaymentResponse;
+import com.acme.ecommerce.payment.api.dto.RazorpayVerifyRequest;
 import com.acme.ecommerce.payment.api.dto.SimulatePaymentRequest;
+import com.acme.ecommerce.payment.api.dto.SwitchProviderRequest;
 import com.acme.ecommerce.payment.service.PaymentService;
 import jakarta.validation.Valid;
 import java.util.UUID;
@@ -38,6 +40,29 @@ public class PaymentController {
     return service.getForOwner(orderId, UUID.fromString(jwt.getSubject()));
   }
 
+  /** The customer picks another provider for a payment that is still unpaid. */
+  @PostMapping("/orders/{orderId}/provider")
+  public PaymentResponse switchProvider(
+      @AuthenticationPrincipal Jwt jwt,
+      @PathVariable UUID orderId,
+      @Valid @RequestBody SwitchProviderRequest request) {
+    return service.switchProvider(orderId, UUID.fromString(jwt.getSubject()), request.provider());
+  }
+
+  /** Razorpay Checkout finished in the browser: verify its signature server side. */
+  @PostMapping("/{paymentId}/razorpay/verify")
+  public PaymentResponse verifyRazorpay(
+      @AuthenticationPrincipal Jwt jwt,
+      @PathVariable UUID paymentId,
+      @Valid @RequestBody RazorpayVerifyRequest request) {
+    return service.verifyRazorpay(
+        paymentId,
+        UUID.fromString(jwt.getSubject()),
+        request.razorpayOrderId(),
+        request.razorpayPaymentId(),
+        request.razorpaySignature());
+  }
+
   @PostMapping("/{paymentId}/simulate")
   public PaymentResponse simulate(
       @AuthenticationPrincipal Jwt jwt,
@@ -52,6 +77,17 @@ public class PaymentController {
       @RequestBody String payload,
       @RequestHeader(value = "Stripe-Signature", required = false) String signature) {
     service.handleWebhook(payload, signature);
+    return ResponseEntity.ok().build();
+  }
+
+  /** Raw bytes, decoded as UTF-8 here, so the signature is verified over exactly what was sent. */
+  @PostMapping("/webhook/razorpay")
+  public ResponseEntity<Void> razorpayWebhook(
+      @RequestBody byte[] payload,
+      @RequestHeader(value = "X-Razorpay-Signature", required = false) String signature,
+      @RequestHeader(value = "X-Razorpay-Event-Id", required = false) String eventId) {
+    service.handleRazorpayWebhook(
+        new String(payload, java.nio.charset.StandardCharsets.UTF_8), signature, eventId);
     return ResponseEntity.ok().build();
   }
 }

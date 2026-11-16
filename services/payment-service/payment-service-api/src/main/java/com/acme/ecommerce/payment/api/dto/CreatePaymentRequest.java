@@ -18,7 +18,8 @@ public record CreatePaymentRequest(
     @NotNull @Pattern(regexp = "^[A-Za-z]{3}$") String currency,
     @NotNull @Pattern(regexp = "^(CARD|COD)$") String method,
     @Pattern(regexp = "^(ORDER|MEMBERSHIP|GIFT_CARD)$") String purpose,
-    UUID referenceId) {
+    UUID referenceId,
+    @Pattern(regexp = "^(STRIPE|RAZORPAY)$") String provider) {
 
   /** Subject id the payment is keyed by. */
   public UUID subjectId() {

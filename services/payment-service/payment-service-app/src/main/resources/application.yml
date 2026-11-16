@@ -132,10 +132,18 @@ payment:
     jwks-uri: ${PAYMENT_JWKS_URI:}
   internal-token: ${INTERNAL_API_TOKEN:}
   stripe:
-    # Blank secret key => SIMULATED mode (no Stripe calls at all).
+    # No provider configured at all => SIMULATED mode (refused under the prod profile).
     secret-key: ${STRIPE_SECRET_KEY:}
     publishable-key: ${STRIPE_PUBLISHABLE_KEY:}
     webhook-secret: ${STRIPE_WEBHOOK_SECRET:}
+  razorpay:
+    # Blank key id or secret => Razorpay is not offered. Stripe and Razorpay can both be on.
+    key-id: ${RAZORPAY_KEY_ID:}
+    key-secret: ${RAZORPAY_KEY_SECRET:}
+    webhook-secret: ${RAZORPAY_WEBHOOK_SECRET:}
+    base-url: ${RAZORPAY_BASE_URL:https://api.razorpay.com}
+  # STRIPE or RAZORPAY: preselected at checkout when both are configured. Blank = first configured.
+  default-provider: ${PAYMENT_DEFAULT_PROVIDER:}
   reporter:
     interval-ms: 30000
 

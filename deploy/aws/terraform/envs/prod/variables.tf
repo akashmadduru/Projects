@@ -72,17 +72,38 @@ variable "google_client_secret" {
   sensitive = true
 }
 
+# At least one payment provider (Stripe and/or Razorpay) is required: payment-service refuses to
+# start under the prod profile with none. deploy.sh enforces it before Terraform runs.
 variable "stripe_secret_key" {
-  description = "Required: payment-service refuses to start under the prod profile without it."
-  type        = string
-  sensitive   = true
+  type      = string
+  default   = ""
+  sensitive = true
 }
 
 variable "stripe_publishable_key" {
-  type = string
+  type    = string
+  default = ""
 }
 
 variable "stripe_webhook_secret" {
   type      = string
+  default   = ""
+  sensitive = true
+}
+
+variable "razorpay_key_id" {
+  type    = string
+  default = ""
+}
+
+variable "razorpay_key_secret" {
+  type      = string
+  default   = ""
+  sensitive = true
+}
+
+variable "razorpay_webhook_secret" {
+  type      = string
+  default   = ""
   sensitive = true
 }

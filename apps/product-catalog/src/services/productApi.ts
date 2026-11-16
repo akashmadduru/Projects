@@ -6,6 +6,7 @@ import { apiFetch } from '../lib/http'
 import type {
   BackendPagedModel,
   BackendProductResponse,
+  BackendSearchResponse,
   Category,
   InventoryStatus,
   PagedModel,
@@ -56,6 +57,50 @@ export function toQueryParams(
   return params
 }
 
+/** UI sort keys GET /api/products/search understands; `rating`/`discount` are catalog-only. */
+const SEARCH_SORT: Partial<Record<ProductSort, string>> = {
+  relevance: 'relevance',
+  'price-asc': 'price_asc',
+  'price-desc': 'price_desc',
+  newest: 'newest',
+}
+
+/**
+ * Cartwise AI-1: a query goes to the hybrid (keyword + semantic) search endpoint when it has search
+ * text and uses only the filters that endpoint supports. Anything else - attribute facets, seller,
+ * stock/sale toggles, rating/discount sorts - stays on the plain catalog listing so no filter is
+ * silently dropped.
+ */
+export function usesSmartSearch(query: ProductQuery = {}): boolean {
+  const q = query.q?.trim() ?? ''
+  if (q.length < 2) return false
+  if (query.sort && !SEARCH_SORT[query.sort]) return false
+  const hasAttrs = Object.values(query.attrs ?? {}).some((v) => v.length > 0)
+  return !(
+    hasAttrs ||
+    query.minDiscount != null ||
+    query.seller?.trim() ||
+    query.sellerId ||
+    query.inStock ||
+    query.onSale ||
+    query.featured ||
+    query.verifiedSeller
+  )
+}
+
+/** Params for /api/products/search and /search/facets. Only call when {@link usesSmartSearch}. */
+export function toSearchParams(page: number, size: number, query: ProductQuery): Record<string, string | number> {
+  const params: Record<string, string | number> = { q: query.q!.trim(), mode: 'hybrid', page, size }
+  if (query.categoryId) params['categoryId'] = query.categoryId
+  if (query.minPrice != null) params['minPrice'] = query.minPrice
+  if (query.maxPrice != null) params['maxPrice'] = query.maxPrice
+  if (query.minRating != null) params['minRating'] = query.minRating
+  if (query.brand?.length) params['brand'] = query.brand.join(',')
+  const sort = query.sort ? SEARCH_SORT[query.sort] : undefined
+  if (sort) params['sort'] = sort
+  return params
+}
+
 export function toProduct(backendProduct: BackendProductResponse): Product {
   const images = [...(backendProduct.images ?? [])]
     .sort((a, b) => a.displayOrder - b.displayOrder)
@@ -70,6 +115,13 @@ export class ProductApiClient {
   private baseUrl = '/api/products'
 
   async list(page: number = 0, size: number = 20, query?: ProductQuery): Promise<ProductResponse> {
+    if (query && usesSmartSearch(query)) {
+      try {
+        return await this.search(page, size, query)
+      } catch {
+        // An older backend without /search, or a transient failure: the plain listing still answers.
+      }
+    }
     const response = await apiFetch<BackendPagedModel<BackendProductResponse>>(this.baseUrl, {
       method: 'GET',
       params: toQueryParams(page, size, query),
@@ -85,6 +137,28 @@ export class ProductApiClient {
       isLast: number >= totalPages - 1,
     }
     return paged
+  }
+
+  /** Hybrid keyword + semantic search (Cartwise AI-1). Degrades server-side to keyword, never errors for that. */
+  async search(page: number, size: number, query: ProductQuery): Promise<ProductResponse> {
+    const response = await apiFetch<BackendSearchResponse>(`${this.baseUrl}/search`, {
+      method: 'GET',
+      params: toSearchParams(page, size, query),
+    })
+    const { number, size: pageSize, totalElements, totalPages } = response.page
+    return {
+      content: response.content.map(toProduct),
+      pageable: { pageNumber: number, pageSize },
+      totalElements,
+      totalPages,
+      isFirst: number === 0,
+      isLast: number >= totalPages - 1,
+      search: {
+        effectiveMode: response.effectiveMode,
+        degraded: response.degraded,
+        interpretedFilters: response.interpretedFilters,
+      },
+    }
   }
 
   async detail(id: string): Promise<Product> {

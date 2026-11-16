@@ -1,8 +1,7 @@
 package com.acme.ecommerce.product.service;
 
-import com.acme.ecommerce.common.web.job.JobLock;
-import org.springframework.beans.factory.annotation.Autowired;
 import com.acme.ecommerce.common.core.error.ResourceNotFoundException;
+import com.acme.ecommerce.common.web.job.JobLock;
 import com.acme.ecommerce.product.api.dto.ProductResponse;
 import com.acme.ecommerce.product.domain.Category;
 import com.acme.ecommerce.product.domain.Product;
@@ -24,6 +23,7 @@ import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -98,6 +98,19 @@ public class ProductDiscoveryService {
     boolean hasQuery = filter.query() != null && !filter.query().isBlank();
     List<UUID> ranked = hasQuery ? natives.rankedIds(filter.query()) : null;
     List<Product> set = products.findAll(ProductSpecifications.matching(filter, ranked));
+    return facetsOf(set);
+  }
+
+  /**
+   * Facets over an explicit id set - the fused candidates of a hybrid search - so the counts always
+   * describe exactly the products the search list is drawn from.
+   */
+  @Transactional(readOnly = true)
+  public FacetsResponse facetsForIds(java.util.Collection<UUID> ids) {
+    return facetsOf(ids.isEmpty() ? List.of() : products.findAllById(ids));
+  }
+
+  private FacetsResponse facetsOf(List<Product> set) {
     Map<String, Long> brandCounts = new LinkedHashMap<>();
     Map<String, Map<String, Long>> attrCounts = new LinkedHashMap<>();
     BigDecimal min = null;
@@ -177,10 +190,7 @@ public class ProductDiscoveryService {
 
   @Transactional(readOnly = true)
   public List<UUID> activeCategoryIds() {
-    return categories.findAll().stream()
-        .filter(Category::isActive)
-        .map(Category::getId)
-        .toList();
+    return categories.findAll().stream().filter(Category::isActive).map(Category::getId).toList();
   }
 
   /** Cluster-wide guard so only one replica runs this job per tick. */

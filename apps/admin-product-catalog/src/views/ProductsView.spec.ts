@@ -304,6 +304,10 @@ describe('ProductsView', () => {
     it('deletes a product after confirmation and reloads the list', async () => {
       let listCalls = 0;
       const recorder = installFetch(async (request) => {
+        // The semantic-index status badge (Cartwise AI-1) is not a list call.
+        if (request.url.includes('/admin/embeddings')) {
+          return problemResponse(404, 'RESOURCE_NOT_FOUND', 'no index status in this test');
+        }
         if (request.method === 'GET' && request.url.includes('/api/products')) {
           listCalls += 1;
           return jsonResponse(

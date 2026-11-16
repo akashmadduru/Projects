@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Product Image Studio</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--fg:#1c1f24;--mut:#667085;--line:#e4e7ec;--acc:#2f6fed;--ok:#1f9d55;--warn:#c27c0e;--bad:#d64545;--chip:#eef1f5}
+@media (prefers-color-scheme:dark){:root{--bg:#121417;--card:#1b1e23;--fg:#e8eaed;--mut:#9aa3af;--line:#2c3138;--acc:#6b9bff;--ok:#3fc27a;--warn:#e0a33a;--bad:#ef6b6b;--chip:#252a31}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--line);background:var(--card);position:sticky;top:0;z-index:5}
+h1{font-size:18px;margin:0}
+h2{font-size:14px;margin:0 0 10px;text-transform:uppercase;letter-spacing:.04em;color:var(--mut)}
+main{max-width:1400px;margin:0 auto;padding:16px;display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(340px,1fr))}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px;min-width:0}
+.wide{grid-column:1/-1}
+.badge{display:inline-block;padding:3px 10px;border-radius:999px;font-weight:600;font-size:12px;background:var(--chip)}
+.badge.running{background:var(--ok);color:#fff}.badge.paused{background:var(--warn);color:#fff}.badge.loading{background:var(--acc);color:#fff}
+.sys{color:var(--mut);font-size:12px;display:flex;gap:14px;flex-wrap:wrap}
+.bar{height:12px;background:var(--chip);border-radius:6px;overflow:hidden}
+.bar>div{height:100%;background:var(--acc);width:0;transition:width .4s}
+.bar.small{height:6px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:10px;margin:12px 0}
+.stat b{display:block;font-size:20px}.stat span{color:var(--mut);font-size:12px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0}
+label{color:var(--mut);font-size:12px}
+input,select,textarea{font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:6px 8px}
+input[type=number]{width:90px}
+textarea{width:100%;min-height:72px;resize:vertical}
+button{font:inherit;border:1px solid var(--line);background:var(--chip);color:var(--fg);border-radius:6px;padding:6px 12px;cursor:pointer}
+button:hover{border-color:var(--acc)}
+button.primary{background:var(--acc);border-color:var(--acc);color:#fff}
+button.danger{color:var(--bad)}
+button:disabled{opacity:.5;cursor:default}
+.mut{color:var(--mut)}
+.cur{margin-top:10px;padding:10px;border-radius:8px;background:var(--chip)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.tile{border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--bg);display:flex;flex-direction:column}
+.tile .img{aspect-ratio:1;background:var(--chip);display:flex;align-items:center;justify-content:center;color:var(--mut);font-size:12px;text-align:center;padding:6px}
+.tile img{width:100%;height:100%;object-fit:cover;cursor:zoom-in;display:block}
+.tile .meta{padding:6px 8px;font-size:12px}
+.tile .name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tile .acts{display:flex;gap:4px;padding:0 8px 8px}
+.tile .acts button{padding:2px 6px;font-size:11px;flex:1}
+.st-done{color:var(--ok)}.st-failed{color:var(--bad)}.st-queued,.st-current{color:var(--acc)}
+.strip{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px}
+.strip img{width:96px;height:96px;object-fit:cover;border-radius:6px;border:1px solid var(--line);cursor:zoom-in;flex:none}
+pre.log{margin:0;max-height:220px;overflow:auto;font:12px/1.5 ui-monospace,Consolas,monospace;white-space:pre-wrap}
+#preview img{width:100%;max-width:420px;border-radius:8px;border:1px solid var(--line)}
+#lightbox{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;z-index:20;padding:16px}
+#lightbox img{max-width:100%;max-height:92vh;border-radius:8px}
+#toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:8px 14px;border-radius:8px;display:none;z-index:30}
+@media (max-width:420px){main{padding:16px 16px}header{padding:12px 16px}}
+</style>
+</head>
+<body>
+<header>
+  <div class="row" style="margin:0"><h1>Product Image Studio</h1><span id="state" class="badge">...</span></div>
+  <div class="sys" id="sys"></div>
+</header>
+<main>
+  <section class="card">
+    <h2>Progress</h2>
+    <div class="bar"><div id="pbar"></div></div>
+    <div class="mut" id="ptext" style="margin-top:6px"></div>
+    <div class="stats">
+      <div class="stat"><b id="s-done">-</b><span>done</span></div>
+      <div class="stat"><b id="s-pending">-</b><span>pending</span></div>
+      <div class="stat"><b id="s-failed">-</b><span>failed</span></div>
+      <div class="stat"><b id="s-queue">-</b><span>in queue</span></div>
+      <div class="stat"><b id="s-avg">-</b><span>sec / image</span></div>
+      <div class="stat"><b id="s-eta">-</b><span>queue ETA</span></div>
+    </div>
+    <div class="cur" id="cur"></div>
+  </section>
+
+  <section class="card">
+    <h2>Run control</h2>
+    <div class="row">
+      <label>Next</label><input id="n-count" type="number" min="1" max="27057" value="100">
+      <button class="primary" onclick="post('/api/queue/next',{count:+$('n-count').value})">Queue next pending</button>
+    </div>
+    <div class="row">
+      <label>From #</label><input id="r-start" type="number" min="0" value="0">
+      <label>count</label><input id="r-count" type="number" min="1" value="1000">
+      <label><input id="r-over" type="checkbox"> overwrite existing</label>
+      <button onclick="post('/api/queue/range',{start:+$('r-start').value,count:+$('r-count').value,overwrite:$('r-over').checked})">Queue range</button>
+    </div>
+    <div class="row">
+      <button id="b-pause" onclick="post(paused?'/api/resume':'/api/pause')">Pause</button>
+      <button onclick="post('/api/skip')">Skip current</button>
+      <button onclick="post('/api/queue/failed')">Retry failed</button>
+      <button onclick="post('/api/clear')">Clear queue</button>
+      <button class="danger" onclick="post('/api/stop')">Stop</button>
+      <button onclick="post('/api/unload')" title="Free GPU and RAM while idle">Unload model</button>
+    </div>
+    <p class="mut" style="margin:6px 0 0;font-size:12px">Pause takes effect within one diffusion step. Products that already have an image are skipped unless you tick overwrite. Closing this tab does not stop the run; Ctrl+C in the server window does.</p>
+  </section>
+
+  <section class="card">
+    <h2>Database writes</h2>
+    <div class="stats">
+      <div class="stat"><b id="s-db-written">-</b><span>written</span></div>
+      <div class="stat"><b id="s-db-failed">-</b><span>failed</span></div>
+    </div>
+    <div class="row">
+      <button class="primary" onclick="post('/api/db/write-all')">Write all done images</button>
+      <button onclick="post('/api/db/retry-failed')">Retry failed writes</button>
+    </div>
+    <p class="mut" style="margin:6px 0 0;font-size:12px">Write generated images to the product_images table. Images are auto-written when generated; use these to sync or retry.</p>
+  </section>
+
+  <section class="card">
+    <h2>Generation settings</h2>
+    <div class="row">
+      <button onclick="preset(12,1024)">Draft · 12 steps</button>
+      <button onclick="preset(20,1024)">Standard · 20</button>
+      <button onclick="preset(30,1024)">High · 30</button>
+      <button onclick="preset(20,768)">Fast 768px · 20</button>
+    </div>
+    <div class="row">
+      <label>Steps</label><input id="f-steps" type="number" min="4" max="60">
+      <label>Guidance</label><input id="f-guidance" type="number" min="1" max="15" step="0.5">
+      <label>Size</label><select id="f-size"><option>512</option><option>640</option><option>768</option><option>896</option><option>1024</option></select>
+      <label>JPEG</label><input id="f-quality" type="number" min="60" max="100">
+    </div>
+    <label>Prompt (placeholders: {name} {brand} {color} {material} {category})</label>
+    <textarea id="f-prompt"></textarea>
+    <label>Negative prompt</label>
+    <textarea id="f-negative" style="min-height:52px"></textarea>
+    <div class="row">
+      <button class="primary" onclick="saveSettings()">Save settings</button>
+      <button onclick="loadSettings(true)">Discard edits</button>
+      <button onclick="post('/api/settings/reset').then(()=>loadSettings(true))">Defaults</button>
+      <span class="mut" id="dirty"></span>
+    </div>
+    <div class="row">
+      <label>Preview product #</label><input id="pv-idx" type="number" min="0" value="0">
+      <button onclick="previewIdx()">Preview with current settings</button>
+    </div>
+    <p class="mut" style="margin:0;font-size:12px">Save first, then preview. Previews jump the queue and are not saved as product images.</p>
+  </section>
+
+  <section class="card" id="preview">
+    <h2>Last preview</h2>
+    <div id="pv-body" class="mut">No preview yet.</div>
+  </section>
+
+  <section class="card wide">
+    <h2>Recently generated</h2>
+    <div class="strip" id="recent"></div>
+  </section>
+
+  <section class="card wide">
+    <h2>Products</h2>
+    <div class="row">
+      <select id="b-filter" onchange="page=0;loadProducts()">
+        <option value="all">All</option><option value="done">Done</option><option value="pending">Pending</option>
+        <option value="queued">Queued / current</option><option value="failed">Failed</option>
+      </select>
+      <input id="b-q" placeholder="Search name or category" oninput="clearTimeout(qt);qt=setTimeout(()=>{page=0;loadProducts()},300)">
+      <button onclick="page=Math.max(0,page-1);loadProducts()">Prev</button>
+      <span class="mut" id="b-info"></span>
+      <button onclick="page++;loadProducts()">Next</button>
+    </div>
+    <div class="grid" id="products"></div>
+  </section>
+
+  <section class="card wide">
+    <h2>Log</h2>
+    <pre class="log" id="log"></pre>
+  </section>
+</main>
+<div id="lightbox" onclick="this.style.display='none'"><img alt=""></div>
+<div id="toast"></div>
+<script>
+const $ = id => document.getElementById(id);
+let S = null, paused = false, page = 0, qt = 0, lastDone = -1, settingsLoaded = false;
+const PER = 48;
+
+function toast(msg){const t=$('toast');t.textContent=msg;t.style.display='block';clearTimeout(t._h);t._h=setTimeout(()=>t.style.display='none',3500)}
+async function post(url, body){
+  const r = await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body||{})});
+  const j = await r.json().catch(()=>({}));
+  if(!r.ok){toast(j.error||('Error '+r.status));throw new Error(j.error)}
+  if(j.queued!==undefined) toast(j.queued+' item(s) queued');
+  refresh(); return j;
+}
+function fmtTime(s){if(s==null)return '-';s=Math.round(s);const h=Math.floor(s/3600),m=Math.floor(s%3600/60);return h?`${h}h ${m}m`:m?`${m}m ${s%60}s`:`${s}s`}
+function el(tag, props, ...kids){const e=document.createElement(tag);Object.assign(e,props||{});kids.forEach(k=>e.append(k));return e}
+function zoom(src){const lb=$('lightbox');lb.querySelector('img').src=src;lb.style.display='flex'}
+
+function render(){
+  const s=S;
+  paused = s.state==='paused';
+  const st=$('state'); st.textContent=s.state+(s.model_loaded?'':' · model not loaded'); st.className='badge '+s.state;
+  $('b-pause').textContent = paused?'Resume':'Pause';
+  const sys=[];
+  if(s.gpu) sys.push(`${s.gpu.name} · VRAM ${s.gpu.used_gb}/${s.gpu.total_gb} GB · ${s.gpu.util}% · ${s.gpu.temp}°C`);
+  if(s.ram) sys.push(`RAM ${s.ram.used_gb}/${s.ram.total_gb} GB`);
+  $('sys').replaceChildren(...sys.map(t=>el('span',{textContent:t})));
+  const pct = s.total? s.done/s.total*100:0;
+  $('pbar').style.width=pct+'%';
+  $('ptext').textContent=`${s.done.toLocaleString()} of ${s.total.toLocaleString()} products have images (${pct.toFixed(2)}%) · ${s.session_done} made this session`;
+  $('s-done').textContent=s.done.toLocaleString(); $('s-pending').textContent=s.pending.toLocaleString();
+  $('s-failed').textContent=s.failed; $('s-queue').textContent=s.queue;
+  $('s-avg').textContent=s.avg_sec??'-'; $('s-eta').textContent=fmtTime(s.eta_sec);
+  $('s-db-written').textContent=s.db_written??'-'; $('s-db-failed').textContent=s.db_failed??'-';
+  const c=s.current, cur=$('cur');
+  if(c){
+    const w=c.steps?c.step/c.steps*100:0;
+    cur.replaceChildren(
+      el('div',{textContent:`${s.state==='loading'?'Loading model, then ':''}${c.preview?'Preview':'Generating'} #${c.idx}: ${c.name}`}),
+      el('div',{className:'mut',textContent:`step ${c.step}/${c.steps} · ${fmtTime(c.elapsed)} elapsed`}),
+      (()=>{const b=el('div',{className:'bar small'});const f=el('div');f.style.width=w+'%';b.append(f);return b})());
+  } else cur.replaceChildren(el('span',{className:'mut',textContent:'Idle. Queue products to start.'}));
+  $('recent').replaceChildren(...s.recent.map(r=>{const i=el('img',{src:`/img/${r.id}.jpg?v=${r.v}`,title:r.name,loading:'lazy',alt:r.name});i.onclick=()=>zoom(i.src);return i}));
+  if(!s.recent.length) $('recent').append(el('span',{className:'mut',textContent:'Nothing yet.'}));
+  const p=s.preview, pv=$('pv-body');
+  if(p){
+    const i=el('img',{src:'/preview/'+p.file,alt:p.name}); i.onclick=()=>zoom(i.src);
+    pv.replaceChildren(i, el('div',{className:'mut',style:'margin-top:6px;font-size:12px',textContent:`${p.name} · ${p.steps} steps · ${p.size}px · seed ${p.seed} · ${p.seconds}s`}),
+      el('div',{style:'font-size:12px;margin-top:4px',textContent:p.prompt}));
+    pv.className='';
+  }
+  $('log').textContent=s.log.slice().reverse().join('\n');
+  if(!settingsLoaded) loadSettings(true);
+  if(s.done!==lastDone || c){ if(s.done!==lastDone){lastDone=s.done;loadProducts()} }
+}
+
+function loadSettings(force){
+  if(!S) return; const s=S.settings;
+  if(!force && $('dirty').textContent) return;
+  $('f-steps').value=s.steps; $('f-guidance').value=s.guidance; $('f-size').value=s.size; $('f-quality').value=s.quality;
+  $('f-prompt').value=s.prompt; $('f-negative').value=s.negative; $('dirty').textContent=''; settingsLoaded=true;
+}
+['f-steps','f-guidance','f-size','f-quality','f-prompt','f-negative'].forEach(id=>document.addEventListener('DOMContentLoaded',()=>$(id).addEventListener('input',()=>$('dirty').textContent='unsaved changes')));
+function preset(steps,size){$('f-steps').value=steps;$('f-size').value=size;$('dirty').textContent='unsaved changes'}
+async function saveSettings(){
+  await post('/api/settings',{steps:+$('f-steps').value,guidance:+$('f-guidance').value,size:+$('f-size').value,quality:+$('f-quality').value,prompt:$('f-prompt').value,negative:$('f-negative').value});
+  $('dirty').textContent=''; toast('Settings saved - used from the next image');
+}
+async function previewIdx(){
+  const idx=+$('pv-idx').value;
+  const r=await fetch(`/api/products?offset=${idx}&limit=1`).then(r=>r.json());
+  if(!r.rows.length) return toast('No product #'+idx);
+  if($('dirty').textContent) toast('Note: unsaved settings are not used - save first');
+  post('/api/preview',{id:r.rows[0].id});
+}
+
+async function loadProducts(){
+  const f=$('b-filter').value, q=encodeURIComponent($('b-q').value);
+  const r=await fetch(`/api/products?filter=${f}&q=${q}&offset=${page*PER}&limit=${PER}`).then(r=>r.json());
+  const pages=Math.max(1,Math.ceil(r.matches/PER)); if(page>=pages){page=pages-1}
+  $('b-info').textContent=`${r.matches.toLocaleString()} products · page ${page+1}/${pages}`;
+  $('products').replaceChildren(...r.rows.map(p=>{
+    const box=el('div',{className:'img'});
+    if(p.status==='done'){const i=el('img',{src:`/img/${p.id}.jpg?v=${p.v}`,loading:'lazy',alt:p.name});i.onclick=()=>zoom(i.src);box.append(i)}
+    else box.textContent=p.status==='failed'?('failed: '+(p.error||'')):p.status;
+    const acts=el('div',{className:'acts'});
+    if(p.status==='done') acts.append(el('button',{textContent:'Redo',title:'Regenerate with a new seed',onclick:()=>post('/api/redo',{id:p.id})}));
+    else if(p.status!=='queued'&&p.status!=='current') acts.append(el('button',{textContent:'Generate',onclick:()=>post('/api/generate',{id:p.id})}));
+    acts.append(el('button',{textContent:'Preview',onclick:()=>post('/api/preview',{id:p.id})}));
+    return el('div',{className:'tile'},box,
+      el('div',{className:'meta'},el('div',{className:'name',title:p.name,textContent:`#${p.idx} ${p.name}`}),
+        el('div',{className:'mut st-'+p.status,textContent:`${p.status} · ${p.category||''}`})),acts);
+  }));
+}
+
+async function refresh(){
+  try{ S=await fetch('/api/status').then(r=>r.json()); render(); }
+  catch(e){ $('state').textContent='server not reachable'; $('state').className='badge'; }
+}
+refresh(); setInterval(refresh,1500);
+</script>
+</body>
+</html>

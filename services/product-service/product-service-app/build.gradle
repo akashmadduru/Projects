@@ -63,6 +63,18 @@ dependencies {
     // Decision 2) around the outbound call to inventory-service.
     implementation libs.spring.cloud.starter.circuitbreaker.resilience4j
 
+    // Cartwise AI-1: query/document embeddings from AWS Bedrock, behind EmbeddingPort. The plain
+    // AWS SDK rather than Spring AI - see the awsSdk comment in gradle/libs.versions.toml (Spring
+    // AI drags the Boot platform off 4.0.7). Sync client only, so netty-nio-client is excluded
+    // rather than letting it ride the Boot-managed Netty line. `sts` is what makes IRSA
+    // (web-identity) credentials work in the default provider chain on EKS.
+    implementation(libs.aws.bedrockruntime) {
+        exclude group: 'software.amazon.awssdk', module: 'netty-nio-client'
+    }
+    runtimeOnly(libs.aws.sts) {
+        exclude group: 'software.amazon.awssdk', module: 'netty-nio-client'
+    }
+
     implementation libs.micrometer.registry.prometheus
     implementation libs.bundles.tracing
 

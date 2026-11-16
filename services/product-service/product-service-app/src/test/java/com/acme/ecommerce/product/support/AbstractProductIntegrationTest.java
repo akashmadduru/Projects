@@ -6,6 +6,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.postgresql.PostgreSQLContainer;
+import org.testcontainers.utility.DockerImageName;
 
 /**
  * Base class for every test that needs the real application context.
@@ -34,9 +35,16 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 @ActiveProfiles("test")
 public abstract class AbstractProductIntegrationTest {
 
-  /** Matches the image used by deploy/local/docker-compose.yml. */
+  /**
+   * Matches the image used by deploy/local/docker-compose.yml: stock Postgres 17 plus pgvector
+   * (Cartwise AI-1). Declared a substitute for "postgres" so Testcontainers accepts it. The
+   * container user is the superuser, so V10 can CREATE EXTENSION itself; deployed environments
+   * install the extension in their bootstrap scripts instead.
+   */
   protected static final PostgreSQLContainer POSTGRES =
-      new PostgreSQLContainer("postgres:17")
+      new PostgreSQLContainer(
+              DockerImageName.parse("pgvector/pgvector:0.8.7-pg17")
+                  .asCompatibleSubstituteFor("postgres"))
           .withDatabaseName("product_db")
           .withUsername("product_service")
           .withPassword("product_service_test_pwd");

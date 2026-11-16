@@ -3,30 +3,29 @@ package com.acme.ecommerce.product.web;
 import com.acme.ecommerce.common.core.error.ValidationException;
 import com.acme.ecommerce.product.api.ProductClient;
 import com.acme.ecommerce.product.api.dto.ProductResponse;
+import com.acme.ecommerce.product.api.dto.ProductVariantResponse;
+import com.acme.ecommerce.product.repository.ProductFilter;
 import com.acme.ecommerce.product.service.CatalogAggregateService;
 import com.acme.ecommerce.product.service.ProductCatalogService;
 import com.acme.ecommerce.product.service.ProductDiscoveryService;
-import com.acme.ecommerce.product.api.dto.ProductVariantResponse;
-import com.acme.ecommerce.product.repository.ProductFilter;
+import com.acme.ecommerce.product.web.dto.CreateProductRequest;
 import com.acme.ecommerce.product.web.dto.FacetsResponse;
+import com.acme.ecommerce.product.web.dto.ProductCatalogAggregateResponse;
+import com.acme.ecommerce.product.web.dto.ProductListParams;
 import com.acme.ecommerce.product.web.dto.SuggestResponse;
+import com.acme.ecommerce.product.web.dto.UpdateProductRequest;
 import com.acme.ecommerce.product.web.dto.VariantRequest;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.web.bind.annotation.RequestParam;
-import com.acme.ecommerce.product.web.dto.CreateProductRequest;
-import com.acme.ecommerce.product.web.dto.ProductCatalogAggregateResponse;
-import com.acme.ecommerce.product.web.dto.ProductListParams;
-import com.acme.ecommerce.product.web.dto.UpdateProductRequest;
-import jakarta.validation.Valid;
-import java.math.BigDecimal;
 import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
@@ -41,6 +40,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -85,10 +85,16 @@ public class ProductController {
    */
   private static final Set<String> SORTABLE =
       Set.of(
-          "sku", "name", "priceAmount", "averageRating", "discountPercent", "createdAt", "relevance");
+          "sku",
+          "name",
+          "priceAmount",
+          "averageRating",
+          "discountPercent",
+          "createdAt",
+          "relevance");
 
   /** Longest free-text filter value accepted ({@code product.seller_name} is varchar(200)). */
-  private static final int MAX_TEXT_FILTER = 200;
+  public static final int MAX_TEXT_FILTER = 200;
 
   private final ProductCatalogService catalog;
   private final CatalogAggregateService catalogAggregateService;
@@ -140,7 +146,8 @@ public class ProductController {
 
     Pageable effective = pageable;
     if (params.q() != null && !params.q().isBlank() && request.getParameter("sort") == null) {
-      effective = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), Sort.by("relevance"));
+      effective =
+          PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), Sort.by("relevance"));
     }
     org.springframework.data.domain.Page<ProductResponse> page =
         catalog.list(filterOf(params, request), effective);
@@ -192,12 +199,12 @@ public class ProductController {
    * A product composed with its stock level, in one response.
    *
    * <p>THE ONE, NARROWLY-APPROVED READ-ONLY SYNCHRONOUS CALL FROM THIS SERVICE TO inventory-service
-   * (docs/architecture/design/HLD-catalog-enrichment-and-saga.md S7.3, docs/architecture/adr/0003 Decision 2) - everything else this
-   * controller does stays entirely within this service's own database and events. {@code
-   * /catalog/products/{id}}, nested under this controller's existing {@code /api/products} mapping
-   * rather than a new top-level path, so the gateway's existing {@code Path=/api/products/**} route
-   * already covers it - no gateway route change, matching the HLD's Major Components table
-   * ("gateway: No route changes").
+   * (docs/architecture/design/HLD-catalog-enrichment-and-saga.md S7.3, docs/architecture/adr/0003
+   * Decision 2) - everything else this controller does stays entirely within this service's own
+   * database and events. {@code /catalog/products/{id}}, nested under this controller's existing
+   * {@code /api/products} mapping rather than a new top-level path, so the gateway's existing
+   * {@code Path=/api/products/**} route already covers it - no gateway route change, matching the
+   * HLD's Major Components table ("gateway: No route changes").
    *
    * <p>404 as an RFC 9457 problem document when the product itself is unknown, exactly like {@link
    * #findById}. Inventory being unreachable, slow, or not-yet-provisioned is NEVER a failure of
@@ -270,7 +277,8 @@ public class ProductController {
                   collected.addAll(ProductListParams.splitCsv(value));
                 }
                 if (!collected.isEmpty()) {
-                  attrs.computeIfAbsent(name.substring(5), k -> new ArrayList<>())
+                  attrs
+                      .computeIfAbsent(name.substring(5), k -> new ArrayList<>())
                       .addAll(collected);
                 }
               }
@@ -293,7 +301,8 @@ public class ProductController {
 
   /** Brand / attribute / price facets for the same filters as the list. Public. */
   @GetMapping("/facets")
-  public FacetsResponse facets(@ModelAttribute ProductListParams params, HttpServletRequest request) {
+  public FacetsResponse facets(
+      @ModelAttribute ProductListParams params, HttpServletRequest request) {
     requireMaxLength("q", params.q());
     return discovery.facets(filterOf(params, request));
   }

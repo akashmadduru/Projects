@@ -19,7 +19,9 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
-/** Gift cards: purchase (paid by a GIFT_CARD-purpose CARD payment) and redemption into the wallet. */
+/**
+ * Gift cards: purchase (paid by a GIFT_CARD-purpose CARD payment) and redemption into the wallet.
+ */
 @Service
 public class GiftCardService {
 
@@ -176,7 +178,8 @@ public class GiftCardService {
                     d.put("code", rs.getString("code"));
                     d.put("amount", rs.getBigDecimal("amount").toPlainString());
                     d.put("currency", rs.getString("currency").trim());
-                    d.put("message", rs.getString("message") == null ? "" : rs.getString("message"));
+                    d.put(
+                        "message", rs.getString("message") == null ? "" : rs.getString("message"));
                     d.put(
                         "from",
                         rs.getString("purchaser_email") == null

@@ -50,7 +50,8 @@ public class WalletController {
   private final GiftCardService giftCards;
   private final PaymentService payments;
 
-  public WalletController(WalletService wallet, GiftCardService giftCards, PaymentService payments) {
+  public WalletController(
+      WalletService wallet, GiftCardService giftCards, PaymentService payments) {
     this.wallet = wallet;
     this.giftCards = giftCards;
     this.payments = payments;
@@ -83,7 +84,8 @@ public class WalletController {
                 card.currency(),
                 "CARD",
                 "GIFT_CARD",
-                card.id()));
+                card.id(),
+                null));
     return new BuyGiftCardResponse(
         new GiftCardRef(card.id(), giftCards.statusOf(card.id())),
         new PaymentBlock(
@@ -91,7 +93,8 @@ public class WalletController {
   }
 
   @PostMapping("/api/gift-cards/redeem")
-  public WalletView redeem(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody RedeemRequest req) {
+  public WalletView redeem(
+      @AuthenticationPrincipal Jwt jwt, @Valid @RequestBody RedeemRequest req) {
     UUID userId = UUID.fromString(jwt.getSubject());
     Balance b = giftCards.redeem(userId, req.code());
     return wallet.view(userId);

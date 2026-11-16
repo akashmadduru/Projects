@@ -21,16 +21,15 @@ import org.springframework.stereotype.Component;
 
 /**
  * Phase 10 privacy: consumes USER_DELETED from {@code user.events} (raw JSON string, so a payload
- * change cannot poison the topic) and anonymises this service's data for that user. Statements
- * are idempotent; redelivery is harmless.
+ * change cannot poison the topic) and anonymises this service's data for that user. Statements are
+ * idempotent; redelivery is harmless.
  */
 @Configuration(proxyBeanMethods = false)
 @EnableKafka
 public class UserDeletedListener {
 
   private static final Logger log = LoggerFactory.getLogger(UserDeletedListener.class);
-  private static final Pattern USER_ID =
-      Pattern.compile("\"userId\" *: *\"([0-9a-fA-F-]{36})\"");
+  private static final Pattern USER_ID = Pattern.compile("\"userId\" *: *\"([0-9a-fA-F-]{36})\"");
 
   /** SQL with :u, run in order. */
   private static final String[] ANONYMISE = {

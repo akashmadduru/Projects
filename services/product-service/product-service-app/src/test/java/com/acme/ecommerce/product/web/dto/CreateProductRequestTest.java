@@ -119,6 +119,8 @@ class CreateProductRequestTest {
         null,
         null,
         null,
+        null,
+        null,
         null);
   }
 }

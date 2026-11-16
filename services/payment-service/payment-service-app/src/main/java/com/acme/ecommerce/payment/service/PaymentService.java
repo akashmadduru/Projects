@@ -10,12 +10,16 @@ import com.acme.ecommerce.payment.api.dto.RefundResponse;
 import com.acme.ecommerce.payment.config.PaymentProperties;
 import com.acme.ecommerce.payment.repository.PaymentRepository;
 import com.acme.ecommerce.payment.repository.PaymentRepository.Payment;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.stripe.exception.SignatureVerificationException;
 import com.stripe.model.Event;
 import com.stripe.model.PaymentIntent;
 import com.stripe.net.Webhook;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 import org.slf4j.Logger;
@@ -23,14 +27,21 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
-/** Payment use cases. Stripe calls are never made inside a DB transaction. */
+/**
+ * Payment use cases. Provider calls (Stripe, Razorpay) are never made inside a DB transaction.
+ * Stripe and Razorpay can both be on; each payment records which one it uses and the customer can
+ * switch while it is still unpaid.
+ */
 @Service
 public class PaymentService {
 
   private static final Logger log = LoggerFactory.getLogger(PaymentService.class);
+  private static final ObjectMapper JSON = new ObjectMapper();
 
   private final PaymentRepository payments;
   private final StripeGateway stripe;
+  private final RazorpayGateway razorpay;
+  private final PaymentProviders providers;
   private final OrderReporter reporter;
   private final WalletService wallet;
   private final PaymentProperties properties;
@@ -39,12 +50,16 @@ public class PaymentService {
   public PaymentService(
       PaymentRepository payments,
       StripeGateway stripe,
+      RazorpayGateway razorpay,
+      PaymentProviders providers,
       OrderReporter reporter,
       WalletService wallet,
       PaymentProperties properties,
       TransactionTemplate tx) {
     this.payments = payments;
     this.stripe = stripe;
+    this.razorpay = razorpay;
+    this.providers = providers;
     this.reporter = reporter;
     this.wallet = wallet;
     this.properties = properties;
@@ -52,8 +67,33 @@ public class PaymentService {
   }
 
   public PaymentConfigResponse config() {
-    String key = stripe.enabled() ? properties.getStripe().getPublishableKey() : null;
-    return new PaymentConfigResponse(stripe.mode(), key);
+    List<PaymentConfigResponse.Provider> list = new ArrayList<>(2);
+    if (stripe.enabled()) {
+      list.add(
+          new PaymentConfigResponse.Provider(
+              PaymentProviders.STRIPE,
+              "Card",
+              properties.getStripe().getPublishableKey(),
+              List.of("card"),
+              List.of()));
+    }
+    if (razorpay.enabled()) {
+      list.add(
+          new PaymentConfigResponse.Provider(
+              PaymentProviders.RAZORPAY,
+              "UPI, cards, netbanking, wallets",
+              razorpay.keyId(),
+              List.of("upi", "card", "netbanking", "wallet"),
+              List.of("INR")));
+    }
+    String mode = providers.defaultProvider();
+    String key =
+        list.stream()
+            .filter(p -> p.id().equals(mode))
+            .map(PaymentConfigResponse.Provider::publicKey)
+            .findFirst()
+            .orElse(null);
+    return new PaymentConfigResponse(mode, key, list, list.isEmpty() ? null : mode);
   }
 
   /** Idempotent by subject id (orderId, or referenceId for MEMBERSHIP / GIFT_CARD). */
@@ -72,23 +112,71 @@ public class PaymentService {
     }
     String currency = req.currency().toUpperCase(Locale.ROOT);
     BigDecimal amount = req.amount().setScale(2, RoundingMode.HALF_UP);
-    String mode = stripe.mode();
+    String mode;
     String status;
     String intentId = null;
+    String providerOrderId = null;
     if ("COD".equals(req.method())) {
       status = "COD_PENDING";
+      mode = providers.defaultProvider();
     } else {
       status = "REQUIRES_PAYMENT";
-      if (stripe.enabled()) {
-        intentId = stripe.createIntent(subject.toString(), toMinor(amount), currency).id();
-      }
+      mode = pickProvider(req.provider(), currency);
+      String[] ids = provision(mode, subject.toString(), amount, currency, null);
+      intentId = ids[0];
+      providerOrderId = ids[1];
     }
     payments.insert(
-        subject, req.userId(), req.method(), mode, amount, currency, status, intentId, purpose);
+        subject,
+        req.userId(),
+        req.method(),
+        mode,
+        amount,
+        currency,
+        status,
+        intentId,
+        providerOrderId,
+        purpose);
     return view(
         payments
             .findByOrderId(subject)
             .orElseThrow(() -> new CodedException(ErrorCode.INTERNAL_ERROR, "Payment not saved")));
+  }
+
+  /**
+   * Which provider a new online payment uses: the one asked for, else the default. Razorpay takes
+   * INR only, so a non-INR payment falls back to another configured provider, or is refused if
+   * Razorpay was asked for by name.
+   */
+  private String pickProvider(String requested, String currency) {
+    String chosen = providers.resolve(requested);
+    if (PaymentProviders.RAZORPAY.equals(chosen) && !"INR".equals(currency)) {
+      boolean explicit = requested != null && !requested.isBlank();
+      if (explicit || !providers.isEnabled(PaymentProviders.STRIPE)) {
+        throw new CodedException(ErrorCode.VALIDATION_FAILED, "Razorpay accepts INR payments only");
+      }
+      return PaymentProviders.STRIPE;
+    }
+    return chosen;
+  }
+
+  /** Creates the provider-side object. Returns {stripeIntentId, razorpayOrderId}, nulls if none. */
+  private String[] provision(
+      String mode, String subject, BigDecimal amount, String currency, String stripeKey) {
+    long minor = toMinor(amount);
+    return switch (mode) {
+      case PaymentProviders.STRIPE ->
+          new String[] {
+            (stripeKey == null
+                    ? stripe.createIntent(subject, minor, currency)
+                    : stripe.createIntent(subject, minor, currency, stripeKey))
+                .id(),
+            null
+          };
+      case PaymentProviders.RAZORPAY ->
+          new String[] {null, razorpay.createOrder(subject, minor, currency).id()};
+      default -> new String[] {null, null};
+    };
   }
 
   /** Internal read (no ownership check). */
@@ -97,8 +185,8 @@ public class PaymentService {
   }
 
   /**
-   * Owner read. Also reconciles: re-checks the PaymentIntent with Stripe (local dev without
-   * webhooks) and retries reporting an unreported outcome to order-service.
+   * Owner read. Also reconciles: re-checks the provider (local dev without webhooks, or a missed
+   * webhook) and retries reporting an unreported outcome to order-service.
    */
   public PaymentResponse getForOwner(UUID orderId, UUID userId) {
     Payment p = find(orderId);
@@ -109,10 +197,60 @@ public class PaymentService {
     return view(p);
   }
 
+  /**
+   * The customer picks another provider before paying. Allowed only while the payment still awaits
+   * money. The old Stripe intent is cancelled so it cannot be paid later; a Razorpay order cannot
+   * be cancelled, so a payment captured against it afterwards is detected and logged for refund.
+   */
+  public PaymentResponse switchProvider(UUID subject, UUID userId, String requested) {
+    Payment p = find(subject);
+    if (!p.userId().equals(userId)) {
+      throw notFound();
+    }
+    if (!"CARD".equals(p.method()) || !"REQUIRES_PAYMENT".equals(p.status())) {
+      throw new CodedException(
+          ErrorCode.RESOURCE_CONFLICT, "The payment method can only be changed before paying");
+    }
+    if (requested == null || requested.isBlank()) {
+      throw new CodedException(ErrorCode.VALIDATION_FAILED, "provider is required");
+    }
+    String target = pickProvider(requested, p.currency());
+    if (PaymentProviders.SIMULATED.equals(target)) {
+      throw new CodedException(ErrorCode.VALIDATION_FAILED, "No payment provider is available");
+    }
+    if (target.equals(p.mode())) {
+      return view(p);
+    }
+    String stripeKey = "pi-" + subject + "-" + UUID.randomUUID();
+    String[] ids = provision(target, subject.toString(), p.amount(), p.currency(), stripeKey);
+    if (payments.switchProvider(p.id(), target, ids[0], ids[1]) == 0) {
+      // Paid or changed while we were talking to the provider: undo the new object, keep state.
+      cancelStripeQuietly(ids[0]);
+      return view(payments.findById(p.id()).orElse(p));
+    }
+    if (PaymentProviders.STRIPE.equals(p.mode())) {
+      cancelStripeQuietly(p.intentId());
+    }
+    return view(payments.findById(p.id()).orElse(p));
+  }
+
+  private void cancelStripeQuietly(String intentId) {
+    if (intentId == null || !stripe.enabled()) {
+      return;
+    }
+    try {
+      stripe.cancel(intentId);
+    } catch (RuntimeException e) {
+      log.warn("Could not cancel Stripe intent {}: {}", intentId, e.getMessage());
+    }
+  }
+
   /** SIMULATED mode only; same downstream effect as the webhook. */
   public PaymentResponse simulate(UUID paymentId, UUID userId, String outcome) {
     Payment p = payments.findById(paymentId).orElseThrow(PaymentService::notFound);
-    if (!p.userId().equals(userId) || stripe.enabled() || !"SIMULATED".equals(p.mode())) {
+    if (!p.userId().equals(userId)
+        || providers.anyEnabled()
+        || !PaymentProviders.SIMULATED.equals(p.mode())) {
       throw notFound();
     }
     if (!"CARD".equals(p.method())) {
@@ -123,7 +261,7 @@ public class PaymentService {
 
   private Payment reconcile(Payment p) {
     if ("REQUIRES_PAYMENT".equals(p.status()) || "PROCESSING".equals(p.status())) {
-      if ("STRIPE".equals(p.mode()) && p.intentId() != null && stripe.enabled()) {
+      if (PaymentProviders.STRIPE.equals(p.mode()) && p.intentId() != null && stripe.enabled()) {
         try {
           String s = stripe.retrieve(p.intentId()).status();
           if ("succeeded".equals(s)) {
@@ -133,6 +271,20 @@ public class PaymentService {
           }
         } catch (RuntimeException e) {
           log.warn("Stripe re-check failed for payment {}: {}", p.id(), e.getMessage());
+        }
+      } else if (PaymentProviders.RAZORPAY.equals(p.mode())
+          && p.providerOrderId() != null
+          && razorpay.enabled()) {
+        try {
+          if ("paid".equals(razorpay.fetchOrder(p.providerOrderId()).status())) {
+            var captured = razorpay.capturedPayment(p.providerOrderId());
+            if (captured != null) {
+              payments.setProviderPaymentId(p.id(), captured.id());
+            }
+            return applyOutcome(p, "SUCCEEDED");
+          }
+        } catch (RuntimeException e) {
+          log.warn("Razorpay re-check failed for payment {}: {}", p.id(), e.getMessage());
         }
       }
     } else if (!p.reported()) {
@@ -149,6 +301,34 @@ public class PaymentService {
     Payment fresh = payments.findById(p.id()).orElse(p);
     reporter.report(fresh);
     return payments.findById(p.id()).orElse(fresh);
+  }
+
+  /**
+   * A provider says money arrived for a payment that was already settled through another provider
+   * (the customer switched and the abandoned attempt still went through). The platform cannot undo
+   * it automatically, so it is logged loudly for a manual refund.
+   */
+  private void flagIfSettledElsewhere(Payment p, String provider, String providerPaymentId) {
+    boolean settled =
+        "SUCCEEDED".equals(p.status())
+            || "REFUNDED".equals(p.status())
+            || "PARTIALLY_REFUNDED".equals(p.status());
+    boolean otherProvider = !provider.equals(p.mode());
+    boolean otherPayment =
+        provider.equals(p.mode())
+            && PaymentProviders.RAZORPAY.equals(provider)
+            && p.providerPaymentId() != null
+            && providerPaymentId != null
+            && !p.providerPaymentId().equals(providerPaymentId);
+    if (settled && (otherProvider || otherPayment)) {
+      log.error(
+          "DOUBLE CHARGE: payment {} is already settled via {} but {} also received money ({}). "
+              + "Refund the duplicate manually.",
+          p.id(),
+          p.mode(),
+          provider,
+          providerPaymentId);
+    }
   }
 
   /** Verifies the signature, dedupes by event id, applies the outcome. */
@@ -185,7 +365,108 @@ public class PaymentService {
       log.warn("Stripe event {} for unknown payment intent {}", event.getId(), pi.getId());
       return;
     }
-    applyOutcome(p, "payment_intent.succeeded".equals(type) ? "SUCCEEDED" : "FAILED");
+    boolean succeeded = "payment_intent.succeeded".equals(type);
+    if (succeeded) {
+      flagIfSettledElsewhere(p, PaymentProviders.STRIPE, pi.getId());
+    }
+    if (!PaymentProviders.STRIPE.equals(p.mode()) && !succeeded) {
+      // A decline on an intent the customer has since moved away from must not fail the payment.
+      log.info("Ignoring Stripe failure for payment {} now on {}", p.id(), p.mode());
+      return;
+    }
+    applyOutcome(p, succeeded ? "SUCCEEDED" : "FAILED");
+  }
+
+  /**
+   * Browser checkout finished: confirm the three values Razorpay handed the browser. The signature
+   * binds order id and payment id to the key secret, so a customer cannot claim someone else's
+   * payment or invent one.
+   */
+  public PaymentResponse verifyRazorpay(
+      UUID paymentId,
+      UUID userId,
+      String razorpayOrderId,
+      String razorpayPaymentId,
+      String signature) {
+    Payment p = payments.findById(paymentId).orElseThrow(PaymentService::notFound);
+    if (!p.userId().equals(userId)) {
+      throw notFound();
+    }
+    if (!razorpay.enabled()) {
+      throw new CodedException(ErrorCode.RESOURCE_NOT_FOUND, "Razorpay is not configured");
+    }
+    if (p.providerOrderId() == null || !p.providerOrderId().equals(razorpayOrderId)) {
+      throw new CodedException(ErrorCode.VALIDATION_FAILED, "Payment does not match this order");
+    }
+    if (!razorpay.verifyCheckoutSignature(razorpayOrderId, razorpayPaymentId, signature)) {
+      log.warn("Invalid Razorpay checkout signature for payment {}", p.id());
+      throw new CodedException(ErrorCode.VALIDATION_FAILED, "Invalid payment signature");
+    }
+    flagIfSettledElsewhere(p, PaymentProviders.RAZORPAY, razorpayPaymentId);
+    payments.setProviderPaymentId(p.id(), razorpayPaymentId);
+    return view(applyOutcome(p, "SUCCEEDED"));
+  }
+
+  /**
+   * Razorpay webhook: verified over the exact raw body, idempotent. Only a captured payment is
+   * acted on. A failed attempt is ignored on purpose: Razorpay lets the customer retry on the same
+   * order, so failing the payment here could cancel an order the customer is about to pay for. An
+   * order that is never paid is cancelled by order-service after its payment window.
+   */
+  public void handleRazorpayWebhook(String payload, String signature, String eventId) {
+    if (!razorpay.enabled()) {
+      throw new CodedException(ErrorCode.RESOURCE_NOT_FOUND, "Webhook not configured");
+    }
+    if (!razorpay.verifyWebhookSignature(payload, signature)) {
+      throw new CodedException(ErrorCode.VALIDATION_FAILED, "Invalid webhook signature");
+    }
+    JsonNode root;
+    try {
+      root = JSON.readTree(payload);
+    } catch (Exception e) {
+      throw new CodedException(ErrorCode.VALIDATION_FAILED, "Unreadable webhook payload");
+    }
+    String type = root.path("event").asText("");
+    if (!"payment.captured".equals(type) && !"order.paid".equals(type)) {
+      return;
+    }
+    JsonNode payment = root.path("payload").path("payment").path("entity");
+    String paymentId = payment.path("id").asText(null);
+    String orderId = payment.path("order_id").asText(null);
+    if (orderId == null) {
+      orderId = root.path("payload").path("order").path("entity").path("id").asText(null);
+    }
+    String dedupeKey =
+        "rzp:" + (eventId != null && !eventId.isBlank() ? eventId : type + ":" + paymentId);
+    if (payments.eventProcessed(dedupeKey)) {
+      log.info("Duplicate Razorpay event {} ignored", dedupeKey);
+      return;
+    }
+    if (orderId == null) {
+      log.warn("Razorpay event {} carries no order id", dedupeKey);
+      return;
+    }
+    Payment p = payments.findByProviderOrderId(orderId).orElse(null);
+    if (p == null) {
+      log.warn("Razorpay event {} for unknown order {}", dedupeKey, orderId);
+      return;
+    }
+    if (payment.has("amount")
+        && (payment.path("amount").asLong() != toMinor(p.amount())
+            || !p.currency().equalsIgnoreCase(payment.path("currency").asText(p.currency())))) {
+      // Never mark an order paid on an amount we did not ask for.
+      log.error(
+          "Razorpay payment {} amount/currency does not match payment {}; not applying",
+          paymentId,
+          p.id());
+      return;
+    }
+    flagIfSettledElsewhere(p, PaymentProviders.RAZORPAY, paymentId);
+    if (paymentId != null) {
+      payments.setProviderPaymentId(p.id(), paymentId);
+    }
+    applyOutcome(p, "SUCCEEDED");
+    payments.recordEvent(dedupeKey);
   }
 
   /** Idempotent by idempotencyKey. */
@@ -208,14 +489,17 @@ public class PaymentService {
           ErrorCode.DOMAIN_RULE_VIOLATION, "Refund amount exceeds the refundable balance");
     }
     String stripeRefundId = null;
+    String providerRefundId = null;
     boolean toWallet = "WALLET".equalsIgnoreCase(req.destination());
-    if (!toWallet
-        && "STRIPE".equals(p.mode())
-        && "CARD".equals(p.method())
-        && p.intentId() != null) {
-      stripeRefundId = stripe.refund(p.intentId(), toMinor(amount), req.idempotencyKey());
+    if (!toWallet && "CARD".equals(p.method())) {
+      if (PaymentProviders.STRIPE.equals(p.mode()) && p.intentId() != null) {
+        stripeRefundId = stripe.refund(p.intentId(), toMinor(amount), req.idempotencyKey());
+      } else if (PaymentProviders.RAZORPAY.equals(p.mode()) && p.providerOrderId() != null) {
+        providerRefundId = refundRazorpay(p, amount, req);
+      }
     }
-    String refundId = stripeRefundId;
+    String stripeRefund = stripeRefundId;
+    String providerRefund = providerRefundId;
     return tx.execute(
         status -> {
           Payment locked = payments.lockById(p.id()).orElseThrow();
@@ -227,7 +511,13 @@ public class PaymentService {
             throw new CodedException(
                 ErrorCode.DOMAIN_RULE_VIOLATION, "Refund amount exceeds the refundable balance");
           }
-          payments.insertRefund(locked.id(), amount, req.reason(), refundId, req.idempotencyKey());
+          payments.insertRefund(
+              locked.id(),
+              amount,
+              req.reason(),
+              stripeRefund,
+              providerRefund,
+              req.idempotencyKey());
           if (toWallet) {
             wallet.credit(
                 locked.userId(),
@@ -242,6 +532,20 @@ public class PaymentService {
           payments.applyRefund(locked.id(), total, newStatus);
           return new RefundResponse(newStatus, total);
         });
+  }
+
+  private String refundRazorpay(Payment p, BigDecimal amount, RefundRequest req) {
+    String rzpPaymentId = p.providerPaymentId();
+    if (rzpPaymentId == null) {
+      var captured = razorpay.capturedPayment(p.providerOrderId());
+      if (captured == null) {
+        throw new CodedException(
+            ErrorCode.RESOURCE_CONFLICT, "No captured Razorpay payment to refund");
+      }
+      rzpPaymentId = captured.id();
+      payments.setProviderPaymentId(p.id(), rzpPaymentId);
+    }
+    return razorpay.refund(rzpPaymentId, toMinor(amount), req.idempotencyKey(), req.reason());
   }
 
   /** COD_PENDING to SUCCEEDED; idempotent. */
@@ -273,14 +577,24 @@ public class PaymentService {
   private PaymentResponse view(Payment p) {
     String clientSecret = null;
     String publishable = null;
+    String providerOrderId = null;
     boolean awaiting = "REQUIRES_PAYMENT".equals(p.status()) || "PROCESSING".equals(p.status());
-    if (awaiting && "STRIPE".equals(p.mode()) && p.intentId() != null && stripe.enabled()) {
+    if (awaiting
+        && PaymentProviders.STRIPE.equals(p.mode())
+        && p.intentId() != null
+        && stripe.enabled()) {
       try {
         clientSecret = stripe.retrieve(p.intentId()).clientSecret();
         publishable = properties.getStripe().getPublishableKey();
       } catch (RuntimeException e) {
         log.warn("Could not load client secret for payment {}: {}", p.id(), e.getMessage());
       }
+    } else if (awaiting
+        && PaymentProviders.RAZORPAY.equals(p.mode())
+        && p.providerOrderId() != null
+        && razorpay.enabled()) {
+      providerOrderId = p.providerOrderId();
+      publishable = razorpay.keyId();
     }
     return new PaymentResponse(
         p.id(),
@@ -293,6 +607,7 @@ public class PaymentService {
         p.refundedAmount(),
         clientSecret,
         publishable,
-        p.purpose());
+        p.purpose(),
+        providerOrderId);
   }
 }

@@ -88,6 +88,12 @@ spring:
         max-page-size: 100
         default-page-size: 20
 
+  servlet:
+    multipart:
+      # Product image uploads (POST/PUT /api/products/{id}/images); the default 1MB is too small.
+      max-file-size: 10MB
+      max-request-size: 11MB
+
   web:
     # Never advertise the server implementation or render a stack trace. Moved
     # here from server.error.* in Spring Boot 4 / Spring Framework 7.
@@ -196,6 +202,41 @@ resilience4j:
         ignore-exceptions:
           - feign.FeignException$NotFound
 
+      # -----------------------------------------------------------------------------------------
+      # embeddingCb - the breaker around the QUERY embedding call (Cartwise AI-1,
+      # QueryEmbeddingService). Its own instance, like aggregateCb: a struggling embedding provider
+      # must trip only semantic ranking. The fallback of every call is "no vector", which makes
+      # search answer with keyword results and degraded=true - so an open breaker is correct
+      # degradation, not an incident for this service.
+      #
+      # The SDK call itself is bounded by product.embedding.query-timeout (800ms), so a timeout is
+      # recorded as a FAILED call; the slow-call threshold only catches a provider that answers but
+      # is close to the limit.
+      # -----------------------------------------------------------------------------------------
+      embeddingCb:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 20
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50
+        slow-call-rate-threshold: 80
+        slow-call-duration-threshold: 700ms
+        wait-duration-in-open-state: 30s
+        permitted-number-of-calls-in-half-open-state: 2
+        automatic-transition-from-open-to-half-open-enabled: true
+        register-health-indicator: true
+
+# -----------------------------------------------------------------------------
+# Static image server (deploy/local/image-server). Blank url = feature off: image upload endpoints
+# answer 400 and product images stay whatever URL the client supplied.
+#   url        where THIS service reaches the server (compose network)
+#   public-url what browsers load images from; stored on product_images.url
+#   token      sent as X-Image-Token on PUT/DELETE
+# -----------------------------------------------------------------------------
+image-store:
+  url: ${IMAGE_STORE_URL:}
+  public-url: ${IMAGE_STORE_PUBLIC_URL:}
+  token: ${IMAGE_STORE_TOKEN:}
+
 # -----------------------------------------------------------------------------
 # product-service's own settings. Every one is documented on
 # com.acme.ecommerce.product.config.ProductProperties.
@@ -217,6 +258,29 @@ product:
     # incident in which discovery is the broken thing). A non-blank value bypasses
     # discovery entirely.
     jwks-uri: ${PRODUCT_JWKS_URI:}
+
+  # ---------------------------------------------------------------------------
+  # Cartwise AI-1: semantic product search. Documented on
+  # com.acme.ecommerce.product.embedding.EmbeddingProperties.
+  #
+  # DEFAULT IS OFF. With provider=none no embedding provider exists, the reconciler is
+  # idle and GET /api/products/search answers keyword-only with degraded=true. Nothing in
+  # normal runs ever fabricates vectors.
+  #
+  # NO CREDENTIALS HERE, EVER. provider=bedrock authenticates through the AWS SDK default
+  # credential chain: IRSA (web identity) on EKS, or the standard AWS_* variables / profile
+  # for a developer. The pod's role needs bedrock:InvokeModel on the configured model.
+  # ---------------------------------------------------------------------------
+  embedding:
+    # none | bedrock | fake (fake is refused outside the `test` / `dev-fake` profiles)
+    provider: ${EMBEDDING_PROVIDER:none}
+    bedrock:
+      # The standard variable: set by EKS/IRSA and by every AWS tool.
+      region: ${AWS_REGION:}
+      # Amazon Titan Text Embeddings V2, requested at 1024 dimensions, L2-normalised.
+      model-id: ${EMBEDDING_BEDROCK_MODEL_ID:amazon.titan-embed-text-v2:0}
+    reconciler:
+      enabled: ${EMBEDDING_RECONCILER_ENABLED:true}
 
 # -----------------------------------------------------------------------------
 # Service discovery.

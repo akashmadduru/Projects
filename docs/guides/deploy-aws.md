@@ -40,7 +40,7 @@ and no cross-origin setup is needed in the browser.
 ## Before you start
 
 You need an AWS account and credentials that can create IAM roles, VPCs, EKS, RDS, MSK and CloudFront
-(an administrator is simplest for a first run), a domain you control, and a Stripe account.
+(an administrator is simplest for a first run), a domain you control, and a Stripe and/or Razorpay account.
 
 Install these (Windows: `winget install ...`):
 
@@ -60,7 +60,7 @@ or `aws configure` (set `AWS_PROFILE` in `config.env` for a named profile).
 ## First deployment
 
 1. `cp deploy/aws/config.example.env deploy/aws/config.env` and fill in at least `DOMAIN_NAME` and the
-   three `STRIPE_*` values. Everything else has a default. **Keep `SIZE_PROFILE=lean` for a first run.**
+   all three values of at least one payment provider (`STRIPE_*` and/or `RAZORPAY_*`). Everything else has a default. **Keep `SIZE_PROFILE=lean` for a first run.**
 2. `./deploy/aws/deploy.sh --plan` shows what Terraform would create. This step does create the
    Terraform state bucket and the Route 53 zone (both nearly free); nothing else.
 3. `./deploy/aws/deploy.sh`. If the domain has no hosted zone yet the script creates one, prints the
@@ -186,7 +186,7 @@ wrong environment. The KMS key is scheduled for deletion in 7 days (the minimum 
 - **Scheduled jobs** are guarded by a Postgres advisory lock ([JobLock](../../libs/common-web/src/main/java/com/acme/ecommerce/common/web/job/JobLock.java)),
   so running many replicas does not run a job many times.
 - **Payments fail closed.** Under the `prod` profile `payment-service` refuses to start without a
-  Stripe key, so the self-approve "simulate" endpoint cannot exist in production.
+  real payment provider (Stripe or Razorpay), so the self-approve "simulate" endpoint cannot exist in production.
 - **Secrets** live only in Secrets Manager and reach pods through External Secrets using EKS Pod
   Identity; no AWS key is stored in the cluster. Terraform *state* does contain the generated passwords
   and your Stripe/Google values: the bucket is private, versioned and encrypted, so limit who can read it.
@@ -204,7 +204,7 @@ wrong environment. The KMS key is scheduled for deletion in 7 days (the minimum 
 3. **Kafka is unauthenticated and plaintext inside the VPC**, restricted by security group, like today.
    Several services build their Kafka consumers by hand with only a bootstrap address, so they cannot
    yet use TLS or SASL. The brokers already accept TLS on 9094.
-4. **Razorpay is not part of this.** `payment-service` still uses Stripe.
+4. **Razorpay is wired but unproven.** It runs alongside Stripe (customers choose at checkout), but the code was written against the public API documentation and never run with a Razorpay account; run the [test-mode checklist](integrations.md#3b-payment-gateway-razorpay) before taking real money.
 5. **No SMS provider.** One-time-code SMS is not delivered in production (the dev "email the SMS to a
    sink mailbox" shortcut is disabled so codes are never mailed to an arbitrary domain, and codes are no
    longer written to logs). Email sign-in works.
@@ -226,7 +226,7 @@ wrong environment. The KMS key is scheduled for deletion in 7 days (the minimum 
 | Symptom | Likely cause and fix |
 |---|---|
 | `terraform apply` hangs on a certificate | the nameservers are not set at your registrar yet; set them and re-run |
-| `payment-service` crash-loops with "STRIPE_SECRET_KEY is required" | intended: the Stripe secret is empty. Fix `config.env`, then `--only infra,platform` |
+| `payment-service` crash-loops with "At least one of STRIPE_SECRET_KEY or RAZORPAY_KEY_ID" | intended: no payment provider is configured. Fix `config.env`, then `--only infra,platform` |
 | pods `Pending` for several minutes on a first deploy | Karpenter is launching servers; `kubectl get nodeclaims` |
 | `Cannot reach the Kubernetes API` | `KUBERNETES_API_ALLOWED_CIDRS` does not include your current public IP |
 | ALB fails to create with a security-group rule error | set `RESTRICT_ALB_TO_CLOUDFRONT=false` and re-run `--only platform` |

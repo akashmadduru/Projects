@@ -12,7 +12,7 @@ docker compose -f deploy/local/docker-compose.yml --env-file deploy/local/.env u
 
 | Integration | Works out of the box | Real provider |
 |---|---|---|
-| Payments | Yes: **SIMULATED** mode (no real money) and Cash on Delivery | **Stripe** only. Live Stripe was never exercised end to end ([TD-P6-02](../techdebt/phase6.md#td-p6-02)); run the test-mode checklist below before trusting it. Razorpay and others are not implemented. |
+| Payments | Yes: **SIMULATED** mode (no real money) and Cash on Delivery | **Stripe** (cards, any currency) and **Razorpay** (UPI, cards, netbanking, wallets; INR), either or both; the customer chooses at checkout. Neither was ever run against the live provider from this codebase: run the test-mode checklists below before trusting them. |
 | Email | Yes: caught by **Mailpit** at http://127.0.0.1:8025 | Any SMTP provider, configured below |
 | SMS / phone OTP | Dev stub only: the text is logged and emailed to Mailpit | **None.** Needs code ([TD-P6-08](../techdebt/phase6.md#td-p6-08)) |
 | Browser push | Yes: keys are generated on first start | Same keys, or your own |
@@ -47,8 +47,8 @@ docker compose -f deploy/local/docker-compose.yml --env-file deploy/local/.env u
 | `GATEWAY_CORS_ALLOWED_ORIGINS` | `http://localhost:5173,5174,3000,3001` | Exact origins of the storefront and admin SPA. Never `*`. |
 | `STOREFRONT_BASE_URL` | `http://localhost:3000` | Origin used in password-reset and verify-email links. **Wrong value = broken links in every email.** |
 
-### Payments (Stripe), see section 3
-`STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`. All blank by default, which means SIMULATED mode.
+### Payments (Stripe and Razorpay), see sections 3 and 3b
+`STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET` and `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`. All blank by default, which means SIMULATED mode. Set either provider, or both.
 
 ### Email, see section 4
 `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_SMTP_AUTH`, `MAIL_SMTP_STARTTLS`, `MAIL_SMTP_SSL`, `NOTIFICATION_SENDER`.
@@ -91,7 +91,8 @@ Shipping fees, GST, COD limits and the return window are properties of order-ser
 ### How the modes work
 - **`STRIPE_SECRET_KEY` blank → SIMULATED.** No real charges. The checkout shows a test payment panel and payment-service records the outcome itself. Safe for development and demos.
 - **`STRIPE_SECRET_KEY` set → STRIPE mode.** payment-service creates a PaymentIntent per order; the storefront loads the publishable key from `GET /api/payments/config` and renders Stripe's card element. Outcomes arrive by **webhook** and are reported to order-service (retried every 30 s until delivered).
-- **Cash on Delivery** needs no gateway and works in both modes (subject to the COD limits above).
+- **Both providers on:** the checkout offers a "Pay with" choice and the customer can switch until they pay. `PAYMENT_DEFAULT_PROVIDER` (`STRIPE` or `RAZORPAY`) sets the preselected one. Razorpay is offered only for INR orders.
+- **Cash on Delivery** needs no gateway and works in every mode (subject to the COD limits above).
 
 ### Setup (test mode first)
 1. Create a Stripe account and stay in **Test mode** (dashboard toggle).
@@ -120,10 +121,71 @@ The gateway exposes `POST /api/payments/webhook` without a JWT on purpose; it is
 4. Stop `payment-service` for a minute after paying; confirm the order still becomes PLACED once it is back (the reporter retries).
 5. Known gaps to read first: [TD-P6-02](../techdebt/phase6.md#td-p6-02) (live mode unverified, webhook parsing), [TD-P6-03](../techdebt/phase6.md#td-p6-03) (cancelling an unpaid order does not cancel the PaymentIntent, so a late payment is refunded inline).
 
-### Going live
+### Going live (Stripe)
 - Create live keys (`sk_live_...`, `pk_live_...`) and a **real webhook endpoint** in Stripe (Developers → Webhooks) pointing at `https://<your-api-domain>/api/payments/webhook`, subscribed to `payment_intent.succeeded` and `payment_intent.payment_failed`. Use that endpoint's `whsec_...`, not the CLI's.
 - Do not put live keys in a file that is committed or shared. Use your platform's secret manager.
 - Currencies: the platform charges in the order's currency (INR and USD are seeded). Check your Stripe account supports the ones you sell in.
+
+---
+
+## 3b. Payment gateway (Razorpay)
+
+Razorpay takes UPI, cards, netbanking and wallets in one payment window. It accepts **INR only** (other
+currencies need international payments enabled on your Razorpay account, which this platform does not
+attempt: a non-INR order is offered Stripe instead, or refused if Razorpay was asked for by name).
+
+### How it works
+1. Checkout creates a payment; payment-service creates a Razorpay **order** (`POST /v1/orders`, amount in paise).
+2. The storefront loads Razorpay's `checkout.js` on demand and opens the window for that order.
+3. On success the browser posts the three values Razorpay returns to `POST /api/payments/{id}/razorpay/verify`.
+   The server checks `HMAC-SHA256(order_id|payment_id)` with the key secret before marking the order paid.
+4. Razorpay also calls the webhook `POST /api/payments/webhook/razorpay` (signed over the raw body). It is a safety
+   net for a customer who closes the tab; the order page also re-checks Razorpay when opened.
+
+Design choices to know about:
+- A **failed attempt is ignored**, not recorded as a failure, because Razorpay lets the customer retry on the same
+  order. An order never paid is cancelled by order-service after its payment window.
+- The webhook never marks an order paid if the amount or currency differs from what the platform asked for.
+- If a customer switches provider and the abandoned attempt still takes money, the payment is already settled
+  elsewhere: payment-service logs `DOUBLE CHARGE` at ERROR level with both ids so you can refund the duplicate.
+  Switching away from Stripe cancels its intent; a Razorpay order cannot be cancelled.
+
+### Setup (test mode first)
+1. Create a Razorpay account and stay in **Test mode** (dashboard toggle).
+2. Account & Settings -> **API Keys** -> generate a test key. Copy the **Key Id** (`rzp_test_...`) and the **Key Secret**
+   (shown once).
+3. Turn on **automatic payment capture** in the dashboard payment settings *(check the exact menu name)*. If capture
+   is manual, payments stay "authorized" and the platform never sees them settle.
+4. Put them in `deploy/local/.env`:
+   ```env
+   RAZORPAY_KEY_ID=rzp_test_...
+   RAZORPAY_KEY_SECRET=...
+   RAZORPAY_WEBHOOK_SECRET=        # optional locally, see below
+   ```
+5. Recreate the service: `docker compose -f deploy/local/docker-compose.yml --env-file deploy/local/.env up -d --force-recreate payment-service`.
+6. Check `curl http://localhost:8080/api/payments/config` lists `RAZORPAY` under `providers`.
+
+**Webhook locally:** Razorpay cannot reach `localhost`. Without a webhook, payments still settle through the browser
+callback and the order-page re-check, which is enough to develop. To test the webhook, expose the gateway with a
+tunnel, add it in Razorpay (Settings -> Webhooks) with events `payment.captured` and `order.paid`, and put the
+secret you chose in `RAZORPAY_WEBHOOK_SECRET`. **Without that secret the webhook endpoint returns 404.**
+
+### Test-mode checklist (not yet run for this codebase)
+1. Pay with a Razorpay test card or the test UPI id for success *(see Razorpay's "test card and UPI details" page)*.
+   The order becomes PLACED and the payment SUCCEEDED.
+2. Use the test UPI id for failure, then retry successfully in the same window. The order must not be cancelled.
+3. Pay, then close the tab before the window returns. Open the order page: it must still become PLACED (re-check).
+4. Cancel a paid order or approve a return and confirm the refund appears in the Razorpay dashboard.
+5. With both providers on, switch Stripe to Razorpay and back before paying; confirm the Stripe intent shows
+   "canceled" in its dashboard.
+6. The request and field names (orders, payments-of-an-order, refunds, the `X-Refund-Idempotency` header, webhook
+   event names) were written from the public API documentation without a live account. Treat step 1 to 4 as the
+   verification of that, not a formality.
+
+### Going live
+Complete Razorpay's activation (KYC), generate **live** keys (`rzp_live_...`), add a **live** webhook at
+`https://<your-domain>/api/payments/webhook/razorpay`, and redeploy the keys (on AWS, edit `config.env` and run
+`./deploy/aws/deploy.sh --only infra,platform`).
 
 ---
 

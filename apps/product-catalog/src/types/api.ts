@@ -114,7 +114,30 @@ export interface PagedModel<T> {
   isLast: boolean
 }
 
-export type ProductResponse = PagedModel<Product>
+/** Filters the backend inferred from the search text ("under 3000", "4 stars and above", "from Acme"). */
+export interface InterpretedFilters {
+  minPrice: number | null
+  maxPrice: number | null
+  minRating: number | null
+  brand: string | null
+}
+
+/** What only GET /api/products/search knows (Cartwise AI-1). Absent on plain catalog listings. */
+export interface SearchMeta {
+  effectiveMode: 'keyword' | 'semantic' | 'hybrid'
+  /** Semantic ranking was asked for but the embedding provider is off or down: keyword results. */
+  degraded: boolean
+  interpretedFilters: InterpretedFilters
+}
+
+export interface BackendSearchResponse extends BackendPagedModel<BackendProductResponse> {
+  effectiveMode: SearchMeta['effectiveMode']
+  degraded: boolean
+  interpretedFilters: InterpretedFilters
+  matchedBy: Record<string, 'keyword' | 'semantic' | 'both'>
+}
+
+export type ProductResponse = PagedModel<Product> & { search?: SearchMeta }
 
 export interface ProductCatalogAggregateResponse {
   status: 'success' | 'partial' | 'error'
