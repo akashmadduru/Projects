@@ -1,0 +1,13 @@
+{
+ "product_id": "29050167-f694-4024-bf23-60a087cff157",
+ "name": "Trakari Puzzle Pro",
+ "prompt": "studio packshot photo of a White Trakari Puzzle Pro, made of wood, board games, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1896859601,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-15T23:42:26",
+ "file_path": "product-images/images/29050167-f694-4024-bf23-60a087cff157.jpg",
+ "file_size": 68873
+}

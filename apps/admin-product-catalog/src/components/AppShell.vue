@@ -24,6 +24,7 @@ import {
   Megaphone,
   Store,
   BadgeCheck,
+  ShieldCheck,
   Warehouse,
   Banknote,
   Truck,
@@ -72,6 +73,7 @@ interface NavItem {
 const NAV_ITEMS: readonly NavItem[] = [
   { name: 'dashboard', label: 'Overview', to: '/dashboard', icon: LayoutDashboard, roles: ['CATALOG_MANAGER'] },
   { name: 'products', label: 'Products', to: '/products', icon: Package, roles: ['CATALOG_MANAGER'] },
+  { name: 'moderation', label: 'Product review', to: '/moderation', icon: ShieldCheck, roles: ['CATALOG_MANAGER'] },
   { name: 'categories', label: 'Categories', to: '/categories', icon: FolderTree, roles: ['CATALOG_MANAGER'] },
   { name: 'inventory', label: 'Inventory', to: '/inventory', icon: Boxes, roles: ['CATALOG_MANAGER'] },
   { name: 'orders', label: 'Orders', to: '/orders', icon: ReceiptText, roles: ['SUPPORT'] },
@@ -133,6 +135,7 @@ const PAGE_TITLES: Readonly<Record<string, string>> = {
   'customer-detail': 'Customer',
   reviews: 'Reviews',
   payments: 'Payments',
+  moderation: 'Product review',
   orders: 'Orders',
   returns: 'Returns',
   coupons: 'Coupons',

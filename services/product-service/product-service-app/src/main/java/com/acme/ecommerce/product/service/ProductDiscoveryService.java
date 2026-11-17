@@ -42,6 +42,10 @@ public class ProductDiscoveryService {
   private final ProductCatalogService catalog;
   private final ObjectMapper objectMapper;
 
+  /** Optional (absent in plain unit tests): resolves image keys against parentUrl. */
+  @Autowired(required = false)
+  private com.acme.ecommerce.product.imagestore.ImageUrlResolver imageUrls;
+
   @Transactional(readOnly = true)
   public SuggestResponse suggest(String q, int limit) {
     String query = q.trim();
@@ -58,7 +62,7 @@ public class ProductDiscoveryService {
                   p.getId(),
                   p.getSlug(),
                   p.getName(),
-                  p.getThumbnailUrl(),
+                  imageUrls == null ? p.getThumbnailUrl() : imageUrls.resolve(p.getThumbnailUrl()),
                   p.getPriceAmount(),
                   p.getSalePrice(),
                   p.getPriceCurrency()));

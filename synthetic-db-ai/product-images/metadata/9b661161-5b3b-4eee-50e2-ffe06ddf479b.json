@@ -1,0 +1,13 @@
+{
+ "product_id": "9b661161-5b3b-4eee-50e2-ffe06ddf479b",
+ "name": "Expipi Green Tea Max",
+ "prompt": "studio packshot photo of a White Expipi Green Tea Max, made of wood, beverages, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2854210524,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:09:14",
+ "file_path": "product-images/images/9b661161-5b3b-4eee-50e2-ffe06ddf479b.jpg",
+ "file_size": 38505
+}

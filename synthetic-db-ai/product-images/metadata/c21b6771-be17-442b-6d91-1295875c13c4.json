@@ -1,0 +1,13 @@
+{
+ "product_id": "c21b6771-be17-442b-6d91-1295875c13c4",
+ "name": "Nobaco Hardcover Essential",
+ "prompt": "studio packshot photo of a White Nobaco Hardcover Essential, made of silicone, books, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3030246619,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:34:13",
+ "file_path": "product-images/images/c21b6771-be17-442b-6d91-1295875c13c4.jpg",
+ "file_size": 28501
+}

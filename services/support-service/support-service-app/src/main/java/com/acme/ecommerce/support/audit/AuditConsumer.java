@@ -11,11 +11,11 @@ import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
-import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.stereotype.Component;
-import org.springframework.util.backoff.FixedBackOff;
 
-/** audit.events -> audit_log. Consumes raw JSON strings so a payload change cannot poison the topic. */
+/**
+ * audit.events -> audit_log. Consumes raw JSON strings so a payload change cannot poison the topic.
+ */
 @Configuration(proxyBeanMethods = false)
 @EnableKafka
 public class AuditConsumer {

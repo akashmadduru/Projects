@@ -1,10 +1,10 @@
 package com.acme.ecommerce.product.client;
 
 import java.util.UUID;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestHeader;
 
 /**
  * Feign client for inventory-service READ-ONLY operations.
@@ -47,6 +47,12 @@ public interface InventoryServiceClient {
   @org.springframework.web.bind.annotation.PutMapping("/internal/inventory/stock")
   void putStock(
       @org.springframework.web.bind.annotation.RequestBody InventoryDto.StockWrite body,
+      @RequestHeader("X-Internal-Token") String internalToken);
+
+  /** Creates a platform stock row for each item that has none (catalog sync, TD-P6-04). */
+  @org.springframework.web.bind.annotation.PostMapping("/internal/inventory/stock/ensure")
+  InventoryDto.EnsureResult ensureStock(
+      @org.springframework.web.bind.annotation.RequestBody InventoryDto.EnsureRequest body,
       @RequestHeader("X-Internal-Token") String internalToken);
 
   @GetMapping("/api/inventory/by-product/{productId}")

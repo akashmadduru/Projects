@@ -26,6 +26,7 @@ import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 @SpringBootApplication
 @EnableDiscoveryClient
 @EnableConfigurationProperties(InventoryProperties.class)
+@org.springframework.scheduling.annotation.EnableScheduling
 public class InventoryServiceApplication {
 
   public static void main(String[] args) {

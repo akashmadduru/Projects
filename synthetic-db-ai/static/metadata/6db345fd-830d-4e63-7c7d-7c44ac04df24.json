@@ -1,0 +1,15 @@
+{
+ "product_id": "6db345fd-830d-4e63-7c7d-7c44ac04df24",
+ "name": "Rikaqua Air Purifier Prime",
+ "prompt": "studio packshot photo of a Silver Rikaqua Air Purifier Prime, made of silicone, personal wellness, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2878826231,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:37:11",
+ "file_path": "static/images/6db345fd-830d-4e63-7c7d-7c44ac04df24.jpg",
+ "file_size": 51485,
+ "uploaded": false,
+ "s3_url": null
+}

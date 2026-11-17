@@ -1,0 +1,13 @@
+{
+ "product_id": "95bb13c4-dbb8-4190-6b2f-4f906b45cd7d",
+ "name": "Numita Bike Lock Lite",
+ "prompt": "studio packshot photo of a Navy Blue Numita Bike Lock Lite, made of cotton, cycling, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1485409102,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:05:04",
+ "file_path": "product-images/images/95bb13c4-dbb8-4190-6b2f-4f906b45cd7d.jpg",
+ "file_size": 65210
+}

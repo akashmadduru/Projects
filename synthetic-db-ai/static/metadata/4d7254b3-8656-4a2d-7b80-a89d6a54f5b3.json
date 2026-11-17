@@ -1,0 +1,15 @@
+{
+ "product_id": "4d7254b3-8656-4a2d-7b80-a89d6a54f5b3",
+ "name": "Quali Toaster Edition",
+ "prompt": "studio packshot photo of a Green Quali Toaster Edition, made of stainless steel, small appliances, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2567618747,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:43:16",
+ "file_path": "static/images/4d7254b3-8656-4a2d-7b80-a89d6a54f5b3.jpg",
+ "file_size": 49827,
+ "uploaded": false,
+ "s3_url": null
+}

@@ -1,0 +1,13 @@
+{
+ "product_id": "f7687a58-736f-46e3-3fd1-6eeabc177dc6",
+ "name": "Nosuri Sleeping Bag Elite",
+ "prompt": "studio packshot photo of a Midnight Nosuri Sleeping Bag Elite, made of nylon, camping, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 4185713427,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:51:16",
+ "file_path": "product-images/images/f7687a58-736f-46e3-3fd1-6eeabc177dc6.jpg",
+ "file_size": 48376
+}

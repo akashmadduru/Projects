@@ -1,0 +1,15 @@
+{
+ "product_id": "6a43e039-54da-4a26-7f3e-b49aeea54d92",
+ "name": "Orri Hardcover Lite",
+ "prompt": "studio packshot photo of a Red Orri Hardcover Lite, made of bamboo, books, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3997936870,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:35:27",
+ "file_path": "static/images/6a43e039-54da-4a26-7f3e-b49aeea54d92.jpg",
+ "file_size": 51036,
+ "uploaded": false,
+ "s3_url": null
+}

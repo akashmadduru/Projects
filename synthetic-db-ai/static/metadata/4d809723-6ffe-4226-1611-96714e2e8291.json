@@ -1,0 +1,15 @@
+{
+ "product_id": "4d809723-6ffe-4226-1611-96714e2e8291",
+ "name": "Zeba Perfume Essential",
+ "prompt": "studio packshot photo of a Midnight Zeba Perfume Essential, made of wood, fragrances, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1694054885,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:15:30",
+ "file_path": "static/images/4d809723-6ffe-4226-1611-96714e2e8291.jpg",
+ "file_size": 88052,
+ "uploaded": false,
+ "s3_url": null
+}

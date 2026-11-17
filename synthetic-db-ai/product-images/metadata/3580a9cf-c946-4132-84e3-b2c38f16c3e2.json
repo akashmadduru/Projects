@@ -1,0 +1,13 @@
+{
+ "product_id": "3580a9cf-c946-4132-84e3-b2c38f16c3e2",
+ "name": "Quamino Fitness Band Prime",
+ "prompt": "studio packshot photo of a Green Quamino Fitness Band Prime, made of bamboo, smart watches, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1863244668,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:03:41",
+ "file_path": "product-images/images/3580a9cf-c946-4132-84e3-b2c38f16c3e2.jpg",
+ "file_size": 57381
+}

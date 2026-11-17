@@ -1,0 +1,13 @@
+{
+ "product_id": "ccfb821e-538e-4e4e-b7de-43228e1ab22f",
+ "name": "Pimi Construction Set Max",
+ "prompt": "studio packshot photo of a Olive Pimi Construction Set Max, made of stainless steel, building toys, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3270326041,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:40:53",
+ "file_path": "product-images/images/ccfb821e-538e-4e4e-b7de-43228e1ab22f.jpg",
+ "file_size": 37308
+}

@@ -110,8 +110,12 @@ public class CampaignService {
   }
 
   public Campaign create(CampaignRequest r) {
-    if (r.name() == null || r.name().isBlank() || r.subject() == null || r.subject().isBlank()
-        || r.body() == null || r.body().isBlank()) {
+    if (r.name() == null
+        || r.name().isBlank()
+        || r.subject() == null
+        || r.subject().isBlank()
+        || r.body() == null
+        || r.body().isBlank()) {
       throw new CodedException(ErrorCode.VALIDATION_FAILED, "name, subject and body are required");
     }
     String channel = r.channel() == null ? "ALL" : r.channel().toUpperCase();
@@ -156,7 +160,8 @@ public class CampaignService {
       int page = 0;
       boolean last = false;
       while (!last) {
-        MemberPage p = users.audience("MEMBERS".equals(c.audience()) ? "MEMBERS" : "ALL", page, PAGE);
+        MemberPage p =
+            users.audience("MEMBERS".equals(c.audience()) ? "MEMBERS" : "ALL", page, PAGE);
         List<Member> members = p.content() == null ? List.of() : p.content();
         List<Member> targets =
             "INACTIVE_30D".equals(c.audience()) ? inactiveOnly(members) : members;
@@ -195,7 +200,8 @@ public class CampaignService {
     }
     if ((all || "EMAIL".equals(c.channel())) && p.emailPromotions() && m.email() != null) {
       String cta = link == null ? null : (link.startsWith("http") ? link : storefront + link);
-      EmailContent content = renderer.order(c.subject(), c.subject(), c.body(), cta == null ? null : "Open", cta);
+      EmailContent content =
+          renderer.order(c.subject(), c.subject(), c.body(), cta == null ? null : "Open", cta);
       mail.send(m.email(), content.subject(), content.text(), content.html());
       any = true;
     }
@@ -205,14 +211,18 @@ public class CampaignService {
     return any;
   }
 
-  /** Keeps members with no order in the last 30 days. Fails closed (nobody) if order data is unavailable. */
+  /**
+   * Keeps members with no order in the last 30 days. Fails closed (nobody) if order data is
+   * unavailable.
+   */
   private List<Member> inactiveOnly(List<Member> members) {
     if (members.isEmpty()) {
       return members;
     }
     Map<UUID, Instant> last = new HashMap<>();
     try {
-      String ids = members.stream().map(m -> m.userId().toString()).collect(Collectors.joining(","));
+      String ids =
+          members.stream().map(m -> m.userId().toString()).collect(Collectors.joining(","));
       parseLastOrders(mapper.valueToTree(orders.lastOrderDates(ids)), last);
     } catch (RuntimeException e) {
       log.warn("last-order-dates unavailable, skipping INACTIVE_30D batch: {}", e.toString());

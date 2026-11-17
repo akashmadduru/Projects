@@ -106,6 +106,11 @@ public class SecurityConfig {
                 requests
                     .requestMatchers(PUBLIC_ENDPOINTS)
                     .permitAll()
+                    // Admin reads live under /api/products/admin/** and must not inherit the public
+                    // GET rule below: an anonymous caller gets 401 here, not a 403 from
+                    // @PreAuthorize (TD-AI-01).
+                    .requestMatchers("/api/products/admin/**")
+                    .authenticated()
                     // GET /api/products/** and /api/categories/** are public (Phase 1F; categories
                     // are
                     // catalog data, read alongside products) - POST/PUT/DELETE remain protected.

@@ -1,0 +1,13 @@
+{
+ "product_id": "802ad7b8-54aa-4e73-d9ca-ac4d36a519a9",
+ "name": "Suno Dress Prime",
+ "prompt": "studio packshot photo of a Grey Suno Dress Prime, made of cotton, women's clothing, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3288878601,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:50:51",
+ "file_path": "product-images/images/802ad7b8-54aa-4e73-d9ca-ac4d36a519a9.jpg",
+ "file_size": 43085
+}

@@ -74,10 +74,10 @@ public class CartService {
 
   /** Moves a cart line to "saved for later" (cap 50 saved lines). */
   @Transactional
-  public CartResponse saveForLater(
-      UUID userId, UUID productId, UUID variantId, UUID offerId) {
+  public CartResponse saveForLater(UUID userId, UUID productId, UUID variantId, UUID offerId) {
     UUID cartId = carts.lockOrCreateCart(userId);
-    if (!carts.hasSaved(userId, productId, variantId, offerId) && carts.countSaved(userId) >= MAX_SAVED) {
+    if (!carts.hasSaved(userId, productId, variantId, offerId)
+        && carts.countSaved(userId) >= MAX_SAVED) {
       throw new CodedException(
           ErrorCode.CART_LIMIT, "Saved for later is limited to " + MAX_SAVED + " items");
     }
@@ -90,8 +90,7 @@ public class CartService {
 
   /** Moves a saved line back into the cart with quantity 1 (currency rule applies). */
   @Transactional
-  public CartResponse moveSavedToCart(
-      UUID userId, UUID productId, UUID variantId, UUID offerId) {
+  public CartResponse moveSavedToCart(UUID userId, UUID productId, UUID variantId, UUID offerId) {
     UUID cartId = carts.lockOrCreateCart(userId);
     CartItemRequest item =
         carts
@@ -115,7 +114,8 @@ public class CartService {
       throw new CodedException(
           ErrorCode.CURRENCY_MISMATCH, "Cart already contains items in a different currency");
     }
-    if (!carts.hasLine(cartId, item.productId(), item.variantId(), item.offerId()) && carts.countLines(cartId) >= MAX_LINES) {
+    if (!carts.hasLine(cartId, item.productId(), item.variantId(), item.offerId())
+        && carts.countLines(cartId) >= MAX_LINES) {
       throw new CodedException(
           ErrorCode.CART_LIMIT, "Cart is limited to " + MAX_LINES + " distinct items");
     }

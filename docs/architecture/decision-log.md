@@ -382,7 +382,7 @@ void eventShapeMatchesExpectation() {
 | Question (2026-11-10) | Outcome |
 |---|---|
 | Rating aggregation: fetch a summary from rating-service, or compute from events? | **Decided:** fetch. `RatingEventListener` treats the event as a trigger and calls rating-service for the summary. |
-| Dead-letter strategy for failed messages | **Decided (Phase 10):** retry 3 times, then `<topic>.DLT` (`DlqErrorHandlers`). Six listeners still swallow errors ([TD-BE-17](../techdebt/backend.md#td-be-17)). |
+| Dead-letter strategy for failed messages | **Decided (Phase 10):** retry 3 times, then `<topic>.DLT` (`DlqErrorHandlers`). Since 2026-11-17 every listener lets failures reach it (TD-BE-17, fixed). |
 | Distributed tracing | **Decided (Phase 10):** Micrometer Tracing → OpenTelemetry → Jaeger. |
 | Cache rating summaries in Redis? | **Open.** Not cached; product reads use the denormalized columns. |
 | When to adopt a schema registry | **Open.** The "second consumer" trigger has been met; see Decision 1. |

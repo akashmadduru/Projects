@@ -1,0 +1,15 @@
+{
+ "product_id": "39391dff-f91c-4af7-f4d3-21e6b28598c4",
+ "name": "Venex Protein Bars Gen 3",
+ "prompt": "studio packshot photo of a Olive Venex Protein Bars Gen 3, made of leather, snacks, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1549272942,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:36:38",
+ "file_path": "static/images/39391dff-f91c-4af7-f4d3-21e6b28598c4.jpg",
+ "file_size": 67580,
+ "uploaded": false,
+ "s3_url": null
+}

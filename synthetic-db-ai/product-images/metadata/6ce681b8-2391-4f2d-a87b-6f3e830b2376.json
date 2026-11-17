@@ -1,0 +1,13 @@
+{
+ "product_id": "6ce681b8-2391-4f2d-a87b-6f3e830b2376",
+ "name": "Quaka Watch Prime",
+ "prompt": "studio packshot photo of a Rose Gold Quaka Watch Prime, made of glass, smart watches, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2943139542,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:21:00",
+ "file_path": "product-images/images/6ce681b8-2391-4f2d-a87b-6f3e830b2376.jpg",
+ "file_size": 77332
+}

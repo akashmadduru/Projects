@@ -1,0 +1,15 @@
+{
+ "product_id": "1c5d4b37-55e3-4e6a-bbc0-127183539096",
+ "name": "Dexvenlum Tent Prime",
+ "prompt": "studio packshot photo of a Silver Dexvenlum Tent Prime, made of stainless steel, camping, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2918111075,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 768,
+ "created_at": "2026-11-15T23:14:38",
+ "file_path": "static/images/1c5d4b37-55e3-4e6a-bbc0-127183539096.jpg",
+ "file_size": 165152,
+ "uploaded": false,
+ "s3_url": null
+}

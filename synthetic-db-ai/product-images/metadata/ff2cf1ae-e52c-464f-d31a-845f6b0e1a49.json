@@ -1,0 +1,13 @@
+{
+ "product_id": "ff2cf1ae-e52c-464f-d31a-845f6b0e1a49",
+ "name": "Mimiri Toaster Plus",
+ "prompt": "studio packshot photo of a Space Grey Mimiri Toaster Plus, made of nylon, small appliances, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 566653446,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T01:57:34",
+ "file_path": "product-images/images/ff2cf1ae-e52c-464f-d31a-845f6b0e1a49.jpg",
+ "file_size": 35499
+}

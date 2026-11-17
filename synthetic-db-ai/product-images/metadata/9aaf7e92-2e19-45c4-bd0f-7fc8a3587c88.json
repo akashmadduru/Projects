@@ -1,0 +1,13 @@
+{
+ "product_id": "9aaf7e92-2e19-45c4-bd0f-7fc8a3587c88",
+ "name": "Noco Handbag Ultra",
+ "prompt": "studio packshot photo of a Red Noco Handbag Ultra, made of aluminium, bags & luggage, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2597819778,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:04:07",
+ "file_path": "product-images/images/9aaf7e92-2e19-45c4-bd0f-7fc8a3587c88.jpg",
+ "file_size": 56737
+}

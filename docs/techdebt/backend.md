@@ -86,9 +86,3 @@ TD-BE-01, TD-BE-02, TD-BE-04 and TD-BE-05 were resolved by Phase 6; residual ris
 - **Where:** Gradle runs in an `eclipse-temurin:25-jdk` container (no host JDK). Spotless fails on the Windows bind mount ("Could not read build/spotless-clean"), so the build was copied into the container's `/tmp` and formatted sources copied back. Those Java files now have LF endings while siblings are CRLF. `docker compose up --build` needed `BUILDX_BAKE_ENTITLEMENTS_FS=0`.
 - **Fix:** Add `.gitattributes` (`*.java text eol=lf` or `crlf`, pick one) and renormalize; install a host JDK 25 or document the container build; document the buildx variable.
 
-<a id="td-be-17"></a>
-## TD-BE-17 Six Kafka listeners swallow errors, bypassing retry and the DLQ
-- **Severity / Effort:** High / S
-- **Where:** inventory-service `ProductEventListener`; product-service `InventoryEventListener`, `RatingEventListener`; notification-service `OrderEventListener`; promotion-service `OrderEventListener`; seller-service `OrderEventConsumer`. Each wraps its work in `catch (Exception e)` and only logs. Found 2026-11-14.
-- **Risk:** Every listener factory is wired to `DlqErrorHandlers` (3 retries, then `<topic>.DLT`), but a listener that never throws never reaches it. A transient failure (database blip, rating-service down) drops the event for good: stock not provisioned, a coin credit or ledger entry never booked, an order email never sent. Nothing records the loss except one log line.
-- **Fix:** Catch only the exceptions that mean "safe to skip" (for example `ResourceNotFoundException`, duplicate-key on replay) and rethrow everything else so the error handler retries and dead-letters it. Then alert on messages arriving in any `*.DLT` topic.

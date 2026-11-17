@@ -1,0 +1,15 @@
+{
+ "product_id": "08979ec3-555f-4ac6-0c66-147a93be19ac",
+ "name": "Lodex Watch Ultra",
+ "prompt": "studio packshot photo of a Space Grey Lodex Watch Ultra, made of stainless steel, smart watches, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1211514314,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 768,
+ "created_at": "2026-11-15T22:40:56",
+ "file_path": "static/images/08979ec3-555f-4ac6-0c66-147a93be19ac.jpg",
+ "file_size": 116608,
+ "uploaded": false,
+ "s3_url": null
+}

@@ -1,0 +1,15 @@
+{
+ "product_id": "72e7f9af-da8e-4683-4ab3-f0f64db6847e",
+ "name": "Bakadex Vacuum Cleaner Elite",
+ "prompt": "studio packshot photo of a Navy Blue Bakadex Vacuum Cleaner Elite, made of leather, cleaning, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3071999212,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:45:20",
+ "file_path": "static/images/72e7f9af-da8e-4683-4ab3-f0f64db6847e.jpg",
+ "file_size": 39682,
+ "uploaded": false,
+ "s3_url": null
+}

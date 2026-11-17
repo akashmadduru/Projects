@@ -37,7 +37,8 @@ public class RecentlyViewedController {
   public List<Viewed> list(@AuthenticationPrincipal Jwt jwt) {
     return jdbc.sql(
             "SELECT product_id, viewed_at FROM users.recently_viewed WHERE user_id = :u"
-                + " ORDER BY viewed_at DESC LIMIT " + MAX)
+                + " ORDER BY viewed_at DESC LIMIT "
+                + MAX)
         .param("u", UUID.fromString(jwt.getSubject()))
         .query(
             (rs, n) ->
@@ -61,7 +62,9 @@ public class RecentlyViewedController {
     jdbc.sql(
             "DELETE FROM users.recently_viewed WHERE user_id = :u AND product_id NOT IN"
                 + " (SELECT product_id FROM users.recently_viewed WHERE user_id = :u"
-                + " ORDER BY viewed_at DESC LIMIT " + MAX + ")")
+                + " ORDER BY viewed_at DESC LIMIT "
+                + MAX
+                + ")")
         .param("u", user)
         .update();
   }

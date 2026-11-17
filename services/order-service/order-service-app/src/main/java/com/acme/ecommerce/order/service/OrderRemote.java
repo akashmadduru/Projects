@@ -13,8 +13,8 @@ import com.acme.ecommerce.order.client.PromotionFeignClient.Validation;
 import com.acme.ecommerce.order.client.RemoteCalls;
 import com.acme.ecommerce.order.client.SellerInternalFeignClient;
 import com.acme.ecommerce.order.client.UserInternalFeignClient;
-import com.acme.ecommerce.user.api.dto.AddressResponse;
 import com.acme.ecommerce.order.domain.Order.ReturnLine;
+import com.acme.ecommerce.user.api.dto.AddressResponse;
 import feign.FeignException;
 import java.math.BigDecimal;
 import java.util.List;
@@ -38,13 +38,16 @@ public class OrderRemote {
   private final PromotionFeignClient promotions;
   private final UserInternalFeignClient usersInternal;
   private final SellerInternalFeignClient sellers;
+  private final WalletCreditBacks walletCreditBacks;
 
   public OrderRemote(
       InventoryFeignClient inventory,
       PaymentFeignClient payments,
       PromotionFeignClient promotions,
       UserInternalFeignClient usersInternal,
-      SellerInternalFeignClient sellers) {
+      SellerInternalFeignClient sellers,
+      WalletCreditBacks walletCreditBacks) {
+    this.walletCreditBacks = walletCreditBacks;
     this.inventory = inventory;
     this.payments = payments;
     this.promotions = promotions;
@@ -54,7 +57,9 @@ public class OrderRemote {
 
   // ---- sellers -----------------------------------------------------------------------------
 
-  /** The APPROVED seller account of a user, or null (not a seller / suspended). 503 if unreachable. */
+  /**
+   * The APPROVED seller account of a user, or null (not a seller / suspended). 503 if unreachable.
+   */
   public java.util.UUID approvedSellerId(UUID userId) {
     try {
       SellerInternalFeignClient.SellerRef ref = sellers.byUser(userId);
@@ -111,7 +116,10 @@ public class OrderRemote {
       inventory.release(
           orderId,
           new InventoryFeignClient.ReleaseRequest(
-              returnId, lines.stream().map(l -> new Item(l.productId(), l.variantId(), l.quantity(), l.offerId())).toList()));
+              returnId,
+              lines.stream()
+                  .map(l -> new Item(l.productId(), l.variantId(), l.quantity(), l.offerId()))
+                  .toList()));
     } catch (RuntimeException e) {
       log.error("Could not restock return {} of order {}: {}", returnId, orderId, e.toString());
     }
@@ -152,8 +160,7 @@ public class OrderRemote {
 
   /** Active deal prices for the lines; empty on any failure (deals are best-effort at pricing). */
   public List<PromotionFeignClient.DealPrice> dealPrices(
-      UUID userId,
-      List<PromotionFeignClient.DealKey> keys) {
+      UUID userId, List<PromotionFeignClient.DealKey> keys) {
     try {
       PromotionFeignClient.DealPricesResponse r =
           promotions.dealPrices(new PromotionFeignClient.DealPricesRequest(keys, userId));
@@ -174,7 +181,8 @@ public class OrderRemote {
 
   public void applyExchange(UUID quoteId, UUID userId, UUID orderId) {
     try {
-      promotions.applyExchange(new PromotionFeignClient.ExchangeApplyRequest(quoteId, userId, orderId));
+      promotions.applyExchange(
+          new PromotionFeignClient.ExchangeApplyRequest(quoteId, userId, orderId));
     } catch (FeignException e) {
       throw RemoteCalls.translate("promotion-service", e);
     }
@@ -189,9 +197,11 @@ public class OrderRemote {
   }
 
   /** Strict wallet debit with a caller-chosen idempotency key (exchange shortfall). */
-  public void debitWalletKeyed(UUID userId, BigDecimal amount, String currency, UUID orderId, String key) {
+  public void debitWalletKeyed(
+      UUID userId, BigDecimal amount, String currency, UUID orderId, String key) {
     try {
-      payments.walletDebit(new PaymentFeignClient.WalletDebit(userId, amount, currency, orderId, key));
+      payments.walletDebit(
+          new PaymentFeignClient.WalletDebit(userId, amount, currency, orderId, key));
     } catch (FeignException e) {
       throw RemoteCalls.translate("payment-service", e);
     }
@@ -231,6 +241,24 @@ public class OrderRemote {
     } catch (FeignException e) {
       throw RemoteCalls.translate("payment-service", e);
     }
+  }
+
+  /**
+   * Best effort: if payment-service is down the payment simply stays open. A customer who still
+   * pays it is refunded by the late-payment path in {@code OrderLifecycleService#paymentResult}.
+   */
+  public void cancelPaymentBestEffort(UUID orderId) {
+    try {
+      payments.cancelUnpaid(orderId);
+    } catch (RuntimeException e) {
+      log.warn("Could not cancel the open payment of order {}: {}", orderId, e.toString());
+    }
+  }
+
+  /** A wallet debit failed ambiguously: give it back if it happened (durable, TD-P8-23). */
+  public void reverseWalletDebitDurable(
+      UUID userId, BigDecimal amount, String currency, UUID orderId) {
+    walletCreditBacks.reverseDebit(userId, amount, currency, orderId);
   }
 
   public void codCollectedBestEffort(UUID orderId) {
@@ -277,22 +305,21 @@ public class OrderRemote {
   public void debitWallet(UUID userId, BigDecimal amount, String currency, UUID orderId) {
     try {
       payments.walletDebit(
-          new PaymentFeignClient.WalletDebit(userId, amount, currency, orderId, "order-debit-" + orderId));
+          new PaymentFeignClient.WalletDebit(
+              userId, amount, currency, orderId, "order-debit-" + orderId));
     } catch (FeignException e) {
       throw RemoteCalls.translate("payment-service", e);
     }
   }
 
   /** Gives the wallet part of a cancelled order back. Idempotent, best effort (logged). */
+  /**
+   * Gives back the wallet amount an order took. Durable (TD-P8-07): recorded before the call and
+   * retried by {@link WalletCreditBacks} until it lands, so an outage no longer loses the money.
+   */
   public void creditWalletBackBestEffort(
       UUID userId, BigDecimal amount, String currency, UUID orderId) {
-    try {
-      payments.walletCredit(
-          new PaymentFeignClient.WalletCredit(
-              userId, amount, currency, "REFUND", orderId.toString(), "order-wallet-back-" + orderId));
-    } catch (RuntimeException e) {
-      log.error("Could not return wallet amount {} for order {}: {}", amount, orderId, e.toString());
-    }
+    walletCreditBacks.creditBack(userId, amount, currency, orderId);
   }
 
   /** Strict credit used by return refunds (idempotent by key). */

@@ -1,5 +1,6 @@
 package com.acme.ecommerce.inventory.event;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
@@ -152,5 +153,26 @@ class ProductEventListenerTest {
   private static ProductEvent event(ProductEventType type, UUID productId) {
     return new ProductEvent(
         UUID.randomUUID(), type, productId, Instant.parse("2026-01-01T00:00:00Z"), null, null);
+  }
+
+  @Test
+  @DisplayName(
+      "a transient failure propagates so the container retries and dead-letters it (TD-BE-17)")
+  void transientFailurePropagates() {
+    ProductEventListener listener = new ProductEventListener(inventoryService, inventoryEvents);
+    UUID productId = UUID.randomUUID();
+    doThrow(new IllegalStateException("db down"))
+        .when(inventoryService)
+        .denormalizeProductSnapshot(productId, "Widget", "SKU-01");
+    ProductEvent event =
+        new ProductEvent(
+            UUID.randomUUID(),
+            ProductEventType.PRODUCT_UPDATED,
+            productId,
+            Instant.parse("2026-01-01T00:00:00Z"),
+            new ProductSnapshot("Widget", "SKU-01"),
+            null);
+
+    assertThatThrownBy(() -> listener.onProductEvent(event)).hasMessage("db down");
   }
 }

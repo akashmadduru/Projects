@@ -1,0 +1,13 @@
+{
+ "product_id": "7625520d-e6b0-4929-66d4-43fe4368c08f",
+ "name": "Suvo Sneakers Lite",
+ "prompt": "studio packshot photo of a Rose Gold Suvo Sneakers Lite, made of aluminium, footwear, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2146344733,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:42:52",
+ "file_path": "product-images/images/7625520d-e6b0-4929-66d4-43fe4368c08f.jpg",
+ "file_size": 48860
+}

@@ -1,0 +1,15 @@
+{
+ "product_id": "8cbecced-3f8d-4af8-6cdd-062dbaf28e15",
+ "name": "Miar LED TV Classic",
+ "prompt": "studio packshot photo of a Blue Miar LED TV Classic, made of nylon, televisions, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2933168928,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:33:28",
+ "file_path": "static/images/8cbecced-3f8d-4af8-6cdd-062dbaf28e15.jpg",
+ "file_size": 23912,
+ "uploaded": false,
+ "s3_url": null
+}

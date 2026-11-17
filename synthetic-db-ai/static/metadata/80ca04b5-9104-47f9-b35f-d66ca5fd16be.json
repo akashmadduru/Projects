@@ -1,0 +1,15 @@
+{
+ "product_id": "80ca04b5-9104-47f9-b35f-d66ca5fd16be",
+ "name": "Tamita 5G Phone Essential",
+ "prompt": "studio packshot photo of a Navy Blue Tamita 5G Phone Essential, made of glass, mobiles & smartphones, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3396708407,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:51:13",
+ "file_path": "static/images/80ca04b5-9104-47f9-b35f-d66ca5fd16be.jpg",
+ "file_size": 63829,
+ "uploaded": false,
+ "s3_url": null
+}

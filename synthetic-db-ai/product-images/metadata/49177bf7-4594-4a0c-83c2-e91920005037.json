@@ -1,0 +1,13 @@
+{
+ "product_id": "49177bf7-4594-4a0c-83c2-e91920005037",
+ "name": "Balum Mechanical Keyboard Lite",
+ "prompt": "studio packshot photo of a Rose Gold Balum Mechanical Keyboard Lite, made of ceramic, keyboards & mice, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 376512587,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:12:48",
+ "file_path": "product-images/images/49177bf7-4594-4a0c-83c2-e91920005037.jpg",
+ "file_size": 59394
+}

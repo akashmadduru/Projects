@@ -1,0 +1,15 @@
+{
+ "product_id": "0704f79c-7fcf-4939-5a39-fae7ef5129dc",
+ "name": "Riquaco RC Car Elite",
+ "prompt": "studio packshot photo of a Olive Riquaco RC Car Elite, made of leather, remote control, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3175917008,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:45:11",
+ "file_path": "static/images/0704f79c-7fcf-4939-5a39-fae7ef5129dc.jpg",
+ "file_size": 73113,
+ "uploaded": false,
+ "s3_url": null
+}

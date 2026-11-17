@@ -1,0 +1,13 @@
+{
+ "product_id": "3586fe48-2368-4362-48bd-7da8b0b4d52b",
+ "name": "Rikaqua Sunscreen Ultra",
+ "prompt": "studio packshot photo of a White Rikaqua Sunscreen Ultra, made of aluminium, skin care, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1815391573,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T00:54:58",
+ "file_path": "product-images/images/3586fe48-2368-4362-48bd-7da8b0b4d52b.jpg",
+ "file_size": 55938
+}

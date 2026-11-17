@@ -1,0 +1,13 @@
+{
+ "product_id": "c05b40fe-650e-4dfd-165d-c29d56ef6de5",
+ "name": "Talumze Handbag Gen 3",
+ "prompt": "studio packshot photo of a Blue Talumze Handbag Gen 3, made of cotton, bags & luggage, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1260403805,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:03:19",
+ "file_path": "product-images/images/c05b40fe-650e-4dfd-165d-c29d56ef6de5.jpg",
+ "file_size": 36531
+}

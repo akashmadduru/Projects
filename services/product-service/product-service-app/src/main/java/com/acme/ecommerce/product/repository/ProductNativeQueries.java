@@ -63,7 +63,8 @@ public class ProductNativeQueries {
   /** Active categories whose name contains the text: rows of {id, name}. */
   @SuppressWarnings("unchecked")
   public List<Object[]> categoriesMatching(String q, int limit) {
-    String pattern = "%" + q.trim().toLowerCase(Locale.ROOT).replace("%", "").replace("_", "") + "%";
+    String pattern =
+        "%" + q.trim().toLowerCase(Locale.ROOT).replace("%", "").replace("_", "") + "%";
     return em.createNativeQuery(
             "select id, name from product.categories where is_active "
                 + "and lower(name) like :pat order by name limit :lim")

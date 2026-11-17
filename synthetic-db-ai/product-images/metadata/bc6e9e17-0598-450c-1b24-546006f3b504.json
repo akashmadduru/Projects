@@ -1,0 +1,13 @@
+{
+ "product_id": "bc6e9e17-0598-450c-1b24-546006f3b504",
+ "name": "Zeri Notebook Pack Max",
+ "prompt": "studio packshot photo of a Navy Blue Zeri Notebook Pack Max, made of wood, stationery, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1012814489,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:30:03",
+ "file_path": "product-images/images/bc6e9e17-0598-450c-1b24-546006f3b504.jpg",
+ "file_size": 79627
+}

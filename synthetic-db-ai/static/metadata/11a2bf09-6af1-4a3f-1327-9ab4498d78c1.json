@@ -1,0 +1,15 @@
+{
+ "product_id": "11a2bf09-6af1-4a3f-1327-9ab4498d78c1",
+ "name": "Ritalum Speaker Edition",
+ "prompt": "studio packshot photo of a Green Ritalum Speaker Edition, made of glass, speakers, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2948544995,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:04:12",
+ "file_path": "static/images/11a2bf09-6af1-4a3f-1327-9ab4498d78c1.jpg",
+ "file_size": 63071,
+ "uploaded": false,
+ "s3_url": null
+}

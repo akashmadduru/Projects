@@ -1,25 +1,27 @@
 package com.acme.ecommerce.user.privacy;
 
+import com.acme.ecommerce.user.config.InternalSecurityConfig;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.springframework.beans.factory.annotation.Value;
-import com.acme.ecommerce.user.config.InternalSecurityConfig;
-import java.time.Duration;
 import org.springframework.cloud.client.loadbalancer.LoadBalancerInterceptor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.client.SimpleClientHttpRequestFactory;
-import org.springframework.kafka.core.DefaultKafkaProducerFactory;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.kafka.core.DefaultKafkaProducerFactory;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.web.client.RestTemplate;
 
-/** Producer for {@code user.events} plus the load-balanced client used for /internal/privacy calls. */
+/**
+ * Producer for {@code user.events} plus the load-balanced client used for /internal/privacy calls.
+ */
 @Configuration(proxyBeanMethods = false)
 public class PrivacyKafkaConfig {
 
@@ -35,9 +37,9 @@ public class PrivacyKafkaConfig {
   }
 
   /**
-   * Load-balanced HTTP for /internal/privacy calls. Deliberately a wrapper type, NOT a RestClient.Builder or
-   * RestTemplate bean: Eureka's own transport picks those up and would try to resolve eureka-server
-   * through the load balancer.
+   * Load-balanced HTTP for /internal/privacy calls. Deliberately a wrapper type, NOT a
+   * RestClient.Builder or RestTemplate bean: Eureka's own transport picks those up and would try to
+   * resolve eureka-server through the load balancer.
    */
   @Bean
   public PrivacyHttp privacyHttp(LoadBalancerInterceptor loadBalancer) {

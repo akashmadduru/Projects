@@ -1,0 +1,13 @@
+{
+ "product_id": "1214c565-5e0d-4bce-9741-5d7f7dd13602",
+ "name": "Linu RC Helicopter Essential",
+ "prompt": "studio packshot photo of a Rose Gold Linu RC Helicopter Essential, made of wood, remote control, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 4030640763,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 768,
+ "created_at": "2026-11-15T22:59:57",
+ "file_path": "product-images/images/1214c565-5e0d-4bce-9741-5d7f7dd13602.jpg",
+ "file_size": 79201
+}

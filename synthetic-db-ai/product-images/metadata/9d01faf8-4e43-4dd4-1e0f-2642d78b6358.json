@@ -1,0 +1,13 @@
+{
+ "product_id": "9d01faf8-4e43-4dd4-1e0f-2642d78b6358",
+ "name": "Kaion Necklace Series 2",
+ "prompt": "studio packshot photo of a White Kaion Necklace Series 2, made of aluminium, watches & jewellery, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 236851972,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T01:50:56",
+ "file_path": "product-images/images/9d01faf8-4e43-4dd4-1e0f-2642d78b6358.jpg",
+ "file_size": 70366
+}

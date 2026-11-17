@@ -1,0 +1,15 @@
+{
+ "product_id": "221f9528-0e0b-44df-cee6-a5db4c92d8a0",
+ "name": "Quatraka Protein Bars Series 2",
+ "prompt": "studio packshot photo of a Rose Gold Quatraka Protein Bars Series 2, made of bamboo, snacks, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3388887496,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 768,
+ "created_at": "2026-11-15T23:19:51",
+ "file_path": "static/images/221f9528-0e0b-44df-cee6-a5db4c92d8a0.jpg",
+ "file_size": 98633,
+ "uploaded": false,
+ "s3_url": null
+}

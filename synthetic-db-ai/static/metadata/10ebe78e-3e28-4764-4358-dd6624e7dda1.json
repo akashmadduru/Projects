@@ -1,0 +1,15 @@
+{
+ "product_id": "10ebe78e-3e28-4764-4358-dd6624e7dda1",
+ "name": "Liorqua Trekking Backpack Gen 3",
+ "prompt": "studio packshot photo of a Grey Liorqua Trekking Backpack Gen 3, made of bamboo, camping, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3060586417,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T01:55:12",
+ "file_path": "static/images/10ebe78e-3e28-4764-4358-dd6624e7dda1.jpg",
+ "file_size": 36000,
+ "uploaded": false,
+ "s3_url": null
+}

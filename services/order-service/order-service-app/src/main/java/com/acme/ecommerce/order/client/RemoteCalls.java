@@ -36,7 +36,9 @@ public final class RemoteCalls {
             if (candidate == ErrorCode.OUT_OF_STOCK && body.has("items")) {
               List<Map<String, Object>> items = new ArrayList<>();
               for (JsonNode n : body.get("items")) {
-                items.add(MAPPER.convertValue(n, new com.fasterxml.jackson.core.type.TypeReference<>() {}));
+                items.add(
+                    MAPPER.convertValue(
+                        n, new com.fasterxml.jackson.core.type.TypeReference<>() {}));
               }
               return new OutOfStockException(detail, items);
             }
@@ -47,8 +49,7 @@ public final class RemoteCalls {
         log.debug("Unparseable error body from {}", service);
       }
     }
-    return new CodedException(
-        ErrorCode.DEPENDENCY_UNAVAILABLE, service + " is unavailable", e);
+    return new CodedException(ErrorCode.DEPENDENCY_UNAVAILABLE, service + " is unavailable", e);
   }
 
   /** Always a 503 (used where a 4xx from the dependency is not meaningful to the caller). */

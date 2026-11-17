@@ -1,0 +1,13 @@
+{
+ "product_id": "228904d6-fd91-4092-a7c9-ec4afeaec52b",
+ "name": "Suco Cricket Bat Edition",
+ "prompt": "studio packshot photo of a Navy Blue Suco Cricket Bat Edition, made of abs plastic, team sports, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3245857210,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:39:55",
+ "file_path": "product-images/images/228904d6-fd91-4092-a7c9-ec4afeaec52b.jpg",
+ "file_size": 71997
+}

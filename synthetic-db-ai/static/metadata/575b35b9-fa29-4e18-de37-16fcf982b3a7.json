@@ -1,0 +1,15 @@
+{
+ "product_id": "575b35b9-fa29-4e18-de37-16fcf982b3a7",
+ "name": "Exqua Backpack Gen 3",
+ "prompt": "studio packshot photo of a Grey Exqua Backpack Gen 3, made of silicone, bags & luggage, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3111434993,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:22:39",
+ "file_path": "static/images/575b35b9-fa29-4e18-de37-16fcf982b3a7.jpg",
+ "file_size": 44187,
+ "uploaded": false,
+ "s3_url": null
+}

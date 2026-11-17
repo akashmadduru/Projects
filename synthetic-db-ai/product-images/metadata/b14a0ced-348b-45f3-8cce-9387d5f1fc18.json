@@ -1,0 +1,13 @@
+{
+ "product_id": "b14a0ced-348b-45f3-8cce-9387d5f1fc18",
+ "name": "Ionze Spice Box Lite",
+ "prompt": "studio packshot photo of a Rose Gold Ionze Spice Box Lite, made of wood, pantry, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3350935362,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:44:55",
+ "file_path": "product-images/images/b14a0ced-348b-45f3-8cce-9387d5f1fc18.jpg",
+ "file_size": 46988
+}

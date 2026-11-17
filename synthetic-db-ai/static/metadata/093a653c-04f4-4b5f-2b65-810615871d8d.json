@@ -1,0 +1,15 @@
+{
+ "product_id": "093a653c-04f4-4b5f-2b65-810615871d8d",
+ "name": "Kaar Cricket Bat Elite",
+ "prompt": "studio packshot photo of a Blue Kaar Cricket Bat Elite, made of wood, team sports, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2423682358,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:35:38",
+ "file_path": "static/images/093a653c-04f4-4b5f-2b65-810615871d8d.jpg",
+ "file_size": 35278,
+ "uploaded": false,
+ "s3_url": null
+}

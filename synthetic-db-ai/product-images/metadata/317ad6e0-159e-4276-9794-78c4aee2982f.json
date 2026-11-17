@@ -1,0 +1,13 @@
+{
+ "product_id": "317ad6e0-159e-4276-9794-78c4aee2982f",
+ "name": "Dexpiion Backpack Plus",
+ "prompt": "studio packshot photo of a Blue Dexpiion Backpack Plus, made of abs plastic, bags & luggage, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1966480218,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-15T23:54:21",
+ "file_path": "product-images/images/317ad6e0-159e-4276-9794-78c4aee2982f.jpg",
+ "file_size": 42727
+}

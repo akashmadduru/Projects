@@ -1,0 +1,15 @@
+{
+ "product_id": "6cbaa0e7-a22b-4e14-315f-0372c85b789a",
+ "name": "Kaba Helmet Series 2",
+ "prompt": "studio packshot photo of a Green Kaba Helmet Series 2, made of nylon, cycling, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1760591669,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:21:37",
+ "file_path": "static/images/6cbaa0e7-a22b-4e14-315f-0372c85b789a.jpg",
+ "file_size": 39919,
+ "uploaded": false,
+ "s3_url": null
+}

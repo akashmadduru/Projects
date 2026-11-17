@@ -93,16 +93,19 @@ public class InventoryController {
   /**
    * The stock-level row for a product, if one has been provisioned.
    *
-   * <p>Backs {@code docs/architecture/design/HLD-catalog-enrichment-and-saga.md} S7.3's narrowly-approved read-only
-   * cross-service call - product-service's {@code CatalogAggregateService} is the one consumer of
-   * this endpoint, calling it through its own {@code aggregateCb} circuit breaker (docs/architecture/adr/0003,
-   * Decision 2). Like every other read here, no {@code @PreAuthorize}: {@code
-   * anyRequest().authenticated()} in {@code SecurityConfig} already covers it.
+   * <p>Backs {@code docs/architecture/design/HLD-catalog-enrichment-and-saga.md} S7.3's
+   * narrowly-approved read-only cross-service call - product-service's {@code
+   * CatalogAggregateService} is the one consumer of this endpoint, calling it through its own
+   * {@code aggregateCb} circuit breaker (docs/architecture/adr/0003, Decision 2). Like every other
+   * read here, no {@code @PreAuthorize}: {@code anyRequest().authenticated()} in {@code
+   * SecurityConfig} already covers it.
    *
    * @param productId the product to look up stock for
    * @return the matching row
    */
-  public record VariantStockRequest(@jakarta.validation.constraints.NotNull UUID productId, @jakarta.validation.constraints.Min(0) int quantity) {}
+  public record VariantStockRequest(
+      @jakarta.validation.constraints.NotNull UUID productId,
+      @jakarta.validation.constraints.Min(0) int quantity) {}
 
   @GetMapping("/variants")
   public java.util.List<InventoryResponse.VariantQuantity> variants(

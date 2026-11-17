@@ -1,0 +1,15 @@
+{
+ "product_id": "6ee697ab-ead6-4e2d-beb5-8954700f8ec9",
+ "name": "Arnu Cricket Bat Plus",
+ "prompt": "studio packshot photo of a Black Arnu Cricket Bat Plus, made of nylon, team sports, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2985982081,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:37:57",
+ "file_path": "static/images/6ee697ab-ead6-4e2d-beb5-8954700f8ec9.jpg",
+ "file_size": 48315,
+ "uploaded": false,
+ "s3_url": null
+}

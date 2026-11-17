@@ -1,0 +1,15 @@
+{
+ "product_id": "3d87a0d0-217c-40bb-2c4a-47c47b98777e",
+ "name": "Lumnopi Earbuds Ultra",
+ "prompt": "studio packshot photo of a Green Lumnopi Earbuds Ultra, made of aluminium, headphones & earbuds, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1507569634,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:03:47",
+ "file_path": "static/images/3d87a0d0-217c-40bb-2c4a-47c47b98777e.jpg",
+ "file_size": 31496,
+ "uploaded": false,
+ "s3_url": null
+}

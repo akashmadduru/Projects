@@ -1,0 +1,13 @@
+{
+ "product_id": "df41688b-9a82-47fe-948c-e09288eb9e90",
+ "name": "Coarno Mirrorless Camera Max",
+ "prompt": "studio packshot photo of a Blue Coarno Mirrorless Camera Max, made of aluminium, cameras, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2752572412,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:09:33",
+ "file_path": "product-images/images/df41688b-9a82-47fe-948c-e09288eb9e90.jpg",
+ "file_size": 58473
+}

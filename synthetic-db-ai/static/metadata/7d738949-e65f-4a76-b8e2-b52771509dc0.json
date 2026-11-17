@@ -1,0 +1,15 @@
+{
+ "product_id": "7d738949-e65f-4a76-b8e2-b52771509dc0",
+ "name": "Liventra Notebook Essential",
+ "prompt": "studio packshot photo of a Red Liventra Notebook Essential, made of wood, laptops, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1090317870,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:08:20",
+ "file_path": "static/images/7d738949-e65f-4a76-b8e2-b52771509dc0.jpg",
+ "file_size": 83441,
+ "uploaded": false,
+ "s3_url": null
+}

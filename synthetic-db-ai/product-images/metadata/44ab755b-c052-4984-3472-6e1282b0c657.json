@@ -1,0 +1,13 @@
+{
+ "product_id": "44ab755b-c052-4984-3472-6e1282b0c657",
+ "name": "Coar Building Blocks Elite",
+ "prompt": "studio packshot photo of a White Coar Building Blocks Elite, made of silicone, building toys, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3507491466,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:10:30",
+ "file_path": "product-images/images/44ab755b-c052-4984-3472-6e1282b0c657.jpg",
+ "file_size": 23031
+}

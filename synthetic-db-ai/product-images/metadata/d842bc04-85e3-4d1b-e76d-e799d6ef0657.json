@@ -1,0 +1,13 @@
+{
+ "product_id": "d842bc04-85e3-4d1b-e76d-e799d6ef0657",
+ "name": "Suar Headphones Lite",
+ "prompt": "studio packshot photo of a Rose Gold Suar Headphones Lite, made of silicone, headphones & earbuds, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2714647756,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:49:06",
+ "file_path": "product-images/images/d842bc04-85e3-4d1b-e76d-e799d6ef0657.jpg",
+ "file_size": 49701
+}

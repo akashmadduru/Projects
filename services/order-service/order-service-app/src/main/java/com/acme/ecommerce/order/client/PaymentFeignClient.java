@@ -7,7 +7,9 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
-/** payment-service internal endpoints (X-Internal-Token). Shapes copied from the Phase 6 contract. */
+/**
+ * payment-service internal endpoints (X-Internal-Token). Shapes copied from the Phase 6 contract.
+ */
 @FeignClient(
     name = "payment-service",
     contextId = "paymentInternal",
@@ -44,6 +46,14 @@ public interface PaymentFeignClient {
 
   record RefundResult(String status, BigDecimal refundedAmount) {}
 
+  /** Give back the debit with debitKey only if it happened (TD-P8-23). */
+  record WalletReverse(UUID userId, String debitKey, String creditKey) {}
+
+  record WalletReverseResult(boolean reversed) {}
+
+  @PostMapping("/internal/wallet/reverse")
+  WalletReverseResult walletReverse(@RequestBody WalletReverse request);
+
   @PostMapping("/internal/payments")
   PaymentResult create(@RequestBody CreatePayment request);
 
@@ -61,4 +71,8 @@ public interface PaymentFeignClient {
 
   @PostMapping("/internal/payments/orders/{orderId}/cod-collected")
   void codCollected(@PathVariable("orderId") UUID orderId);
+
+  /** Order cancelled or expired before payment: stop the payment from being taken (TD-P6-03). */
+  @PostMapping("/internal/payments/orders/{orderId}/cancel")
+  void cancelUnpaid(@PathVariable("orderId") UUID orderId);
 }

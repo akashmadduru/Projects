@@ -43,7 +43,9 @@ public class AuthAuditPublisher {
       List<String> roles = actor == null ? null : actor.getClaimAsStringList("roles");
       StringBuilder sb = new StringBuilder("{");
       sb.append("\"eventId\":\"").append(UUID.randomUUID()).append("\",");
-      sb.append("\"actorUserId\":").append(str(actor == null ? null : actor.getSubject())).append(',');
+      sb.append("\"actorUserId\":")
+          .append(str(actor == null ? null : actor.getSubject()))
+          .append(',');
       sb.append("\"actorRoles\":[");
       if (roles != null) {
         for (int i = 0; i < roles.size(); i++) {

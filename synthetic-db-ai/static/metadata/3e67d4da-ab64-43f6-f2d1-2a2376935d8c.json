@@ -1,0 +1,15 @@
+{
+ "product_id": "3e67d4da-ab64-43f6-f2d1-2a2376935d8c",
+ "name": "Orvo Jeans Pro",
+ "prompt": "studio packshot photo of a Silver Orvo Jeans Pro, made of leather, men's clothing, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2793174225,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:30:20",
+ "file_path": "static/images/3e67d4da-ab64-43f6-f2d1-2a2376935d8c.jpg",
+ "file_size": 48518,
+ "uploaded": false,
+ "s3_url": null
+}

@@ -1,0 +1,13 @@
+{
+ "product_id": "9f5ba2cf-7cd2-461f-657d-551e40d4b201",
+ "name": "Ardex Frying Pan Series 2",
+ "prompt": "studio packshot photo of a Red Ardex Frying Pan Series 2, made of leather, cookware, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1983641419,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:12:16",
+ "file_path": "product-images/images/9f5ba2cf-7cd2-461f-657d-551e40d4b201.jpg",
+ "file_size": 79081
+}

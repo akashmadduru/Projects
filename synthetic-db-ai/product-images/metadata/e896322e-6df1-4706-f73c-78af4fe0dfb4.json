@@ -1,0 +1,13 @@
+{
+ "product_id": "e896322e-6df1-4706-f73c-78af4fe0dfb4",
+ "name": "Rico Mechanical Keyboard Lite",
+ "prompt": "studio packshot photo of a Blue Rico Mechanical Keyboard Lite, made of ceramic, keyboards & mice, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 449581376,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:01:35",
+ "file_path": "product-images/images/e896322e-6df1-4706-f73c-78af4fe0dfb4.jpg",
+ "file_size": 67488
+}

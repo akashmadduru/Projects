@@ -68,6 +68,12 @@ export const routes: readonly RouteRecordRaw[] = [
         meta: { requiresAuth: true, requiresAnyRole: ['ADMIN'] },
       },
       {
+        path: 'moderation',
+        name: 'moderation',
+        component: () => import('@/views/ModerationView.vue'),
+        meta: { requiresAuth: true, requiresAnyRole: ['ADMIN', 'CATALOG_MANAGER'] },
+      },
+      {
         path: 'payments',
         name: 'payments',
         component: () => import('@/views/PaymentsView.vue'),

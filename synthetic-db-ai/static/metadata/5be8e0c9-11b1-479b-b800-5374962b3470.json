@@ -1,0 +1,15 @@
+{
+ "product_id": "5be8e0c9-11b1-479b-b800-5374962b3470",
+ "name": "Orco Basmati Rice Series 2",
+ "prompt": "studio packshot photo of a Blue Orco Basmati Rice Series 2, made of leather, pantry, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2215504761,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:25:10",
+ "file_path": "static/images/5be8e0c9-11b1-479b-b800-5374962b3470.jpg",
+ "file_size": 63856,
+ "uploaded": false,
+ "s3_url": null
+}

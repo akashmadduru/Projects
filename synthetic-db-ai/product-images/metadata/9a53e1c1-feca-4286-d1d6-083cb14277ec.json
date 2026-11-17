@@ -1,0 +1,13 @@
+{
+ "product_id": "9a53e1c1-feca-4286-d1d6-083cb14277ec",
+ "name": "Orex Bike Lock Prime",
+ "prompt": "studio packshot photo of a Olive Orex Bike Lock Prime, made of ceramic, cycling, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2298856624,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:06:51",
+ "file_path": "product-images/images/9a53e1c1-feca-4286-d1d6-083cb14277ec.jpg",
+ "file_size": 26306
+}

@@ -26,11 +26,13 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 public class WarehouseController {
 
-  public record WarehouseRequest(String code, String name, UUID sellerId, String pincode, String state) {}
+  public record WarehouseRequest(
+      String code, String name, UUID sellerId, String pincode, String state) {}
 
   public record WarehouseUpdate(String name, String pincode, String state, Boolean active) {}
 
-  public record OfferStockRequest(@NotNull UUID offerId, String warehouseCode, @Min(0) int quantity) {}
+  public record OfferStockRequest(
+      @NotNull UUID offerId, String warehouseCode, @Min(0) int quantity) {}
 
   public record PlatformStockRequest(
       @NotNull UUID productId, UUID variantId, String warehouseCode, @Min(0) int quantity) {}
@@ -44,7 +46,8 @@ public class WarehouseController {
   }
 
   private UUID sellerOf(Authentication auth) {
-    boolean admin = auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+    boolean admin =
+        auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
     return sellers.resolveSeller(((Jwt) auth.getPrincipal()).getSubject(), admin);
   }
 
@@ -104,6 +107,7 @@ public class WarehouseController {
   @PutMapping("/api/seller/stock")
   @PreAuthorize("hasAnyRole('SELLER','ADMIN')")
   public Row sellerSetStock(Authentication auth, @Valid @RequestBody OfferStockRequest r) {
-    return service.setOfferStock(sellerOf(auth), r.offerId(), r.warehouseCode(), r.quantity(), isAdmin(auth));
+    return service.setOfferStock(
+        sellerOf(auth), r.offerId(), r.warehouseCode(), r.quantity(), isAdmin(auth));
   }
 }

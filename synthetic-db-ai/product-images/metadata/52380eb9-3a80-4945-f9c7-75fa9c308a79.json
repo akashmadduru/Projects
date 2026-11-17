@@ -1,0 +1,13 @@
+{
+ "product_id": "52380eb9-3a80-4945-f9c7-75fa9c308a79",
+ "name": "Venlo Face Serum Classic",
+ "prompt": "studio packshot photo of a Black Venlo Face Serum Classic, made of bamboo, skin care, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 4284404322,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:19:29",
+ "file_path": "product-images/images/52380eb9-3a80-4945-f9c7-75fa9c308a79.jpg",
+ "file_size": 49587
+}

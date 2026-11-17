@@ -1,0 +1,13 @@
+{
+ "product_id": "a9cf72aa-ea4d-48b9-9e86-057e56ff88af",
+ "name": "Miexno Protein Bars Classic",
+ "prompt": "studio packshot photo of a Navy Blue Miexno Protein Bars Classic, made of aluminium, snacks, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 4292064075,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:00:10",
+ "file_path": "product-images/images/a9cf72aa-ea4d-48b9-9e86-057e56ff88af.jpg",
+ "file_size": 81149
+}

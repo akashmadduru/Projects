@@ -1,0 +1,13 @@
+{
+ "product_id": "31105372-bc00-45ad-4fdb-595dd0746024",
+ "name": "Tazelum Smart TV Ultra",
+ "prompt": "studio packshot photo of a Blue Tazelum Smart TV Ultra, made of abs plastic, televisions, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3799650194,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T00:34:58",
+ "file_path": "product-images/images/31105372-bc00-45ad-4fdb-595dd0746024.jpg",
+ "file_size": 87597
+}

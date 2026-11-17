@@ -1,7 +1,6 @@
 package com.acme.ecommerce.product.service;
 
 import com.acme.ecommerce.common.core.error.ForbiddenException;
-import com.acme.ecommerce.common.core.error.ResourceNotFoundException;
 import com.acme.ecommerce.common.core.error.ValidationException;
 import com.acme.ecommerce.product.api.dto.OfferResponse;
 import com.acme.ecommerce.product.api.dto.ProductResponse;
@@ -41,8 +40,18 @@ public class SellerCatalogService {
 
   public record SellerCtx(UUID sellerId, boolean admin, String sellerName) {}
 
+  /**
+   * One of the seller's offers. {@code reviewStatus}/{@code reviewNote} are the product's
+   * moderation state (TD-P9-03), so a seller can see a listing waiting for review or why it was
+   * rejected.
+   */
   public record OfferView(
-      OfferResponse offer, UUID productId, String productName, String productSku) {}
+      OfferResponse offer,
+      UUID productId,
+      String productName,
+      String productSku,
+      String reviewStatus,
+      String reviewNote) {}
 
   public record OfferRequest(
       UUID productId,
@@ -133,7 +142,8 @@ public class SellerCatalogService {
   public List<OfferView> myOffers(SellerCtx ctx) {
     List<Offer> mine = offerService.bySeller(ctx.sellerId());
     Map<UUID, Product> byProduct = new HashMap<>();
-    products.findAllById(mine.stream().map(Offer::getProductId).distinct().toList())
+    products
+        .findAllById(mine.stream().map(Offer::getProductId).distinct().toList())
         .forEach(p -> byProduct.put(p.getId(), p));
     Map<UUID, List<Offer>> grouped = new HashMap<>();
     mine.forEach(o -> grouped.computeIfAbsent(o.getProductId(), k -> new ArrayList<>()).add(o));
@@ -148,7 +158,9 @@ public class SellerCatalogService {
               views.get(o.getId()),
               o.getProductId(),
               p == null ? null : p.getName(),
-              p == null ? null : p.getSku()));
+              p == null ? null : p.getSku(),
+              p == null ? null : p.getModerationStatus(),
+              p == null ? null : p.getModerationNote()));
     }
     return out;
   }
@@ -161,7 +173,13 @@ public class SellerCatalogService {
         offerService.create(
             ctx.sellerId(),
             new OfferInput(
-                r.productId(), r.variantId(), r.price(), r.salePrice(), r.currency(), r.dispatchDays(), r.active()));
+                r.productId(),
+                r.variantId(),
+                r.price(),
+                r.salePrice(),
+                r.currency(),
+                r.dispatchDays(),
+                r.active()));
     writeStock(o, r.quantity(), r.warehouseCode());
     return viewOf(o);
   }
@@ -172,7 +190,13 @@ public class SellerCatalogService {
             ctx.sellerId(),
             id,
             new OfferInput(
-                o2(r.productId()), null, r.price(), r.salePrice(), r.currency(), r.dispatchDays(), r.active()),
+                o2(r.productId()),
+                null,
+                r.price(),
+                r.salePrice(),
+                r.currency(),
+                r.dispatchDays(),
+                r.active()),
             ctx.admin());
     writeStock(o, r.quantity(), r.warehouseCode());
     return viewOf(o);
@@ -188,7 +212,9 @@ public class SellerCatalogService {
         offerService.views(o.getProductId(), List.of(o)).get(0),
         o.getProductId(),
         p == null ? null : p.getName(),
-        p == null ? null : p.getSku());
+        p == null ? null : p.getSku(),
+        p == null ? null : p.getModerationStatus(),
+        p == null ? null : p.getModerationNote());
   }
 
   private void writeStock(Offer o, Integer quantity, String warehouseCode) {
@@ -201,7 +227,12 @@ public class SellerCatalogService {
     try {
       inventory.putStock(
           new InventoryDto.StockWrite(
-              o.getProductId(), o.getVariantId(), o.getSellerId(), o.getId(), blankToNull(warehouseCode), quantity),
+              o.getProductId(),
+              o.getVariantId(),
+              o.getSellerId(),
+              o.getId(),
+              blankToNull(warehouseCode),
+              quantity),
           token);
     } catch (feign.FeignException.BadRequest | feign.FeignException.Forbidden e) {
       throw ValidationException.forField("warehouseCode", "unknown warehouse or seller has none");
@@ -249,7 +280,8 @@ public class SellerCatalogService {
                 entity.setThumbnailUrl(r.imageUrl().trim());
               }
               OfferInput in =
-                  new OfferInput(p.getId(), null, r.price(), r.salePrice(), currency, r.dispatchDays(), true);
+                  new OfferInput(
+                      p.getId(), null, r.price(), r.salePrice(), currency, r.dispatchDays(), true);
               if (platform) {
                 offerService.update(
                     ctx.sellerId(),
@@ -329,7 +361,11 @@ public class SellerCatalogService {
 
   private static String describe(ValidationException e) {
     return e.fieldErrors().stream()
-        .map(m -> m.get("field") + " " + (m.get("message") != null ? m.get("message") : m.get("reason")))
+        .map(
+            m ->
+                m.get("field")
+                    + " "
+                    + (m.get("message") != null ? m.get("message") : m.get("reason")))
         .collect(java.util.stream.Collectors.joining("; "));
   }
 
@@ -434,6 +470,10 @@ public class SellerCatalogService {
       tx.executeWithoutResult(
           s -> {
             Product e = products.findById(existing.getId()).orElseThrow();
+            if ("REJECTED".equals(e.getModerationStatus())) {
+              // A rejected listing that the seller edits goes back into the review queue.
+              e.setModerationStatus("PENDING_REVIEW");
+            }
             e.setName(name);
             if (description != null) {
               e.setDescription(description);
@@ -447,6 +487,8 @@ public class SellerCatalogService {
             if (image != null) {
               e.setThumbnailUrl(image);
             }
+            // Downstream caches and search must see a seller's bulk edit (TD-P9-03).
+            catalog.publishUpdated(e.getId());
           });
     }
     Offer offer =
@@ -454,7 +496,8 @@ public class SellerCatalogService {
     if (offer == null) {
       offer =
           offerService.create(
-              ctx.sellerId(), new OfferInput(productId, null, price, saleFinal, currencyFinal, 1, true));
+              ctx.sellerId(),
+              new OfferInput(productId, null, price, saleFinal, currencyFinal, 1, true));
     } else {
       offer =
           offerService.update(

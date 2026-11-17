@@ -20,8 +20,8 @@ import org.springframework.security.web.access.intercept.AuthorizationFilter;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
- * Phase 10 privacy: no-JWT chain for /internal/privacy/** guarded by X-Internal-Token (constant-time
- * compare; blank configured token rejects everything). Never routed by the gateway.
+ * Phase 10 privacy: no-JWT chain for /internal/privacy/** guarded by X-Internal-Token
+ * (constant-time compare; blank configured token rejects everything). Never routed by the gateway.
  */
 @Configuration(proxyBeanMethods = false)
 public class PrivacyInternalSecurityConfig {

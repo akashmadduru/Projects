@@ -146,6 +146,33 @@
       "usedBy": "all services (Helm)",
       "text": "Same brokers for the shared audit-event publisher, which reads the Spring name."
     },
+    "STATIC_IMAGE_SERVER_URL": {
+      "group": "AI and search",
+      "usedBy": "product-service",
+      "text": "Where product-service reaches static-image-server to upload/delete product images (e.g. `http://static-image-server/product-images`). Blank disables the image upload endpoints; existing image URLs keep working."
+    },
+    "STATIC_IMAGE_SERVER_PUBLIC_URL": {
+      "group": "AI and search",
+      "usedBy": "product-service",
+      "text": "Browser-facing base URL of the product images. Seeds the `parentUrl` setting on first startup only; after that `PUT /api/admin/image-settings` changes it at runtime without a restart."
+    },
+    "STATIC_IMAGE_SERVER_TOKEN": {
+      "group": "AI and search",
+      "usedBy": "product-service",
+      "secret": true,
+      "text": "`X-Image-Token` product-service sends on PUT/DELETE to static-image-server. Same value as `IMAGE_SERVER_TOKEN`."
+    },
+    "IMAGE_SERVER_TOKEN": {
+      "group": "AI and search",
+      "usedBy": "static-image-server",
+      "secret": true,
+      "text": "Write token static-image-server requires on PUT/DELETE (reads are public). Set in `deploy/local/.env`."
+    },
+    "NGINX_ENVSUBST_FILTER": {
+      "group": "AI and search",
+      "usedBy": "static-image-server",
+      "text": "nginx image setting: only variables with this prefix (`IMAGE_SERVER_`) are substituted into the config template, so nginx's own `$variables` are left alone."
+    },
     "EMBEDDING_PROVIDER": {
       "group": "AI and search",
       "usedBy": "product-service",
@@ -470,14 +497,25 @@
     "PAYMENT_DEFAULT_PROVIDER": {
       "group": "Payments",
       "text": "`STRIPE` or `RAZORPAY`: the provider preselected at checkout when both are configured. Blank means the first configured one (Stripe, then Razorpay). Customers can switch before paying."
+    },
+    "INVENTORY_DEFAULT_STOCK_QUANTITY": {
+      "group": "Business rules",
+      "secret": false,
+      "text": "Stock given to a product or variant that has no stock row when product-service's catalog sync finds it. Default 0, so nothing is sellable until it is stocked; the local stack uses 100 so the demo catalog can be bought. Existing quantities are never changed."
+    },
+    "INVENTORY_MISSING_STOCK_ROWS": {
+      "group": "Business rules",
+      "secret": false,
+      "text": "`REJECT` (default): an order line with no stock row is out of stock. `UNLIMITED`: the old behaviour, where such a line could be oversold. Escape hatch only."
     }
   },
   "vite": {
     "VITE_API_BASE_URL": "Origin of the API the admin app calls. On AWS it is the admin site itself (CloudFront forwards `/api/*`).",
     "VITE_APP_ORIGIN": "Public origin of the admin app, used for OAuth redirects.",
     "VITE_ADMIN_URL": "Link from the storefront footer to the admin site.",
-    "VITE_AUTH_BASE_URL": "Origin the storefront uses to start Google sign-in (`/oauth2/authorization/google`). On AWS the storefront origin.",
-    "VITE_GOOGLE_SSO_ENABLED": "Shows the \"Continue with Google\" button. `deploy.sh` sets it from whether `GOOGLE_CLIENT_ID` is filled in."
+    "VITE_AUTH_BASE_URL": "Origin the storefront uses to start Google sign-in (`/oauth2/authorization/google`). On AWS the storefront origin. The admin app reads it too: Google sign-in starts there (default `http://localhost:8081` in dev, the API origin in production builds).",
+    "VITE_GOOGLE_SSO_ENABLED": "Shows the \"Continue with Google\" button. `deploy.sh` sets it from whether `GOOGLE_CLIENT_ID` is filled in.",
+    "VITE_STOREFRONT_ORIGIN": "Admin app: the storefront origin, used only to build \"Preview on storefront\" links in the theme editor. Default `http://localhost:3000`."
   },
   "deploy": {
     "AWS_REGION": "Region for everything except CloudFront certificates and WAF (always us-east-1).",

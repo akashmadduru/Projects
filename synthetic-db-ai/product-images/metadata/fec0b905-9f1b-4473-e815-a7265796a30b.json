@@ -1,0 +1,13 @@
+{
+ "product_id": "fec0b905-9f1b-4473-e815-a7265796a30b",
+ "name": "Zenu Gaming Monitor Ultra",
+ "prompt": "studio packshot photo of a Space Grey Zenu Gaming Monitor Ultra, made of silicone, monitors, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1119203543,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:47:59",
+ "file_path": "product-images/images/fec0b905-9f1b-4473-e815-a7265796a30b.jpg",
+ "file_size": 103849
+}

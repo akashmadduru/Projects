@@ -57,8 +57,7 @@ public class OfferService {
   private final DealRepository deals;
   private final MembershipLookup members;
 
-  public OfferService(
-      CouponRepository coupons, DealRepository deals, MembershipLookup members) {
+  public OfferService(CouponRepository coupons, DealRepository deals, MembershipLookup members) {
     this.coupons = coupons;
     this.deals = deals;
     this.members = members;
@@ -84,9 +83,7 @@ public class OfferService {
       }
       cs.add(
           new CouponOffer(
-              c.code(),
-              c.description(),
-              discount(c.type(), c.value(), c.maxDiscount(), price)));
+              c.code(), c.description(), discount(c.type(), c.value(), c.maxDiscount(), price)));
     }
     List<BankOfferView> banks = new ArrayList<>();
     for (BankOffer b : deals.activeBankOffers()) {

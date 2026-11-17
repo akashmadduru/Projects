@@ -1,0 +1,13 @@
+{
+ "product_id": "6d1b20a2-efd4-49bd-1e30-89b0fc5de7d1",
+ "name": "Arextra Paperback Edition",
+ "prompt": "studio packshot photo of a Grey Arextra Paperback Edition, made of nylon, books, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1445000009,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T00:35:24",
+ "file_path": "product-images/images/6d1b20a2-efd4-49bd-1e30-89b0fc5de7d1.jpg",
+ "file_size": 45281
+}

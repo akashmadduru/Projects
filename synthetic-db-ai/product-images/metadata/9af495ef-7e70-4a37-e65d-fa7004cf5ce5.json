@@ -1,0 +1,13 @@
+{
+ "product_id": "9af495ef-7e70-4a37-e65d-fa7004cf5ce5",
+ "name": "Pidexli Spice Box Edition",
+ "prompt": "studio packshot photo of a Space Grey Pidexli Spice Box Edition, made of abs plastic, pantry, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3565037774,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T01:57:09",
+ "file_path": "product-images/images/9af495ef-7e70-4a37-e65d-fa7004cf5ce5.jpg",
+ "file_size": 58876
+}

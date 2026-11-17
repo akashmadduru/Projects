@@ -402,7 +402,6 @@ All asynchronous, service-to-service updates flow through Kafka.
 |---|---|
 | No transactional outbox: an event or a post-commit side effect lost between commit and send is never retried | [TD-P6-01](../techdebt/phase6.md#td-p6-01) |
 | Single Kafka broker, replication factor 1, PLAINTEXT | [technical audit](../audit/technical-audit.md#8-security-audit) |
-| Six Kafka listeners swallow errors, so the DLQ never sees their failures | [TD-BE-17](../techdebt/backend.md#td-be-17) |
 | One shared `INTERNAL_API_TOKEN` for every `/internal/**` call | TD-P6-12 |
 | No gateway rate limiting; auth's Bucket4j limits are per instance | [api.md](../reference/api.md#rate-limits) |
 | Duplicated event classes, no schema registry | [decision log](decision-log.md), Decision 1 |

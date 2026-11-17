@@ -1,0 +1,13 @@
+{
+ "product_id": "3856cbf7-7222-43e6-4d17-8c93119f3141",
+ "name": "Orex Table Lamp Elite",
+ "prompt": "studio packshot photo of a Space Grey Orex Table Lamp Elite, made of aluminium, home decor, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 92811433,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:01:22",
+ "file_path": "product-images/images/3856cbf7-7222-43e6-4d17-8c93119f3141.jpg",
+ "file_size": 59908
+}

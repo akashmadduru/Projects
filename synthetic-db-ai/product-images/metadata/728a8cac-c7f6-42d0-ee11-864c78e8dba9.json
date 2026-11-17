@@ -1,0 +1,13 @@
+{
+ "product_id": "728a8cac-c7f6-42d0-ee11-864c78e8dba9",
+ "name": "Zeli Camera Prime",
+ "prompt": "studio packshot photo of a Grey Zeli Camera Prime, made of wood, cameras, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1451223762,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:33:00",
+ "file_path": "product-images/images/728a8cac-c7f6-42d0-ee11-864c78e8dba9.jpg",
+ "file_size": 38875
+}

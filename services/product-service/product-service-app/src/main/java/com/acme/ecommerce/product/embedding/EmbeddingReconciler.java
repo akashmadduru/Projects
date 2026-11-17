@@ -30,10 +30,11 @@ import org.springframework.stereotype.Component;
  * write transaction stores the vectors. The advisory {@link JobLock} makes one replica run it at a
  * time. A provider outage records a per-product failure with exponential backoff and ends the run.
  *
- * <p>SELF-HEALING. Rows are stamped with the snapshot time taken BEFORE the read, so a product
- * edited between read and write still has {@code updated_at > checked_at} and is redone next run.
- * Once per {@code fullSweepInterval} every product is re-hashed regardless (a category rename does
- * not touch {@code products.updated_at}).
+ * <p>SELF-HEALING. Each row records the {@code products.updated_at} that was read ({@code
+ * source_updated_at}), so a product edited between read and write is newer and is redone next run,
+ * while a processed product is never selected again within the same run (TD-AI-01). Once per {@code
+ * fullSweepInterval} every product is re-hashed regardless (a category rename does not touch {@code
+ * products.updated_at}).
  */
 @Slf4j
 @Component
@@ -111,7 +112,7 @@ public class EmbeddingReconciler {
       }
       batches++;
 
-      List<UUID> unchangedIds = new ArrayList<>();
+      java.util.Map<UUID, Instant> unchangedIds = new java.util.LinkedHashMap<>();
       List<Pending> pending = new ArrayList<>();
       for (Candidate c : candidates) {
         String text =
@@ -124,9 +125,9 @@ public class EmbeddingReconciler {
                 c.specificationsJson());
         String hash = EmbeddingText.hash(text, model);
         if (hash.equals(c.storedHash()) && model.equals(c.storedModel())) {
-          unchangedIds.add(c.productId());
+          unchangedIds.put(c.productId(), c.updatedAt());
         } else {
-          pending.add(new Pending(c.productId(), text, hash));
+          pending.add(new Pending(c.productId(), text, hash, c.updatedAt()));
         }
       }
 
@@ -177,7 +178,8 @@ public class EmbeddingReconciler {
       List<float[]> vectors =
           embeddingPort.embed(pending.stream().map(Pending::text).toList(), EmbedKind.DOCUMENT);
       for (int i = 0; i < pending.size(); i++) {
-        done.add(new Embedded(pending.get(i).id(), vectors.get(i), pending.get(i).hash()));
+        Pending p = pending.get(i);
+        done.add(new Embedded(p.id(), vectors.get(i), p.hash(), p.sourceUpdatedAt()));
       }
       return 0;
     } catch (RuntimeException batchError) {
@@ -193,7 +195,7 @@ public class EmbeddingReconciler {
       }
       try {
         float[] vector = embeddingPort.embed(List.of(p.text()), EmbedKind.DOCUMENT).get(0);
-        done.add(new Embedded(p.id(), vector, p.hash()));
+        done.add(new Embedded(p.id(), vector, p.hash(), p.sourceUpdatedAt()));
         streak = 0;
       } catch (RuntimeException e) {
         failures.add(failure(p, e));
@@ -214,5 +216,5 @@ public class EmbeddingReconciler {
         message.length() > MAX_ERROR_CHARS ? message.substring(0, MAX_ERROR_CHARS) : message);
   }
 
-  private record Pending(UUID id, String text, String hash) {}
+  private record Pending(UUID id, String text, String hash, Instant sourceUpdatedAt) {}
 }

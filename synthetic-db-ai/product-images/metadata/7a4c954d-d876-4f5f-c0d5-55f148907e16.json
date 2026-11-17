@@ -1,0 +1,13 @@
+{
+ "product_id": "7a4c954d-d876-4f5f-c0d5-55f148907e16",
+ "name": "Exka Thermometer Ultra",
+ "prompt": "studio packshot photo of a Blue Exka Thermometer Ultra, made of stainless steel, medical devices, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1556351649,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:46:25",
+ "file_path": "product-images/images/7a4c954d-d876-4f5f-c0d5-55f148907e16.jpg",
+ "file_size": 49494
+}

@@ -1,0 +1,13 @@
+{
+ "product_id": "8e2f12b7-22dc-49ef-b933-bc58655d47c3",
+ "name": "Traridex Strategy Game Lite",
+ "prompt": "studio packshot photo of a Midnight Traridex Strategy Game Lite, made of stainless steel, board games, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2482663985,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:07:57",
+ "file_path": "product-images/images/8e2f12b7-22dc-49ef-b933-bc58655d47c3.jpg",
+ "file_size": 67618
+}

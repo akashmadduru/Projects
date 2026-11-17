@@ -1,0 +1,13 @@
+{
+ "product_id": "df425e38-bd03-4f03-849d-1164efdc12c5",
+ "name": "Lumor Fountain Pen Pro",
+ "prompt": "studio packshot photo of a White Lumor Fountain Pen Pro, made of silicone, stationery, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 831253660,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:53:22",
+ "file_path": "product-images/images/df425e38-bd03-4f03-849d-1164efdc12c5.jpg",
+ "file_size": 55178
+}

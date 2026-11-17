@@ -1,0 +1,13 @@
+{
+ "product_id": "b8d977c8-3bb5-4a24-5c4b-ac58b8aeaa3e",
+ "name": "Kali Building Blocks Series 2",
+ "prompt": "studio packshot photo of a White Kali Building Blocks Series 2, made of stainless steel, building toys, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1342803023,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:30:05",
+ "file_path": "product-images/images/b8d977c8-3bb5-4a24-5c4b-ac58b8aeaa3e.jpg",
+ "file_size": 26095
+}

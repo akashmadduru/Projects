@@ -3,15 +3,6 @@
 Checked against the code on 2026-11-15. Design: [HLD-ai-platform](../architecture/design/HLD-ai-platform.md),
 [LLD-ai-1](../architecture/design/LLD-ai-1-semantic-search.md).
 
-## TD-AI-01
-**pgvector integration tests written but never run.** Severity: High. Effort: S.
-`HybridSearchIntegrationTest`, `HybridSearchProviderDownIntegrationTest` and `HybridSearchDisabledIntegrationTest`
-(Testcontainers, `pgvector/pgvector:0.8.7-pg17`) compile, but Docker was unavailable when AI-1 was finished, so the
-real SQL (schema-qualified operators, RRF, facets, iterative scans) has only been exercised by unit tests and an
-earlier partial run. Run `./gradlew :services:product-service:product-service-app:test` with Docker before
-enabling the feature anywhere. Unit tests (`EmbeddingTextTest`, `FakeEmbeddingPortTest`, `QueryEmbeddingCacheTest`,
-`QueryUnderstandingTest`) pass.
-
 ## TD-AI-02
 **No IRSA role or NetworkPolicy egress for Bedrock yet.** Severity: Med. Effort: S.
 Helm sets `EMBEDDING_PROVIDER: "none"` and `AWS_REGION`, but the product-service ServiceAccount has no IAM role

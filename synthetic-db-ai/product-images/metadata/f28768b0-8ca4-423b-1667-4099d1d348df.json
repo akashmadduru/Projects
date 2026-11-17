@@ -1,0 +1,13 @@
+{
+ "product_id": "f28768b0-8ca4-423b-1667-4099d1d348df",
+ "name": "Loex Colour Pencil Set Pro",
+ "prompt": "studio packshot photo of a Navy Blue Loex Colour Pencil Set Pro, made of glass, art supplies, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1152768394,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T22:04:56",
+ "file_path": "product-images/images/f28768b0-8ca4-423b-1667-4099d1d348df.jpg",
+ "file_size": 52590
+}

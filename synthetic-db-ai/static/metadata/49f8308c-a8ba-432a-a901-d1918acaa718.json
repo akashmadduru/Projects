@@ -1,0 +1,15 @@
+{
+ "product_id": "49f8308c-a8ba-432a-a901-d1918acaa718",
+ "name": "Covoco Dumbbell Set Series 2",
+ "prompt": "studio packshot photo of a White Covoco Dumbbell Set Series 2, made of ceramic, fitness, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2331580014,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:27:04",
+ "file_path": "static/images/49f8308c-a8ba-432a-a901-d1918acaa718.jpg",
+ "file_size": 50504,
+ "uploaded": false,
+ "s3_url": null
+}

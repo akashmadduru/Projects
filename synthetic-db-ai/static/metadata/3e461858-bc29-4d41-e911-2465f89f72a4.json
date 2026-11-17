@@ -1,0 +1,15 @@
+{
+ "product_id": "3e461858-bc29-4d41-e911-2465f89f72a4",
+ "name": "Pinori Basmati Rice Max",
+ "prompt": "studio packshot photo of a Blue Pinori Basmati Rice Max, made of leather, pantry, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2128872516,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:10:53",
+ "file_path": "static/images/3e461858-bc29-4d41-e911-2465f89f72a4.jpg",
+ "file_size": 56592,
+ "uploaded": false,
+ "s3_url": null
+}

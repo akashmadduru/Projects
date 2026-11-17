@@ -1,0 +1,13 @@
+{
+ "product_id": "a72a7c7a-9662-4727-5a54-52433aa0caf8",
+ "name": "Loor Office Chair Ultra",
+ "prompt": "studio packshot photo of a Red Loor Office Chair Ultra, made of nylon, furniture, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1350936940,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T01:32:51",
+ "file_path": "product-images/images/a72a7c7a-9662-4727-5a54-52433aa0caf8.jpg",
+ "file_size": 75368
+}

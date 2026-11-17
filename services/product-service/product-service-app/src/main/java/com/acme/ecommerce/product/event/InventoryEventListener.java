@@ -66,8 +66,7 @@ public class InventoryEventListener {
       // Graceful: product may have been deleted before event was processed
       log.debug(
           "Product not found during inventory update productId={}: {}", productId, e.getMessage());
-    } catch (Exception e) {
-      log.error("Error processing inventory event productId={}: {}", productId, e.getMessage(), e);
     }
+    // Anything else propagates: the container retries it, then dead-letters it (TD-BE-17).
   }
 }

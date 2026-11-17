@@ -1,0 +1,13 @@
+{
+ "product_id": "7f1a2682-c4de-4fee-993b-13353d5c7ea7",
+ "name": "Zefyex Earbuds Elite",
+ "prompt": "studio packshot photo of a Midnight Zefyex Earbuds Elite, made of stainless steel, headphones & earbuds, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2769478926,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:49:35",
+ "file_path": "product-images/images/7f1a2682-c4de-4fee-993b-13353d5c7ea7.jpg",
+ "file_size": 51699
+}

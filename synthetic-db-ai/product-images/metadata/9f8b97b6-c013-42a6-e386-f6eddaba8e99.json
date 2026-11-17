@@ -1,0 +1,13 @@
+{
+ "product_id": "9f8b97b6-c013-42a6-e386-f6eddaba8e99",
+ "name": "Suno Tent Edition",
+ "prompt": "studio packshot photo of a Rose Gold Suno Tent Edition, made of abs plastic, camping, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1370380236,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:18:26",
+ "file_path": "product-images/images/9f8b97b6-c013-42a6-e386-f6eddaba8e99.jpg",
+ "file_size": 49431
+}

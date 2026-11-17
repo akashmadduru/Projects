@@ -1,0 +1,13 @@
+{
+ "product_id": "fa81be4a-2120-44d7-d874-a994f5e7a44c",
+ "name": "Rinunu Sneakers Gen 3",
+ "prompt": "studio packshot photo of a Green Rinunu Sneakers Gen 3, made of polyester, footwear, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3773409693,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T00:26:59",
+ "file_path": "product-images/images/fa81be4a-2120-44d7-d874-a994f5e7a44c.jpg",
+ "file_size": 41446
+}

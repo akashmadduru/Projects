@@ -16,8 +16,7 @@ public class ReminderController {
   }
 
   @PostMapping("/internal/cart/reminders/run")
-  public Map<String, Integer> run(
-      @RequestParam(defaultValue = "240") int minAgeMinutes) {
+  public Map<String, Integer> run(@RequestParam(defaultValue = "240") int minAgeMinutes) {
     return Map.of("sent", reminders.run(Math.max(minAgeMinutes, 0)));
   }
 }

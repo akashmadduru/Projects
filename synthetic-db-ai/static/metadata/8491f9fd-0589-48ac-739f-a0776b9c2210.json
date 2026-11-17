@@ -1,0 +1,15 @@
+{
+ "product_id": "8491f9fd-0589-48ac-739f-a0776b9c2210",
+ "name": "Orloco 5G Phone Essential",
+ "prompt": "studio packshot photo of a Blue Orloco 5G Phone Essential, made of stainless steel, mobiles & smartphones, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1873092217,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:53:36",
+ "file_path": "static/images/8491f9fd-0589-48ac-739f-a0776b9c2210.jpg",
+ "file_size": 45226,
+ "uploaded": false,
+ "s3_url": null
+}

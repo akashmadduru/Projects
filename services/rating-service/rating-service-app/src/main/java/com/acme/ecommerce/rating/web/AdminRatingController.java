@@ -52,7 +52,8 @@ public class AdminRatingController {
   @org.springframework.web.bind.annotation.PostMapping("/{id}/moderate")
   public RatingResponse moderate(
       @org.springframework.web.bind.annotation.PathVariable UUID id,
-      @jakarta.validation.Valid @org.springframework.web.bind.annotation.RequestBody ModerateRequest r) {
+      @jakarta.validation.Valid @org.springframework.web.bind.annotation.RequestBody
+          ModerateRequest r) {
     return ratings.moderate(id, r.approve());
   }
 }

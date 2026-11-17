@@ -1,0 +1,15 @@
+{
+ "product_id": "0ed1162a-e267-49fc-f084-2e1375b74a03",
+ "name": "Travoex SSD Ultra",
+ "prompt": "studio packshot photo of a Rose Gold Travoex SSD Ultra, made of bamboo, storage, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2113927924,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 768,
+ "created_at": "2026-11-15T22:55:58",
+ "file_path": "static/images/0ed1162a-e267-49fc-f084-2e1375b74a03.jpg",
+ "file_size": 90536,
+ "uploaded": false,
+ "s3_url": null
+}

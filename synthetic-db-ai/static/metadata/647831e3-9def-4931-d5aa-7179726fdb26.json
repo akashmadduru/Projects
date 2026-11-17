@@ -1,0 +1,15 @@
+{
+ "product_id": "647831e3-9def-4931-d5aa-7179726fdb26",
+ "name": "Losu Yoga Mat Elite",
+ "prompt": "studio packshot photo of a Black Losu Yoga Mat Elite, made of ceramic, fitness, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2343422592,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:21:26",
+ "file_path": "static/images/647831e3-9def-4931-d5aa-7179726fdb26.jpg",
+ "file_size": 32920,
+ "uploaded": false,
+ "s3_url": null
+}

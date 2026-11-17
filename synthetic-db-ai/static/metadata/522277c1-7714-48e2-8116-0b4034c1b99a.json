@@ -1,0 +1,15 @@
+{
+ "product_id": "522277c1-7714-48e2-8116-0b4034c1b99a",
+ "name": "Venarco Massager Essential",
+ "prompt": "studio packshot photo of a White Venarco Massager Essential, made of abs plastic, personal wellness, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1841052904,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:19:07",
+ "file_path": "static/images/522277c1-7714-48e2-8116-0b4034c1b99a.jpg",
+ "file_size": 63441,
+ "uploaded": false,
+ "s3_url": null
+}

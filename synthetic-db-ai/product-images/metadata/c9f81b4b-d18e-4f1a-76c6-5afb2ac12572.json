@@ -1,0 +1,13 @@
+{
+ "product_id": "c9f81b4b-d18e-4f1a-76c6-5afb2ac12572",
+ "name": "Venri Multivitamin Plus",
+ "prompt": "studio packshot photo of a Grey Venri Multivitamin Plus, made of stainless steel, supplements, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 382506051,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:39:00",
+ "file_path": "product-images/images/c9f81b4b-d18e-4f1a-76c6-5afb2ac12572.jpg",
+ "file_size": 47253
+}

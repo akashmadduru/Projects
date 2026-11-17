@@ -1,0 +1,13 @@
+{
+ "product_id": "870418c1-6e76-4b2a-47f2-73f9ebc53e05",
+ "name": "Linu Construction Set Essential",
+ "prompt": "studio packshot photo of a Green Linu Construction Set Essential, made of polyester, building toys, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3804659087,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:20:25",
+ "file_path": "product-images/images/870418c1-6e76-4b2a-47f2-73f9ebc53e05.jpg",
+ "file_size": 51085
+}

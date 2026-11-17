@@ -1,0 +1,13 @@
+{
+ "product_id": "9d5dcb45-5bb3-4e5f-a29c-3ad95350ccd2",
+ "name": "Zefyka Watch Plus",
+ "prompt": "studio packshot photo of a Olive Zefyka Watch Plus, made of glass, smart watches, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 4014902107,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:10:30",
+ "file_path": "product-images/images/9d5dcb45-5bb3-4e5f-a29c-3ad95350ccd2.jpg",
+ "file_size": 56322
+}

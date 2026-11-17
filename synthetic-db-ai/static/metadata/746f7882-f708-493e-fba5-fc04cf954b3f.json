@@ -1,0 +1,15 @@
+{
+ "product_id": "746f7882-f708-493e-fba5-fc04cf954b3f",
+ "name": "Venco Backpack Max",
+ "prompt": "studio packshot photo of a Blue Venco Backpack Max, made of glass, bags & luggage, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2646563420,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:42:07",
+ "file_path": "static/images/746f7882-f708-493e-fba5-fc04cf954b3f.jpg",
+ "file_size": 38661,
+ "uploaded": false,
+ "s3_url": null
+}

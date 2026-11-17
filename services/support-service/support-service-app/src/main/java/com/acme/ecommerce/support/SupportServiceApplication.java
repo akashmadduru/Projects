@@ -8,7 +8,10 @@ import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 import org.springframework.cloud.openfeign.EnableFeignClients;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
-/** support-service entry point (Eureka id {@code support-service}, gateway {@code lb://SUPPORT-SERVICE}). */
+/**
+ * support-service entry point (Eureka id {@code support-service}, gateway {@code
+ * lb://SUPPORT-SERVICE}).
+ */
 @SpringBootApplication
 @EnableDiscoveryClient
 @EnableConfigurationProperties(SupportProperties.class)

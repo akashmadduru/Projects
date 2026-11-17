@@ -1,0 +1,15 @@
+{
+ "product_id": "2dc71264-3a64-4059-2b1d-ac1eafe29066",
+ "name": "Lumorli Ultrabook Edition",
+ "prompt": "studio packshot photo of a Midnight Lumorli Ultrabook Edition, made of bamboo, laptops, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2425790368,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:27:38",
+ "file_path": "static/images/2dc71264-3a64-4059-2b1d-ac1eafe29066.jpg",
+ "file_size": 44776,
+ "uploaded": false,
+ "s3_url": null
+}

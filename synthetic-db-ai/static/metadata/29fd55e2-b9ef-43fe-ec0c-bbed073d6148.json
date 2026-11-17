@@ -1,0 +1,15 @@
+{
+ "product_id": "29fd55e2-b9ef-43fe-ec0c-bbed073d6148",
+ "name": "Arrili Analog Watch Essential",
+ "prompt": "studio packshot photo of a Navy Blue Arrili Analog Watch Essential, made of cotton, watches & jewellery, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3278446047,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:23:49",
+ "file_path": "static/images/29fd55e2-b9ef-43fe-ec0c-bbed073d6148.jpg",
+ "file_size": 56486,
+ "uploaded": false,
+ "s3_url": null
+}

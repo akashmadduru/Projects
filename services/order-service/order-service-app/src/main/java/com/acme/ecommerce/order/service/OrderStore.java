@@ -58,7 +58,9 @@ public class OrderStore {
   /** A state change plus whether this call actually changed anything (idempotency signal). */
   public record Result(OrderResponse order, boolean changed) {}
 
-  /** An advanced shipment (null for legacy orders without shipments) plus the order status before. */
+  /**
+   * An advanced shipment (null for legacy orders without shipments) plus the order status before.
+   */
   public record ShipmentAdvance(
       OrderResponse order, ShipmentResponse shipment, String previousOrderStatus) {}
 
@@ -329,8 +331,7 @@ public class OrderStore {
     }
     if (!o.isCancellable()) {
       throw new CodedException(
-          ErrorCode.ORDER_NOT_CANCELLABLE,
-          "Order cannot be cancelled in status " + o.getStatus());
+          ErrorCode.ORDER_NOT_CANCELLABLE, "Order cannot be cancelled in status " + o.getStatus());
     }
     boolean refund =
         o.getPaymentStatus() == PaymentStatus.PAID
@@ -446,7 +447,11 @@ public class OrderStore {
   public ShipmentRef shipmentRef(UUID shipmentId) {
     OrderShipment s = findShipment(shipmentId);
     return new ShipmentRef(
-        s.getId(), s.getOrder().getId(), s.getOrder().getUserId(), s.getSellerId(), s.getStatus().name());
+        s.getId(),
+        s.getOrder().getId(),
+        s.getOrder().getUserId(),
+        s.getSellerId(),
+        s.getStatus().name());
   }
 
   private OrderShipment findShipment(UUID id) {
@@ -484,7 +489,8 @@ public class OrderStore {
             props.getReturns().getWindowDays(),
             Instant.now());
     orders.flush();
-    long recent = returns.countByUserIdAndCreatedAtAfter(userId, Instant.now().minus(60, ChronoUnit.DAYS));
+    long recent =
+        returns.countByUserIdAndCreatedAtAfter(userId, Instant.now().minus(60, ChronoUnit.DAYS));
     long totalOrders = orders.countByUserIdAndStatusNot(userId, OrderStatus.CANCELLED);
     long returnedOrders = returns.countDistinctOrders(userId);
     if (recent > 3 || (totalOrders >= 4 && returnedOrders * 2 > totalOrders)) {

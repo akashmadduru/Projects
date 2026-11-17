@@ -8,6 +8,7 @@ Phase 7 was built under "no tests, no HLD/LLD, record shortcuts as debt". The in
 ## TD-P7-01 No tests for Phase 7
 - **Severity / Effort:** High / L
 - **Where:** product-service (search, facets, variants, slug, views, sitemap), cart-service (alerts, variant lines), order-service (variant pricing, deals, bought-together, variant returns), inventory-service (variant stock), promotion-service (offers, deals), rating-service (Q&A, media, filters); storefront (SearchBar, FilterPanel, variant picker, compare, lightbox, SEO hook, alerts page); admin (product form variants, Deals view).
+- **Progress 2026-11-17:** hybrid search and its pgvector SQL now run in CI-style integration tests (all pass); stock rows for every variant are synced and tested; stale storefront component tests (ProductGrid, AccountMenu, drawer) fixed. Still untested: facets SQL, variant pricing, deal claim/release, alert triggers, media upload, a PDP-to-checkout e2e.
 - **Risk:** The only safety net is the one-off e2e scripts. Existing storefront component tests (ProductCard etc.) were not updated for the new deal fetch and Compare button, so they are likely stale. `phase6-e2e.mjs` check D3 was reordered during integration (invoice fetched before cancel, because cancelled orders return 409 by design). Extends [TD-P6-05](phase6.md#td-p6-05), TD-TEST-01/02.
 - **Fix:** Contract tests for search/facets SQL, variant pricing, deal claim/release, alert triggers, media upload validation; fix stale storefront tests; Playwright for PDP variant to checkout.
 
@@ -45,13 +46,6 @@ Phase 7 was built under "no tests, no HLD/LLD, record shortcuts as debt". The in
 - **Where:** `<product>/service/` variant replace (`PUT /api/products/{id}/variants`); cart/order tables that hold `variant_id`; order-service `ProductView` DTO.
 - **Risk:** The PUT is delete-and-recreate for ids missing from the request (no soft delete). Variant ids stored in carts, wishlists, orders and alerts are plain uuids with no foreign key, so a deleted variant leaves dangling references. No validation beyond blank/length on SKU and price. Order-service reads variants through its own `ProductView` DTO (a second Feign client) instead of a shared response type.
 - **Fix:** Soft-delete (`active=false`) instead of removal; validate SKU format and price; shared contract type for product responses.
-
-<a id="td-p7-07"></a>
-## TD-P7-07 Variant stock gaps
-- **Severity / Effort:** High / M
-- **Where:** `services/inventory-service/.../` (`variant_stock`, `GET /api/inventory/by-product/{id}`, `GET /internal/inventory/variants`); admin product form.
-- **Risk:** A variant with no `variant_stock` row is unlimited (same hole as [TD-P6-04](phase6.md#td-p6-04)), so admin-created variants can be oversold until someone calls `PUT /api/inventory/variants/{id}`; the admin variant editor does not set stock and nothing syncs product-service variant edits to inventory. Variant stock is not aggregated into the product-level `stock_levels` row, so product-level "out of stock" is not derived for variant products. `by-product` returns a synthetic stub (id null, quantity = sum of variants) for variant-only products. The inventory V6 migration backfills `product_id` on seeded variant rows with hard-coded ids, which fixes seed data only. Seed variant rows had `product_id` NULL until V6, so the breakdown omitted them.
-- **Fix:** Create a stock row (0 or a default) when a variant is created; call it from the admin editor; derive product availability from variant stock; fail closed on missing rows.
 
 <a id="td-p7-08"></a>
 ## TD-P7-08 Returns keyed on (productId, variantId) only for new rows
@@ -150,3 +144,10 @@ Phase 7 was built under "no tests, no HLD/LLD, record shortcuts as debt". The in
 - **Where:** `deploy/local/docker-compose.yml` (product-service `INTERNAL_API_TOKEN`); product-service Feign inventory client (`getByProductWithAuth`).
 - **Risk:** product-service now reads variant stock via `GET /internal/inventory/variants?ids=` with `X-Internal-Token`, adding another consumer of the shared static secret ([TD-P6-12](phase6.md#td-p6-12)). The earlier JWT-forwarding method `getByProductWithAuth` was left in place, unused. Variants with no `variant_stock` row still return `availableQuantity` null (unlimited, see TD-P7-07). All Phase 7 service images were again built through the offline mirror, not the repo Dockerfiles ([TD-P6-06](phase6.md#td-p6-06) covers this).
 - **Fix:** Delete the unused Feign method; fold into the shared-token cleanup.
+
+<a id="td-p7-22"></a>
+## TD-P7-22 Stock rows: up to 15 minutes before a new variant is sellable
+- **Severity / Effort:** Low / S
+- **Where:** product-service `CatalogStockSync`; inventory `POST /internal/inventory/stock/ensure`; admin variant editor; inventory-service test profile.
+- **Risk:** Residual of TD-P6-04 and TD-P7-07 (fixed 2026-11-17: reservation fails closed on a line with no stock row, a catalog sync gives every active product and variant a row, a release can no longer add stock it never reserved). A variant created in the editor is out of stock until the next sync (every 15 minutes) or until someone sets its stock. Product availability on the PDP is still not derived from variant stock. `stock_levels.reserved_quantity` remains unused (reservations live in their own table). inventory-service's integration tests run with no Kafka and no send cap, so they take about 20 minutes.
+- **Fix:** Call `ensure` from the variant-create path right after commit; derive product availability from the sum of its variants; drop `reserved_quantity` with TD-P9-02; cap `max.block.ms` in inventory's test profile as product-service does.

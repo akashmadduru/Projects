@@ -14,7 +14,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
@@ -49,7 +48,8 @@ public class PrivacyController {
   }
 
   @GetMapping("/api/users/me/export/{jobId}/download")
-  public ResponseEntity<byte[]> download(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID jobId) {
+  public ResponseEntity<byte[]> download(
+      @AuthenticationPrincipal Jwt jwt, @PathVariable UUID jobId) {
     byte[] zip = privacy.download(UUID.fromString(jwt.getSubject()), jobId);
     return ResponseEntity.ok()
         .contentType(MediaType.parseMediaType("application/zip"))
@@ -76,7 +76,10 @@ public class PrivacyController {
     DeleteRequest b = body == null ? new DeleteRequest(null, null) : body;
     return DeletionResponse.of(
         privacy.scheduleDeletion(
-            UUID.fromString(jwt.getSubject()), jwt.getClaimAsString("email"), b.password(), b.otp()));
+            UUID.fromString(jwt.getSubject()),
+            jwt.getClaimAsString("email"),
+            b.password(),
+            b.otp()));
   }
 
   @PostMapping("/api/users/me/delete/cancel")
@@ -84,10 +87,13 @@ public class PrivacyController {
     return DeletionResponse.of(privacy.cancelDeletion(UUID.fromString(jwt.getSubject())));
   }
 
-  /** Dev trigger (internal token): run every deletion due at {@code now} (default: current time). */
+  /**
+   * Dev trigger (internal token): run every deletion due at {@code now} (default: current time).
+   */
   @PostMapping("/internal/privacy/deletions/run-due")
   public java.util.Map<String, Integer> runDue(@RequestParam(required = false) String now) {
-    java.time.Instant at = now == null || now.isBlank() ? java.time.Instant.now() : java.time.Instant.parse(now);
+    java.time.Instant at =
+        now == null || now.isBlank() ? java.time.Instant.now() : java.time.Instant.parse(now);
     return java.util.Map.of("completed", privacy.runDue(at));
   }
 }

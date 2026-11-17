@@ -54,7 +54,8 @@ public class TwoFactorController {
 
   @PostMapping("/2fa/setup")
   public TwoFactorSetupResponse setup(@AuthenticationPrincipal Jwt jwt) {
-    TwoFactorService.Setup s = twoFactor.setup(UUID.fromString(jwt.getSubject()), jwt.getClaimAsString("email"));
+    TwoFactorService.Setup s =
+        twoFactor.setup(UUID.fromString(jwt.getSubject()), jwt.getClaimAsString("email"));
     return new TwoFactorSetupResponse(s.otpauthUrl(), s.secretBase32());
   }
 
@@ -93,11 +94,15 @@ public class TwoFactorController {
     boolean hasCode = request.code() != null && !request.code().isBlank();
     boolean hasRecovery = request.recoveryCode() != null && !request.recoveryCode().isBlank();
     if (hasCode == hasRecovery) {
-      throw new AuthException(AuthErrorCode.AUTH_MFA_INVALID, "Provide exactly one of code / recoveryCode");
+      throw new AuthException(
+          AuthErrorCode.AUTH_MFA_INVALID, "Provide exactly one of code / recoveryCode");
     }
     TokenPair pair =
         twoFactor.verifyLogin(
-            request.mfaToken(), request.code(), request.recoveryCode(), deviceContexts.from(httpRequest));
+            request.mfaToken(),
+            request.code(),
+            request.recoveryCode(),
+            deviceContexts.from(httpRequest));
     refreshCookies.write(httpResponse, pair);
     return ResponseEntity.ok(
         TokenResponse.bearer(
@@ -109,12 +114,18 @@ public class TwoFactorController {
   @GetMapping("/sessions")
   public List<SessionResponse> listSessions(
       @AuthenticationPrincipal Jwt jwt, HttpServletRequest httpRequest) {
-    return sessions.list(UUID.fromString(jwt.getSubject()), refreshCookies.read(httpRequest).orElse(null))
+    return sessions
+        .list(UUID.fromString(jwt.getSubject()), refreshCookies.read(httpRequest).orElse(null))
         .stream()
         .map(
             s ->
                 new SessionResponse(
-                    s.familyId(), s.device(), s.ipAddress(), s.authMethod(), s.lastUsedAt(), s.current()))
+                    s.familyId(),
+                    s.device(),
+                    s.ipAddress(),
+                    s.authMethod(),
+                    s.lastUsedAt(),
+                    s.current()))
         .toList();
   }
 

@@ -60,7 +60,10 @@ public class SecurityConfig {
                 rs.authenticationEntryPoint(
                         (req, res, ex) ->
                             problems.write(
-                                req, res, ErrorCode.UNAUTHENTICATED, "A valid bearer token is required"))
+                                req,
+                                res,
+                                ErrorCode.UNAUTHENTICATED,
+                                "A valid bearer token is required"))
                     .accessDeniedHandler(
                         (req, res, ex) ->
                             problems.write(req, res, ErrorCode.FORBIDDEN, "Permission denied"))

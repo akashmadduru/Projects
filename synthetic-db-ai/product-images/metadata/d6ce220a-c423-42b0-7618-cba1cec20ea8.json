@@ -1,0 +1,13 @@
+{
+ "product_id": "d6ce220a-c423-42b0-7618-cba1cec20ea8",
+ "name": "Litrali Watch Lite",
+ "prompt": "studio packshot photo of a Grey Litrali Watch Lite, made of silicone, smart watches, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2330576714,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:07:07",
+ "file_path": "product-images/images/d6ce220a-c423-42b0-7618-cba1cec20ea8.jpg",
+ "file_size": 48105
+}

@@ -1,0 +1,13 @@
+{
+ "product_id": "17d3c8b0-3223-4763-1c98-0777947235f5",
+ "name": "Arvoar 5G Phone Classic",
+ "prompt": "studio packshot photo of a Green Arvoar 5G Phone Classic, made of polyester, mobiles & smartphones, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 621323819,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 768,
+ "created_at": "2026-11-15T23:07:06",
+ "file_path": "product-images/images/17d3c8b0-3223-4763-1c98-0777947235f5.jpg",
+ "file_size": 70048
+}

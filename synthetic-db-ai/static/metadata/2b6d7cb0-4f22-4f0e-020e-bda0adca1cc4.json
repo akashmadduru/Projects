@@ -1,0 +1,15 @@
+{
+ "product_id": "2b6d7cb0-4f22-4f0e-020e-bda0adca1cc4",
+ "name": "Quaquadex Eau de Toilette Gen 3",
+ "prompt": "studio packshot photo of a Navy Blue Quaquadex Eau de Toilette Gen 3, made of polyester, fragrances, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2117018310,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-15T23:45:43",
+ "file_path": "static/images/2b6d7cb0-4f22-4f0e-020e-bda0adca1cc4.jpg",
+ "file_size": 51160,
+ "uploaded": false,
+ "s3_url": null
+}

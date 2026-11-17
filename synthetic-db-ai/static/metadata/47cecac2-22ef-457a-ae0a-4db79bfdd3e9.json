@@ -1,0 +1,15 @@
+{
+ "product_id": "47cecac2-22ef-457a-ae0a-4db79bfdd3e9",
+ "name": "Ionvovo Kurta Pro",
+ "prompt": "studio packshot photo of a Red Ionvovo Kurta Pro, made of stainless steel, women's clothing, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 559432243,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:12:25",
+ "file_path": "static/images/47cecac2-22ef-457a-ae0a-4db79bfdd3e9.jpg",
+ "file_size": 45267,
+ "uploaded": false,
+ "s3_url": null
+}

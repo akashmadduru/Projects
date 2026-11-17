@@ -1,0 +1,13 @@
+{
+ "product_id": "78255339-105a-44bb-391d-b581ed359a41",
+ "name": "Loion Bluetooth Speaker Pro",
+ "prompt": "studio packshot photo of a Blue Loion Bluetooth Speaker Pro, made of stainless steel, speakers, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 45187669,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:42:30",
+ "file_path": "product-images/images/78255339-105a-44bb-391d-b581ed359a41.jpg",
+ "file_size": 47486
+}

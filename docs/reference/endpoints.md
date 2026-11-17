@@ -209,11 +209,15 @@ Request and response shapes for Phases 1–5 are in [api.md](api.md); later phas
 | PUT | `/api/products/{id}` | ProductController |
 | GET | `/api/products/{id}/also-viewed` | ProductController |
 | PUT | `/api/products/{id}/variants` | ProductController |
+| POST | `/api/products/{productId}/images` | ProductImageController |
+| PUT | `/api/products/{productId}/images/{imageId}` | ProductImageController |
+| DELETE | `/api/products/{productId}/images/{imageId}` | ProductImageController |
 | POST | `/api/products/{id}/views` | ProductController |
 | GET | `/api/products/batch` | ProductController |
 | GET | `/api/products/catalog/products/{id}` | ProductController |
 | GET | `/api/products/facets` | ProductController |
 | GET | `/api/products/fx-rates` | FxRateController |
+| GET | `/api/products/image-settings` | ImageSettingsController |
 | GET | `/api/products/search` | ProductSearchController |
 | GET | `/api/products/search/facets` | ProductSearchController |
 | GET | `/api/products/admin/embeddings/status` | EmbeddingAdminController |
@@ -222,6 +226,8 @@ Request and response shapes for Phases 1–5 are in [api.md](api.md); later phas
 | GET | `/api/products/suggest` | ProductController |
 | GET | `/sitemap.xml` | SitemapController |
 | PUT | `/api/admin/fx-rates` | FxRateController |
+| PUT | `/api/admin/image-settings` | ImageSettingsController |
+| DELETE | `/api/admin/image-settings` | ImageSettingsController |
 | GET | `/api/seller/offers` | SellerController |
 | POST | `/api/seller/offers` | SellerController |
 | PUT | `/api/seller/offers/{id}` | SellerController |

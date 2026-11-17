@@ -1,0 +1,15 @@
+{
+ "product_id": "1f2c9096-7826-4e74-d02e-d69f9a9f5158",
+ "name": "Kano Robot Vacuum Series 2",
+ "prompt": "studio packshot photo of a Midnight Kano Robot Vacuum Series 2, made of aluminium, cleaning, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2635660638,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:31:30",
+ "file_path": "static/images/1f2c9096-7826-4e74-d02e-d69f9a9f5158.jpg",
+ "file_size": 84067,
+ "uploaded": false,
+ "s3_url": null
+}

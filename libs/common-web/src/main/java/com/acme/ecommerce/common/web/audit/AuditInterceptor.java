@@ -10,14 +10,14 @@ import org.springframework.web.servlet.HandlerMapping;
 
 /**
  * Audits every successful back-office write without touching each controller: non-GET requests
- * under {@code /api/admin/**} and {@code /api/seller/**}, plus catalog/inventory writes by an
- * ADMIN or CATALOG_MANAGER. Runs in {@code afterCompletion}, i.e. after the service-layer
- * transaction committed. Customer traffic (carts, orders, payments by the account owner) is never
- * audited here.
+ * under {@code /api/admin/**} and {@code /api/seller/**}, plus catalog/inventory writes by an ADMIN
+ * or CATALOG_MANAGER. Runs in {@code afterCompletion}, i.e. after the service-layer transaction
+ * committed. Customer traffic (carts, orders, payments by the account owner) is never audited here.
  */
 public class AuditInterceptor implements HandlerInterceptor {
 
-  private static final Set<String> STAFF = Set.of("ADMIN", "CATALOG_MANAGER", "SUPPORT", "FINANCE", "SELLER");
+  private static final Set<String> STAFF =
+      Set.of("ADMIN", "CATALOG_MANAGER", "SUPPORT", "FINANCE", "SELLER");
   private static final Set<String> CATALOG_ROLES = Set.of("ADMIN", "CATALOG_MANAGER");
   private static final List<String> CATALOG_PREFIXES =
       List.of("/api/products", "/api/categories", "/api/inventory", "/api/sellers");
@@ -56,12 +56,17 @@ public class AuditInterceptor implements HandlerInterceptor {
       Object pattern = request.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE);
       String route = pattern == null ? path : pattern.toString();
       Map<String, String> vars =
-          (Map<String, String>) request.getAttribute(HandlerMapping.URI_TEMPLATE_VARIABLES_ATTRIBUTE);
+          (Map<String, String>)
+              request.getAttribute(HandlerMapping.URI_TEMPLATE_VARIABLES_ATTRIBUTE);
       String resourceId = vars == null || vars.isEmpty() ? null : vars.values().iterator().next();
       String[] seg = route.split("/");
       String resourceType = null;
       for (String s : seg) {
-        if (s.isEmpty() || s.equals("api") || s.equals("admin") || s.equals("seller") || s.startsWith("{")) {
+        if (s.isEmpty()
+            || s.equals("api")
+            || s.equals("admin")
+            || s.equals("seller")
+            || s.startsWith("{")) {
           continue;
         }
         resourceType = s.toUpperCase(java.util.Locale.ROOT);
@@ -75,7 +80,8 @@ public class AuditInterceptor implements HandlerInterceptor {
               + ",\"status\":"
               + response.getStatus()
               + "}";
-      publisher.publishNow(actor, method + " " + route, resourceType, resourceId, after, ip(request));
+      publisher.publishNow(
+          actor, method + " " + route, resourceType, resourceId, after, ip(request));
     } catch (RuntimeException e) {
       // fail-open: never let auditing affect the response
     }

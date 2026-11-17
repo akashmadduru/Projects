@@ -1,0 +1,13 @@
+{
+ "product_id": "c950834d-fad8-4e7f-28b7-c80f7a27bc2d",
+ "name": "Kamiven Brick Set Gen 3",
+ "prompt": "studio packshot photo of a Navy Blue Kamiven Brick Set Gen 3, made of ceramic, building toys, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1264807525,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T01:15:54",
+ "file_path": "product-images/images/c950834d-fad8-4e7f-28b7-c80f7a27bc2d.jpg",
+ "file_size": 63439
+}

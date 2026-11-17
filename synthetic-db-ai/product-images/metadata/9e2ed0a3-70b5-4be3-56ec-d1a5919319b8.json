@@ -1,0 +1,13 @@
+{
+ "product_id": "9e2ed0a3-70b5-4be3-56ec-d1a5919319b8",
+ "name": "Nunuba Omega-3 Pro",
+ "prompt": "studio packshot photo of a Midnight Nunuba Omega-3 Pro, made of polyester, supplements, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 385605488,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:34:39",
+ "file_path": "product-images/images/9e2ed0a3-70b5-4be3-56ec-d1a5919319b8.jpg",
+ "file_size": 55516
+}

@@ -42,4 +42,9 @@ public class InternalPaymentController implements PaymentClient {
   public PaymentResponse codCollected(@PathVariable("orderId") UUID orderId) {
     return service.codCollected(orderId);
   }
+
+  @Override
+  public PaymentResponse cancelUnpaid(@PathVariable("orderId") UUID orderId) {
+    return service.cancelUnpaid(orderId);
+  }
 }

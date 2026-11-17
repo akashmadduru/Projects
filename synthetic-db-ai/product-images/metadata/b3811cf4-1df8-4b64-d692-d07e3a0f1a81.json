@@ -1,0 +1,13 @@
+{
+ "product_id": "b3811cf4-1df8-4b64-d692-d07e3a0f1a81",
+ "name": "Arvoar 4K Monitor Ultra",
+ "prompt": "studio packshot photo of a Navy Blue Arvoar 4K Monitor Ultra, made of nylon, monitors, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2230727441,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:10:14",
+ "file_path": "product-images/images/b3811cf4-1df8-4b64-d692-d07e3a0f1a81.jpg",
+ "file_size": 67830
+}

@@ -1,0 +1,15 @@
+{
+ "product_id": "08233e42-9cf0-45b1-ab2f-649a9b4c2531",
+ "name": "Ribaor Fountain Pen Elite",
+ "prompt": "studio packshot photo of a Space Grey Ribaor Fountain Pen Elite, made of nylon, stationery, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 4193777127,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:52:20",
+ "file_path": "static/images/08233e42-9cf0-45b1-ab2f-649a9b4c2531.jpg",
+ "file_size": 33731,
+ "uploaded": false,
+ "s3_url": null
+}

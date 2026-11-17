@@ -1,0 +1,15 @@
+{
+ "product_id": "2f514c6b-4f5f-4986-20fc-0e5d9c553dd1",
+ "name": "Zesuka Dress Elite",
+ "prompt": "studio packshot photo of a White Zesuka Dress Elite, made of wood, women's clothing, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 881272206,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:56:54",
+ "file_path": "static/images/2f514c6b-4f5f-4986-20fc-0e5d9c553dd1.jpg",
+ "file_size": 37870,
+ "uploaded": false,
+ "s3_url": null
+}

@@ -1,0 +1,15 @@
+{
+ "product_id": "7dd9854f-5c7b-4ab4-1703-7479b1c5984e",
+ "name": "Quari Headphones Classic",
+ "prompt": "studio packshot photo of a White Quari Headphones Classic, made of glass, headphones & earbuds, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1970114727,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:30:13",
+ "file_path": "static/images/7dd9854f-5c7b-4ab4-1703-7479b1c5984e.jpg",
+ "file_size": 36127,
+ "uploaded": false,
+ "s3_url": null
+}

@@ -1,0 +1,15 @@
+{
+ "product_id": "1fa8420c-f923-4354-e84f-4f74de817f67",
+ "name": "Sutra 5G Phone Classic",
+ "prompt": "studio packshot photo of a White Sutra 5G Phone Classic, made of nylon, mobiles & smartphones, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2255013370,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:22:38",
+ "file_path": "static/images/1fa8420c-f923-4354-e84f-4f74de817f67.jpg",
+ "file_size": 23512,
+ "uploaded": false,
+ "s3_url": null
+}

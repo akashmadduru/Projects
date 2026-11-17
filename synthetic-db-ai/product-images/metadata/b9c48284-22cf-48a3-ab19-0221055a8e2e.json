@@ -1,0 +1,13 @@
+{
+ "product_id": "b9c48284-22cf-48a3-ab19-0221055a8e2e",
+ "name": "Vennu Sneakers Pro",
+ "prompt": "studio packshot photo of a Midnight Vennu Sneakers Pro, made of nylon, footwear, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3059750329,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:28:40",
+ "file_path": "product-images/images/b9c48284-22cf-48a3-ab19-0221055a8e2e.jpg",
+ "file_size": 39017
+}

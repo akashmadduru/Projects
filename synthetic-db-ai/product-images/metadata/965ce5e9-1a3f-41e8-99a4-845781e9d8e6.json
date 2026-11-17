@@ -1,0 +1,13 @@
+{
+ "product_id": "965ce5e9-1a3f-41e8-99a4-845781e9d8e6",
+ "name": "Quari RC Helicopter Series 2",
+ "prompt": "studio packshot photo of a Rose Gold Quari RC Helicopter Series 2, made of bamboo, remote control, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3835225847,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:10:30",
+ "file_path": "product-images/images/965ce5e9-1a3f-41e8-99a4-845781e9d8e6.jpg",
+ "file_size": 55745
+}

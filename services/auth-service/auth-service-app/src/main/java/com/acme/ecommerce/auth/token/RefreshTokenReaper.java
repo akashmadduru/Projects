@@ -1,12 +1,12 @@
 package com.acme.ecommerce.auth.token;
 
-import com.acme.ecommerce.common.web.job.JobLock;
-import org.springframework.beans.factory.annotation.Autowired;
 import com.acme.ecommerce.auth.config.AuthProperties;
 import com.acme.ecommerce.common.core.time.TimeProvider;
+import com.acme.ecommerce.common.web.job.JobLock;
 import java.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;

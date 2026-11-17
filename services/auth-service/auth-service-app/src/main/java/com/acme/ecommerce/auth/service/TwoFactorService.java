@@ -113,7 +113,8 @@ public class TwoFactorService {
       return LoginResult.mfa(raw, CHALLENGE_TTL.toSeconds());
     }
     return LoginResult.issued(
-        tokenService.issueTokenPair(principal, device, null, null, snapshots.snapshotFor(principal)));
+        tokenService.issueTokenPair(
+            principal, device, null, null, snapshots.snapshotFor(principal)));
   }
 
   /** True while the challenge exists, is unconsumed, unexpired and not attempt-locked. */
@@ -136,7 +137,8 @@ public class TwoFactorService {
             .orElseThrow(
                 () ->
                     new AuthException(
-                        AuthErrorCode.AUTH_MFA_TOKEN_INVALID, "MFA token unknown, used or expired"));
+                        AuthErrorCode.AUTH_MFA_TOKEN_INVALID,
+                        "MFA token unknown, used or expired"));
     if (challenge.getAttempts() >= MAX_ATTEMPTS) {
       throw new AuthException(AuthErrorCode.AUTH_MFA_LOCKED, "MFA challenge locked");
     }
@@ -211,8 +213,7 @@ public class TwoFactorService {
     }
     Instant now = time.now();
     long step =
-        Totp.match(
-            cipher.decrypt(totp.getSecretEnc()), code, Totp.stepAt(now.getEpochSecond()), 0);
+        Totp.match(cipher.decrypt(totp.getSecretEnc()), code, Totp.stepAt(now.getEpochSecond()), 0);
     if (step < 0) {
       throw new AuthException(AuthErrorCode.AUTH_MFA_INVALID, "Code rejected");
     }
@@ -236,7 +237,8 @@ public class TwoFactorService {
         totps
             .findByUser(userId)
             .filter(UserTotp::isEnabled)
-            .orElseThrow(() -> new AuthException(AuthErrorCode.AUTH_2FA_STATE, "2FA is not enabled"));
+            .orElseThrow(
+                () -> new AuthException(AuthErrorCode.AUTH_2FA_STATE, "2FA is not enabled"));
     // Password first (when the account has one): a stolen access token alone must not suffice.
     var credential = credentials.findById(userId);
     if (credential.isPresent()

@@ -1,0 +1,13 @@
+{
+ "product_id": "a081b41d-993b-4e17-840b-9014cc195b84",
+ "name": "Orloco Pressure Cooker Plus",
+ "prompt": "studio packshot photo of a Black Orloco Pressure Cooker Plus, made of bamboo, cookware, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3470846988,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:12:31",
+ "file_path": "product-images/images/a081b41d-993b-4e17-840b-9014cc195b84.jpg",
+ "file_size": 39419
+}

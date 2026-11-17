@@ -1,0 +1,13 @@
+{
+ "product_id": "986eb38f-6b42-4587-4811-04e214061fc7",
+ "name": "Tatra Mesh System Ultra",
+ "prompt": "studio packshot photo of a White Tatra Mesh System Ultra, made of nylon, networking, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 140826048,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:53:32",
+ "file_path": "product-images/images/986eb38f-6b42-4587-4811-04e214061fc7.jpg",
+ "file_size": 61131
+}

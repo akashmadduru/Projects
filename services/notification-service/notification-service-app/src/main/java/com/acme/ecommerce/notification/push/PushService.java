@@ -18,7 +18,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 
-/** Web Push subscriptions + delivery. VAPID keys: env, else notification.settings, else generated. */
+/**
+ * Web Push subscriptions + delivery. VAPID keys: env, else notification.settings, else generated.
+ */
 @Service
 public class PushService {
 

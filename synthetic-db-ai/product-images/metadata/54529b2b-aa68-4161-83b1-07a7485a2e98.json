@@ -1,0 +1,13 @@
+{
+ "product_id": "54529b2b-aa68-4161-83b1-07a7485a2e98",
+ "name": "Lumvenar Watch Lite",
+ "prompt": "studio packshot photo of a Rose Gold Lumvenar Watch Lite, made of abs plastic, smart watches, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 928416522,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:55:17",
+ "file_path": "product-images/images/54529b2b-aa68-4161-83b1-07a7485a2e98.jpg",
+ "file_size": 47497
+}

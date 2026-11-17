@@ -1,0 +1,13 @@
+{
+ "product_id": "ae6e01af-be7f-437d-6762-96a68d06bc25",
+ "name": "Nolo Frying Pan Pro",
+ "prompt": "studio packshot photo of a Navy Blue Nolo Frying Pan Pro, made of aluminium, cookware, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 4062206489,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:04:39",
+ "file_path": "product-images/images/ae6e01af-be7f-437d-6762-96a68d06bc25.jpg",
+ "file_size": 72127
+}

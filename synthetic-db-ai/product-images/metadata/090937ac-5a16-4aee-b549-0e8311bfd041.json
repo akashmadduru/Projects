@@ -1,0 +1,13 @@
+{
+ "product_id": "090937ac-5a16-4aee-b549-0e8311bfd041",
+ "name": "Exven Trolley Bag Series 2",
+ "prompt": "studio packshot photo of a Red Exven Trolley Bag Series 2, made of silicone, bags & luggage, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2310239912,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 768,
+ "created_at": "2026-11-15T22:41:40",
+ "file_path": "product-images/images/090937ac-5a16-4aee-b549-0e8311bfd041.jpg",
+ "file_size": 118478
+}

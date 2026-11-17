@@ -1,0 +1,13 @@
+{
+ "product_id": "3451b227-111b-4a31-39eb-50d83dfcb6d1",
+ "name": "Ordex Resistance Bands Pro",
+ "prompt": "studio packshot photo of a Midnight Ordex Resistance Bands Pro, made of nylon, fitness, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3134389684,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T00:15:24",
+ "file_path": "product-images/images/3451b227-111b-4a31-39eb-50d83dfcb6d1.jpg",
+ "file_size": 26071
+}

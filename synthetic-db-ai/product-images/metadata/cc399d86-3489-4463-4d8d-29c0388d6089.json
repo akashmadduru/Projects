@@ -1,0 +1,13 @@
+{
+ "product_id": "cc399d86-3489-4463-4d8d-29c0388d6089",
+ "name": "Vennu T-Shirt Pro",
+ "prompt": "studio packshot photo of a Green Vennu T-Shirt Pro, made of silicone, men's clothing, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 250681558,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T00:36:30",
+ "file_path": "product-images/images/cc399d86-3489-4463-4d8d-29c0388d6089.jpg",
+ "file_size": 21085
+}

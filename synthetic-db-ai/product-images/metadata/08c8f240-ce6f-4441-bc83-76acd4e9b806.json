@@ -1,0 +1,13 @@
+{
+ "product_id": "08c8f240-ce6f-4441-bc83-76acd4e9b806",
+ "name": "Ritra Office Chair Lite",
+ "prompt": "studio packshot photo of a Midnight Ritra Office Chair Lite, made of wood, furniture, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3879887306,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T01:46:49",
+ "file_path": "product-images/images/08c8f240-ce6f-4441-bc83-76acd4e9b806.jpg",
+ "file_size": 92262
+}

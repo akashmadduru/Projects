@@ -1,0 +1,15 @@
+{
+ "product_id": "6288956a-28ac-4d66-1765-3ce38c2dab11",
+ "name": "Lumrior Keyboard Edition",
+ "prompt": "studio packshot photo of a Blue Lumrior Keyboard Edition, made of cotton, keyboards & mice, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 175287249,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:29:08",
+ "file_path": "static/images/6288956a-28ac-4d66-1765-3ce38c2dab11.jpg",
+ "file_size": 75833,
+ "uploaded": false,
+ "s3_url": null
+}

@@ -1,0 +1,13 @@
+{
+ "product_id": "291dc611-edd4-462b-7a14-3b8f5a576acb",
+ "name": "Loco Granola Ultra",
+ "prompt": "studio packshot photo of a Blue Loco Granola Ultra, made of nylon, snacks, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1041601937,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-15T23:42:53",
+ "file_path": "product-images/images/291dc611-edd4-462b-7a14-3b8f5a576acb.jpg",
+ "file_size": 106318
+}

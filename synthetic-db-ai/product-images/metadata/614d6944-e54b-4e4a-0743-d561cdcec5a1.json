@@ -1,0 +1,13 @@
+{
+ "product_id": "614d6944-e54b-4e4a-0743-d561cdcec5a1",
+ "name": "Kadex Smartphone Ultra",
+ "prompt": "studio packshot photo of a Olive Kadex Smartphone Ultra, made of leather, mobiles & smartphones, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 135683999,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:08:37",
+ "file_path": "product-images/images/614d6944-e54b-4e4a-0743-d561cdcec5a1.jpg",
+ "file_size": 45527
+}

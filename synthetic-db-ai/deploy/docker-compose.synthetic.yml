@@ -1,6 +1,24 @@
-# Points every microservice at the synthetic-data Postgres (container sdai-pg) instead of ecommerce-postgres.
-# Usage (from repo root):  see synthetic-db-ai/README.md -> 'Run the microservices on the synthetic data'
+# Runs the ecommerce-platform stack on the synthetic-data Postgres: the base `postgres` service is replaced by the
+# sdai-pg container (same project, same data volume), so ecommerce-postgres no longer exists and every service
+# reaches the database as `postgres` (or `sdai-pg`).
+# Usage (from repo root):
+#   docker compose -f deploy/local/docker-compose.yml -f synthetic-db-ai/deploy/docker-compose.synthetic.yml up -d
 services:
+  postgres:
+    image: pgvector/pgvector:0.8.7-pg17  # product-service migration V10 needs the vector extension
+    container_name: sdai-pg
+    restart: unless-stopped
+    command: ["-c", "fsync=off", "-c", "synchronous_commit=off", "-c", "max_connections=200", "-c", "shared_buffers=512MB"]
+    environment: !override
+      POSTGRES_PASSWORD: ${SDAI_PG_PASSWORD:-sdai_scratch}
+    ports: !override
+      - "127.0.0.1:55432:5432"
+    volumes: !override
+      - sdai-pg-data:/var/lib/postgresql/data
+    networks:
+      default:
+        aliases: [sdai-pg]
+      sdai-net: {}
   auth-service:
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://sdai-pg:5432/auth_db
@@ -97,3 +115,13 @@ services:
       # schemas were created from the same migrations without Flyway history -> baseline at the latest version
       SPRING_FLYWAY_BASELINE_ON_MIGRATE: "true"
       SPRING_FLYWAY_BASELINE_VERSION: "1"
+
+volumes:
+  # The data volume sdai-pg already used (created anonymously by `docker run`); reused as-is so no data moves.
+  sdai-pg-data:
+    external: true
+    name: c11c3dc4224268af387e69eb4e90286bbf25034bbaa429c217ddbaac3c1b3750
+
+networks:
+  sdai-net:
+    external: true

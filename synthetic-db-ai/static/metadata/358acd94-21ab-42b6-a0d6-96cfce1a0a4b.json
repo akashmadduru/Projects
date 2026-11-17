@@ -1,0 +1,15 @@
+{
+ "product_id": "358acd94-21ab-42b6-a0d6-96cfce1a0a4b",
+ "name": "Trano Smartphone Lite",
+ "prompt": "studio packshot photo of a Space Grey Trano Smartphone Lite, made of stainless steel, mobiles & smartphones, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 4264108595,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T00:55:25",
+ "file_path": "static/images/358acd94-21ab-42b6-a0d6-96cfce1a0a4b.jpg",
+ "file_size": 41726,
+ "uploaded": false,
+ "s3_url": null
+}

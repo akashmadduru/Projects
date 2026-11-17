@@ -1,0 +1,13 @@
+{
+ "product_id": "430c05b6-678d-4612-f8f6-e6b28f9e3afe",
+ "name": "Arquavo Construction Set Ultra",
+ "prompt": "studio packshot photo of a Rose Gold Arquavo Construction Set Ultra, made of cotton, building toys, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2398157084,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:07:27",
+ "file_path": "product-images/images/430c05b6-678d-4612-f8f6-e6b28f9e3afe.jpg",
+ "file_size": 53511
+}

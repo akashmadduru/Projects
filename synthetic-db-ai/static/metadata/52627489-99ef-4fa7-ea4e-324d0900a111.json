@@ -1,0 +1,15 @@
+{
+ "product_id": "52627489-99ef-4fa7-ea4e-324d0900a111",
+ "name": "Arquadex Sunscreen Ultra",
+ "prompt": "studio packshot photo of a Grey Arquadex Sunscreen Ultra, made of polyester, skin care, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3289353355,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:19:37",
+ "file_path": "static/images/52627489-99ef-4fa7-ea4e-324d0900a111.jpg",
+ "file_size": 35091,
+ "uploaded": false,
+ "s3_url": null
+}

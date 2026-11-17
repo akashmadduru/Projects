@@ -1,0 +1,13 @@
+{
+ "product_id": "f5812ea0-bb55-45b5-d44c-d3e842ed699f",
+ "name": "Nono Jeans Plus",
+ "prompt": "studio packshot photo of a Silver Nono Jeans Plus, made of nylon, men's clothing, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 926909804,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T22:06:49",
+ "file_path": "product-images/images/f5812ea0-bb55-45b5-d44c-d3e842ed699f.jpg",
+ "file_size": 40274
+}

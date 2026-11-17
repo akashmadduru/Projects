@@ -1,0 +1,15 @@
+{
+ "product_id": "31160f7b-7a12-4d27-7fc5-97171a223a25",
+ "name": "Venlumvo Backpack Classic",
+ "prompt": "studio packshot photo of a Black Venlumvo Backpack Classic, made of stainless steel, bags & luggage, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3020709663,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-15T23:53:15",
+ "file_path": "static/images/31160f7b-7a12-4d27-7fc5-97171a223a25.jpg",
+ "file_size": 33421,
+ "uploaded": false,
+ "s3_url": null
+}

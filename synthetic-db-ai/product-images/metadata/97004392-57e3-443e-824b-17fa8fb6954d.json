@@ -1,0 +1,13 @@
+{
+ "product_id": "97004392-57e3-443e-824b-17fa8fb6954d",
+ "name": "Mili Backpack Prime",
+ "prompt": "studio packshot photo of a Grey Mili Backpack Prime, made of silicone, bags & luggage, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2547546873,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:45:56",
+ "file_path": "product-images/images/97004392-57e3-443e-824b-17fa8fb6954d.jpg",
+ "file_size": 30717
+}

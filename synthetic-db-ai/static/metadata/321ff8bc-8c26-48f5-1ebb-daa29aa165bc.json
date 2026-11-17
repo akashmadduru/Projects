@@ -1,0 +1,15 @@
+{
+ "product_id": "321ff8bc-8c26-48f5-1ebb-daa29aa165bc",
+ "name": "Liorqua 4K TV Pro",
+ "prompt": "studio packshot photo of a White Liorqua 4K TV Pro, made of polyester, televisions, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 701823896,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-15T23:55:31",
+ "file_path": "static/images/321ff8bc-8c26-48f5-1ebb-daa29aa165bc.jpg",
+ "file_size": 47136,
+ "uploaded": false,
+ "s3_url": null
+}

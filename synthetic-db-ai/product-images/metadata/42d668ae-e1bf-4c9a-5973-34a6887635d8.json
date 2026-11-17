@@ -1,0 +1,13 @@
+{
+ "product_id": "42d668ae-e1bf-4c9a-5973-34a6887635d8",
+ "name": "Venion Eau de Toilette Classic",
+ "prompt": "studio packshot photo of a Blue Venion Eau de Toilette Classic, made of polyester, fragrances, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 4017574186,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:09:36",
+ "file_path": "product-images/images/42d668ae-e1bf-4c9a-5973-34a6887635d8.jpg",
+ "file_size": 67626
+}

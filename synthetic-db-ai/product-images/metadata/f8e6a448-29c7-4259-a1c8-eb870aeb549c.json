@@ -1,0 +1,13 @@
+{
+ "product_id": "f8e6a448-29c7-4259-a1c8-eb870aeb549c",
+ "name": "Quacolo 5G Phone Prime",
+ "prompt": "studio packshot photo of a White Quacolo 5G Phone Prime, made of silicone, mobiles & smartphones, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 268363060,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T00:34:50",
+ "file_path": "product-images/images/f8e6a448-29c7-4259-a1c8-eb870aeb549c.jpg",
+ "file_size": 25833
+}

@@ -1,0 +1,15 @@
+{
+ "product_id": "78ab5e7a-2c16-409a-371d-0a465fc932ed",
+ "name": "Lize Camera Ultra",
+ "prompt": "studio packshot photo of a Red Lize Camera Ultra, made of stainless steel, cameras, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 673714288,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:45:10",
+ "file_path": "static/images/78ab5e7a-2c16-409a-371d-0a465fc932ed.jpg",
+ "file_size": 53374,
+ "uploaded": false,
+ "s3_url": null
+}

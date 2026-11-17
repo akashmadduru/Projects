@@ -1,0 +1,13 @@
+{
+ "product_id": "0981e44f-604a-4ec4-53a1-b05634e6a74d",
+ "name": "Volo Planner Series 2",
+ "prompt": "studio packshot photo of a Red Volo Planner Series 2, made of bamboo, stationery, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3589867247,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:52:50",
+ "file_path": "product-images/images/0981e44f-604a-4ec4-53a1-b05634e6a74d.jpg",
+ "file_size": 44946
+}

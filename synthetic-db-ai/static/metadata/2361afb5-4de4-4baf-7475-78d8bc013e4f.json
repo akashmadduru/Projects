@@ -1,0 +1,15 @@
+{
+ "product_id": "2361afb5-4de4-4baf-7475-78d8bc013e4f",
+ "name": "Colo Multivitamin Plus",
+ "prompt": "studio packshot photo of a White Colo Multivitamin Plus, made of abs plastic, supplements, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3857456385,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-15T23:39:07",
+ "file_path": "static/images/2361afb5-4de4-4baf-7475-78d8bc013e4f.jpg",
+ "file_size": 71463,
+ "uploaded": false,
+ "s3_url": null
+}

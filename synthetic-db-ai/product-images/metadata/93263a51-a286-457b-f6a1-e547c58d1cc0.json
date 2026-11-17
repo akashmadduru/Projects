@@ -1,0 +1,13 @@
+{
+ "product_id": "93263a51-a286-457b-f6a1-e547c58d1cc0",
+ "name": "Lumno Smart TV Elite",
+ "prompt": "studio packshot photo of a Space Grey Lumno Smart TV Elite, made of wood, televisions, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3490167194,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:03:04",
+ "file_path": "product-images/images/93263a51-a286-457b-f6a1-e547c58d1cc0.jpg",
+ "file_size": 61598
+}

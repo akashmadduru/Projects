@@ -1,0 +1,13 @@
+{
+ "product_id": "350f4852-3587-46a5-3e2a-96e78bdaac7c",
+ "name": "Lovenpi Mountain Bike Series 2",
+ "prompt": "studio packshot photo of a Grey Lovenpi Mountain Bike Series 2, made of abs plastic, cycling, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2465080113,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T00:54:11",
+ "file_path": "product-images/images/350f4852-3587-46a5-3e2a-96e78bdaac7c.jpg",
+ "file_size": 62486
+}

@@ -1,0 +1,13 @@
+{
+ "product_id": "9c06bbb0-fae8-43bc-146a-140cd160dca4",
+ "name": "Araror Frying Pan Gen 3",
+ "prompt": "studio packshot photo of a Red Araror Frying Pan Gen 3, made of silicone, cookware, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1114203055,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:10:00",
+ "file_path": "product-images/images/9c06bbb0-fae8-43bc-146a-140cd160dca4.jpg",
+ "file_size": 20548
+}

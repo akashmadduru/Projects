@@ -18,24 +18,11 @@ Phase 6 was built under "no tests, no HLD/LLD, record shortcuts as debt". The in
 - **Risk:** Only SIMULATED mode and unit tests with mocked HTTP were verified. Razorpay (added 2026-11-15, [ADR 0005](../architecture/adr/0005-multiple-payment-providers.md)) was written from public API documentation and never called; its request shapes, the `X-Refund-Idempotency` header and event names are unconfirmed. Stripe: Stripe SDK 34.1.0 was chosen without a live account. The webhook endpoint returns 404 unless the webhook secret is set. In SIMULATED mode refunds are only recorded in the DB.
 - **Fix:** Run the Razorpay test-mode checklist in [integrations §3b](../guides/integrations.md#3b-payment-gateway-razorpay) (pay, fail, refund, webhook replay, tampered signature). Stripe: set `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET` in `deploy/local/.env`; run a test-mode pay, fail, refund and webhook cycle (Stripe CLI `listen`); replace `deserializeUnsafe` with version-checked parsing.
 
-<a id="td-p6-03"></a>
-## TD-P6-03 Late payment after cancel; PaymentIntent not cancelled
-- **Severity / Effort:** High / M
-- **Where:** `OrderService`/`OrderStore` cancel path; `OrderLifecycleService` payment-result handling (internal call from `payment-service/.../service/OrderReporter.java`).
-- **Risk:** Cancelling a PENDING_PAYMENT order does not cancel the Stripe PaymentIntent (payment-service has no cancel endpoint). A late SUCCEEDED is refunded inline in the payment-result call; if that refund fails it is only logged, and payment-service will not retry because order-service returned 200. Customer is charged for a cancelled order.
-- **Fix:** Add a cancel-PaymentIntent endpoint and call it on cancel/expiry; make late-success refund a retried outbox task (see TD-P6-01).
-
-<a id="td-p6-04"></a>
-## TD-P6-04 Stock reservation has gaps (residual of TD-BE-01)
-- **Severity / Effort:** High / M
-- **Where:** `services/inventory-service/inventory-service-app/` reserve/release; `OrderRemote.java`.
-- **Risk:** Reservation decrements `stock_levels.quantity` directly (the `reservedQuantity` column is unused). Products with no inventory row are treated as unlimited, and the seeded catalog has no rows, so OUT_OF_STOCK only fires where a row exists. Release for returns trusts caller quantities (no cap check).
-- **Fix:** Seed inventory rows for every product (or fail closed when missing); use `reservedQuantity` with commit-on-ship; cap release by what was reserved.
-
 <a id="td-p6-05"></a>
 ## TD-P6-05 No tests for Phase 6; existing tests stale
-- **Severity / Effort:** High / L
+- **Severity / Effort:** Med / L
 - **Where:** payment-service, promotion-service, notification-service, order lifecycle/returns, cart saved-items, admin Orders/Returns/Coupons views and `adminApi.ts`, storefront checkout/orders/returns. Stale: auth-service tests will not compile (`UserResponse` gained 2 constructor args, `AuthMethod` gained OTP, `SecurityConfig`/`RateLimitFilter` paths changed); storefront tests still use the old Order types and `place(addressId, key)` signature; existing admin vitest suite not re-run.
+- **Progress 2026-11-17:** the stale half is done: auth-service tests compile and pass again (5 files repaired), the storefront type-checks fully with tests and its stale tests are fixed, the admin suite was re-run and passes. Added: order placement on a real database (12 cases incl. compensation), cancel/late-payment, wallet credit-back, payment cancel, Razorpay verify/webhook, gift cards. Still untested: coupon rules and OTP, promotion- and notification-service, returns, the order state machine, a checkout e2e.
 - **Risk:** Money, stock and auth flows have only the one-off e2e script as a safety net. Extends TD-TEST-01/02/03.
 - **Fix:** Fix auth-service and storefront tests first, then add service tests for payment (webhook, refund idempotency), order state machine, coupon rules, OTP; Playwright for checkout.
 

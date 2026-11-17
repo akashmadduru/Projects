@@ -1,0 +1,13 @@
+{
+ "product_id": "c1e10e66-7f15-4d2c-865a-7dde2a1d21ac",
+ "name": "Venardex Massager Edition",
+ "prompt": "studio packshot photo of a Rose Gold Venardex Massager Edition, made of polyester, personal wellness, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3757914734,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:33:58",
+ "file_path": "product-images/images/c1e10e66-7f15-4d2c-865a-7dde2a1d21ac.jpg",
+ "file_size": 61294
+}

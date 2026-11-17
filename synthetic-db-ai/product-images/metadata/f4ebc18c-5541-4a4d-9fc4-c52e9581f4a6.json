@@ -1,0 +1,13 @@
+{
+ "product_id": "f4ebc18c-5541-4a4d-9fc4-c52e9581f4a6",
+ "name": "Bami Headset Elite",
+ "prompt": "studio packshot photo of a White Bami Headset Elite, made of abs plastic, headphones & earbuds, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3999403556,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T22:06:12",
+ "file_path": "product-images/images/f4ebc18c-5541-4a4d-9fc4-c52e9581f4a6.jpg",
+ "file_size": 56537
+}

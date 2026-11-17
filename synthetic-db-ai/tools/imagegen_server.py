@@ -145,18 +145,12 @@ class Engine:
         PRODUCT_META.mkdir(parents=True, exist_ok=True)
 
     def _load_s3_state(self):
-        try:
-            with UPLOADS_FILE.open(encoding="utf-8") as f:
-                for line in f:
-                    if line.strip():
-                        rec = json.loads(line)
-                        pid = rec.get("product_id")
-                        if rec.get("uploaded"):
-                            self.s3_uploaded.add(pid)
-                        else:
-                            self.s3_failed[pid] = rec.get("error", "unknown")
-        except (OSError, ValueError):
-            pass
+        for f in STATIC_META.glob("*.json"):
+            try:
+                if json.loads(f.read_text(encoding="utf-8")).get("uploaded"):
+                    self.s3_uploaded.add(f.stem)
+            except (OSError, ValueError):
+                pass
 
     def _save_to_static(self, product_id: str, image_path: Path, product: dict, settings: dict) -> bool:
         """Copy image to both static and product-images folders with metadata."""
@@ -183,7 +177,7 @@ class Engine:
             # Save to product-images (main location)
             prod_dest = PRODUCT_IMAGES_FOLDER / f"{product_id}.jpg"
             shutil.copy2(str(image_path), str(prod_dest))
-            meta["file_path"] = str(prod_dest.relative_to(ROOT))
+            meta["file_path"] = prod_dest.relative_to(ROOT).as_posix()
             meta["file_size"] = prod_dest.stat().st_size
 
             prod_meta_file = PRODUCT_META / f"{product_id}.json"
@@ -193,7 +187,7 @@ class Engine:
             static_dest = STATIC_IMAGES / f"{product_id}.jpg"
             shutil.copy2(str(image_path), str(static_dest))
             meta_s3 = dict(meta)
-            meta_s3["file_path"] = str(static_dest.relative_to(ROOT))
+            meta_s3["file_path"] = static_dest.relative_to(ROOT).as_posix()
             meta_s3["uploaded"] = False
             meta_s3["s3_url"] = None
 
@@ -202,7 +196,8 @@ class Engine:
 
             with self.lock:
                 self.s3_failed.pop(product_id, None)
-            self._say(f"saved: product-images/ + static/")
+                self.s3_uploaded.discard(product_id)
+            self._say("saved: product-images/ + static/")
             return True
         except Exception as e:
             msg = str(e)[:100]
@@ -452,7 +447,7 @@ class Engine:
                 self.session_done += 1
             self._say(f"done #{self.index[pid]} {p['name']} ({took:.1f}s)")
             p["seed"] = seed
-            self._save_to_static(pid, OUT / f"{pid}.jpg", p, s)
+            self._save_to_static(pid, OUT / f"{pid}.jpg", p, {**s, "prompt": prompt})
         self.times.append(took)
         self.fail_streak = 0
 
@@ -545,14 +540,12 @@ class Engine:
     # ---- static / S3 uploads -------------------------------------------------------------------
     def get_static_status(self):
         """Get status of static folder and S3 uploads."""
-        static_count = len(list(STATIC_IMAGES.glob("*.jpg"))) if STATIC_IMAGES.exists() else 0
+        staged = {f.stem for f in STATIC_IMAGES.glob("*.jpg")}
         with self.lock:
-            return {
-                "static_images": static_count,
-                "s3_uploaded": len(self.s3_uploaded),
-                "s3_failed": len(self.s3_failed),
-                "s3_pending": static_count - len(self.s3_uploaded) - len(self.s3_failed),
-            }
+            up = len(staged & self.s3_uploaded)
+            failed = len(staged & set(self.s3_failed))
+            return {"static_images": len(staged), "s3_uploaded": up, "s3_failed": failed,
+                    "s3_pending": len(staged) - up - failed}
 
     def list_static_images(self, offset=0, limit=50):
         """List images in static folder with metadata."""
@@ -572,68 +565,51 @@ class Engine:
             "rows": rows
         }
 
-    def upload_to_s3(self, s3_bucket: str, s3_prefix: str = "products/", aws_access_key: str = None, aws_secret_key: str = None, region: str = "us-east-1"):
-        """Upload all pending images to S3."""
+    def upload_to_s3(self, s3_bucket: str, s3_prefix: str = "products/"):
+        """Upload pending images from static/ to S3 using the standard AWS credential chain (env vars, profile, role)."""
+        s3_bucket = s3_bucket.strip()
+        if not re.fullmatch(r"[a-z0-9][a-z0-9.\-]{1,61}[a-z0-9]", s3_bucket):
+            raise ValueError("bucket is missing or not a valid S3 bucket name")
+        s3_prefix = s3_prefix.strip().lstrip("/")
+        if s3_prefix and not s3_prefix.endswith("/"):
+            s3_prefix += "/"
         try:
             import boto3
         except ImportError:
-            return {"error": "boto3 not installed - run: pip install boto3"}
+            raise ValueError("boto3 is not installed - run: .venv-images\\Scripts\\pip install boto3")
+        s3 = boto3.client("s3")
+        uploaded = failed = 0
+        for meta_file in sorted(STATIC_META.glob("*.json")):
+            pid = meta_file.stem
+            with self.lock:
+                if pid in self.s3_uploaded:
+                    continue
+            img_file = STATIC_IMAGES / f"{pid}.jpg"
+            if not img_file.exists():
+                continue
+            try:
+                meta = json.loads(meta_file.read_text(encoding="utf-8"))
+                s3_key = f"{s3_prefix}{pid}.jpg"
+                s3.upload_file(str(img_file), s3_bucket, s3_key, ExtraArgs={"ContentType": "image/jpeg"})
+                meta.update(uploaded=True, s3_url=f"s3://{s3_bucket}/{s3_key}", s3_bucket=s3_bucket, s3_key=s3_key)
+                _write_json(meta_file, meta)
+                with self.lock:
+                    self.s3_uploaded.add(pid)
+                    self.s3_failed.pop(pid, None)
+                uploaded += 1
+            except Exception as e:
+                with self.lock:
+                    self.s3_failed[pid] = f"{type(e).__name__}: {e}"[:200]
+                self._say(f"S3 upload failed for {pid}: {e}")
+                failed += 1
+        self._say(f"S3 upload to s3://{s3_bucket}/{s3_prefix}: {uploaded} uploaded, {failed} failed")
+        self._save_uploads_log(s3_bucket, s3_prefix, uploaded, failed)
+        return {"uploaded": uploaded, "failed": failed, "s3_bucket": s3_bucket}
 
-        if not aws_access_key or not aws_secret_key:
-            aws_access_key = os.environ.get("AWS_ACCESS_KEY_ID")
-            aws_secret_key = os.environ.get("AWS_SECRET_ACCESS_KEY")
-            region = os.environ.get("AWS_DEFAULT_REGION", region)
-
-        if not aws_access_key or not aws_secret_key:
-            return {"error": "AWS credentials not provided and not in environment"}
-
-        try:
-            s3 = boto3.client("s3",
-                            aws_access_key_id=aws_access_key,
-                            aws_secret_access_key=aws_secret_key,
-                            region_name=region)
-            uploaded = 0
-            failed = 0
-
-            if STATIC_META.exists():
-                for meta_file in STATIC_META.glob("*.json"):
-                    try:
-                        meta = json.loads(meta_file.read_text(encoding="utf-8"))
-                        pid = meta.get("product_id")
-                        img_file = STATIC_IMAGES / f"{pid}.jpg"
-
-                        if pid in self.s3_uploaded or not img_file.exists():
-                            continue
-
-                        s3_key = f"{s3_prefix}{pid}.jpg"
-                        s3.upload_file(str(img_file), s3_bucket, s3_key, ExtraArgs={"ContentType": "image/jpeg"})
-
-                        meta["uploaded"] = True
-                        meta["s3_url"] = f"s3://{s3_bucket}/{s3_key}"
-                        meta["s3_bucket"] = s3_bucket
-                        meta["s3_key"] = s3_key
-                        meta_file.write_text(json.dumps(meta, indent=1), encoding="utf-8")
-
-                        with self.lock:
-                            self.s3_uploaded.add(pid)
-                            self.s3_failed.pop(pid, None)
-                        uploaded += 1
-                        self._say(f"uploaded to S3: {pid}")
-                    except Exception as e:
-                        with self.lock:
-                            self.s3_failed[pid] = str(e)[:200]
-                        self._say(f"S3 upload failed for {pid}: {e}")
-                        failed += 1
-
-            self._save_uploads_log(s3_bucket, s3_prefix)
-            return {"uploaded": uploaded, "failed": failed, "s3_bucket": s3_bucket}
-        except Exception as e:
-            return {"error": f"S3 upload error: {str(e)[:200]}"}
-
-    def _save_uploads_log(self, bucket: str, prefix: str):
-        """Log upload details for reference."""
+    def _save_uploads_log(self, bucket: str, prefix: str, uploaded: int, failed: int):
         with UPLOADS_FILE.open("a", encoding="utf-8") as f:
-            rec = {"bucket": bucket, "prefix": prefix, "at": time.strftime("%Y-%m-%d %H:%M:%S")}
+            rec = {"bucket": bucket, "prefix": prefix, "uploaded": uploaded, "failed": failed,
+                   "at": time.strftime("%Y-%m-%d %H:%M:%S")}
             f.write(json.dumps(rec) + "\n")
 
 
@@ -726,13 +702,7 @@ class Handler(BaseHTTPRequestHandler):
             "/api/redo": lambda: E.redo(str(body.get("id"))),
             "/api/generate": lambda: E.generate_one(str(body.get("id"))),
             "/api/preview": lambda: E.preview(str(body.get("id"))),
-            "/api/s3/upload": lambda: E.upload_to_s3(
-                str(body.get("bucket", "")),
-                str(body.get("prefix", "products/")),
-                str(body.get("aws_access_key", "")),
-                str(body.get("aws_secret_key", "")),
-                str(body.get("region", "us-east-1"))
-            ),
+            "/api/s3/upload": lambda: E.upload_to_s3(str(body.get("bucket", "")), str(body.get("prefix", "products/"))),
         }
         fn = routes.get(urlparse(self.path).path)
         if fn is None:

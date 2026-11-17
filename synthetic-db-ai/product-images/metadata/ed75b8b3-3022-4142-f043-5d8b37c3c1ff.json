@@ -1,0 +1,13 @@
+{
+ "product_id": "ed75b8b3-3022-4142-f043-5d8b37c3c1ff",
+ "name": "Riexka Study Table Prime",
+ "prompt": "studio packshot photo of a Navy Blue Riexka Study Table Prime, made of ceramic, furniture, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1391896681,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T22:01:41",
+ "file_path": "product-images/images/ed75b8b3-3022-4142-f043-5d8b37c3c1ff.jpg",
+ "file_size": 28501
+}

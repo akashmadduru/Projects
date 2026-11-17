@@ -7,8 +7,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Phase 10 privacy: read-only JSON dump of everything this service holds about one user. Called
- * by user-service's export job (X-Internal-Token on /internal/**; never routed by the gateway).
+ * Phase 10 privacy: read-only JSON dump of everything this service holds about one user. Called by
+ * user-service's export job (X-Internal-Token on /internal/**; never routed by the gateway).
  */
 @RestController
 public class PrivacyExportController {

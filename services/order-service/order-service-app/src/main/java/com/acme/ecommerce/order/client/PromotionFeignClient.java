@@ -10,8 +10,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
 /**
- * promotion-service. validate() is the user-facing endpoint (the caller's bearer token is relayed by
- * common-web); redeem/release are internal (X-Internal-Token).
+ * promotion-service. validate() is the user-facing endpoint (the caller's bearer token is relayed
+ * by common-web); redeem/release are internal (X-Internal-Token).
  */
 @FeignClient(
     name = "promotion-service",
@@ -20,8 +20,7 @@ import org.springframework.web.bind.annotation.RequestBody;
     configuration = InternalFeignConfig.class)
 public interface PromotionFeignClient {
 
-  record ValidateRequest(
-      String code, BigDecimal subtotal, String currency, Boolean firstOrder) {}
+  record ValidateRequest(String code, BigDecimal subtotal, String currency, Boolean firstOrder) {}
 
   record Validation(String code, String description, BigDecimal discountAmount, String currency) {}
 
@@ -59,7 +58,8 @@ public interface PromotionFeignClient {
   @org.springframework.web.bind.annotation.GetMapping("/internal/coins/{userId}")
   java.util.Map<String, Integer> coinBalance(@PathVariable("userId") UUID userId);
 
-  record DealPrice(UUID productId, UUID variantId, UUID dealId, BigDecimal dealPrice, int remaining) {}
+  record DealPrice(
+      UUID productId, UUID variantId, UUID dealId, BigDecimal dealPrice, int remaining) {}
 
   record DealPricesResponse(List<DealPrice> prices) {}
 
@@ -69,7 +69,12 @@ public interface PromotionFeignClient {
 
   @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)
   record ExchangeQuoteView(
-      UUID id, UUID userId, UUID programId, BigDecimal quotedValue, String currency, String status) {}
+      UUID id,
+      UUID userId,
+      UUID programId,
+      BigDecimal quotedValue,
+      String currency,
+      String status) {}
 
   record ExchangeApplyRequest(UUID quoteId, UUID userId, UUID orderId) {}
 
@@ -91,7 +96,8 @@ public interface PromotionFeignClient {
 
   @org.springframework.web.bind.annotation.GetMapping("/internal/promotions/exchange/quotes")
   java.util.List<java.util.Map<String, Object>> exchangeQuotes(
-      @org.springframework.web.bind.annotation.RequestParam(value = "status", required = false) String status);
+      @org.springframework.web.bind.annotation.RequestParam(value = "status", required = false)
+          String status);
 
   @PostMapping("/internal/promotions/exchange/apply")
   void applyExchange(@RequestBody ExchangeApplyRequest request);

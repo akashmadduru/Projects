@@ -16,7 +16,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** Product Q&A persistence. Remote checks (display name, verified buyer) happen in the controller. */
+/**
+ * Product Q&A persistence. Remote checks (display name, verified buyer) happen in the controller.
+ */
 @Service
 @Transactional(readOnly = true)
 @RequiredArgsConstructor

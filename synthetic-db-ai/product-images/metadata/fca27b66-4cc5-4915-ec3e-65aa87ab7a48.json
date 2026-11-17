@@ -1,0 +1,13 @@
+{
+ "product_id": "fca27b66-4cc5-4915-ec3e-65aa87ab7a48",
+ "name": "Suliven RC Helicopter Classic",
+ "prompt": "studio packshot photo of a Blue Suliven RC Helicopter Classic, made of ceramic, remote control, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 599485232,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T00:28:52",
+ "file_path": "product-images/images/fca27b66-4cc5-4915-ec3e-65aa87ab7a48.jpg",
+ "file_size": 37660
+}

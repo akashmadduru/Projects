@@ -1,0 +1,15 @@
+{
+ "product_id": "135d104d-d683-474c-b4f1-a90dc7a0b063",
+ "name": "Cokaba Office Chair Prime",
+ "prompt": "studio packshot photo of a Rose Gold Cokaba Office Chair Prime, made of nylon, furniture, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2024627941,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:37:22",
+ "file_path": "static/images/135d104d-d683-474c-b4f1-a90dc7a0b063.jpg",
+ "file_size": 34484,
+ "uploaded": false,
+ "s3_url": null
+}

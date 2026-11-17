@@ -261,6 +261,24 @@ public class Product {
   private String listedBy = "PLATFORM";
 
   /**
+   * APPROVED, PENDING_REVIEW or REJECTED (TD-P9-03). A product listed by a marketplace seller
+   * starts PENDING_REVIEW and inactive; an admin approves (which activates it) or rejects it with a
+   * note.
+   */
+  @Builder.Default
+  @Column(name = "moderation_status", nullable = false, length = 20)
+  private String moderationStatus = "APPROVED";
+
+  @Column(name = "moderation_note", length = 500)
+  private String moderationNote;
+
+  @Column(name = "reviewed_by")
+  private UUID reviewedBy;
+
+  @Column(name = "reviewed_at")
+  private java.time.Instant reviewedAt;
+
+  /**
    * Applies a denormalized inventory signal, deliberately narrow - cannot re-trigger {@code
    * product.events} publication. This method has no access to {@code ProductEventPublisher} at all
    * (this class has zero Kafka/event dependencies, same as today), so there is no code path by

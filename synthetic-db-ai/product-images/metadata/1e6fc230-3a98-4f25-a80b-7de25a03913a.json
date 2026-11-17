@@ -1,0 +1,13 @@
+{
+ "product_id": "1e6fc230-3a98-4f25-a80b-7de25a03913a",
+ "name": "Kaar Green Tea Series 2",
+ "prompt": "studio packshot photo of a Blue Kaar Green Tea Series 2, made of silicone, beverages, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2051332931,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:32:20",
+ "file_path": "product-images/images/1e6fc230-3a98-4f25-a80b-7de25a03913a.jpg",
+ "file_size": 44778
+}

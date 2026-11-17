@@ -19,7 +19,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 public class InternalCatalogController {
 
-  public record OfferRef(UUID offerId, UUID productId, UUID variantId, UUID sellerId, boolean active) {}
+  public record OfferRef(
+      UUID offerId, UUID productId, UUID variantId, UUID sellerId, boolean active) {}
 
   private final OfferService offers;
   private final JdbcClient jdbc;
@@ -32,7 +33,8 @@ public class InternalCatalogController {
   @GetMapping("/internal/offers/{id}")
   public OfferRef offer(@PathVariable UUID id) {
     Offer o = offers.get(id);
-    return new OfferRef(o.getId(), o.getProductId(), o.getVariantId(), o.getSellerId(), o.isActive());
+    return new OfferRef(
+        o.getId(), o.getProductId(), o.getVariantId(), o.getSellerId(), o.isActive());
   }
 
   /** Inventory calls this after seller stock changes so the list-row price follows the buy box. */
@@ -54,7 +56,8 @@ public class InternalCatalogController {
       @PathVariable UUID sellerId,
       @RequestParam(required = false) String from,
       @RequestParam(required = false) String to) {
-    Instant start = day(from, LocalDate.now().minusDays(30)).atStartOfDay().toInstant(ZoneOffset.UTC);
+    Instant start =
+        day(from, LocalDate.now().minusDays(30)).atStartOfDay().toInstant(ZoneOffset.UTC);
     Instant end = day(to, LocalDate.now()).plusDays(1).atStartOfDay().toInstant(ZoneOffset.UTC);
     Long views =
         jdbc.sql(

@@ -1,0 +1,13 @@
+{
+ "product_id": "8161d891-1adc-4191-a653-4d19daba3d13",
+ "name": "Orba Hair Oil Essential",
+ "prompt": "studio packshot photo of a Black Orba Hair Oil Essential, made of silicone, hair care, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1721979285,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:51:51",
+ "file_path": "product-images/images/8161d891-1adc-4191-a653-4d19daba3d13.jpg",
+ "file_size": 51144
+}

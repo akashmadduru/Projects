@@ -1,0 +1,13 @@
+{
+ "product_id": "ca90f2fd-5227-424c-f0d4-bb39629d8eb0",
+ "name": "Ritraven Drone Max",
+ "prompt": "studio packshot photo of a Rose Gold Ritraven Drone Max, made of cotton, remote control, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1772619095,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T00:37:38",
+ "file_path": "product-images/images/ca90f2fd-5227-424c-f0d4-bb39629d8eb0.jpg",
+ "file_size": 47973
+}

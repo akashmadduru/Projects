@@ -445,7 +445,7 @@ stage_frontends() {
 
   log "Admin"
   (cd "$ROOT/apps/admin-product-catalog" && npm ci --no-audit --no-fund \
-    && VITE_API_BASE_URL="$admin" VITE_APP_ORIGIN="$admin" npm run build)
+    && VITE_API_BASE_URL="$admin" VITE_AUTH_BASE_URL="$admin" VITE_APP_ORIGIN="$admin" npm run build)
   upload_spa "$W_ROOT/apps/admin-product-catalog/dist" "$admin_bucket" "$admin_dist"
 }
 

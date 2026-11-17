@@ -1,0 +1,15 @@
+{
+ "product_id": "1bc41c95-a749-4fa8-a916-210773d065e6",
+ "name": "Lumionor Switch Edition",
+ "prompt": "studio packshot photo of a Space Grey Lumionor Switch Edition, made of stainless steel, networking, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1526759494,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 768,
+ "created_at": "2026-11-15T23:12:57",
+ "file_path": "static/images/1bc41c95-a749-4fa8-a916-210773d065e6.jpg",
+ "file_size": 75779,
+ "uploaded": false,
+ "s3_url": null
+}

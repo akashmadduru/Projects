@@ -1,0 +1,15 @@
+{
+ "product_id": "7c829ce0-368b-44b0-6b7b-fd96d7ae92d6",
+ "name": "Nuven Sneakers Classic",
+ "prompt": "studio packshot photo of a Silver Nuven Sneakers Classic, made of nylon, footwear, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 972070148,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:26:08",
+ "file_path": "static/images/7c829ce0-368b-44b0-6b7b-fd96d7ae92d6.jpg",
+ "file_size": 38327,
+ "uploaded": false,
+ "s3_url": null
+}

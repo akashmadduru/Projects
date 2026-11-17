@@ -19,10 +19,11 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * CRUD for product images held on the static image server.
  *
- * <p>The file is written to the image server first; the database row (whose {@code url} is the
- * browser-facing address) is written second, so a failed upload never leaves a row pointing at
- * nothing. If the row write then fails, the new file is removed again. Files for rows that go away
- * (explicit delete, product delete, product update dropping an image) are removed best-effort.
+ * <p>The file is written to the image server first; the database row (whose {@code url} is the key,
+ * resolved against parentUrl by {@link ImageUrlResolver}) is written second, so a failed upload
+ * never leaves a row pointing at nothing. If the row write then fails, the new file is removed
+ * again. Files for rows that go away (explicit delete, product delete, product update dropping an
+ * image) are removed best-effort.
  */
 @Service
 @RequiredArgsConstructor
@@ -39,6 +40,7 @@ public class ProductImageService {
   private final ProductImageRepository images;
   private final ProductRepository products;
   private final ImageStoreClient store;
+  private final ImageUrlResolver urls;
 
   /** Uploads {@code bytes} as a new image of the product, after any existing ones. */
   @Transactional
@@ -58,7 +60,7 @@ public class ProductImageService {
           images.save(
               ProductImage.builder()
                   .productId(productId)
-                  .url(store.publicUrlFor(key))
+                  .url(key)
                   .displayOrder(order)
                   .createdAt(Instant.now())
                   .build());
@@ -77,14 +79,14 @@ public class ProductImageService {
     Product product = requireProduct(productId);
     ProductImage image = requireImage(productId, imageId);
     String ext = extensionOf(contentType, bytes);
-    String oldKey = store.keyFor(image.getUrl()).orElse(null);
+    String oldKey = urls.keyOf(image.getUrl()).orElse(null);
     String newKey =
         oldKey != null && oldKey.endsWith("." + ext)
             ? oldKey
             : productId + "/" + UUID.randomUUID() + "." + ext;
     store.put(newKey, bytes, contentType);
     if (!newKey.equals(oldKey)) {
-      image.setUrl(store.publicUrlFor(newKey));
+      image.setUrl(newKey);
       if (oldKey != null) {
         store.deleteQuietly(oldKey);
       }
@@ -101,15 +103,15 @@ public class ProductImageService {
     images.delete(image);
     images.flush();
     syncThumbnail(product);
-    store.keyFor(url).ifPresent(store::deleteQuietly);
+    urls.keyOf(url).ifPresent(store::deleteQuietly);
   }
 
   /** Removes the files behind these image URLs (ours only; external URLs are ignored). */
-  public void deleteFiles(List<String> urls) {
+  public void deleteFiles(List<String> stored) {
     if (!store.isEnabled()) {
       return;
     }
-    urls.stream().flatMap(u -> store.keyFor(u).stream()).forEach(store::deleteQuietly);
+    stored.stream().flatMap(u -> urls.keyOf(u).stream()).forEach(store::deleteQuietly);
   }
 
   /** Keeps {@code products.thumbnail_url} equal to the first image, as list cards render it. */
@@ -164,7 +166,8 @@ public class ProductImageService {
     };
   }
 
-  private static ProductImageResponse toResponse(ProductImage image) {
-    return new ProductImageResponse(image.getId(), image.getUrl(), image.getDisplayOrder());
+  private ProductImageResponse toResponse(ProductImage image) {
+    return new ProductImageResponse(
+        image.getId(), urls.resolve(image.getUrl()), image.getDisplayOrder());
   }
 }

@@ -1,0 +1,13 @@
+{
+ "product_id": "ba9ce7f1-4e60-4fbc-7fc9-58e9337a4f29",
+ "name": "Suli Earbuds Lite",
+ "prompt": "studio packshot photo of a Navy Blue Suli Earbuds Lite, made of polyester, headphones & earbuds, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2545226347,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:29:33",
+ "file_path": "product-images/images/ba9ce7f1-4e60-4fbc-7fc9-58e9337a4f29.jpg",
+ "file_size": 41319
+}

@@ -1,13 +1,13 @@
 {
  "product_id": "349cf161-cd6d-41d7-a1b2-a1d0526ab6eb",
  "name": "Zefy RC Car Plus",
- "prompt": "studio packshot photo of a {color} {name}, made of {material}, {category}, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "prompt": "studio packshot photo of a Grey Zefy RC Car Plus, made of abs plastic, remote control, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
  "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
  "seed": 1679814577,
  "steps": 20,
  "guidance": 6.5,
  "size": 512,
  "created_at": "2026-11-16T00:36:36",
- "file_path": "product-images\\images\\349cf161-cd6d-41d7-a1b2-a1d0526ab6eb.jpg",
+ "file_path": "product-images/images/349cf161-cd6d-41d7-a1b2-a1d0526ab6eb.jpg",
  "file_size": 57830
 }

@@ -1,0 +1,15 @@
+{
+ "product_id": "4e7ab089-36cc-488b-230a-503437ef971a",
+ "name": "Pinu Brick Set Ultra",
+ "prompt": "studio packshot photo of a Black Pinu Brick Set Ultra, made of nylon, building toys, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1326306552,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T00:37:46",
+ "file_path": "static/images/4e7ab089-36cc-488b-230a-503437ef971a.jpg",
+ "file_size": 43350,
+ "uploaded": false,
+ "s3_url": null
+}

@@ -1,0 +1,15 @@
+{
+ "product_id": "87df8919-f361-43ef-551a-f4d24fa84c5b",
+ "name": "Baorze Running Shoes Lite",
+ "prompt": "studio packshot photo of a Red Baorze Running Shoes Lite, made of bamboo, footwear, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1117863113,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:55:36",
+ "file_path": "static/images/87df8919-f361-43ef-551a-f4d24fa84c5b.jpg",
+ "file_size": 71328,
+ "uploaded": false,
+ "s3_url": null
+}

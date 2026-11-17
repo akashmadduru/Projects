@@ -1,0 +1,13 @@
+{
+ "product_id": "71e3a948-b694-4d11-3ab8-0ab4bbbd7873",
+ "name": "Quari Switch Essential",
+ "prompt": "studio packshot photo of a Silver Quari Switch Essential, made of leather, networking, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2019177132,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:40:06",
+ "file_path": "product-images/images/71e3a948-b694-4d11-3ab8-0ab4bbbd7873.jpg",
+ "file_size": 66953
+}

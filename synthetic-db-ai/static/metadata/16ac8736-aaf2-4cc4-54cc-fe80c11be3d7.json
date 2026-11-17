@@ -1,0 +1,15 @@
+{
+ "product_id": "16ac8736-aaf2-4cc4-54cc-fe80c11be3d7",
+ "name": "Vensuri Action Camera Pro",
+ "prompt": "studio packshot photo of a Blue Vensuri Action Camera Pro, made of cotton, cameras, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 832093339,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:03:24",
+ "file_path": "static/images/16ac8736-aaf2-4cc4-54cc-fe80c11be3d7.jpg",
+ "file_size": 56021,
+ "uploaded": false,
+ "s3_url": null
+}

@@ -29,6 +29,7 @@ public class AnalyticsController {
       @AuthenticationPrincipal Jwt jwt,
       @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
       @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
-    return analytics.compute(sellers.requireByUser(UUID.fromString(jwt.getSubject())).id(), from, to);
+    return analytics.compute(
+        sellers.requireByUser(UUID.fromString(jwt.getSubject())).id(), from, to);
   }
 }

@@ -30,6 +30,7 @@ import { toSearchString, useCategories, useProduct, useProducts } from '../hooks
 import { useDeal } from '../hooks/useDeals'
 import { useHead } from '../hooks/useHead'
 import { effectiveDiscount, formatCount, formatMoney } from '../lib/format'
+import { cleanDescription } from '../lib/productDescription'
 import { effectivePrice } from '../lib/price'
 import { productPath } from '../lib/productPath'
 import { useConsent } from '../lib/consent'
@@ -96,6 +97,7 @@ export function ProductDetailPage() {
 
   const product = state.status === 'success' ? state.data : undefined
   const productId = product?.id
+  const description = useMemo(() => (product ? cleanDescription(product) : ''), [product])
   const variants = useMemo(() => product?.variants ?? [], [product])
   const options = product?.variantOptions ?? {}
   const hasVariants = variants.length > 0 && Object.keys(options).length > 0
@@ -160,7 +162,7 @@ export function ProductDetailPage() {
     product && canonical
       ? {
           title: `${product.name} | Cartwise`,
-          description: product.description?.slice(0, 160) ?? `Buy ${product.name} on Cartwise`,
+          description: description ? description.slice(0, 160) : `Buy ${product.name} on Cartwise`,
           canonical,
           image: product.images[0],
           type: 'product',
@@ -169,7 +171,7 @@ export function ProductDetailPage() {
             '@type': 'Product',
             name: product.name,
             image: product.images,
-            description: product.description ?? undefined,
+            description: description || undefined,
             sku: variant?.sku ?? product.sku,
             ...(product.brand ? { brand: { '@type': 'Brand', name: product.brand } } : {}),
             offers: {
@@ -348,7 +350,7 @@ export function ProductDetailPage() {
             />
           )}
 
-          {product.description && <p className="leading-relaxed text-on-surface">{product.description}</p>}
+          {description && <p className="leading-relaxed text-on-surface">{description}</p>}
 
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center rounded-full border-2 border-outline bg-surface shadow-cta" role="group" aria-label="Quantity">

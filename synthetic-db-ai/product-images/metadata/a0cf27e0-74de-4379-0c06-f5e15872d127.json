@@ -1,0 +1,13 @@
+{
+ "product_id": "a0cf27e0-74de-4379-0c06-f5e15872d127",
+ "name": "Trata Phone Lite",
+ "prompt": "studio packshot photo of a Rose Gold Trata Phone Lite, made of leather, mobiles & smartphones, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 785346815,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:12:46",
+ "file_path": "product-images/images/a0cf27e0-74de-4379-0c06-f5e15872d127.jpg",
+ "file_size": 42247
+}

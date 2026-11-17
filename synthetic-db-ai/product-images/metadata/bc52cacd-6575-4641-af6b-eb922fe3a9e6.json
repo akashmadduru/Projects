@@ -1,0 +1,13 @@
+{
+ "product_id": "bc52cacd-6575-4641-af6b-eb922fe3a9e6",
+ "name": "Ribaze Cushion Cover Edition",
+ "prompt": "studio packshot photo of a Space Grey Ribaze Cushion Cover Edition, made of silicone, home decor, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1993562483,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:27:15",
+ "file_path": "product-images/images/bc52cacd-6575-4641-af6b-eb922fe3a9e6.jpg",
+ "file_size": 34018
+}

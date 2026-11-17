@@ -1,0 +1,15 @@
+{
+ "product_id": "4f69db2a-2237-47a7-ea71-141587e87a14",
+ "name": "Venlumvo Mesh System Max",
+ "prompt": "studio packshot photo of a Blue Venlumvo Mesh System Max, made of bamboo, networking, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1925939047,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:16:24",
+ "file_path": "static/images/4f69db2a-2237-47a7-ea71-141587e87a14.jpg",
+ "file_size": 69756,
+ "uploaded": false,
+ "s3_url": null
+}

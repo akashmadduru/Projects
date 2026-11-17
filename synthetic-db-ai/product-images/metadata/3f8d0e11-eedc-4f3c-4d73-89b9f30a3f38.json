@@ -1,0 +1,13 @@
+{
+ "product_id": "3f8d0e11-eedc-4f3c-4d73-89b9f30a3f38",
+ "name": "Voqua Protein Bars Max",
+ "prompt": "studio packshot photo of a Black Voqua Protein Bars Max, made of abs plastic, snacks, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3045794059,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:39:41",
+ "file_path": "product-images/images/3f8d0e11-eedc-4f3c-4d73-89b9f30a3f38.jpg",
+ "file_size": 71716
+}

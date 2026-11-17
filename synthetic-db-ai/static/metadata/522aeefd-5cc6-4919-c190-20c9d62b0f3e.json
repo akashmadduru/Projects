@@ -1,0 +1,15 @@
+{
+ "product_id": "522aeefd-5cc6-4919-c190-20c9d62b0f3e",
+ "name": "Zequa Handbag Essential",
+ "prompt": "studio packshot photo of a Olive Zequa Handbag Essential, made of glass, bags & luggage, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 189883826,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:19:14",
+ "file_path": "static/images/522aeefd-5cc6-4919-c190-20c9d62b0f3e.jpg",
+ "file_size": 69228,
+ "uploaded": false,
+ "s3_url": null
+}

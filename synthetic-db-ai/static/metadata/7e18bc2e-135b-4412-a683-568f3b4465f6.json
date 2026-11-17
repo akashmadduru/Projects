@@ -1,0 +1,15 @@
+{
+ "product_id": "7e18bc2e-135b-4412-a683-568f3b4465f6",
+ "name": "Liorion Jacket Elite",
+ "prompt": "studio packshot photo of a White Liorion Jacket Elite, made of cotton, men's clothing, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 4076433710,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:48:49",
+ "file_path": "static/images/7e18bc2e-135b-4412-a683-568f3b4465f6.jpg",
+ "file_size": 56474,
+ "uploaded": false,
+ "s3_url": null
+}

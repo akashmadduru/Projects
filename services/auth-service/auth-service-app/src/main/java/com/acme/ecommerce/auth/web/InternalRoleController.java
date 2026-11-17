@@ -13,6 +13,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -44,7 +45,9 @@ public class InternalRoleController {
   @Transactional
   public void grant(@PathVariable UUID userId, @RequestBody GrantRoleRequest request) {
     String bare =
-        request.role() == null ? "" : request.role().trim().toUpperCase().replaceFirst("^ROLE_", "");
+        request.role() == null
+            ? ""
+            : request.role().trim().toUpperCase().replaceFirst("^ROLE_", "");
     if (!GRANTABLE.contains(bare)) {
       throw new ValidationException("Role cannot be granted internally: " + request.role());
     }
@@ -58,5 +61,26 @@ public class InternalRoleController {
             .orElseThrow(() -> new ResourceNotFoundException("Role", bare));
     user.grant(role);
     log.info("Granted {} to user {}", bare, userId);
+  }
+
+  /**
+   * Revokes an allow-listed role (seller suspension, TD-P9-09). Idempotent: revoking a role the
+   * user does not have is a no-op. Access tokens already issued keep the role until they expire
+   * (minutes); the next refresh issues a token without it.
+   */
+  @DeleteMapping("/internal/users/{userId}/roles/{role}")
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  @Transactional
+  public void revoke(@PathVariable UUID userId, @PathVariable("role") String rawRole) {
+    String bare = rawRole == null ? "" : rawRole.trim().toUpperCase().replaceFirst("^ROLE_", "");
+    if (!GRANTABLE.contains(bare)) {
+      throw new ValidationException("Role cannot be revoked internally: " + rawRole);
+    }
+    UserAccount user =
+        users
+            .findWithRolesById(userId)
+            .orElseThrow(() -> new ResourceNotFoundException("User", userId));
+    roles.findByName(Roles.ROLE_PREFIX + bare).ifPresent(user::revoke);
+    log.info("Revoked {} from user {}", bare, userId);
   }
 }

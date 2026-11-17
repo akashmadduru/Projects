@@ -1,0 +1,13 @@
+{
+ "product_id": "2ce9df1b-432f-4d28-fcdd-186f2a8d83bd",
+ "name": "Lumexmi Sleeping Bag Series 2",
+ "prompt": "studio packshot photo of a Silver Lumexmi Sleeping Bag Series 2, made of bamboo, camping, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2686587999,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-15T23:48:34",
+ "file_path": "product-images/images/2ce9df1b-432f-4d28-fcdd-186f2a8d83bd.jpg",
+ "file_size": 40629
+}

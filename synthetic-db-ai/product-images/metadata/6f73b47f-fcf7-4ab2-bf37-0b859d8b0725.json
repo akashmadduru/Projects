@@ -1,0 +1,13 @@
+{
+ "product_id": "6f73b47f-fcf7-4ab2-bf37-0b859d8b0725",
+ "name": "Sumiri Hardcover Elite",
+ "prompt": "studio packshot photo of a Green Sumiri Hardcover Elite, made of abs plastic, books, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2832370358,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T01:57:01",
+ "file_path": "product-images/images/6f73b47f-fcf7-4ab2-bf37-0b859d8b0725.jpg",
+ "file_size": 80198
+}

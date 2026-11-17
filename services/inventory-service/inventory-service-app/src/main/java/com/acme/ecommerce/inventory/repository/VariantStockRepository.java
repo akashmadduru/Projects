@@ -25,7 +25,9 @@ public class VariantStockRepository {
             "SELECT variant_id, quantity FROM inventory.variant_stock WHERE variant_id IN (:ids)"
                 + " ORDER BY variant_id FOR UPDATE")
         .param("ids", variantIds)
-        .query((rs, n) -> new VariantQty(rs.getObject("variant_id", UUID.class), rs.getInt("quantity")))
+        .query(
+            (rs, n) ->
+                new VariantQty(rs.getObject("variant_id", UUID.class), rs.getInt("quantity")))
         .list();
   }
 
@@ -63,7 +65,9 @@ public class VariantStockRepository {
             "SELECT variant_id, quantity FROM inventory.variant_stock WHERE product_id = :p"
                 + " ORDER BY variant_id")
         .param("p", productId)
-        .query((rs, n) -> new VariantQty(rs.getObject("variant_id", UUID.class), rs.getInt("quantity")))
+        .query(
+            (rs, n) ->
+                new VariantQty(rs.getObject("variant_id", UUID.class), rs.getInt("quantity")))
         .list();
   }
 }

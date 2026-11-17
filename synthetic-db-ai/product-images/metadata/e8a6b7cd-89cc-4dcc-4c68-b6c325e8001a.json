@@ -1,0 +1,13 @@
+{
+ "product_id": "e8a6b7cd-89cc-4dcc-4c68-b6c325e8001a",
+ "name": "Tralum Razor Classic",
+ "prompt": "studio packshot photo of a Midnight Tralum Razor Classic, made of wood, grooming, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2263522647,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T01:34:08",
+ "file_path": "product-images/images/e8a6b7cd-89cc-4dcc-4c68-b6c325e8001a.jpg",
+ "file_size": 59023
+}

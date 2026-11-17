@@ -1,0 +1,13 @@
+{
+ "product_id": "f2c14820-f5ae-42c3-8301-1678a0b9cc7e",
+ "name": "Cozelo Sunscreen Prime",
+ "prompt": "studio packshot photo of a Grey Cozelo Sunscreen Prime, made of leather, skin care, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2328439616,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:24:00",
+ "file_path": "product-images/images/f2c14820-f5ae-42c3-8301-1678a0b9cc7e.jpg",
+ "file_size": 96894
+}

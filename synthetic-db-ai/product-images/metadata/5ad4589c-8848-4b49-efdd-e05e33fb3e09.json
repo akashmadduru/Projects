@@ -1,0 +1,13 @@
+{
+ "product_id": "5ad4589c-8848-4b49-efdd-e05e33fb3e09",
+ "name": "Orvo Football Lite",
+ "prompt": "studio packshot photo of a Rose Gold Orvo Football Lite, made of bamboo, team sports, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 4018966537,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:13:07",
+ "file_path": "product-images/images/5ad4589c-8848-4b49-efdd-e05e33fb3e09.jpg",
+ "file_size": 62790
+}

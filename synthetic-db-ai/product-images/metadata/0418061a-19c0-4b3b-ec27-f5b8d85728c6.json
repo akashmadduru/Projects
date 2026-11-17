@@ -1,0 +1,13 @@
+{
+ "product_id": "0418061a-19c0-4b3b-ec27-f5b8d85728c6",
+ "name": "Zecoze Sneakers Pro",
+ "prompt": "studio packshot photo of a Navy Blue Zecoze Sneakers Pro, made of ceramic, footwear, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2079039213,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 768,
+ "created_at": "2026-11-15T22:33:12",
+ "file_path": "product-images/images/0418061a-19c0-4b3b-ec27-f5b8d85728c6.jpg",
+ "file_size": 63126
+}

@@ -1,0 +1,13 @@
+{
+ "product_id": "eb360baa-b89f-4400-2026-73f831da197f",
+ "name": "Orvo Cookware Set Classic",
+ "prompt": "studio packshot photo of a White Orvo Cookware Set Classic, made of ceramic, cookware, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1929646428,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T22:00:41",
+ "file_path": "product-images/images/eb360baa-b89f-4400-2026-73f831da197f.jpg",
+ "file_size": 25606
+}

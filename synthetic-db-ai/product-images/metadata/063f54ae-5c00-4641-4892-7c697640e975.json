@@ -1,0 +1,13 @@
+{
+ "product_id": "063f54ae-5c00-4641-4892-7c697640e975",
+ "name": "Sumiri Hair Oil Edition",
+ "prompt": "studio packshot photo of a Olive Sumiri Hair Oil Edition, made of aluminium, hair care, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2940990951,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:06:41",
+ "file_path": "product-images/images/063f54ae-5c00-4641-4892-7c697640e975.jpg",
+ "file_size": 43655
+}

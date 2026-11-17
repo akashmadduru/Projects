@@ -1,0 +1,15 @@
+{
+ "product_id": "4e217749-00c3-499a-3da3-e4189310587d",
+ "name": "Vozeli Analog Watch Essential",
+ "prompt": "studio packshot photo of a Grey Vozeli Analog Watch Essential, made of polyester, watches & jewellery, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1946748705,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:15:44",
+ "file_path": "static/images/4e217749-00c3-499a-3da3-e4189310587d.jpg",
+ "file_size": 52289,
+ "uploaded": false,
+ "s3_url": null
+}

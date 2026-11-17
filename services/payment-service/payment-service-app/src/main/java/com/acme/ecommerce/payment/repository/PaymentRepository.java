@@ -168,6 +168,18 @@ public class PaymentRepository {
         .update();
   }
 
+  /**
+   * Voids a payment that was never paid (its order was cancelled). Marked reported: order-service
+   * already knows, so the reporter must not send it a FAILED outcome.
+   */
+  public int voidUnpaid(UUID id) {
+    return jdbc.sql(
+            "UPDATE payment.payments SET status = 'FAILED', reported = true, updated_at = now() "
+                + "WHERE id = :i AND status IN ('REQUIRES_PAYMENT', 'PROCESSING')")
+        .param("i", id)
+        .update();
+  }
+
   public int markCodCollected(UUID id) {
     return jdbc.sql(
             "UPDATE payment.payments SET status = 'SUCCEEDED', reported = true, "

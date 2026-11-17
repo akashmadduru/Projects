@@ -1,0 +1,13 @@
+{
+ "product_id": "f689d498-41e0-4497-f212-2b8500d82505",
+ "name": "Liar Air Fryer Lite",
+ "prompt": "studio packshot photo of a Midnight Liar Air Fryer Lite, made of glass, small appliances, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1199893295,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T22:07:41",
+ "file_path": "product-images/images/f689d498-41e0-4497-f212-2b8500d82505.jpg",
+ "file_size": 38688
+}

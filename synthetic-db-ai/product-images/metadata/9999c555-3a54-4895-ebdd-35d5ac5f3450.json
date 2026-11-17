@@ -1,0 +1,13 @@
+{
+ "product_id": "9999c555-3a54-4895-ebdd-35d5ac5f3450",
+ "name": "Liri Moisturiser Edition",
+ "prompt": "studio packshot photo of a Olive Liri Moisturiser Edition, made of nylon, skin care, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 483805810,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:07:57",
+ "file_path": "product-images/images/9999c555-3a54-4895-ebdd-35d5ac5f3450.jpg",
+ "file_size": 39607
+}

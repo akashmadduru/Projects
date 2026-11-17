@@ -1,0 +1,15 @@
+{
+ "product_id": "764f0dcc-2e8f-441a-38ab-4a109023df19",
+ "name": "Arsuno Camera Series 2",
+ "prompt": "studio packshot photo of a Grey Arsuno Camera Series 2, made of cotton, cameras, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2897331595,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:37:30",
+ "file_path": "static/images/764f0dcc-2e8f-441a-38ab-4a109023df19.jpg",
+ "file_size": 68475,
+ "uploaded": false,
+ "s3_url": null
+}

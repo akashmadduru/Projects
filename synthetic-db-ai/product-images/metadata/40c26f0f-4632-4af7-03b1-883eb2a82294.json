@@ -1,0 +1,13 @@
+{
+ "product_id": "40c26f0f-4632-4af7-03b1-883eb2a82294",
+ "name": "Nosuri Protein Bars Series 2",
+ "prompt": "studio packshot photo of a Blue Nosuri Protein Bars Series 2, made of ceramic, snacks, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1814415248,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:08:58",
+ "file_path": "product-images/images/40c26f0f-4632-4af7-03b1-883eb2a82294.jpg",
+ "file_size": 67009
+}

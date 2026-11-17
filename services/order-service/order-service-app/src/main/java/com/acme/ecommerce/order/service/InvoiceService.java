@@ -20,9 +20,9 @@ import org.springframework.stereotype.Service;
 /**
  * Renders a GST-style tax invoice as a PDF.
  *
- * <p>Hand-rolled minimal PDF (monospaced Courier text, base-14 font, no embedded resources):
- * Maven Central was unreachable when this was built so OpenPDF could not be resolved. See tech
- * debt: swap for OpenPDF (the catalog entry is already in libs.versions.toml).
+ * <p>Hand-rolled minimal PDF (monospaced Courier text, base-14 font, no embedded resources): Maven
+ * Central was unreachable when this was built so OpenPDF could not be resolved. See tech debt: swap
+ * for OpenPDF (the catalog entry is already in libs.versions.toml).
  */
 @Service
 public class InvoiceService {
@@ -113,13 +113,20 @@ public class InvoiceService {
     if (split) {
       lines.add(new Line("Shipment   : " + ship.id(), false, SIZE));
     }
-    lines.add(new Line("Payment    : " + o.paymentMethod() + " (" + o.paymentStatus() + ")", false, SIZE));
+    lines.add(
+        new Line(
+            "Payment    : " + o.paymentMethod() + " (" + o.paymentStatus() + ")", false, SIZE));
     lines.add(new Line("", false, SIZE));
     lines.add(new Line("SOLD BY", true, SIZE));
     if (otherSeller) {
       lines.add(new Line(ship.sellerName(), false, SIZE));
-      lines.add(new Line("Marketplace seller - fulfilled from " + ship.warehouseCode(), false, SIZE));
-      lines.add(new Line("Sold via " + seller.getName() + " marketplace, GSTIN: " + seller.getGstin(), false, SIZE));
+      lines.add(
+          new Line("Marketplace seller - fulfilled from " + ship.warehouseCode(), false, SIZE));
+      lines.add(
+          new Line(
+              "Sold via " + seller.getName() + " marketplace, GSTIN: " + seller.getGstin(),
+              false,
+              SIZE));
     } else {
       lines.add(new Line(seller.getName(), false, SIZE));
       lines.add(new Line(seller.getAddress(), false, SIZE));
@@ -128,15 +135,20 @@ public class InvoiceService {
     lines.add(new Line("", false, SIZE));
     ShipToResponse s = o.shipTo();
     lines.add(new Line("BILL TO / SHIP TO", true, SIZE));
-    lines.add(new Line(s.fullName() + (o.email() == null ? "" : "  <" + o.email() + ">"), false, SIZE));
+    lines.add(
+        new Line(s.fullName() + (o.email() == null ? "" : "  <" + o.email() + ">"), false, SIZE));
     lines.add(new Line(s.line1(), false, SIZE));
     if (s.line2() != null && !s.line2().isBlank()) {
       lines.add(new Line(s.line2(), false, SIZE));
     }
     lines.add(
         new Line(
-            s.city() + (s.state() == null ? "" : ", " + s.state()) + " " + s.postalCode()
-                + ", " + s.country(),
+            s.city()
+                + (s.state() == null ? "" : ", " + s.state())
+                + " "
+                + s.postalCode()
+                + ", "
+                + s.country(),
             false,
             SIZE));
     if (s.phone() != null) {
@@ -149,7 +161,11 @@ public class InvoiceService {
     for (OrderItemResponse i : invItems) {
       lines.add(
           new Line(
-              row(i.name(), String.valueOf(i.quantity()), money(i.unitPrice()), money(i.lineTotal())),
+              row(
+                  i.name(),
+                  String.valueOf(i.quantity()),
+                  money(i.unitPrice()),
+                  money(i.lineTotal())),
               false,
               SIZE));
     }
@@ -271,8 +287,11 @@ public class InvoiceService {
               + " 0 R >>");
       String stream = pages.get(p);
       objects.add(
-          "<< /Length " + stream.getBytes(StandardCharsets.ISO_8859_1).length + " >>\nstream\n"
-              + stream + "endstream");
+          "<< /Length "
+              + stream.getBytes(StandardCharsets.ISO_8859_1).length
+              + " >>\nstream\n"
+              + stream
+              + "endstream");
     }
 
     ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -283,7 +302,8 @@ public class InvoiceService {
       write(out, (i + 1) + " 0 obj\n" + objects.get(i) + "\nendobj\n");
     }
     int xref = out.size();
-    StringBuilder x = new StringBuilder("xref\n0 " + (objects.size() + 1) + "\n0000000000 65535 f \n");
+    StringBuilder x =
+        new StringBuilder("xref\n0 " + (objects.size() + 1) + "\n0000000000 65535 f \n");
     for (int off : offsets) {
       x.append(String.format(Locale.ENGLISH, "%010d 00000 n \n", off));
     }

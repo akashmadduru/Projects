@@ -1,0 +1,13 @@
+{
+ "product_id": "97f726a3-b781-44a4-420d-c41570d35a66",
+ "name": "Mili RC Car Series 2",
+ "prompt": "studio packshot photo of a Space Grey Mili RC Car Series 2, made of polyester, remote control, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1149699000,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:06:57",
+ "file_path": "product-images/images/97f726a3-b781-44a4-420d-c41570d35a66.jpg",
+ "file_size": 38342
+}

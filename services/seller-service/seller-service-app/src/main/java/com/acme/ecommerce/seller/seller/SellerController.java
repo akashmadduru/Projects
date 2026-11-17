@@ -40,8 +40,11 @@ public class SellerController {
 
   @GetMapping("/api/sellers/me")
   public Seller me(@AuthenticationPrincipal Jwt jwt) {
-    return sellers.findByUser(UUID.fromString(jwt.getSubject()))
-        .orElseThrow(() -> new com.acme.ecommerce.common.core.error.ResourceNotFoundException("Seller", "me"));
+    return sellers
+        .findByUser(UUID.fromString(jwt.getSubject()))
+        .orElseThrow(
+            () ->
+                new com.acme.ecommerce.common.core.error.ResourceNotFoundException("Seller", "me"));
   }
 
   @GetMapping("/api/sellers/{slug}")
@@ -55,13 +58,20 @@ public class SellerController {
       @RequestParam(required = false) String status,
       @RequestParam(defaultValue = "0") int page,
       @RequestParam(defaultValue = "20") int size) {
-    return sellers.adminList(status, page, size);
+    Paged<Seller> p = sellers.adminList(status, page, size);
+    return new Paged<>(p.content().stream().map(Seller::masked).toList(), p.page());
   }
 
   @GetMapping("/api/admin/sellers/{id}")
   @PreAuthorize("hasAnyRole('ADMIN','SUPPORT','FINANCE')")
-  public Seller adminGet(@PathVariable UUID id) {
-    return sellers.adminGet(id);
+  public Seller adminGet(
+      @PathVariable UUID id, org.springframework.security.core.Authentication caller) {
+    Seller s = sellers.adminGet(id);
+    boolean admin =
+        caller != null
+            && caller.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()));
+    return admin ? s : s.masked();
   }
 
   @PostMapping("/api/admin/sellers/{id}/decision")
@@ -72,7 +82,8 @@ public class SellerController {
 
   @PostMapping("/api/admin/sellers/{id}/suspend")
   @PreAuthorize("hasRole('ADMIN')")
-  public Seller suspend(@PathVariable UUID id, @RequestBody(required = false) SuspendRequest request) {
+  public Seller suspend(
+      @PathVariable UUID id, @RequestBody(required = false) SuspendRequest request) {
     return sellers.suspend(id, request == null ? null : request.reason());
   }
 
@@ -90,6 +101,11 @@ public class SellerController {
 
   @GetMapping("/internal/sellers")
   public List<InternalSeller> internalBatch(@RequestParam String ids) {
-    return sellers.internalBatch(Arrays.stream(ids.split(",")).filter(s -> !s.isBlank()).map(String::trim).map(UUID::fromString).toList());
+    return sellers.internalBatch(
+        Arrays.stream(ids.split(","))
+            .filter(s -> !s.isBlank())
+            .map(String::trim)
+            .map(UUID::fromString)
+            .toList());
   }
 }

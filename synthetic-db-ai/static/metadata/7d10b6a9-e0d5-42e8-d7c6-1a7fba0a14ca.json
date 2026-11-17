@@ -1,0 +1,15 @@
+{
+ "product_id": "7d10b6a9-e0d5-42e8-d7c6-1a7fba0a14ca",
+ "name": "Qualo Gaming Monitor Pro",
+ "prompt": "studio packshot photo of a Black Qualo Gaming Monitor Pro, made of cotton, monitors, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 761822764,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:25:01",
+ "file_path": "static/images/7d10b6a9-e0d5-42e8-d7c6-1a7fba0a14ca.jpg",
+ "file_size": 63702,
+ "uploaded": false,
+ "s3_url": null
+}

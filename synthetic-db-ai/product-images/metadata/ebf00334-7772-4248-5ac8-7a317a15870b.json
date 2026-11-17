@@ -1,0 +1,13 @@
+{
+ "product_id": "ebf00334-7772-4248-5ac8-7a317a15870b",
+ "name": "Lonu Kurta Series 2",
+ "prompt": "studio packshot photo of a Rose Gold Lonu Kurta Series 2, made of nylon, women's clothing, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1983623255,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:16:14",
+ "file_path": "product-images/images/ebf00334-7772-4248-5ac8-7a317a15870b.jpg",
+ "file_size": 47209
+}

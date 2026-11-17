@@ -5,7 +5,6 @@ import com.acme.ecommerce.auth.cache.UserSnapshotFactory;
 import com.acme.ecommerce.auth.metrics.AuthMetrics;
 import com.acme.ecommerce.auth.token.AuthenticatedPrincipal;
 import com.acme.ecommerce.auth.token.DeviceContext;
-import com.acme.ecommerce.auth.token.TokenPair;
 import com.acme.ecommerce.auth.token.TokenService;
 import com.acme.ecommerce.auth.web.RefreshCookieWriter;
 import com.acme.ecommerce.auth.web.RequestDeviceContext;
@@ -38,7 +37,8 @@ public class OidcLoginSuccessHandler implements AuthenticationSuccessHandler {
 
   /** Same lifetime as the challenge itself. */
   private static final class TwoFactorTtl {
-    static final java.time.Duration TTL = com.acme.ecommerce.auth.service.TwoFactorService.CHALLENGE_TTL;
+    static final java.time.Duration TTL =
+        com.acme.ecommerce.auth.service.TwoFactorService.CHALLENGE_TTL;
   }
 
   private static final Logger log = LoggerFactory.getLogger(OidcLoginSuccessHandler.class);

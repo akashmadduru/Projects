@@ -1,0 +1,15 @@
+{
+ "product_id": "6de75585-88c3-4a8c-9ce5-b3f3b0a69dbc",
+ "name": "Baion Bookshelf Lite",
+ "prompt": "studio packshot photo of a Grey Baion Bookshelf Lite, made of glass, furniture, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 816127439,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:37:46",
+ "file_path": "static/images/6de75585-88c3-4a8c-9ce5-b3f3b0a69dbc.jpg",
+ "file_size": 48025,
+ "uploaded": false,
+ "s3_url": null
+}

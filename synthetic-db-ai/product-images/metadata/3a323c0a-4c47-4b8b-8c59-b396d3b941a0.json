@@ -1,0 +1,13 @@
+{
+ "product_id": "3a323c0a-4c47-4b8b-8c59-b396d3b941a0",
+ "name": "Lumtra Dress Edition",
+ "prompt": "studio packshot photo of a Black Lumtra Dress Edition, made of silicone, women's clothing, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2721314114,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:04:01",
+ "file_path": "product-images/images/3a323c0a-4c47-4b8b-8c59-b396d3b941a0.jpg",
+ "file_size": 30754
+}

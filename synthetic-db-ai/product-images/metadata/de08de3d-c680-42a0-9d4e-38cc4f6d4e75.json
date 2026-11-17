@@ -1,0 +1,13 @@
+{
+ "product_id": "de08de3d-c680-42a0-9d4e-38cc4f6d4e75",
+ "name": "Ionnoqua Earbuds Ultra",
+ "prompt": "studio packshot photo of a Olive Ionnoqua Earbuds Ultra, made of ceramic, headphones & earbuds, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3100878906,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:21:30",
+ "file_path": "product-images/images/de08de3d-c680-42a0-9d4e-38cc4f6d4e75.jpg",
+ "file_size": 41996
+}

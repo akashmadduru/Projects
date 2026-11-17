@@ -1,0 +1,13 @@
+{
+ "product_id": "c448f8f5-3959-4429-1aa7-7cd1bafd1180",
+ "name": "Loarnu Air Fryer Plus",
+ "prompt": "studio packshot photo of a Olive Loarnu Air Fryer Plus, made of wood, small appliances, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2403085110,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:07:16",
+ "file_path": "product-images/images/c448f8f5-3959-4429-1aa7-7cd1bafd1180.jpg",
+ "file_size": 54579
+}

@@ -22,7 +22,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class EmbeddingStore {
 
   /** One freshly computed vector ready to persist. */
-  public record Embedded(UUID productId, float[] vector, String contentHash) {}
+  public record Embedded(
+      UUID productId, float[] vector, String contentHash, Instant sourceUpdatedAt) {}
 
   /** One failed attempt to record. */
   public record Failure(UUID productId, String contentHash, String error) {}
@@ -37,13 +38,19 @@ public class EmbeddingStore {
   /**
    * Persists a batch outcome atomically.
    *
-   * @param checkedAt the snapshot time taken BEFORE the candidates were read
+   * @param unchanged unchanged products, each with the {@code updated_at} that was read
+   * @param checkedAt when the batch was verified (drives the full sweep only)
    */
   @Transactional
   public void persist(
-      String model, List<Embedded> embedded, List<UUID> unchanged, Instant checkedAt, Instant now) {
+      String model,
+      List<Embedded> embedded,
+      java.util.Map<UUID, Instant> unchanged,
+      Instant checkedAt,
+      Instant now) {
     for (Embedded e : embedded) {
-      repository.upsert(e.productId(), e.vector(), model, e.contentHash(), now, checkedAt);
+      repository.upsert(
+          e.productId(), e.vector(), model, e.contentHash(), now, checkedAt, e.sourceUpdatedAt());
     }
     repository.touchChecked(unchanged, checkedAt);
     repository.clearFailures(embedded.stream().map(Embedded::productId).toList());

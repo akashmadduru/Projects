@@ -1,0 +1,13 @@
+{
+ "product_id": "d73990c5-e888-461e-0a1b-4cecd49abf14",
+ "name": "Lita Laptop Plus",
+ "prompt": "studio packshot photo of a Olive Lita Laptop Plus, made of stainless steel, laptops, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1106390229,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:48:28",
+ "file_path": "product-images/images/d73990c5-e888-461e-0a1b-4cecd49abf14.jpg",
+ "file_size": 25448
+}

@@ -66,14 +66,8 @@ public class ProductEventListener {
           event.getEventType(),
           productId,
           e.getMessage());
-    } catch (Exception e) {
-      log.error(
-          "Error processing product event eventType={} productId={}: {}",
-          event.getEventType(),
-          productId,
-          e.getMessage(),
-          e);
     }
+    // Anything else propagates: the container retries it, then dead-letters it (TD-BE-17).
   }
 
   private void provisionOrCompensate(ProductEvent event) {

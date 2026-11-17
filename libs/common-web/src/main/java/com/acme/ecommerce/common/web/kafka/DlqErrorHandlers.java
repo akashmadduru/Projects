@@ -13,14 +13,19 @@ import org.springframework.kafka.core.KafkaOperations;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.listener.DefaultErrorHandler;
-import org.springframework.kafka.support.serializer.JsonSerializer;
 import org.springframework.kafka.support.ExponentialBackOffWithMaxRetries;
+import org.springframework.kafka.support.serializer.JsonSerializer;
 
 /**
  * Shared dead-letter wiring for every {@code @KafkaListener} container factory: 3 retries with
  * exponential backoff (1s, 2s, 4s), then the record is published to {@code <topic>.DLT} and the
- * offset moves on. Deserialisation failures (ErrorHandlingDeserializer) are not retried by
- * {@link DefaultErrorHandler} and go straight to the DLT with their original bytes.
+ * offset moves on. Deserialisation failures (ErrorHandlingDeserializer) are not retried by {@link
+ * DefaultErrorHandler} and go straight to the DLT with their original bytes.
+ *
+ * <p>Listeners must let failures propagate: one that catches and logs everything bypasses both the
+ * retries and the DLT, and the event is lost (TD-BE-17, fixed 2026-11-17). Malformed event data
+ * ({@link IllegalArgumentException}, for example a bad UUID, and {@link
+ * java.time.DateTimeException}) cannot succeed on retry, so it goes to the DLT at once.
  */
 @SuppressWarnings("removal")
 public final class DlqErrorHandlers {
@@ -61,14 +66,16 @@ public final class DlqErrorHandlers {
                   record.offset(),
                   record.topic(),
                   ex.toString());
-              return new org.apache.kafka.common.TopicPartition(
-                  record.topic() + ".DLT", -1);
+              return new org.apache.kafka.common.TopicPartition(record.topic() + ".DLT", -1);
             });
 
     ExponentialBackOffWithMaxRetries backOff = new ExponentialBackOffWithMaxRetries(3);
     backOff.setInitialInterval(1000L);
     backOff.setMultiplier(2.0);
     backOff.setMaxInterval(10_000L);
-    return new DefaultErrorHandler(recoverer, backOff);
+    DefaultErrorHandler handler = new DefaultErrorHandler(recoverer, backOff);
+    handler.addNotRetryableExceptions(
+        IllegalArgumentException.class, java.time.DateTimeException.class);
+    return handler;
   }
 }

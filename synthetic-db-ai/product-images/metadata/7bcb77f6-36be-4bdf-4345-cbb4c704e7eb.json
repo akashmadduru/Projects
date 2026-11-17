@@ -1,0 +1,13 @@
+{
+ "product_id": "7bcb77f6-36be-4bdf-4345-cbb4c704e7eb",
+ "name": "Lokata Blender Elite",
+ "prompt": "studio packshot photo of a Grey Lokata Blender Elite, made of aluminium, small appliances, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2986924547,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:25:59",
+ "file_path": "product-images/images/7bcb77f6-36be-4bdf-4345-cbb4c704e7eb.jpg",
+ "file_size": 64867
+}

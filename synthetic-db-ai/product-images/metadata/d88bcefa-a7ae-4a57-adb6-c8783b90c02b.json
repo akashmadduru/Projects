@@ -1,0 +1,13 @@
+{
+ "product_id": "d88bcefa-a7ae-4a57-adb6-c8783b90c02b",
+ "name": "Pifyze Action Camera Plus",
+ "prompt": "studio packshot photo of a Silver Pifyze Action Camera Plus, made of glass, cameras, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1877529876,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T00:32:43",
+ "file_path": "product-images/images/d88bcefa-a7ae-4a57-adb6-c8783b90c02b.jpg",
+ "file_size": 30722
+}

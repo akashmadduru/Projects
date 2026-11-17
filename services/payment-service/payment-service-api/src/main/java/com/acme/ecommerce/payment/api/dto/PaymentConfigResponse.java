@@ -5,8 +5,8 @@ import java.util.List;
 /**
  * Public config. {@code providers} lists every online provider switched on (STRIPE, RAZORPAY), the
  * customer picks one at checkout; {@code defaultProvider} is preselected. {@code mode} and {@code
- * publishableKey} describe the default provider and are kept for older clients: mode is
- * STRIPE, RAZORPAY or SIMULATED, publishableKey is null when SIMULATED.
+ * publishableKey} describe the default provider and are kept for older clients: mode is STRIPE,
+ * RAZORPAY or SIMULATED, publishableKey is null when SIMULATED.
  */
 public record PaymentConfigResponse(
     String mode, String publishableKey, List<Provider> providers, String defaultProvider) {

@@ -1,0 +1,13 @@
+{
+ "product_id": "85f5a694-83ac-48b9-3c8e-aaddd2c08bcf",
+ "name": "Suex Hair Dryer Edition",
+ "prompt": "studio packshot photo of a Navy Blue Suex Hair Dryer Edition, made of stainless steel, hair care, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 9868377,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:38:55",
+ "file_path": "product-images/images/85f5a694-83ac-48b9-3c8e-aaddd2c08bcf.jpg",
+ "file_size": 66226
+}

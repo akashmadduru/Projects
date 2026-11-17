@@ -1,0 +1,13 @@
+{
+ "product_id": "9a6ba5e6-1b92-4eca-9fa6-2d16b46fd1f7",
+ "name": "Fyfytra Switch Gen 3",
+ "prompt": "studio packshot photo of a Silver Fyfytra Switch Gen 3, made of polyester, networking, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2258524151,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:08:29",
+ "file_path": "product-images/images/9a6ba5e6-1b92-4eca-9fa6-2d16b46fd1f7.jpg",
+ "file_size": 40617
+}

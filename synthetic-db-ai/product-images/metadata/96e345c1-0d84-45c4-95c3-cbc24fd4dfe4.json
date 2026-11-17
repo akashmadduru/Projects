@@ -1,0 +1,13 @@
+{
+ "product_id": "96e345c1-0d84-45c4-95c3-cbc24fd4dfe4",
+ "name": "Cononu Mixed Nuts Essential",
+ "prompt": "studio packshot photo of a Rose Gold Cononu Mixed Nuts Essential, made of ceramic, snacks, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3233624569,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:05:49",
+ "file_path": "product-images/images/96e345c1-0d84-45c4-95c3-cbc24fd4dfe4.jpg",
+ "file_size": 86656
+}

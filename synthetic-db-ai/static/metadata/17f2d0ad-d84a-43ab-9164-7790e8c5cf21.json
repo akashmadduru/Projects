@@ -1,0 +1,15 @@
+{
+ "product_id": "17f2d0ad-d84a-43ab-9164-7790e8c5cf21",
+ "name": "Talumpi Paperback Edition",
+ "prompt": "studio packshot photo of a Silver Talumpi Paperback Edition, made of leather, books, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 4064937239,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 768,
+ "created_at": "2026-11-15T23:07:19",
+ "file_path": "static/images/17f2d0ad-d84a-43ab-9164-7790e8c5cf21.jpg",
+ "file_size": 71903,
+ "uploaded": false,
+ "s3_url": null
+}

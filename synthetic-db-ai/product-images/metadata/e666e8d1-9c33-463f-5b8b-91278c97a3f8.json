@@ -1,0 +1,13 @@
+{
+ "product_id": "e666e8d1-9c33-463f-5b8b-91278c97a3f8",
+ "name": "Losuze Fitness Band Edition",
+ "prompt": "studio packshot photo of a Silver Losuze Fitness Band Edition, made of abs plastic, smart watches, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1176983614,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:16:06",
+ "file_path": "product-images/images/e666e8d1-9c33-463f-5b8b-91278c97a3f8.jpg",
+ "file_size": 56922
+}

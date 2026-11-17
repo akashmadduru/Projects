@@ -1,0 +1,13 @@
+{
+ "product_id": "998db51f-5cc8-4de9-1860-c9e1a0553eb2",
+ "name": "Trarili Deodorant Classic",
+ "prompt": "studio packshot photo of a Midnight Trarili Deodorant Classic, made of nylon, fragrances, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2109994576,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:24:08",
+ "file_path": "product-images/images/998db51f-5cc8-4de9-1860-c9e1a0553eb2.jpg",
+ "file_size": 109668
+}

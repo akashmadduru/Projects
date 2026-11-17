@@ -1,0 +1,13 @@
+{
+ "product_id": "dff665a6-e376-49b2-e11a-87cf3b85dbf2",
+ "name": "Fyfytra Analog Watch Prime",
+ "prompt": "studio packshot photo of a Midnight Fyfytra Analog Watch Prime, made of leather, watches & jewellery, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3932889182,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:53:52",
+ "file_path": "product-images/images/dff665a6-e376-49b2-e11a-87cf3b85dbf2.jpg",
+ "file_size": 50818
+}

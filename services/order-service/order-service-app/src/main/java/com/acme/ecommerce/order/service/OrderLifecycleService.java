@@ -1,9 +1,8 @@
 package com.acme.ecommerce.order.service;
 
-import com.acme.ecommerce.common.web.job.JobLock;
-import org.springframework.beans.factory.annotation.Autowired;
 import com.acme.ecommerce.common.core.error.CodedException;
 import com.acme.ecommerce.common.core.error.ErrorCode;
+import com.acme.ecommerce.common.web.job.JobLock;
 import com.acme.ecommerce.order.api.dto.AdminRequests.StatusUpdate;
 import com.acme.ecommerce.order.api.dto.OrderResponse;
 import com.acme.ecommerce.order.config.OrderProperties;
@@ -19,6 +18,7 @@ import java.util.List;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -76,6 +76,11 @@ public class OrderLifecycleService {
   }
 
   private void afterCancel(OrderResponse order) {
+    // An unpaid card order (cancel, expiry or failed payment): stop its payment from being taken
+    // later. Idempotent on the payment side, so the failed-payment path calling it is harmless.
+    if ("CARD".equals(order.paymentMethod()) && "FAILED".equals(order.paymentStatus())) {
+      remote.cancelPaymentBestEffort(order.id());
+    }
     remote.restoreStockBestEffort(order.id());
     if (order.couponCode() != null) {
       remote.releaseCouponBestEffort(order.id());
@@ -131,7 +136,10 @@ public class OrderLifecycleService {
             HistoryActor.SELLER));
   }
 
-  /** COD collection on order DELIVERED, then SHIPMENT_STATUS_CHANGED (+ ORDER_STATUS_CHANGED if derived status moved). */
+  /**
+   * COD collection on order DELIVERED, then SHIPMENT_STATUS_CHANGED (+ ORDER_STATUS_CHANGED if
+   * derived status moved).
+   */
   private OrderResponse afterAdvance(ShipmentAdvance adv) {
     OrderResponse order = adv.order();
     boolean orderMoved = !order.status().equals(adv.previousOrderStatus());
@@ -164,7 +172,15 @@ public class OrderLifecycleService {
               "late-success-" + orderId);
           store.markLateRefund(orderId);
         } catch (RuntimeException e) {
-          log.error("Order {} was paid after cancellation and the refund failed: {}", orderId, e.toString());
+          log.error(
+              "Order {} was paid after cancellation and the refund failed; payment-service will"
+                  + " retry: {}",
+              orderId,
+              e.toString());
+          // Not 200: payment-service then keeps the outcome unreported and re-sends it every 30 s,
+          // and the refund is retried with the same idempotency key (TD-P6-03).
+          throw new CodedException(
+              ErrorCode.UPSTREAM_UNAVAILABLE, "Late payment refund failed; retry later", e);
         }
       }
       OrderResponse o = store.getAny(orderId);

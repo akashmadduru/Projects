@@ -1,0 +1,15 @@
+{
+ "product_id": "48e07ad5-d91b-4438-2f30-5a94523435da",
+ "name": "Noquaze Cookware Set Plus",
+ "prompt": "studio packshot photo of a Green Noquaze Cookware Set Plus, made of nylon, cookware, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3608871143,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:15:41",
+ "file_path": "static/images/48e07ad5-d91b-4438-2f30-5a94523435da.jpg",
+ "file_size": 47338,
+ "uploaded": false,
+ "s3_url": null
+}

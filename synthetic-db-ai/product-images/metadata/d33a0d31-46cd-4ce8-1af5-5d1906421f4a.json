@@ -1,0 +1,13 @@
+{
+ "product_id": "d33a0d31-46cd-4ce8-1af5-5d1906421f4a",
+ "name": "Arnu Hair Dryer Prime",
+ "prompt": "studio packshot photo of a Silver Arnu Hair Dryer Prime, made of ceramic, hair care, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2275171380,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T00:37:29",
+ "file_path": "product-images/images/d33a0d31-46cd-4ce8-1af5-5d1906421f4a.jpg",
+ "file_size": 43274
+}

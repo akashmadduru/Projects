@@ -1,0 +1,13 @@
+{
+ "product_id": "0c4c2a60-9943-4490-f7d0-f7c07a073ae5",
+ "name": "Quanoqua Board Game Elite",
+ "prompt": "studio packshot photo of a Green Quanoqua Board Game Elite, made of wood, board games, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 4252518366,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 768,
+ "created_at": "2026-11-15T22:44:37",
+ "file_path": "product-images/images/0c4c2a60-9943-4490-f7d0-f7c07a073ae5.jpg",
+ "file_size": 183623
+}

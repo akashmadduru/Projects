@@ -1,0 +1,15 @@
+{
+ "product_id": "26748d84-ebf9-4de7-4ac6-020a002888b3",
+ "name": "Araror Phone Pro",
+ "prompt": "studio packshot photo of a Midnight Araror Phone Pro, made of nylon, mobiles & smartphones, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2487433400,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:10:47",
+ "file_path": "static/images/26748d84-ebf9-4de7-4ac6-020a002888b3.jpg",
+ "file_size": 44068,
+ "uploaded": false,
+ "s3_url": null
+}

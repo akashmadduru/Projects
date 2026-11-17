@@ -1,0 +1,13 @@
+{
+ "product_id": "dadfae40-d1bb-4541-5779-c40bd1aa2150",
+ "name": "Piexfy Electric Shaver Lite",
+ "prompt": "studio packshot photo of a White Piexfy Electric Shaver Lite, made of bamboo, grooming, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2895522204,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:50:36",
+ "file_path": "product-images/images/dadfae40-d1bb-4541-5779-c40bd1aa2150.jpg",
+ "file_size": 29604
+}

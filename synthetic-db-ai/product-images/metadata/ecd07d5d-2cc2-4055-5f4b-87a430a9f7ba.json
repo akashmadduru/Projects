@@ -1,0 +1,13 @@
+{
+ "product_id": "ecd07d5d-2cc2-4055-5f4b-87a430a9f7ba",
+ "name": "Lokata Helmet Ultra",
+ "prompt": "studio packshot photo of a Navy Blue Lokata Helmet Ultra, made of aluminium, cycling, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2672580145,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T22:01:19",
+ "file_path": "product-images/images/ecd07d5d-2cc2-4055-5f4b-87a430a9f7ba.jpg",
+ "file_size": 63864
+}

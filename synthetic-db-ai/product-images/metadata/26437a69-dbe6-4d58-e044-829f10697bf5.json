@@ -1,0 +1,13 @@
+{
+ "product_id": "26437a69-dbe6-4d58-e044-829f10697bf5",
+ "name": "Piri Mirrorless Camera Classic",
+ "prompt": "studio packshot photo of a Navy Blue Piri Mirrorless Camera Classic, made of nylon, cameras, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2238118900,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-15T23:40:56",
+ "file_path": "product-images/images/26437a69-dbe6-4d58-e044-829f10697bf5.jpg",
+ "file_size": 48257
+}

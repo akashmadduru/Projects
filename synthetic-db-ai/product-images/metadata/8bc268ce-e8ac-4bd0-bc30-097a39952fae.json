@@ -1,0 +1,13 @@
+{
+ "product_id": "8bc268ce-e8ac-4bd0-bc30-097a39952fae",
+ "name": "Liventra Protein Powder Series 2",
+ "prompt": "studio packshot photo of a Grey Liventra Protein Powder Series 2, made of leather, supplements, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2784875529,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:57:39",
+ "file_path": "product-images/images/8bc268ce-e8ac-4bd0-bc30-097a39952fae.jpg",
+ "file_size": 65834
+}

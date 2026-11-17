@@ -1,0 +1,15 @@
+{
+ "product_id": "3adb2f8a-5fcc-4e33-47ae-d5935e7b31f1",
+ "name": "Lummi Robot Vacuum Max",
+ "prompt": "studio packshot photo of a White Lummi Robot Vacuum Max, made of glass, cleaning, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 32564738,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:40:51",
+ "file_path": "static/images/3adb2f8a-5fcc-4e33-47ae-d5935e7b31f1.jpg",
+ "file_size": 29218,
+ "uploaded": false,
+ "s3_url": null
+}

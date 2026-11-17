@@ -8,6 +8,7 @@ Phase 8 was built under "no tests, no HLD/LLD, record shortcuts as debt". The in
 ## TD-P8-01 No tests for Phase 8
 - **Severity / Effort:** High / L
 - **Where:** payment-service (wallet, gift cards, purposes), order-service (wallet/coins checkout, buy-again, subscriptions + job), promotion-service (coins ledger, order.events consumer, members-only deals), user-service (membership, preferences, referrals), notification-service (inbox, push, campaigns), cart-service (lists, reminders); storefront account pages, checkout, notification bell, personalised home; admin Campaigns view.
+- **Progress 2026-11-17:** wallet and gift-card money paths have tests: wallet credit-back retry, debit reversal only if the debit happened, gift-card hashing and redeem lockout, wallet paying a whole order and its compensation. Still untested: the coin ledger, refund splits, campaigns, subscriptions job, user-service membership/referrals.
 - **Risk:** The only safety net is the one-off e2e script. Money paths (wallet debit/credit, coin redeem/reverse, refund splits) have no contract or concurrency tests. Extends [TD-P7-01](phase7.md#td-p7-01), [TD-P6-05](phase6.md#td-p6-05), TD-TEST-01/02.
 - **Fix:** Ledger tests (idempotency keys, balance invariants), checkout application-order tests, refund-split tests, campaign audience tests, subscription job tests; Playwright for wallet + coins checkout.
 
@@ -38,20 +39,6 @@ Phase 8 was built under "no tests, no HLD/LLD, record shortcuts as debt". The in
 - **Where:** `notification_db.notification.settings`; env `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT`.
 - **Risk:** Unless the env vars are set, keys are generated at first start and the private key sits unencrypted in the database, so a DB leak lets an attacker send push as the site. Regenerating (e.g. on a fresh volume) silently invalidates every stored browser subscription.
 - **Fix:** Require the keys from env/secret store in production; encrypt at rest; document rotation.
-
-<a id="td-p8-06"></a>
-## TD-P8-06 Gift cards: plaintext codes, no redeem rate limit
-- **Severity / Effort:** High / S
-- **Where:** `<payment>/` gift card service and controller; `gift_cards.code`; `GET /api/gift-cards`.
-- **Risk:** The code is stored in plain text and the purchaser can read it back from `GET /api/gift-cards`. `POST /api/gift-cards/redeem` has no brute-force limit, so guessing codes (16 chars, `XXXX-XXXX-XXXX-XXXX`) is only bounded by gateway defaults. The recipient email is best effort with no resend. `PENDING_PAYMENT` cards are never swept or cancelled. No admin lookup or cancel. A "Gift card sent" inbox entry to the purchaser is also best effort.
-- **Fix:** Store a hash of the code (show once); per-user and per-IP redeem limits with lockout; resend endpoint; sweep job for abandoned `PENDING_PAYMENT`; admin lookup view (also not built, see [TD-P8-03](#td-p8-03) admin gaps).
-
-<a id="td-p8-07"></a>
-## TD-P8-07 Wallet gaps: single currency, best-effort credit-back, races
-- **Severity / Effort:** High / M
-- **Where:** `<payment>/` wallet service; order-service checkout and cancel/expiry paths calling `/internal/wallet/debit|credit`.
-- **Risk:** A wallet has one currency (reset only when the balance is 0); no top-up, withdrawal, expiry or admin adjustment UI. Credit-back on cancel, expiry and payment failure is best effort (logged, no retry queue or outbox), so a payment-service outage at that moment loses the customer's money. Checkout reads the balance then debits, so a race surfaces as 409 `INSUFFICIENT_BALANCE` on a failed checkout. Same shape as [TD-P6-01](phase6.md#td-p6-01). Wallet inbox entries (refund, gift card, referral) are posted best effort after a fresh credit.
-- **Fix:** Outbox-driven credit-back with retry and alert; single atomic reserve-and-debit; multi-currency wallet or explicit conversion rules; admin adjustment with audit.
 
 <a id="td-p8-08"></a>
 ## TD-P8-08 Refund split and return edge cases
@@ -151,3 +138,17 @@ Phase 8 was built under "no tests, no HLD/LLD, record shortcuts as debt". The in
 - **Where:** `deploy/local/scripts/create-customer-dbs.sql`, `deploy/local/postgres/init/01-schemas.sql`, `deploy/local/.env.example` (`NOTIFICATION_DB_PASSWORD`).
 - **Risk:** notification-service now has its own database (`notification_db`, role `notification_service`, schema `notification`). Existing volumes need `create-customer-dbs.sql` run manually (extends [TD-SEC-05](infra-security.md#td-sec-05)); the password is a committed throwaway value (extends [TD-SEC-03](infra-security.md#td-sec-03)). Phase 8 images were again built through the offline mirror, not the repo Dockerfiles ([TD-P6-06](phase6.md#td-p6-06)).
 - **Fix:** Migration runner for infra databases; secrets manager for the password; a normal `compose up --build` once Maven Central is reachable.
+
+<a id="td-p8-21"></a>
+## TD-P8-21 Gift cards: no per-IP redeem limit, no admin lookup
+- **Severity / Effort:** Low / S
+- **Where:** `GiftCardService.redeem` (payment-service); admin console.
+- **Risk:** Residual of TD-P8-06 (fixed 2026-11-17: codes hashed, per-user lockout, resend, sweep). Redemption is limited per user only, so many accounts can each try 5 codes per 15 minutes; with 80-bit codes this is defence in depth, not a practical hole. Support has no screen to look up a card by its last 4 characters or recipient.
+- **Fix:** Per-IP limit at the gateway (shares the work in TD-AI-03); admin gift card lookup.
+
+<a id="td-p8-22"></a>
+## TD-P8-22 Wallet product gaps: one currency, no top-up or admin adjustment
+- **Severity / Effort:** Low / M
+- **Where:** payment-service `WalletService`; admin and storefront wallet screens.
+- **Risk:** Residual of TD-P8-07 (fixed 2026-11-17: money owed back to a wallet is recorded in `orders.pending_wallet_credits` before payment-service is called and retried with backoff until it lands; "WALLET CREDIT STUCK" is logged at ERROR after 10 attempts). The debit was already atomic (row lock plus balance check), so a checkout race fails cleanly with 409. A wallet still holds one currency (reset only at a zero balance), and there is no top-up, withdrawal, expiry or audited admin adjustment.
+- **Fix:** Product decisions first (multi-currency or conversion rules, top-up via the payment providers); then an admin adjustment endpoint, audited.

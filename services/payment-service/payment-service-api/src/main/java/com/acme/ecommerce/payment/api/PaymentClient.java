@@ -38,4 +38,13 @@ public interface PaymentClient {
       value = "/internal/payments/orders/{orderId}/cod-collected",
       produces = MediaType.APPLICATION_JSON_VALUE)
   PaymentResponse codCollected(@PathVariable("orderId") UUID orderId);
+
+  /**
+   * The order was cancelled or expired before it was paid: stop the payment from being taken.
+   * Idempotent; a no-op for a payment that is already paid, failed or cash on delivery.
+   */
+  @PostMapping(
+      value = "/internal/payments/orders/{orderId}/cancel",
+      produces = MediaType.APPLICATION_JSON_VALUE)
+  PaymentResponse cancelUnpaid(@PathVariable("orderId") UUID orderId);
 }

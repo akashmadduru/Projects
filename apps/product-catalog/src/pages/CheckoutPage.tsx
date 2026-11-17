@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { AddressForm, formatAddressLines } from '../components/AddressForm'
+import { CheckoutCoupons } from '../components/CheckoutCoupons'
 import { ErrorAlert } from '../components/ErrorAlert'
 import { ExchangeOffer } from '../components/ExchangeOffer'
 import { Field, LoadingBlock, cardClass, inputClass, primaryButtonClass, secondaryButtonClass } from '../components/Form'
@@ -20,7 +21,8 @@ import { formatMoney } from '../lib/format'
 import { effectivePrice } from '../lib/price'
 import { orderApi } from '../services/orderApi'
 import { engageApi } from '../services/engageApi'
-import { promotionApi } from '../services/paymentApi'
+import { paymentApi, promotionApi } from '../services/paymentApi'
+import { onlinePaymentSummary } from '../lib/paymentOptions'
 import { useT } from '../lib/i18n'
 import { userApi } from '../services/userApi'
 import { useCartStore } from '../stores'
@@ -33,6 +35,7 @@ import type {
   CouponValidation,
   DeliveryEstimate,
   Order,
+  PaymentConfig,
   PaymentMethod,
   Wallet,
 } from '../types'
@@ -121,7 +124,6 @@ export function CheckoutPage() {
   const [placeError, setPlaceError] = useState<string | undefined>()
   const [shortfalls, setShortfalls] = useState<StockShortfall[]>([])
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('CARD')
-  const [couponInput, setCouponInput] = useState('')
   const [coupon, setCoupon] = useState<CouponValidation | null>(null)
   const [couponError, setCouponError] = useState<string | undefined>()
   const [couponBusy, setCouponBusy] = useState(false)
@@ -186,6 +188,18 @@ export function CheckoutPage() {
     }
   }, [subtotal, currency])
 
+  // What "pay online" offers depends on the enabled providers and the currency (Razorpay is INR only).
+  // A failed load keeps the neutral wording; the payment panel after placing re-reads the config.
+  const [paymentConfig, setPaymentConfig] = useState<PaymentConfig | null>(null)
+  useEffect(() => {
+    let active = true
+    void paymentApi.config().then((c) => active && setPaymentConfig(c)).catch(() => undefined)
+    return () => {
+      active = false
+    }
+  }, [])
+  const online = useMemo(() => onlinePaymentSummary(paymentConfig, currency), [paymentConfig, currency])
+
   // Wallet, coins and membership are optional extras: a failing service just hides its controls.
   const [wallet, setWallet] = useState<Wallet | null>(null)
   const [coins, setCoins] = useState<Coins | null>(null)
@@ -240,18 +254,19 @@ export function CheckoutPage() {
     else if (useWallet && walletCoversAll && paymentMethod !== 'WALLET') setPaymentMethod('WALLET')
   }, [paymentMethod, walletCoversAll, useWallet])
 
-  const applyCoupon = async (code: string) => {
+  const applyCoupon = async (code: string): Promise<boolean> => {
     const trimmed = code.trim()
-    if (!trimmed) return
+    if (!trimmed) return false
     setCouponBusy(true)
     setCouponError(undefined)
     try {
       const result = await promotionApi.validate(trimmed, subtotal, currency)
       setCoupon(result)
-      setCouponInput('')
+      return true
     } catch (err) {
       setCoupon(null)
       setCouponError(errorMessage(err))
+      return false
     } finally {
       setCouponBusy(false)
     }
@@ -440,8 +455,8 @@ export function CheckoutPage() {
                   if (paymentMethod === 'WALLET') setUseWallet(false)
                 }}
               />
-              <span className="font-bold text-on-surface">Card</span>
-              <span className="mt-1 block text-sm text-on-surface-muted">Pay securely online</span>
+              <span className="font-bold text-on-surface">{t(online.title)}</span>
+              <span className="mt-1 block text-sm text-on-surface-muted">{online.description}</span>
             </label>
             <label
               className={`${cardClass} block ${codReason ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'} ${
@@ -551,69 +566,15 @@ export function CheckoutPage() {
           ))}
         </ul>
 
-        <div className="space-y-2">
-          {coupon ? (
-            <div className="flex items-center justify-between rounded-lg border-2 border-ink bg-primary-container px-3 py-2 text-sm text-on-primary-container">
-              <span>
-                <span className="font-bold">{coupon.code}</span> applied
-              </span>
-              <button type="button" className="font-semibold underline" onClick={() => setCoupon(null)}>
-                Remove
-              </button>
-            </div>
-          ) : (
-            <>
-              <Field label="Coupon code">
-                {(id) => (
-                  <div className="flex gap-2">
-                    <input
-                      id={id}
-                      className={inputClass}
-                      value={couponInput}
-                      maxLength={40}
-                      autoCapitalize="characters"
-                      onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault()
-                          void applyCoupon(couponInput)
-                        }
-                      }}
-                    />
-                    <button
-                      type="button"
-                      className={secondaryButtonClass}
-                      disabled={couponBusy || !couponInput.trim()}
-                      onClick={() => void applyCoupon(couponInput)}
-                    >
-                      Apply
-                    </button>
-                  </div>
-                )}
-              </Field>
-              <p aria-live="polite" className="text-xs text-error">
-                {couponError}
-              </p>
-              {available.length > 0 && (
-                <ul className="flex flex-wrap gap-2" aria-label="Available coupons">
-                  {available.map((c) => (
-                    <li key={c.code}>
-                      <button
-                        type="button"
-                        onClick={() => void applyCoupon(c.code)}
-                        title={c.description ?? undefined}
-                        className="press rounded-full border-2 border-dashed border-ink bg-surface px-3 py-1 text-xs font-bold text-on-surface hover:bg-surface-variant"
-                      >
-                        {c.code}
-                        {c.discountAmount ? ` (save ${formatMoney(c.discountAmount, currency)})` : ''}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </>
-          )}
-        </div>
+        <CheckoutCoupons
+          applied={coupon}
+          available={available}
+          currency={currency}
+          busy={couponBusy}
+          error={couponError}
+          onApply={applyCoupon}
+          onRemove={() => setCoupon(null)}
+        />
 
         <dl className="space-y-1 text-sm">
           <div className="flex justify-between">

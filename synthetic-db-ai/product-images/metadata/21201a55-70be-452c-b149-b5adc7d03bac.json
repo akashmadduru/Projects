@@ -1,0 +1,13 @@
+{
+ "product_id": "21201a55-70be-452c-b149-b5adc7d03bac",
+ "name": "Lumta Toaster Elite",
+ "prompt": "studio packshot photo of a Red Lumta Toaster Elite, made of glass, small appliances, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1167661194,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:41:25",
+ "file_path": "product-images/images/21201a55-70be-452c-b149-b5adc7d03bac.jpg",
+ "file_size": 73297
+}

@@ -1,0 +1,13 @@
+{
+ "product_id": "96c82e46-76b9-478a-98d2-bbae293d6c27",
+ "name": "Kaqua Mixed Nuts Classic",
+ "prompt": "studio packshot photo of a Blue Kaqua Mixed Nuts Classic, made of silicone, snacks, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2474616221,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:05:41",
+ "file_path": "product-images/images/96c82e46-76b9-478a-98d2-bbae293d6c27.jpg",
+ "file_size": 86646
+}

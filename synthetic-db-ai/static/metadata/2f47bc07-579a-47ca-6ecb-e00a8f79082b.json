@@ -1,0 +1,15 @@
+{
+ "product_id": "2f47bc07-579a-47ca-6ecb-e00a8f79082b",
+ "name": "Quazenu LED TV Prime",
+ "prompt": "studio packshot photo of a Blue Quazenu LED TV Prime, made of polyester, televisions, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3263086937,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-15T23:50:34",
+ "file_path": "static/images/2f47bc07-579a-47ca-6ecb-e00a8f79082b.jpg",
+ "file_size": 33691,
+ "uploaded": false,
+ "s3_url": null
+}

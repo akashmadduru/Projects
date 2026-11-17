@@ -4,8 +4,8 @@ import com.acme.ecommerce.order.api.dto.OrderItemResponse;
 import com.acme.ecommerce.order.api.dto.OrderResponse;
 import com.acme.ecommerce.order.api.dto.ReturnResponse;
 import com.acme.ecommerce.order.api.dto.ShipmentResponse;
-import java.util.List;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -108,7 +108,8 @@ public class OrderEventPublisher {
       kafka.send(TOPIC, o.id().toString(), event);
       log.info("Published order event type={} orderId={}", type, o.id());
     } catch (RuntimeException e) {
-      log.warn("Failed to publish order event type={} orderId={}: {}", type, o.id(), e.getMessage());
+      log.warn(
+          "Failed to publish order event type={} orderId={}: {}", type, o.id(), e.getMessage());
     }
   }
 
@@ -117,7 +118,12 @@ public class OrderEventPublisher {
    * and the item name is the subscribed product.
    */
   public void publishSubscriptionFailed(
-      UUID subscriptionId, UUID userId, String email, String productName, int failures, boolean paused) {
+      UUID subscriptionId,
+      UUID userId,
+      String email,
+      String productName,
+      int failures,
+      boolean paused) {
     OrderEvent event =
         new OrderEvent(
             UUID.randomUUID(),

@@ -1,0 +1,13 @@
+{
+ "product_id": "1308896d-1845-4e34-f8d6-faba40fb7004",
+ "name": "Qualoex Omega-3 Prime",
+ "prompt": "studio packshot photo of a Rose Gold Qualoex Omega-3 Prime, made of cotton, supplements, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3444512500,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 768,
+ "created_at": "2026-11-15T23:01:38",
+ "file_path": "product-images/images/1308896d-1845-4e34-f8d6-faba40fb7004.jpg",
+ "file_size": 79536
+}

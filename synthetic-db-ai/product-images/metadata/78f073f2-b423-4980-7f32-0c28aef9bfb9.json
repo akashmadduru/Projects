@@ -1,0 +1,13 @@
+{
+ "product_id": "78f073f2-b423-4980-7f32-0c28aef9bfb9",
+ "name": "Lumpi Heating Pad Pro",
+ "prompt": "studio packshot photo of a Blue Lumpi Heating Pad Pro, made of abs plastic, personal wellness, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3546059692,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:45:25",
+ "file_path": "product-images/images/78f073f2-b423-4980-7f32-0c28aef9bfb9.jpg",
+ "file_size": 27284
+}

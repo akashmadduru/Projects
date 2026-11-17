@@ -1,0 +1,13 @@
+{
+ "product_id": "401ea3f3-f25e-4b1d-20b5-f0feb421ffb8",
+ "name": "Venlumvo Table Lamp Series 2",
+ "prompt": "studio packshot photo of a Black Venlumvo Table Lamp Series 2, made of aluminium, home decor, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3375313096,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:08:11",
+ "file_path": "product-images/images/401ea3f3-f25e-4b1d-20b5-f0feb421ffb8.jpg",
+ "file_size": 20801
+}

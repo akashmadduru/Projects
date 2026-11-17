@@ -437,6 +437,9 @@ services:
         condition: service_healthy
       eureka-server:
         condition: service_healthy
+      # Images must be uploadable as soon as the catalog accepts writes.
+      static-image-server:
+        condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: default
       # Phase 10 tracing -> Jaeger (OTLP/HTTP). Dev samples everything; production default is 0.1.
@@ -459,11 +462,12 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       # Phase 7: X-Internal-Token for inventory-service /internal/inventory/variants.
       INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?set INTERNAL_API_TOKEN in deploy/local/.env}
-      # Product images live on the image-server: the backend uploads/deletes through the internal URL
-      # and stores the browser-facing URL on each image row.
-      IMAGE_STORE_URL: http://image-server
-      IMAGE_STORE_PUBLIC_URL: http://localhost:${IMAGE_SERVER_PORT:-8090}/images
-      IMAGE_STORE_TOKEN: ${IMAGE_SERVER_TOKEN:?set IMAGE_SERVER_TOKEN in deploy/local/.env}
+      # Product images live on static-image-server. Image rows store keys relative to parentUrl;
+      # STATIC_IMAGE_SERVER_PUBLIC_URL seeds parentUrl on first startup (admins can change it later
+      # via PUT /api/admin/image-settings). The internal URL is used for uploads/deletes.
+      STATIC_IMAGE_SERVER_URL: http://static-image-server/product-images
+      STATIC_IMAGE_SERVER_PUBLIC_URL: ${STATIC_IMAGE_SERVER_PUBLIC_URL:-http://localhost:8095/product-images}
+      STATIC_IMAGE_SERVER_TOKEN: ${IMAGE_SERVER_TOKEN:?set IMAGE_SERVER_TOKEN in deploy/local/.env}
       # Cartwise AI-1 semantic search. `none` (default) = feature disabled, search is keyword-only.
       # `bedrock` needs AWS credentials from the SDK default chain (see .env.example); no key is
       # ever set here. `fake` (deterministic, non-semantic vectors) is refused unless the profile
@@ -490,29 +494,32 @@ services:
       start_period: 60s
 
   # ---------------------------------------------------------------------------
-  # image-server - static product images with CRUD (nginx + WebDAV). Browsers read
-  # http://localhost:${IMAGE_SERVER_PORT:-8090}/images/<path>; product-service (and the image
-  # generator tooling) write with PUT/DELETE plus the X-Image-Token header.
+  # static-image-server - product images over plain HTTP (nginx). Browsers read
+  # http://localhost:${IMAGE_SERVER_PORT:-8095}/product-images/<key>; product-service writes with
+  # PUT/DELETE plus the X-Image-Token header (nginx WebDAV). On every start the generated images in
+  # synthetic-db-ai/product-images/images are copied into the volume (existing files are kept).
   # ---------------------------------------------------------------------------
-  image-server:
+  static-image-server:
     image: nginx:1.27-alpine
-    container_name: ecommerce-image-server
+    container_name: ecommerce-static-image-server
     restart: unless-stopped
     environment:
       IMAGE_SERVER_TOKEN: ${IMAGE_SERVER_TOKEN:?set IMAGE_SERVER_TOKEN in deploy/local/.env}
       NGINX_ENVSUBST_FILTER: IMAGE_SERVER_
     volumes:
-      - image-data:/data
-      - ./image-server/default.conf.template:/etc/nginx/templates/default.conf.template:ro
-      - ./image-server/10-prepare-data.sh:/docker-entrypoint.d/10-prepare-data.sh:ro
+      - static-image-data:/data
+      - ../../synthetic-db-ai/product-images/images:/seed:ro
+      - ./static-image-server/default.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ./static-image-server/10-prepare-data.sh:/docker-entrypoint.d/10-prepare-data.sh:ro
     ports:
       # Published on loopback: the browser loads images straight from here.
-      - "127.0.0.1:${IMAGE_SERVER_PORT:-8090}:80"
+      - "127.0.0.1:${IMAGE_SERVER_PORT:-8095}:80"
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/healthz | grep -q ok"]
       interval: 10s
       timeout: 3s
       retries: 5
+      start_period: 10s
 
   # ---------------------------------------------------------------------------
   # inventory-service (Phase 2, Kafka consumer wired in Phase 3) - owns stock
@@ -568,6 +575,9 @@ services:
       # Injected from the developer's .env (gitignored) - never inlined here.
       SPRING_DATASOURCE_PASSWORD: ${INVENTORY_DB_PASSWORD:?set INVENTORY_DB_PASSWORD in deploy/local/.env}
       INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?set INTERNAL_API_TOKEN in deploy/local/.env}
+      # Demo stack: the catalog sync gives every seeded product and variant this much stock.
+      # Production leaves it at 0, so nothing is sellable until it is stocked (TD-P6-04).
+      INVENTORY_DEFAULT_STOCK_QUANTITY: ${INVENTORY_DEFAULT_STOCK_QUANTITY:-100}
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
       # MUST MATCH auth-service's and the gateway's values EXACTLY. A mismatch
       # produces "invalid_token" on every request to /api/inventory/**, with
@@ -1014,7 +1024,7 @@ services:
       - "127.0.0.1:16686:16686"
 
 volumes:
-  image-data:
+  static-image-data:
   rating-media:
   postgres-data:
   kafka-data:

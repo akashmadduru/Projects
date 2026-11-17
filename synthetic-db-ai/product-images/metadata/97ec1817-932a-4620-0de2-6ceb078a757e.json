@@ -1,0 +1,13 @@
+{
+ "product_id": "97ec1817-932a-4620-0de2-6ceb078a757e",
+ "name": "Kaexri Mirrorless Camera Prime",
+ "prompt": "studio packshot photo of a Blue Kaexri Mirrorless Camera Prime, made of abs plastic, cameras, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1270092712,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:06:49",
+ "file_path": "product-images/images/97ec1817-932a-4620-0de2-6ceb078a757e.jpg",
+ "file_size": 51448
+}

@@ -1,0 +1,13 @@
+{
+ "product_id": "aa9b5c37-b36d-4d72-c6df-5c966b991e48",
+ "name": "Ionfy Dress Prime",
+ "prompt": "studio packshot photo of a Navy Blue Ionfy Dress Prime, made of wood, women's clothing, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2215732758,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:24:35",
+ "file_path": "product-images/images/aa9b5c37-b36d-4d72-c6df-5c966b991e48.jpg",
+ "file_size": 58308
+}

@@ -1,0 +1,13 @@
+{
+ "product_id": "dac5e052-26d0-4b65-8558-6bd295f48057",
+ "name": "Lumta Study Table Prime",
+ "prompt": "studio packshot photo of a Red Lumta Study Table Prime, made of ceramic, furniture, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1132691320,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:50:21",
+ "file_path": "product-images/images/dac5e052-26d0-4b65-8558-6bd295f48057.jpg",
+ "file_size": 49747
+}

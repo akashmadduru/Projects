@@ -1,0 +1,15 @@
+{
+ "product_id": "4a9831ff-4315-45ea-c8b8-1313b761192b",
+ "name": "Venrili Notebook Pack Pro",
+ "prompt": "studio packshot photo of a Black Venrili Notebook Pack Pro, made of ceramic, stationery, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3053525527,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:13:19",
+ "file_path": "static/images/4a9831ff-4315-45ea-c8b8-1313b761192b.jpg",
+ "file_size": 57249,
+ "uploaded": false,
+ "s3_url": null
+}

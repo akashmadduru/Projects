@@ -10,7 +10,6 @@ import com.acme.ecommerce.auth.repository.UserAccountRepository;
 import com.acme.ecommerce.auth.service.OneTimeTokenService.Purpose;
 import com.acme.ecommerce.auth.token.AuthenticatedPrincipal;
 import com.acme.ecommerce.auth.token.DeviceContext;
-import com.acme.ecommerce.auth.token.TokenPair;
 import com.acme.ecommerce.auth.token.TokenService;
 import java.time.Duration;
 import java.util.Optional;
@@ -23,9 +22,9 @@ import org.springframework.stereotype.Service;
  *
  * <p>NO ENUMERATION: {@link #request} returns normally for unknown / unverified numbers and the SMS
  * is queued asynchronously. {@link #verify} answers every failure (unknown number, wrong, expired
- * or exhausted code) with the same {@code AUTH_OTP_INVALID}. Only a phone that was VERIFIED by
- * its owner can receive a login code, so typing someone else's number into the add-phone form
- * never grants anything. Not {@code @Transactional}, for the same attempt-counter reason as phone
+ * or exhausted code) with the same {@code AUTH_OTP_INVALID}. Only a phone that was VERIFIED by its
+ * owner can receive a login code, so typing someone else's number into the add-phone form never
+ * grants anything. Not {@code @Transactional}, for the same attempt-counter reason as phone
  * verification.
  */
 @Service
@@ -95,9 +94,7 @@ public class OtpLoginService {
   public LoginResult verify(String rawPhone, String code, DeviceContext device) {
     String phone = PhoneNumbers.normalise(rawPhone).orElse(null);
     UserAccount user =
-        phone == null
-            ? null
-            : users.findWithRolesByPhoneAndPhoneVerifiedTrue(phone).orElse(null);
+        phone == null ? null : users.findWithRolesByPhoneAndPhoneVerifiedTrue(phone).orElse(null);
     if (user == null
         || !tokens.verifyCode(
             user.getId(), Purpose.OTP_LOGIN, phone, code, PhoneVerificationService.MAX_ATTEMPTS)) {

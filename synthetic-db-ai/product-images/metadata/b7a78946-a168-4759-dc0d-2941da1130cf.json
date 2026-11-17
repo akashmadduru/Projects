@@ -1,0 +1,13 @@
+{
+ "product_id": "b7a78946-a168-4759-dc0d-2941da1130cf",
+ "name": "Baar Bookshelf Lite",
+ "prompt": "studio packshot photo of a Green Baar Bookshelf Lite, made of glass, furniture, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 4109468982,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:01:25",
+ "file_path": "product-images/images/b7a78946-a168-4759-dc0d-2941da1130cf.jpg",
+ "file_size": 61730
+}

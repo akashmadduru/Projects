@@ -1,6 +1,7 @@
 package com.acme.ecommerce.inventory.web.internal;
 
 import com.acme.ecommerce.inventory.repository.WarehouseStockRepository.Row;
+import com.acme.ecommerce.inventory.service.StockProvisioningService;
 import com.acme.ecommerce.inventory.service.WarehouseService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
@@ -27,10 +28,27 @@ public class InternalStockController {
       String warehouseCode,
       @Min(0) int quantity) {}
 
-  private final WarehouseService service;
+  public record EnsureRequest(
+      @NotNull @jakarta.validation.constraints.Size(max = 1000)
+          List<StockProvisioningService.Item> items) {}
 
-  public InternalStockController(WarehouseService service) {
+  public record EnsureResult(int created) {}
+
+  private final WarehouseService service;
+  private final StockProvisioningService provisioning;
+
+  public InternalStockController(WarehouseService service, StockProvisioningService provisioning) {
     this.service = service;
+    this.provisioning = provisioning;
+  }
+
+  /**
+   * product-service's catalog sync: create a platform stock row for every product/variant that has
+   * none. Idempotent; never changes an existing quantity.
+   */
+  @org.springframework.web.bind.annotation.PostMapping("/ensure")
+  public EnsureResult ensure(@Valid @RequestBody EnsureRequest request) {
+    return new EnsureResult(provisioning.ensure(request.items()));
   }
 
   @GetMapping("/by-product/{productId}")

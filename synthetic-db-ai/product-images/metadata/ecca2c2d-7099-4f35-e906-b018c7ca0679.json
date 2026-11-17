@@ -1,0 +1,13 @@
+{
+ "product_id": "ecca2c2d-7099-4f35-e906-b018c7ca0679",
+ "name": "Fyqua Hardcover Essential",
+ "prompt": "studio packshot photo of a Navy Blue Fyqua Hardcover Essential, made of bamboo, books, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3544507293,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:51:48",
+ "file_path": "product-images/images/ecca2c2d-7099-4f35-e906-b018c7ca0679.jpg",
+ "file_size": 18243
+}

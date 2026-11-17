@@ -52,8 +52,7 @@ public final class ProductSpecifications {
       }
 
       if (searchIds != null && filter.query() != null && !filter.query().isBlank()) {
-        predicates.add(
-            searchIds.isEmpty() ? cb.disjunction() : root.get("id").in(searchIds));
+        predicates.add(searchIds.isEmpty() ? cb.disjunction() : root.get("id").in(searchIds));
       } else if (filter.query() != null && !filter.query().isBlank()) {
         String pattern = "%" + escapeLike(filter.query().trim().toLowerCase(Locale.ROOT)) + "%";
         predicates.add(

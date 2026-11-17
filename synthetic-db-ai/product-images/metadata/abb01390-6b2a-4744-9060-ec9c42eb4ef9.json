@@ -1,0 +1,13 @@
+{
+ "product_id": "abb01390-6b2a-4744-9060-ec9c42eb4ef9",
+ "name": "Kaba Keyboard Plus",
+ "prompt": "studio packshot photo of a Red Kaba Keyboard Plus, made of abs plastic, keyboards & mice, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3707239256,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:03:38",
+ "file_path": "product-images/images/abb01390-6b2a-4744-9060-ec9c42eb4ef9.jpg",
+ "file_size": 43724
+}

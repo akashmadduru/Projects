@@ -1,0 +1,15 @@
+{
+ "product_id": "6583284a-d578-4a98-a5b1-07b439fe7c3a",
+ "name": "Sudex Deodorant Max",
+ "prompt": "studio packshot photo of a Black Sudex Deodorant Max, made of nylon, fragrances, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 358156291,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:31:14",
+ "file_path": "static/images/6583284a-d578-4a98-a5b1-07b439fe7c3a.jpg",
+ "file_size": 57570,
+ "uploaded": false,
+ "s3_url": null
+}

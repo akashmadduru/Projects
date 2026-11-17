@@ -1,0 +1,13 @@
+{
+ "product_id": "ab2fcd56-543e-4a81-4842-02a44ea6a052",
+ "name": "Suliven Building Blocks Ultra",
+ "prompt": "studio packshot photo of a Blue Suliven Building Blocks Ultra, made of cotton, building toys, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3012737792,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:18:48",
+ "file_path": "product-images/images/ab2fcd56-543e-4a81-4842-02a44ea6a052.jpg",
+ "file_size": 77290
+}

@@ -1,0 +1,15 @@
+{
+ "product_id": "47b583f9-08a6-44b5-524b-2028c9f40d27",
+ "name": "Kaor Camera Elite",
+ "prompt": "studio packshot photo of a Green Kaor Camera Elite, made of stainless steel, cameras, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1295657333,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:26:48",
+ "file_path": "static/images/47b583f9-08a6-44b5-524b-2028c9f40d27.jpg",
+ "file_size": 45635,
+ "uploaded": false,
+ "s3_url": null
+}

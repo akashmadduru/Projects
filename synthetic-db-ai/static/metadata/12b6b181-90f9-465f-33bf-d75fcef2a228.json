@@ -1,0 +1,15 @@
+{
+ "product_id": "12b6b181-90f9-465f-33bf-d75fcef2a228",
+ "name": "Pilumze Smartphone Prime",
+ "prompt": "studio packshot photo of a Space Grey Pilumze Smartphone Prime, made of aluminium, mobiles & smartphones, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3366295719,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T01:42:31",
+ "file_path": "static/images/12b6b181-90f9-465f-33bf-d75fcef2a228.jpg",
+ "file_size": 59234,
+ "uploaded": false,
+ "s3_url": null
+}

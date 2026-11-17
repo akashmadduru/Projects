@@ -1,13 +1,12 @@
 package com.acme.ecommerce.cart.client;
 
+import feign.RequestInterceptor;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.context.annotation.Bean;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-
-import feign.RequestInterceptor;
 
 /** notification-service internal email endpoint (X-Internal-Token). */
 @FeignClient(

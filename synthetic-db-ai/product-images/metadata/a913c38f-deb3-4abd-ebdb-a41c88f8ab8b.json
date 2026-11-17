@@ -1,0 +1,13 @@
+{
+ "product_id": "a913c38f-deb3-4abd-ebdb-a41c88f8ab8b",
+ "name": "Lota Wall Clock Gen 3",
+ "prompt": "studio packshot photo of a Space Grey Lota Wall Clock Gen 3, made of bamboo, home decor, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 842574565,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:04:41",
+ "file_path": "product-images/images/a913c38f-deb3-4abd-ebdb-a41c88f8ab8b.jpg",
+ "file_size": 57590
+}

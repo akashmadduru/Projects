@@ -7,8 +7,8 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
-import java.util.UUID;
 import java.math.BigDecimal;
+import java.util.UUID;
 
 /** Wishlist entry snapshot (the product id comes from the path). */
 public record WishlistItemRequest(

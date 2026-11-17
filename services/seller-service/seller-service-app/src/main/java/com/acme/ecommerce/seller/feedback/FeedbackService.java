@@ -19,7 +19,8 @@ public class FeedbackService {
 
   public record FeedbackRequest(UUID shipmentId, int rating, String comment) {}
 
-  public record Feedback(UUID id, UUID shipmentId, int rating, String comment, OffsetDateTime createdAt) {}
+  public record Feedback(
+      UUID id, UUID shipmentId, int rating, String comment, OffsetDateTime createdAt) {}
 
   private final JdbcClient jdbc;
   private final OrderFeignClient orders;
@@ -40,7 +41,11 @@ public class FeedbackService {
     if (r.comment() != null && r.comment().length() > 500) {
       throw ValidationException.forField("comment", "At most 500 characters");
     }
-    if (jdbc.sql("SELECT count(*) FROM sellers WHERE id = :i").param("i", sellerId).query(Long.class).single() == 0) {
+    if (jdbc.sql("SELECT count(*) FROM sellers WHERE id = :i")
+            .param("i", sellerId)
+            .query(Long.class)
+            .single()
+        == 0) {
       throw new ResourceNotFoundException("Seller", sellerId);
     }
     OrderFeignClient.ShipmentInfo ship;
@@ -55,15 +60,21 @@ public class FeedbackService {
       throw new ResourceNotFoundException("Shipment", r.shipmentId());
     }
     if (!"DELIVERED".equals(ship.status())) {
-      throw new CodedException(ErrorCode.REVIEW_NOT_ELIGIBLE, "Only delivered shipments can be rated");
+      throw new CodedException(
+          ErrorCode.REVIEW_NOT_ELIGIBLE, "Only delivered shipments can be rated");
     }
     UUID id = UUID.randomUUID();
     try {
       jdbc.sql(
               "INSERT INTO seller_feedback (id, seller_id, order_id, shipment_id, user_id, rating, comment)"
                   + " VALUES (:id, :s, :o, :sh, :u, :r, :c)")
-          .param("id", id).param("s", sellerId).param("o", ship.orderId()).param("sh", ship.shipmentId())
-          .param("u", userId).param("r", r.rating()).param("c", r.comment())
+          .param("id", id)
+          .param("s", sellerId)
+          .param("o", ship.orderId())
+          .param("sh", ship.shipmentId())
+          .param("u", userId)
+          .param("r", r.rating())
+          .param("c", r.comment())
           .update();
     } catch (DuplicateKeyException e) {
       throw new CodedException(ErrorCode.REVIEW_ALREADY_EXISTS, "You already rated this shipment");
@@ -80,12 +91,25 @@ public class FeedbackService {
   @Transactional(readOnly = true)
   public Paged<Feedback> list(UUID sellerId, int page, int size) {
     int s = Paged.clampSize(size);
-    long total = jdbc.sql("SELECT count(*) FROM seller_feedback WHERE seller_id = :s").param("s", sellerId).query(Long.class).single();
+    long total =
+        jdbc.sql("SELECT count(*) FROM seller_feedback WHERE seller_id = :s")
+            .param("s", sellerId)
+            .query(Long.class)
+            .single();
     var rows =
-        jdbc.sql("SELECT * FROM seller_feedback WHERE seller_id = :s ORDER BY created_at DESC LIMIT :l OFFSET :o")
-            .param("s", sellerId).param("l", s).param("o", (long) Math.max(page, 0) * s)
-            .query((rs, n) -> new Feedback(rs.getObject("id", UUID.class), rs.getObject("shipment_id", UUID.class),
-                rs.getInt("rating"), rs.getString("comment"), rs.getObject("created_at", OffsetDateTime.class)))
+        jdbc.sql(
+                "SELECT * FROM seller_feedback WHERE seller_id = :s ORDER BY created_at DESC LIMIT :l OFFSET :o")
+            .param("s", sellerId)
+            .param("l", s)
+            .param("o", (long) Math.max(page, 0) * s)
+            .query(
+                (rs, n) ->
+                    new Feedback(
+                        rs.getObject("id", UUID.class),
+                        rs.getObject("shipment_id", UUID.class),
+                        rs.getInt("rating"),
+                        rs.getString("comment"),
+                        rs.getObject("created_at", OffsetDateTime.class)))
             .list();
     return Paged.of(rows, Math.max(page, 0), s, total);
   }

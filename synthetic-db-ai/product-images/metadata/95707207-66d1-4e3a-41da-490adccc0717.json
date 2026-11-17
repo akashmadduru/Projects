@@ -1,0 +1,13 @@
+{
+ "product_id": "95707207-66d1-4e3a-41da-490adccc0717",
+ "name": "Kamiven Heating Pad Prime",
+ "prompt": "studio packshot photo of a Space Grey Kamiven Heating Pad Prime, made of nylon, personal wellness, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1196024239,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:13:47",
+ "file_path": "product-images/images/95707207-66d1-4e3a-41da-490adccc0717.jpg",
+ "file_size": 45995
+}

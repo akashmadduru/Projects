@@ -1,0 +1,13 @@
+{
+ "product_id": "44084bf0-e38b-464d-106a-85945e9da8e3",
+ "name": "Ionvota Laptop Elite",
+ "prompt": "studio packshot photo of a Black Ionvota Laptop Elite, made of bamboo, laptops, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1156696391,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:15:56",
+ "file_path": "product-images/images/44084bf0-e38b-464d-106a-85945e9da8e3.jpg",
+ "file_size": 60412
+}

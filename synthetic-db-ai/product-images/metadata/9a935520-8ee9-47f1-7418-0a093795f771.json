@@ -1,0 +1,13 @@
+{
+ "product_id": "9a935520-8ee9-47f1-7418-0a093795f771",
+ "name": "Kaorlum 4K Monitor Gen 3",
+ "prompt": "studio packshot photo of a Black Kaorlum 4K Monitor Gen 3, made of cotton, monitors, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1370229872,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:25:30",
+ "file_path": "product-images/images/9a935520-8ee9-47f1-7418-0a093795f771.jpg",
+ "file_size": 24325
+}

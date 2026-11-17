@@ -1,0 +1,13 @@
+{
+ "product_id": "b3805c5c-089c-4215-e583-4b21f9ac8bad",
+ "name": "Traka Strategy Game Plus",
+ "prompt": "studio packshot photo of a Green Traka Strategy Game Plus, made of ceramic, board games, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1051379696,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:24:39",
+ "file_path": "product-images/images/b3805c5c-089c-4215-e583-4b21f9ac8bad.jpg",
+ "file_size": 46912
+}

@@ -1,0 +1,15 @@
+{
+ "product_id": "5898d0f9-7adc-4b84-1cf6-d5b3564f2c44",
+ "name": "Katra Paperback Prime",
+ "prompt": "studio packshot photo of a Blue Katra Paperback Prime, made of leather, books, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1534466154,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:43:34",
+ "file_path": "static/images/5898d0f9-7adc-4b84-1cf6-d5b3564f2c44.jpg",
+ "file_size": 55607,
+ "uploaded": false,
+ "s3_url": null
+}

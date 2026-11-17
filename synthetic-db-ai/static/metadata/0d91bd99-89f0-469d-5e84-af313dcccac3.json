@@ -1,0 +1,15 @@
+{
+ "product_id": "0d91bd99-89f0-469d-5e84-af313dcccac3",
+ "name": "Zeloco Wireless Mouse Pro",
+ "prompt": "studio packshot photo of a Navy Blue Zeloco Wireless Mouse Pro, made of silicone, keyboards & mice, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3445463095,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:22:07",
+ "file_path": "static/images/0d91bd99-89f0-469d-5e84-af313dcccac3.jpg",
+ "file_size": 46194,
+ "uploaded": false,
+ "s3_url": null
+}

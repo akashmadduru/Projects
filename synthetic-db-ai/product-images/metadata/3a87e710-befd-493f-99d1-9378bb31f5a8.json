@@ -1,0 +1,13 @@
+{
+ "product_id": "3a87e710-befd-493f-99d1-9378bb31f5a8",
+ "name": "Lipiar Resistance Bands Gen 3",
+ "prompt": "studio packshot photo of a Grey Lipiar Resistance Bands Gen 3, made of wood, fitness, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 4009016146,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:46:46",
+ "file_path": "product-images/images/3a87e710-befd-493f-99d1-9378bb31f5a8.jpg",
+ "file_size": 68269
+}

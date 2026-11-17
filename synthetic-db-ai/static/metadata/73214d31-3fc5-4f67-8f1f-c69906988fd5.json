@@ -1,0 +1,15 @@
+{
+ "product_id": "73214d31-3fc5-4f67-8f1f-c69906988fd5",
+ "name": "Mifyor Green Tea Essential",
+ "prompt": "studio packshot photo of a Red Mifyor Green Tea Essential, made of wood, beverages, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1780024523,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:41:14",
+ "file_path": "static/images/73214d31-3fc5-4f67-8f1f-c69906988fd5.jpg",
+ "file_size": 72740,
+ "uploaded": false,
+ "s3_url": null
+}

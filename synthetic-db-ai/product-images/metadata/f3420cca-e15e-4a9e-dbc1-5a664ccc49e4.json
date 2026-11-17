@@ -1,0 +1,13 @@
+{
+ "product_id": "f3420cca-e15e-4a9e-dbc1-5a664ccc49e4",
+ "name": "Tasu Omega-3 Max",
+ "prompt": "studio packshot photo of a Midnight Tasu Omega-3 Max, made of wood, supplements, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 187425379,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:51:08",
+ "file_path": "product-images/images/f3420cca-e15e-4a9e-dbc1-5a664ccc49e4.jpg",
+ "file_size": 48261
+}

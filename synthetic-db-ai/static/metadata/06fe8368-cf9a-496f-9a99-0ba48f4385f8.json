@@ -1,0 +1,15 @@
+{
+ "product_id": "06fe8368-cf9a-496f-9a99-0ba48f4385f8",
+ "name": "Kano Air Purifier Pro",
+ "prompt": "studio packshot photo of a White Kano Air Purifier Pro, made of silicone, personal wellness, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 223419928,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 768,
+ "created_at": "2026-11-15T22:39:27",
+ "file_path": "static/images/06fe8368-cf9a-496f-9a99-0ba48f4385f8.jpg",
+ "file_size": 59430,
+ "uploaded": false,
+ "s3_url": null
+}

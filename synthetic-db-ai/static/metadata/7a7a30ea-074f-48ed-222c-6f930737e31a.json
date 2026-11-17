@@ -1,0 +1,15 @@
+{
+ "product_id": "7a7a30ea-074f-48ed-222c-6f930737e31a",
+ "name": "Sulomi Trekking Backpack Elite",
+ "prompt": "studio packshot photo of a Space Grey Sulomi Trekking Backpack Elite, made of glass, camping, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3964204065,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:46:32",
+ "file_path": "static/images/7a7a30ea-074f-48ed-222c-6f930737e31a.jpg",
+ "file_size": 42325,
+ "uploaded": false,
+ "s3_url": null
+}

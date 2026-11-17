@@ -1,0 +1,13 @@
+{
+ "product_id": "cae39a7f-178e-4c05-5748-a606c62b3ba5",
+ "name": "Libalo Earbuds Classic",
+ "prompt": "studio packshot photo of a White Libalo Earbuds Classic, made of wood, headphones & earbuds, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3760015890,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:53:46",
+ "file_path": "product-images/images/cae39a7f-178e-4c05-5748-a606c62b3ba5.jpg",
+ "file_size": 56600
+}

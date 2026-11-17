@@ -1,0 +1,13 @@
+{
+ "product_id": "0dd98724-7a92-4ee4-9c6b-44ea5c6fd90c",
+ "name": "Loionqua Study Table Classic",
+ "prompt": "studio packshot photo of a Space Grey Loionqua Study Table Classic, made of nylon, furniture, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 82691279,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 768,
+ "created_at": "2026-11-15T22:47:53",
+ "file_path": "product-images/images/0dd98724-7a92-4ee4-9c6b-44ea5c6fd90c.jpg",
+ "file_size": 72690
+}

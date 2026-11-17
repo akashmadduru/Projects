@@ -1,0 +1,15 @@
+{
+ "product_id": "50d137d8-fbc3-4fca-b2f3-256bac999808",
+ "name": "Lovota Mechanical Keyboard Classic",
+ "prompt": "studio packshot photo of a White Lovota Mechanical Keyboard Classic, made of ceramic, keyboards & mice, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 413339913,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:17:57",
+ "file_path": "static/images/50d137d8-fbc3-4fca-b2f3-256bac999808.jpg",
+ "file_size": 58155,
+ "uploaded": false,
+ "s3_url": null
+}

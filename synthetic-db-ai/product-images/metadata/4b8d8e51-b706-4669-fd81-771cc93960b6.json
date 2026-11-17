@@ -1,0 +1,13 @@
+{
+ "product_id": "4b8d8e51-b706-4669-fd81-771cc93960b6",
+ "name": "Pinuex Bike Lock Essential",
+ "prompt": "studio packshot photo of a Midnight Pinuex Bike Lock Essential, made of bamboo, cycling, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1844689109,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:13:58",
+ "file_path": "product-images/images/4b8d8e51-b706-4669-fd81-771cc93960b6.jpg",
+ "file_size": 66467
+}

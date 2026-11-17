@@ -1,0 +1,13 @@
+{
+ "product_id": "4ad94cb4-181e-44d0-395a-f45bf809ca12",
+ "name": "Kaze Trekking Backpack Elite",
+ "prompt": "studio packshot photo of a Rose Gold Kaze Trekking Backpack Elite, made of polyester, camping, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2427315077,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:12:21",
+ "file_path": "product-images/images/4ad94cb4-181e-44d0-395a-f45bf809ca12.jpg",
+ "file_size": 43149
+}

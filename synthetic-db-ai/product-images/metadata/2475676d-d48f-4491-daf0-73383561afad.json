@@ -1,0 +1,13 @@
+{
+ "product_id": "2475676d-d48f-4491-daf0-73383561afad",
+ "name": "Vori Frying Pan Pro",
+ "prompt": "studio packshot photo of a Olive Vori Frying Pan Pro, made of bamboo, cookware, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3887516780,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-15T23:39:34",
+ "file_path": "product-images/images/2475676d-d48f-4491-daf0-73383561afad.jpg",
+ "file_size": 42437
+}

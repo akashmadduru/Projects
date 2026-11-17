@@ -41,19 +41,62 @@ public class ThemeController {
   private static final Set<String> MOTION = Set.of("full", "reduced", "none");
   private static final Set<String> STYLES =
       Set.of(
-          "default", "minimalism", "flat-design", "flat-2", "material", "fluent", "hig", "dark-mode",
-          "skeuomorphism", "neumorphism", "glassmorphism", "claymorphism", "liquid-glass", "aurora-ui",
-          "bento-grid", "editorial-swiss", "brutalism", "neubrutalism", "retro-vintage", "y2k",
-          "cyberpunk", "bauhaus", "maximalism", "spatial-ui", "conversational-ai");
+          "default",
+          "minimalism",
+          "flat-design",
+          "flat-2",
+          "material",
+          "fluent",
+          "hig",
+          "dark-mode",
+          "skeuomorphism",
+          "neumorphism",
+          "glassmorphism",
+          "claymorphism",
+          "liquid-glass",
+          "aurora-ui",
+          "bento-grid",
+          "editorial-swiss",
+          "brutalism",
+          "neubrutalism",
+          "retro-vintage",
+          "y2k",
+          "cyberpunk",
+          "bauhaus",
+          "maximalism",
+          "spatial-ui",
+          "conversational-ai");
   private static final Set<String> SHADOWS = Set.of("none", "soft", "crisp", "retro", "lifted");
   private static final Set<String> FONTS =
       Set.of(
-          "Quicksand", "Poppins", "Inter", "DM Sans", "Manrope", "Space Grotesk", "Playfair Display",
-          "Lora", "Nunito", "Montserrat", "Raleway", "Work Sans", "Rubik", "Outfit",
-          "Plus Jakarta Sans", "Sora", "Josefin Sans", "Cormorant Garamond", "Fraunces", "Archivo",
-          "Karla", "Source Sans 3", "IBM Plex Sans", "Oswald", "system-ui");
+          "Quicksand",
+          "Poppins",
+          "Inter",
+          "DM Sans",
+          "Manrope",
+          "Space Grotesk",
+          "Playfair Display",
+          "Lora",
+          "Nunito",
+          "Montserrat",
+          "Raleway",
+          "Work Sans",
+          "Rubik",
+          "Outfit",
+          "Plus Jakarta Sans",
+          "Sora",
+          "Josefin Sans",
+          "Cormorant Garamond",
+          "Fraunces",
+          "Archivo",
+          "Karla",
+          "Source Sans 3",
+          "IBM Plex Sans",
+          "Oswald",
+          "system-ui");
   private static final List<String> FORBIDDEN_CSS =
-      List.of("@import", "url(", "expression", "javascript:", "behavior", "binding", "<", ">", "\\");
+      List.of(
+          "@import", "url(", "expression", "javascript:", "behavior", "binding", "<", ">", "\\");
   private static final int MAX_CSS = 4000;
 
   private final JdbcTemplate jdbc;
@@ -62,7 +105,12 @@ public class ThemeController {
   public record Brand(String name, String tagline, String logoUrl) {}
 
   public record Palette(
-      String primary, String accent, String background, String surface, String text, String danger) {}
+      String primary,
+      String accent,
+      String background,
+      String surface,
+      String text,
+      String danger) {}
 
   /** Corner radius and outline thickness. */
   public record Border(String radius, String width) {}
@@ -94,9 +142,7 @@ public class ThemeController {
 
   @GetMapping("/api/products/theme")
   public ResponseEntity<ThemePayload> get() {
-    return ResponseEntity.ok()
-        .cacheControl(CacheControl.noCache().cachePublic())
-        .body(load());
+    return ResponseEntity.ok().cacheControl(CacheControl.noCache().cachePublic()).body(load());
   }
 
   @PutMapping("/api/admin/theme")
@@ -127,22 +173,21 @@ public class ThemeController {
   }
 
   private ThemePayload load() {
-    return jdbc
-        .query(
-            "SELECT config, updated_at FROM product.theme_settings WHERE id = 1",
-            rs -> {
-              if (!rs.next()) {
-                return new ThemePayload(null, null);
-              }
-              try {
-                Timestamp ts = rs.getTimestamp("updated_at");
-                return new ThemePayload(
-                    mapper.readValue(rs.getString("config"), ThemeConfig.class),
-                    ts == null ? null : ts.toInstant());
-              } catch (JsonProcessingException e) {
-                return new ThemePayload(null, null); // corrupt row: fall back to the built-in theme
-              }
-            });
+    return jdbc.query(
+        "SELECT config, updated_at FROM product.theme_settings WHERE id = 1",
+        rs -> {
+          if (!rs.next()) {
+            return new ThemePayload(null, null);
+          }
+          try {
+            Timestamp ts = rs.getTimestamp("updated_at");
+            return new ThemePayload(
+                mapper.readValue(rs.getString("config"), ThemeConfig.class),
+                ts == null ? null : ts.toInstant());
+          } catch (JsonProcessingException e) {
+            return new ThemePayload(null, null); // corrupt row: fall back to the built-in theme
+          }
+        });
   }
 
   // ---- validation -----------------------------------------------------------------------------
@@ -165,7 +210,8 @@ public class ThemeController {
             oneOf("border.width", bd.width(), BORDER_WIDTHS, "standard"));
     Shadow shadow =
         new Shadow(
-            oneOf("shadow.style", c.shadow() == null ? null : c.shadow().style(), SHADOWS, "retro"));
+            oneOf(
+                "shadow.style", c.shadow() == null ? null : c.shadow().style(), SHADOWS, "retro"));
     Style designStyle =
         new Style(oneOf("style.id", c.style() == null ? null : c.style().id(), STYLES, "default"));
     Options op = c.options() == null ? new Options("default", "full") : c.options();

@@ -1,0 +1,15 @@
+{
+ "product_id": "6199846e-ad82-4e39-cb48-5fa1673a7a17",
+ "name": "Sulipi Sneakers Lite",
+ "prompt": "studio packshot photo of a Olive Sulipi Sneakers Lite, made of ceramic, footwear, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3160028159,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:54:39",
+ "file_path": "static/images/6199846e-ad82-4e39-cb48-5fa1673a7a17.jpg",
+ "file_size": 62715,
+ "uploaded": false,
+ "s3_url": null
+}

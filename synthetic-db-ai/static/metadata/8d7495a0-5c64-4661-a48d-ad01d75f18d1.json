@@ -1,0 +1,15 @@
+{
+ "product_id": "8d7495a0-5c64-4661-a48d-ad01d75f18d1",
+ "name": "Misuze Acrylic Paint Kit Max",
+ "prompt": "studio packshot photo of a Olive Misuze Acrylic Paint Kit Max, made of bamboo, art supplies, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2185760941,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:28:07",
+ "file_path": "static/images/8d7495a0-5c64-4661-a48d-ad01d75f18d1.jpg",
+ "file_size": 60626,
+ "uploaded": false,
+ "s3_url": null
+}

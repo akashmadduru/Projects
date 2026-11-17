@@ -1,0 +1,15 @@
+{
+ "product_id": "1283ea7b-5e17-46ac-d3f1-9981e8f3346a",
+ "name": "Novo Face Serum Max",
+ "prompt": "studio packshot photo of a Olive Novo Face Serum Max, made of glass, skin care, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2036498822,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 768,
+ "created_at": "2026-11-15T23:01:00",
+ "file_path": "static/images/1283ea7b-5e17-46ac-d3f1-9981e8f3346a.jpg",
+ "file_size": 49787,
+ "uploaded": false,
+ "s3_url": null
+}

@@ -35,8 +35,11 @@ What the service does **now**:
 | Warehouses, per-warehouse and per-seller stock, nearest-warehouse reservation | 9 | `/api/admin/warehouses`, `/api/admin/stock`, `/api/seller/{stock,warehouses}` |
 
 All 23 endpoints: [endpoints.md](../reference/endpoints.md#inventory-service-23).
-Known gaps: products or variants with no stock row are treated as unlimited
-([TD-P6-04](../techdebt/phase6.md#td-p6-04)); legacy `stock_levels` and `warehouse_stock` are both
+Stock rows: an order line with no stock row is **out of stock** (`INVENTORY_MISSING_STOCK_ROWS=REJECT`,
+the default). product-service's catalog sync (every 15 minutes) calls `POST /internal/inventory/stock/ensure`
+so every active product and variant has a platform row; a new row starts at `INVENTORY_DEFAULT_STOCK_QUANTITY`
+(0 in production, 100 in the local stack). Known gaps: a new variant waits for the next sync
+([TD-P7-22](../techdebt/phase7.md#td-p7-22)); legacy `stock_levels` and `warehouse_stock` are both
 written ([TD-P9-02](../techdebt/phase9.md#td-p9-02)).
 
 ## Scope, and what this service is not
@@ -91,9 +94,8 @@ the same outcome: a second `PRODUCT_CREATED` for a `product_id` that already has
 never an error. `removeIfPresent` is symmetric — deleting an already-absent row is a no-op.
 
 **Retries and dead-lettering.** *In Phase 2* there was no DLQ. Phase 10 wired every listener
-factory to `DlqErrorHandlers` (3 retries, then `product.events.DLT`), but this listener still catches
-and logs every exception itself, so a failing record is skipped without retry or dead-lettering
-([TD-BE-17](../techdebt/backend.md#td-be-17)). A consumer that is down resumes from its committed
+factory to `DlqErrorHandlers` (3 retries, then `product.events.DLT`). The listener skips only an event
+for a product that no longer exists; any other failure is retried and then dead-lettered. A consumer that is down resumes from its committed
 offset; Kafka keeps the topic for the broker default retention (no override). There is no
 consumer-lag alerting.
 
@@ -113,7 +115,7 @@ consumer of `product.events` exists.
 | Item | Status on 2026-11-14 |
 |---|---|
 | Schema registry; event class duplicated by hand | Still absent |
-| Dead-letter queue | **Added in Phase 10** (`<topic>.DLT`), but `ProductEventListener` catches and logs every exception, so its failures never reach it ([TD-BE-17](../techdebt/backend.md#td-be-17)) |
+| Dead-letter queue | **Added in Phase 10** (`<topic>.DLT`); failures reach it since 2026-11-17 |
 | Exactly-once delivery | Still absent; at-least-once, made safe by `UNIQUE(product_id)` |
 | Cross-database foreign key to `product.products` | Still absent (Postgres cannot enforce one). A lost `PRODUCT_DELETED` leaves an orphan stock row. |
 | Product fields on stock rows | **Added in Phase 3** (name and SKU) |

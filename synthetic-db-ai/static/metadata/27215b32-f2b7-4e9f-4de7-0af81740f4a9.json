@@ -1,0 +1,15 @@
+{
+ "product_id": "27215b32-f2b7-4e9f-4de7-0af81740f4a9",
+ "name": "Quacoba Kurta Plus",
+ "prompt": "studio packshot photo of a Red Quacoba Kurta Plus, made of ceramic, women's clothing, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 343507715,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-15T23:41:32",
+ "file_path": "static/images/27215b32-f2b7-4e9f-4de7-0af81740f4a9.jpg",
+ "file_size": 80580,
+ "uploaded": false,
+ "s3_url": null
+}

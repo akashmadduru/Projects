@@ -1,0 +1,13 @@
+{
+ "product_id": "ad25329b-88b2-465b-1ffd-543a194d2f56",
+ "name": "Riloor Drone Prime",
+ "prompt": "studio packshot photo of a Navy Blue Riloor Drone Prime, made of polyester, remote control, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2468282025,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:20:20",
+ "file_path": "product-images/images/ad25329b-88b2-465b-1ffd-543a194d2f56.jpg",
+ "file_size": 50926
+}

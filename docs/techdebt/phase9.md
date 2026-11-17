@@ -8,23 +8,16 @@ Phase 9 was built under "no tests, no HLD/LLD, record shortcuts as debt". The in
 ## TD-P9-01 No tests for Phase 9; existing specs likely stale
 - **Severity / Effort:** High / L
 - **Where:** `services/seller-service` (new), product-service offers/buy box/bulk upload, inventory-service warehouses and reservation routing, order-service shipments, cart-service offer lines; admin seller portal and admin seller/payout/warehouse screens; storefront seller page, sponsored grid, shipment order page.
+- **Progress 2026-11-17:** the stale admin specs were re-run: guards.spec fixed (role-aware landing), the admin suite passes 139/139; seller suspension and KYC masking, product moderation and the stock-totals reconcile have tests. Still untested: seller ledger arithmetic (commission, fee, reversals), buy-box scoring, warehouse routing and splits, shipment status derivation, the gateway route contract.
 - **Risk:** The only safety net is the one-off e2e script. Ledger arithmetic (commission, fee, reversals), buy-box scoring, warehouse routing and derived order status have no unit or contract tests. In the admin app the guest-only redirect is now role-aware (`homeRouteFor`) and dashboard/products/categories/inventory now require `ADMIN` or `CATALOG_MANAGER`, so `guards.spec`, `LoginView.spec` and `ProductsView.spec` may fail (not re-run). Extends [TD-P8-01](phase8.md#td-p8-01), [TD-P7-01](phase7.md#td-p7-01), [TD-ADM-01](admin.md#td-adm-01).
 - **Fix:** Ledger idempotency and reversal tests, buy-box table tests, reservation routing/split tests, shipment-status derivation tests, gateway route contract test ([TD-TEST-04](testing.md#td-test-04)); update the admin specs; Playwright for apply, approve, list, sell, fulfil, payout.
 
 <a id="td-p9-02"></a>
-## TD-P9-02 Two sources of truth for platform stock
-- **Severity / Effort:** High / M
-- **Where:** inventory-service `warehouse_stock` vs legacy `stock_levels` / `variant_stock`.
-- **Risk:** `warehouse_stock` is canonical, but the legacy tables are kept as platform totals mirrored from warehouse deltas (`WH-BLR` absorbs writes that arrive through the old `InventoryController`). Anything that reads or writes the legacy tables can drift from the warehouse rows. Extends [TD-P7-07](phase7.md#td-p7-07).
-- **Fix:** Move all readers and writers to `warehouse_stock`, then drop the legacy tables (or make them views).
-
-<a id="td-p9-03"></a>
-## TD-P9-03 Seller products go live without moderation
-- **Severity / Effort:** High / M
-- **Where:** product-service `POST /api/seller/products` and `POST /api/seller/products/bulk`.
-- **Risk:** A seller-created product is active immediately (flagged `listedBy` seller) and is searchable and purchasable with no review, no listing-quality checks and no takedown queue. Bulk edits of an existing seller product do not publish `PRODUCT_UPDATED`, so downstream caches/search consumers miss them. Product creation validates category and basic fields only.
-- **Fix:** A `PENDING_REVIEW` state with an admin approval queue (and auto-checks for images, price outliers, banned terms); publish `PRODUCT_UPDATED` from the bulk path.
-
+## TD-P9-02 Legacy stock totals still exist beside warehouse stock
+- **Severity / Effort:** Med / M
+- **Where:** inventory-service `stock_levels` / `variant_stock` (legacy totals) vs `warehouse_stock`.
+- **Risk:** Step 1 done 2026-11-17: `warehouse_stock` is authoritative and `StockTotalsReconciler` (hourly, one replica) recomputes every legacy total from the platform's warehouse rows, bumping `stock_levels.version` and publishing INVENTORY_QUANTITY_CHANGED for each correction; drift is logged at WARN. The legacy tables still back `/api/inventory/**`, availableQuantity and the inventory events, and the code still mirrors writes into them, so a drift can be visible for up to an hour. `stock_levels.reserved_quantity` is unused.
+- **Fix:** Serve `/api/inventory/**` quantities and events from `warehouse_stock` sums, keep `stock_levels` for name/SKU/threshold/version only, delete the mirroring code and `reserved_quantity`. Chosen over database triggers, which would race the JPA writes on the same rows.
 <a id="td-p9-04"></a>
 ## TD-P9-04 Offer and stock writes are not atomic; bulk upload is per row
 - **Severity / Effort:** Med / M
@@ -50,13 +43,6 @@ Phase 9 was built under "no tests, no HLD/LLD, record shortcuts as debt". The in
 - **Risk:** The buy box is computed on every PDP read, but list/search rows show `product.price_amount`, which is re-synced only when an offer changes or a seller stock write succeeds (async, after commit, fail-open). A seller offer that sells out through **orders** leaves the list-row price at the seller price until the next offer or stock write. Platform legacy-stock writes via the old `InventoryController` do not trigger a sync either, and a failed sync call is only lost.
 - **Fix:** Trigger sync from reservation/release and from `inventory.events` (see [TD-P9-05](#td-p9-05)); periodic reconcile job; or compute list price from the buy box in the search query.
 
-<a id="td-p9-07"></a>
-## TD-P9-07 Seller ledger: consumer start, no DLQ, delivery fee, partial refunds
-- **Severity / Effort:** High / M
-- **Where:** `<seller>/` ledger consumer of `order.events`; `ledger_entries`.
-- **Risk:** The consumer uses `auto.offset.reset=latest`, so events before its first start are missed with no backfill (a seller whose deliveries happened while the service was down is under-paid), and there is no DLQ for poison records. The **delivery fee is not reversed on returns**. A `RETURN_REFUNDED` event without `returnShipmentId` + `returnId` + `refundAmount` falls back to a whole-shipment reversal; per-line refunded amounts are not in the event. SALE/COMMISSION/FEE are de-duplicated by `(shipment_id, type)` and reversals by `return_id` (V2 migration), so double-booking is prevented, but there is no reconciliation against order-service. Per-line analytics are populated only if shipment events carry `items[{productId,name,quantity,amount}]` (see [TD-P9-14](#td-p9-14)). Same event-reliability family as [TD-P6-01](phase6.md#td-p6-01), [TD-P8-09](phase8.md#td-p8-09).
-- **Fix:** Start from `earliest` with an idempotent ledger (or a reconcile job pulling delivered shipments from order-service); DLQ; reverse the fee on return policy; carry per-line refund amounts in the event.
-
 <a id="td-p9-08"></a>
 ## TD-P9-08 Payout run is manual and simulated
 - **Severity / Effort:** Med / M
@@ -65,17 +51,11 @@ Phase 9 was built under "no tests, no HLD/LLD, record shortcuts as debt". The in
 - **Fix:** Scheduled run with a lock (see [TD-P6-13](phase6.md#td-p6-13)); real payout provider (RazorpayX, Cashfree, bank API) with failure handling; dry-run preview; audit log ([TD-ADM-05](admin.md#td-adm-05)).
 
 <a id="td-p9-09"></a>
-## TD-P9-09 KYC is format-only; bank data and seller lifecycle shortcuts
+## TD-P9-09 KYC is format-only; bank data under one static key
 - **Severity / Effort:** High / M
-- **Where:** `<seller>/` onboarding, bank-account encryption; env `SELLER_DATA_KEY`; auth-service role grant.
-- **Risk:**
-  - KYC checks GSTIN/PAN/IFSC regexes and PAN == GSTIN chars 3-12 only; no GSTN lookup, no penny-drop bank verification, no document upload.
-  - The bank account number is AES-GCM encrypted with one static env key (`SELLER_DATA_KEY`, 32 bytes base64): no rotation, no KMS. The full number is never decrypted or used today because payouts are simulated.
-  - Approved or suspended sellers cannot edit their profile; SUSPENDED keeps `ROLE_SELLER` (enforcement relies on status checks in catalog/orders; the role is not revoked).
-  - After approval the seller must use "Open seller portal" (token refresh) to pick up `ROLE_SELLER`; if the refresh does not re-read roles they must sign out and in.
-  - The admin sellers list shows GSTIN/PAN in clear (the contract only requires bank last4) and no admin decision is audited.
-- **Fix:** GSTN and penny-drop integration plus document upload; envelope encryption with a KMS and rotation; revoke or gate the role on suspend; mask or role-gate KYC fields; audit table.
-
+- **Where:** seller-service onboarding, `DataCipher` (bank account encryption), env `SELLER_DATA_KEY`.
+- **Risk:** Code part fixed 2026-11-17: suspending a seller revokes `ROLE_SELLER` in auth-service (new internal `DELETE /internal/users/{userId}/roles/{role}`, SELLER only; a failed revoke rolls the suspension back; re-approval grants it again); GSTIN and PAN are masked in the admin seller list and for SUPPORT/FINANCE (only ADMIN opening one seller sees them in full); admin decisions were already audited by the Phase 10 audit interceptor. Still open, and each needs a provider choice: KYC checks only the GSTIN/PAN/IFSC formats (no GSTN lookup, no penny-drop bank check, no document upload); the bank account number is AES-GCM encrypted with one static env key, with no rotation or KMS; approved or suspended sellers cannot edit their profile. Access tokens issued before a suspension keep the role until they expire.
+- **Fix:** Pick GSTN and penny-drop providers and add document upload; envelope encryption with a KMS key and rotation; a profile change request that goes back to review.
 <a id="td-p9-10"></a>
 ## TD-P9-10 Sponsored ads: click fraud, budget and ranking shortcuts
 - **Severity / Effort:** Med / M
@@ -103,7 +83,7 @@ Phase 9 was built under "no tests, no HLD/LLD, record shortcuts as debt". The in
 - **Where:** order-service `ReturnService`, invoice generator, delivery estimate.
 - **Risk:**
   - One return covers one shipment; items from several shipments need separate returns. Lines are resolved against the given `shipmentId`, else the single/first delivered shipment containing the first line's product. The return window is counted per shipment from its own `deliveredAt`.
-  - `RETURN_REFUNDED` carries `returnShipmentId` + `returnId` + `refundAmount` (gross incl. discount pro-rating); seller-service reverses commission itself ([TD-P9-07](#td-p9-07)).
+  - `RETURN_REFUNDED` carries `returnShipmentId` + `returnId` + `refundAmount` (gross incl. discount pro-rating); seller-service reverses commission itself ([TD-P9-20](#td-p9-20)).
   - Return restock passes `offerId` (resolved from the shipment's order item) but the warehouse is still resolved by inventory from its reservation record; a line split across two warehouses of the same offer restocks in reservation order.
   - Shipment amount = items value only; order-level discount, coupon, coins, shipping and tax are pro-rated by items-value share on shipment invoices (may differ by a cent from the order totals). A non-platform seller invoice shows name and warehouse only (no seller GSTIN/address; not fetched from seller-service).
   - Delivery estimate per shipment = ship-to pincode vs warehouse pincode (3-digit / 1-digit prefix rule, 2/3/5 days, 7 non-Indian), ignoring offer `dispatchDays`; `estimated_delivery_date` = latest shipment ETA, while the checkout-time estimate/COD check still uses the fixed warehouse prefix.
@@ -158,3 +138,17 @@ Phase 9 was built under "no tests, no HLD/LLD, record shortcuts as debt". The in
 - **Where:** `seller_db`, `product_db`, `inventory_db`, `order_db`, `auth_db` on the dev volume.
 - **Risk:** `p9e-*` sellers (names `P9E*`) and their users remain; seller-owned test products ("E2E Bulk ...", "E2E Sponsored ...") and test warehouses (`S*-DEL`, `T*`, inactive) remain. Test offers on seeded products (Dune "P9 Store" at 12.5, and the e2e sellers) were deactivated, not deleted. The seeded Laptop product (id starts `25e35f99`) no longer resolves on the PDP (404), and its "P9 Traders" offer could not be inspected; cause not yet established. Credentials are intentionally not recorded here. Extends [TD-P8-19](phase8.md#td-p8-19).
 - **Fix:** Investigate and restore the Laptop product; delete these rows (or `docker compose down -v`) before sharing the environment.
+
+<a id="td-p9-20"></a>
+## TD-P9-20 Seller ledger: fee on returns, per-line refunds, no reconcile
+- **Severity / Effort:** Med / M
+- **Where:** seller-service `LedgerService`, `OrderEventConsumer`; order-service `RETURN_REFUNDED` payload.
+- **Risk:** Residual of TD-P9-07 (fixed 2026-11-17: the ledger consumer starts from `earliest`, so a new consumer group no longer skips deliveries; replay is safe because every ledger write is unique per shipment/type or per return; failures reach the DLT since TD-BE-17). Still open: the per-shipment fee is not reversed on a return (a policy decision), a `RETURN_REFUNDED` event without line amounts reverses the whole shipment, and nothing reconciles the ledger against order-service.
+- **Fix:** Decide the return-fee policy; carry per-line refund amounts in the event; a nightly reconcile of delivered shipments against `ledger_entries`.
+
+<a id="td-p9-21"></a>
+## TD-P9-21 Product review: edits after approval are not re-reviewed
+- **Severity / Effort:** Low / S
+- **Where:** product-service `ProductModerationService`, `SellerCatalogService`; admin `ModerationView`.
+- **Risk:** Residual of TD-P9-03 (fixed 2026-11-17: a marketplace seller's new product is created inactive and PENDING_REVIEW; admins approve or reject it at Catalog > Product review, `/api/products/admin/moderation`, with automatic warnings for no image, no description, banned terms and prices far from the category average; a rejected product the seller edits goes back to the queue; the seller sees the status on their listings; seller bulk edits now publish PRODUCT_UPDATED). An approved product the seller later edits (name, description, image) goes live without a second review. Banned terms are a config list (`product.moderation.banned-terms`), not a managed list.
+- **Fix:** Send material edits of an approved seller product back to review while keeping the last approved version live; manage banned terms in the admin console.

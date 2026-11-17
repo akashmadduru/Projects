@@ -1,15 +1,15 @@
 package com.acme.ecommerce.support.config;
 
-import com.acme.ecommerce.support.error.ProblemResponseWriter;
 import com.acme.ecommerce.common.core.error.ErrorCode;
 import com.acme.ecommerce.common.security.AudienceValidator;
 import com.acme.ecommerce.common.security.PlatformJwtAuthenticationConverter;
+import com.acme.ecommerce.support.error.ProblemResponseWriter;
 import java.util.ArrayList;
 import java.util.List;
-import org.springframework.http.HttpMethod;
 import org.springframework.cloud.client.loadbalancer.LoadBalanced;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -83,7 +83,8 @@ public class SecurityConfig {
         .authorizeHttpRequests(
             requests ->
                 requests
-                    .requestMatchers(HttpMethod.GET, "/api/support/articles", "/api/support/articles/*")
+                    .requestMatchers(
+                        HttpMethod.GET, "/api/support/articles", "/api/support/articles/*")
                     .permitAll()
                     .requestMatchers(
                         HttpMethod.POST, "/api/support/articles/*/feedback", "/api/support/chat")
@@ -152,12 +153,12 @@ public class SecurityConfig {
    *
    * <p>{@code @LoadBalanced}, so an {@code lb://AUTH-SERVICE/...} URL is resolved through Eureka ON
    * EVERY FETCH rather than captured once at startup. That late resolution is the whole point: the
-   * auth-service address changes with every redeploy, and a URL frozen at support-service boot would
-   * be pinned to whichever instance happened to be registered at that moment - quite possibly none
-   * at all, given compose bring-up order.
+   * auth-service address changes with every redeploy, and a URL frozen at support-service boot
+   * would be pinned to whichever instance happened to be registered at that moment - quite possibly
+   * none at all, given compose bring-up order.
    *
-   * <p>An absolute {@code support.jwt.jwks-uri} bypasses this bean entirely (see {@link #jwtDecoder});
-   * the load balancer would otherwise treat the URL's hostname as a service id.
+   * <p>An absolute {@code support.jwt.jwks-uri} bypasses this bean entirely (see {@link
+   * #jwtDecoder}); the load balancer would otherwise treat the URL's hostname as a service id.
    *
    * <p>Timeouts are mandatory, not defensive: {@code RestTemplate}'s defaults are INFINITE, so a
    * hung auth-service would park the fetching thread forever and, with Nimbus' cache expired, take

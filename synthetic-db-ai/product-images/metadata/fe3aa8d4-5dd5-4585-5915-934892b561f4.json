@@ -1,0 +1,13 @@
+{
+ "product_id": "fe3aa8d4-5dd5-4585-5915-934892b561f4",
+ "name": "Ortavo Brick Set Gen 3",
+ "prompt": "studio packshot photo of a Space Grey Ortavo Brick Set Gen 3, made of silicone, building toys, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3414066896,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T00:29:50",
+ "file_path": "product-images/images/fe3aa8d4-5dd5-4585-5915-934892b561f4.jpg",
+ "file_size": 58036
+}

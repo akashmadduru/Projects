@@ -1,0 +1,15 @@
+{
+ "product_id": "8003a7c6-96f5-470e-9781-7adb5bf86668",
+ "name": "Quacolo Football Ultra",
+ "prompt": "studio packshot photo of a Black Quacolo Football Ultra, made of polyester, team sports, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3119694680,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T01:23:25",
+ "file_path": "static/images/8003a7c6-96f5-470e-9781-7adb5bf86668.jpg",
+ "file_size": 37229,
+ "uploaded": false,
+ "s3_url": null
+}

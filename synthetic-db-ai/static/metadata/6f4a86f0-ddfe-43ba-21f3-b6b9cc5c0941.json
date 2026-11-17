@@ -1,0 +1,15 @@
+{
+ "product_id": "6f4a86f0-ddfe-43ba-21f3-b6b9cc5c0941",
+ "name": "Nuvoion Face Serum Ultra",
+ "prompt": "studio packshot photo of a Black Nuvoion Face Serum Ultra, made of wood, skin care, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 4189680399,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:01:19",
+ "file_path": "static/images/6f4a86f0-ddfe-43ba-21f3-b6b9cc5c0941.jpg",
+ "file_size": 40277,
+ "uploaded": false,
+ "s3_url": null
+}

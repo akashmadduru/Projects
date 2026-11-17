@@ -1,0 +1,13 @@
+{
+ "product_id": "c073c816-b124-48f1-728b-6724ad614b31",
+ "name": "Kaex Deodorant Lite",
+ "prompt": "studio packshot photo of a Grey Kaex Deodorant Lite, made of wood, fragrances, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2281235307,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:32:43",
+ "file_path": "product-images/images/c073c816-b124-48f1-728b-6724ad614b31.jpg",
+ "file_size": 38479
+}

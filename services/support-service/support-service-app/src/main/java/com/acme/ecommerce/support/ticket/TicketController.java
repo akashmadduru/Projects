@@ -60,7 +60,9 @@ public class TicketController {
   @PostMapping("/api/support/tickets/{id}/messages")
   @ResponseStatus(HttpStatus.CREATED)
   public Ticket reply(
-      @AuthenticationPrincipal Jwt jwt, @PathVariable UUID id, @RequestBody MessageRequest request) {
+      @AuthenticationPrincipal Jwt jwt,
+      @PathVariable UUID id,
+      @RequestBody MessageRequest request) {
     return tickets.customerMessage(uid(jwt), id, request.body());
   }
 
@@ -107,8 +109,11 @@ public class TicketController {
   @PreAuthorize(AGENT)
   @ResponseStatus(HttpStatus.CREATED)
   public Ticket agentReply(
-      @AuthenticationPrincipal Jwt jwt, @PathVariable UUID id, @RequestBody MessageRequest request) {
-    return tickets.agentMessage(id, uid(jwt), request.body(), Boolean.TRUE.equals(request.internal()));
+      @AuthenticationPrincipal Jwt jwt,
+      @PathVariable UUID id,
+      @RequestBody MessageRequest request) {
+    return tickets.agentMessage(
+        id, uid(jwt), request.body(), Boolean.TRUE.equals(request.internal()));
   }
 
   @PostMapping("/api/admin/support/tickets/{id}/status")

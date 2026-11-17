@@ -5,7 +5,8 @@ import jakarta.validation.constraints.Size;
 
 /** Body of POST /api/auth/password/reset. The password is never logged. */
 public record ResetPasswordRequest(
-    @NotBlank @Size(max = 200) String token, @NotBlank @Size(min = 12, max = 200) String newPassword) {
+    @NotBlank @Size(max = 200) String token,
+    @NotBlank @Size(min = 12, max = 200) String newPassword) {
 
   @Override
   public String toString() {

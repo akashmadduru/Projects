@@ -1,0 +1,13 @@
+{
+ "product_id": "b6e53e5c-600b-41e8-21f5-449a0e50a950",
+ "name": "Arrili Bluetooth Speaker Gen 3",
+ "prompt": "studio packshot photo of a Green Arrili Bluetooth Speaker Gen 3, made of stainless steel, speakers, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2302082851,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:26:39",
+ "file_path": "product-images/images/b6e53e5c-600b-41e8-21f5-449a0e50a950.jpg",
+ "file_size": 62044
+}

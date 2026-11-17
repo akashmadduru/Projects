@@ -131,7 +131,8 @@ public class SecurityConfig {
                         "/api/categories",
                         "/api/categories/**")
                     .permitAll()
-                    // Phase 7: product view tracking (anonymous session id) and the SEO sitemap are public.
+                    // Phase 7: product view tracking (anonymous session id) and the SEO sitemap are
+                    // public.
                     .pathMatchers(HttpMethod.POST, "/api/products/*/views")
                     .permitAll()
                     .pathMatchers(HttpMethod.GET, "/sitemap.xml")
@@ -189,7 +190,8 @@ public class SecurityConfig {
                     // owning service enforces the same rule itself; this stops a service
                     // that forgets from being reachable by a customer token.
                     .pathMatchers("/api/admin/**")
-                    .hasAnyAuthority("ROLE_ADMIN", "ROLE_SUPPORT", "ROLE_FINANCE", "ROLE_CATALOG_MANAGER")
+                    .hasAnyAuthority(
+                        "ROLE_ADMIN", "ROLE_SUPPORT", "ROLE_FINANCE", "ROLE_CATALOG_MANAGER")
                     // /api/auth/me, /api/auth/validate, /api/products POST/PUT/DELETE and anything
                     // added later.
                     .anyExchange()

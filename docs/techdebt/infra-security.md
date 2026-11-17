@@ -9,13 +9,6 @@ Index: [README](README.md)
 - **Risk:** The secret was pasted into plaintext and handled during this work; anyone with the machine or a shared copy has it.
 - **Fix:** Rotate the secret in Google Cloud Console and update `deploy/local/.env`; use a secrets manager outside local dev. Confirm with `git log -p -- deploy/local/.env` that it was never committed.
 
-<a id="td-sec-02"></a>
-## TD-SEC-02 Admin SPA Google login starts via the gateway
-- **Severity / Effort:** High / S
-- **Where:** `apps/admin-product-catalog/src/lib/http.ts`, `googleAuthorizationUrl()` returns `${apiBaseUrl}/oauth2/authorization/google` with `apiBaseUrl` defaulting to `http://localhost:8080`.
-- **Risk:** Through the gateway, auth-service builds the Google `redirect_uri` from the request host (`http://<container-ip>:8081/login/oauth2/code/google`), which Google rejects. Google login in the admin app is broken. The storefront avoids this by starting at `http://localhost:8081` (`VITE_AUTH_BASE_URL`).
-- **Fix:** Same change as the storefront (auth base URL env defaulting to :8081), or configure auth-service to honor `X-Forwarded-Host` (`server.forward-headers-strategy=framework`) and route `/oauth2/**` and `/login/oauth2/**` through the gateway with forwarded headers.
-
 <a id="td-sec-03"></a>
 ## TD-SEC-03 Dev DB passwords committed
 - **Severity / Effort:** Med / S

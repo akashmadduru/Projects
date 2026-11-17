@@ -1,0 +1,13 @@
+{
+ "product_id": "7bb75332-bbe2-46ec-26e0-7fc5e285aced",
+ "name": "Ririri Top Essential",
+ "prompt": "studio packshot photo of a Rose Gold Ririri Top Essential, made of stainless steel, women's clothing, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1087627330,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:47:19",
+ "file_path": "product-images/images/7bb75332-bbe2-46ec-26e0-7fc5e285aced.jpg",
+ "file_size": 73146
+}

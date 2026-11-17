@@ -2,26 +2,21 @@ package com.acme.ecommerce.rating.web;
 
 import com.acme.ecommerce.common.core.error.CodedException;
 import com.acme.ecommerce.common.core.error.ValidationException;
+import com.acme.ecommerce.common.security.Roles;
+import com.acme.ecommerce.rating.api.dto.MyRatingStatusResponse;
 import com.acme.ecommerce.rating.api.dto.RatingMediaResponse;
+import com.acme.ecommerce.rating.api.dto.RatingResponse;
+import com.acme.ecommerce.rating.api.dto.RatingSummaryResponse;
 import com.acme.ecommerce.rating.service.QaService;
+import com.acme.ecommerce.rating.service.RatingService;
+import com.acme.ecommerce.rating.service.ReviewEligibilityService;
 import com.acme.ecommerce.rating.service.ReviewMediaService;
+import com.acme.ecommerce.rating.web.dto.CreateRatingRequest;
 import com.acme.ecommerce.rating.web.dto.QaDtos.AnswerRequest;
 import com.acme.ecommerce.rating.web.dto.QaDtos.AnswerResponse;
 import com.acme.ecommerce.rating.web.dto.QaDtos.QuestionRequest;
 import com.acme.ecommerce.rating.web.dto.QaDtos.QuestionResponse;
 import com.acme.ecommerce.rating.web.dto.QaDtos.UpvoteResponse;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.RequestPart;
-import org.springframework.web.multipart.MultipartFile;
-import com.acme.ecommerce.common.security.Roles;
-import com.acme.ecommerce.rating.api.dto.MyRatingStatusResponse;
-import com.acme.ecommerce.rating.api.dto.RatingResponse;
-import com.acme.ecommerce.rating.api.dto.RatingSummaryResponse;
-import com.acme.ecommerce.rating.service.RatingService;
-import com.acme.ecommerce.rating.service.ReviewEligibilityService;
-import com.acme.ecommerce.rating.web.dto.CreateRatingRequest;
 import com.acme.ecommerce.rating.web.dto.UpdateRatingRequest;
 import jakarta.validation.Valid;
 import java.util.Map;
@@ -32,7 +27,10 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PagedModel;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -45,8 +43,10 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 /** Reviews for purchased products. The user id is ALWAYS the JWT subject, never a request field. */
 @RestController
@@ -195,7 +195,8 @@ public class RatingController {
     Sort stable = base.and(Sort.by(Sort.Order.desc("createdAt"), Sort.Order.asc("id")));
     Pageable pageable =
         PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), MAX_PAGE_SIZE), stable);
-    return new PagedModel<>(ratings.findByProductId(productId, stars, verified, withMedia, pageable));
+    return new PagedModel<>(
+        ratings.findByProductId(productId, stars, verified, withMedia, pageable));
   }
 
   @GetMapping("/products/{productId}/summary")

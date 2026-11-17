@@ -1,0 +1,15 @@
+{
+ "product_id": "43f7a634-8758-4024-297f-0e18d667453e",
+ "name": "Kapisu Deodorant Lite",
+ "prompt": "studio packshot photo of a Green Kapisu Deodorant Lite, made of polyester, fragrances, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1628031214,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T01:14:33",
+ "file_path": "static/images/43f7a634-8758-4024-297f-0e18d667453e.jpg",
+ "file_size": 87143,
+ "uploaded": false,
+ "s3_url": null
+}

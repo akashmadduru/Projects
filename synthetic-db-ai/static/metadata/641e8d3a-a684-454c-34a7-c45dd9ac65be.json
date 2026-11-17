@@ -1,0 +1,15 @@
+{
+ "product_id": "641e8d3a-a684-454c-34a7-c45dd9ac65be",
+ "name": "Liquavo Mixed Nuts Prime",
+ "prompt": "studio packshot photo of a Red Liquavo Mixed Nuts Prime, made of stainless steel, snacks, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 289217551,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:30:14",
+ "file_path": "static/images/641e8d3a-a684-454c-34a7-c45dd9ac65be.jpg",
+ "file_size": 66398,
+ "uploaded": false,
+ "s3_url": null
+}

@@ -1,0 +1,15 @@
+{
+ "product_id": "1b6587a8-753f-49dc-444b-0e1ec0fad8f7",
+ "name": "Qualipi Smartphone Ultra",
+ "prompt": "studio packshot photo of a Silver Qualipi Smartphone Ultra, made of bamboo, mobiles & smartphones, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2793309469,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 768,
+ "created_at": "2026-11-15T23:12:05",
+ "file_path": "static/images/1b6587a8-753f-49dc-444b-0e1ec0fad8f7.jpg",
+ "file_size": 68380,
+ "uploaded": false,
+ "s3_url": null
+}

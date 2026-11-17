@@ -1,0 +1,13 @@
+{
+ "product_id": "c094871c-c496-4a06-6e0c-2c63df242a81",
+ "name": "Ricoqua T-Shirt Series 2",
+ "prompt": "studio packshot photo of a Olive Ricoqua T-Shirt Series 2, made of nylon, men's clothing, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1817964687,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:12:53",
+ "file_path": "product-images/images/c094871c-c496-4a06-6e0c-2c63df242a81.jpg",
+ "file_size": 36353
+}

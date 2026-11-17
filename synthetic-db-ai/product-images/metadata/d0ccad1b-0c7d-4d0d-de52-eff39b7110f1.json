@@ -1,0 +1,13 @@
+{
+ "product_id": "d0ccad1b-0c7d-4d0d-de52-eff39b7110f1",
+ "name": "Nuta Cookware Set Max",
+ "prompt": "studio packshot photo of a Red Nuta Cookware Set Max, made of wood, cookware, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 4190501461,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:43:38",
+ "file_path": "product-images/images/d0ccad1b-0c7d-4d0d-de52-eff39b7110f1.jpg",
+ "file_size": 46473
+}

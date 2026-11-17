@@ -1,0 +1,15 @@
+{
+ "product_id": "33461fec-8183-4f7d-5194-351d17b7f953",
+ "name": "Dexdexex Yoga Mat Max",
+ "prompt": "studio packshot photo of a Blue Dexdexex Yoga Mat Max, made of bamboo, fitness, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 4044187840,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:19:44",
+ "file_path": "static/images/33461fec-8183-4f7d-5194-351d17b7f953.jpg",
+ "file_size": 93646,
+ "uploaded": false,
+ "s3_url": null
+}

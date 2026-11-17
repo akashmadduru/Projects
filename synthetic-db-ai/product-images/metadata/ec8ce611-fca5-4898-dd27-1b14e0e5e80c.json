@@ -1,0 +1,13 @@
+{
+ "product_id": "ec8ce611-fca5-4898-dd27-1b14e0e5e80c",
+ "name": "Traconu Handbag Prime",
+ "prompt": "studio packshot photo of a Rose Gold Traconu Handbag Prime, made of polyester, bags & luggage, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3418205647,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:37:55",
+ "file_path": "product-images/images/ec8ce611-fca5-4898-dd27-1b14e0e5e80c.jpg",
+ "file_size": 59446
+}

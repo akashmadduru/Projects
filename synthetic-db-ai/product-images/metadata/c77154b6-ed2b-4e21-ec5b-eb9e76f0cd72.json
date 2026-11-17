@@ -1,0 +1,13 @@
+{
+ "product_id": "c77154b6-ed2b-4e21-ec5b-eb9e76f0cd72",
+ "name": "Nutrali Top Series 2",
+ "prompt": "studio packshot photo of a Silver Nutrali Top Series 2, made of aluminium, women's clothing, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1440219584,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:13:41",
+ "file_path": "product-images/images/c77154b6-ed2b-4e21-ec5b-eb9e76f0cd72.jpg",
+ "file_size": 70784
+}

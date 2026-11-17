@@ -1,0 +1,15 @@
+{
+ "product_id": "34244544-dd1d-4a4a-7df9-b182b5a1283c",
+ "name": "Nunuri Mixed Nuts Plus",
+ "prompt": "studio packshot photo of a White Nunuri Mixed Nuts Plus, made of aluminium, snacks, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1550610567,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:09:32",
+ "file_path": "static/images/34244544-dd1d-4a4a-7df9-b182b5a1283c.jpg",
+ "file_size": 64032,
+ "uploaded": false,
+ "s3_url": null
+}

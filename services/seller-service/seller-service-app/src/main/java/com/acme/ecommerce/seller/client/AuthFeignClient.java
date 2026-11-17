@@ -18,4 +18,8 @@ public interface AuthFeignClient {
 
   @PostMapping("/internal/users/{userId}/roles")
   void grantRole(@PathVariable("userId") UUID userId, @RequestBody GrantRole body);
+
+  /** Idempotent; only allow-listed roles (SELLER). */
+  @org.springframework.web.bind.annotation.DeleteMapping("/internal/users/{userId}/roles/{role}")
+  void revokeRole(@PathVariable("userId") UUID userId, @PathVariable("role") String role);
 }

@@ -1,0 +1,13 @@
+{
+ "product_id": "31b4cbcf-61a1-4f14-cb26-ef8d58000b2a",
+ "name": "Ordex Vacuum Cleaner Max",
+ "prompt": "studio packshot photo of a Black Ordex Vacuum Cleaner Max, made of silicone, cleaning, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 410710309,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-15T23:54:47",
+ "file_path": "product-images/images/31b4cbcf-61a1-4f14-cb26-ef8d58000b2a.jpg",
+ "file_size": 41486
+}

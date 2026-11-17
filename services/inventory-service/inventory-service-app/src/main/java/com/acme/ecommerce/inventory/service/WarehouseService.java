@@ -5,8 +5,6 @@ import com.acme.ecommerce.common.core.error.ResourceConflictException;
 import com.acme.ecommerce.common.core.error.ResourceNotFoundException;
 import com.acme.ecommerce.common.core.error.ValidationException;
 import com.acme.ecommerce.inventory.domain.Platform;
-import com.acme.ecommerce.inventory.repository.InventoryRepository;
-import com.acme.ecommerce.inventory.repository.VariantStockRepository;
 import com.acme.ecommerce.inventory.repository.WarehouseRepository;
 import com.acme.ecommerce.inventory.repository.WarehouseRepository.Warehouse;
 import com.acme.ecommerce.inventory.repository.WarehouseStockRepository;
@@ -65,7 +63,8 @@ public class WarehouseService {
 
   @Transactional
   public Warehouse update(UUID id, String name, String pincode, String state, Boolean active) {
-    Warehouse w = warehouses.byId(id).orElseThrow(() -> new ResourceNotFoundException("Warehouse", id));
+    Warehouse w =
+        warehouses.byId(id).orElseThrow(() -> new ResourceNotFoundException("Warehouse", id));
     String p = pincode == null ? w.pincode() : pincode.trim();
     if (!PIN.matcher(p).matches()) {
       throw ValidationException.forField("pincode", "must be 6 digits");
@@ -99,7 +98,13 @@ public class WarehouseService {
       throw new ForbiddenException("Not your offer");
     }
     return writeStock(
-        offer.productId(), offer.variantId(), offer.sellerId(), offerId, warehouseCode, quantity, admin);
+        offer.productId(),
+        offer.variantId(),
+        offer.sellerId(),
+        offerId,
+        warehouseCode,
+        quantity,
+        admin);
   }
 
   /** Internal write used by product-service (bulk upload, offer creation). */
@@ -138,14 +143,16 @@ public class WarehouseService {
   }
 
   private static void afterCommit(Runnable r) {
-    if (org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()) {
-      org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
-          new org.springframework.transaction.support.TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-              r.run();
-            }
-          });
+    if (org.springframework.transaction.support.TransactionSynchronizationManager
+        .isSynchronizationActive()) {
+      org.springframework.transaction.support.TransactionSynchronizationManager
+          .registerSynchronization(
+              new org.springframework.transaction.support.TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                  r.run();
+                }
+              });
     } else {
       r.run();
     }
@@ -157,7 +164,8 @@ public class WarehouseService {
       return own.stream()
           .filter(Warehouse::active)
           .findFirst()
-          .orElseThrow(() -> ValidationException.forField("warehouseCode", "seller has no warehouse"));
+          .orElseThrow(
+              () -> ValidationException.forField("warehouseCode", "seller has no warehouse"));
     }
     Warehouse w =
         warehouses
@@ -172,6 +180,7 @@ public class WarehouseService {
   /** Admin sets platform stock for a product/variant at a warehouse. */
   @Transactional
   public Row setPlatformStock(UUID productId, UUID variantId, String warehouseCode, int quantity) {
-    return writeStock(productId, variantId, Platform.SELLER_ID, null, warehouseCode, quantity, true);
+    return writeStock(
+        productId, variantId, Platform.SELLER_ID, null, warehouseCode, quantity, true);
   }
 }

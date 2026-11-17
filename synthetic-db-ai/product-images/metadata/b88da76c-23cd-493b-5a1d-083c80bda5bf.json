@@ -1,0 +1,13 @@
+{
+ "product_id": "b88da76c-23cd-493b-5a1d-083c80bda5bf",
+ "name": "Zenoar T-Shirt Elite",
+ "prompt": "studio packshot photo of a Silver Zenoar T-Shirt Elite, made of nylon, men's clothing, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 955055518,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:27:47",
+ "file_path": "product-images/images/b88da76c-23cd-493b-5a1d-083c80bda5bf.jpg",
+ "file_size": 37560
+}

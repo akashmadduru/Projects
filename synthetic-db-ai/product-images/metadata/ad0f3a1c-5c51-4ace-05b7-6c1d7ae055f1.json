@@ -1,0 +1,13 @@
+{
+ "product_id": "ad0f3a1c-5c51-4ace-05b7-6c1d7ae055f1",
+ "name": "Voba Robot Vacuum Series 2",
+ "prompt": "studio packshot photo of a Blue Voba Robot Vacuum Series 2, made of abs plastic, cleaning, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3093355827,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:20:13",
+ "file_path": "product-images/images/ad0f3a1c-5c51-4ace-05b7-6c1d7ae055f1.jpg",
+ "file_size": 41933
+}

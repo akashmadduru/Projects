@@ -19,18 +19,17 @@ import com.acme.ecommerce.order.client.ProductViewFeignClient.ProductView;
 import com.acme.ecommerce.order.client.ProductViewFeignClient.Variant;
 import com.acme.ecommerce.order.client.PromotionFeignClient;
 import com.acme.ecommerce.order.client.PromotionFeignClient.DealClaimItem;
-import com.acme.ecommerce.order.error.RiskBlockedException;
 import com.acme.ecommerce.order.client.PromotionFeignClient.DealKey;
 import com.acme.ecommerce.order.client.PromotionFeignClient.DealPrice;
 import com.acme.ecommerce.order.client.PromotionFeignClient.Validation;
 import com.acme.ecommerce.order.client.RemoteCalls;
 import com.acme.ecommerce.order.client.UserFeignClient;
 import com.acme.ecommerce.order.config.OrderProperties;
-import com.acme.ecommerce.order.domain.HistoryActor;
 import com.acme.ecommerce.order.domain.Order;
 import com.acme.ecommerce.order.domain.Order.Allocation;
 import com.acme.ecommerce.order.domain.PaymentMethod;
 import com.acme.ecommerce.order.domain.Pricing;
+import com.acme.ecommerce.order.error.RiskBlockedException;
 import com.acme.ecommerce.order.event.OrderEventPublisher;
 import com.acme.ecommerce.order.event.OrderEventType;
 import com.acme.ecommerce.user.api.dto.AddressResponse;
@@ -153,7 +152,8 @@ public class OrderService {
             : req.couponCode().trim().toUpperCase(Locale.ROOT);
     BigDecimal discount = BigDecimal.ZERO;
     if (couponCode != null) {
-      Validation v = remote.validateCoupon(
+      Validation v =
+          remote.validateCoupon(
               couponCode, order.getSubtotalAmount(), currency, store.isFirstOrder(userId));
       discount = v.discountAmount() == null ? BigDecimal.ZERO : v.discountAmount();
     }
@@ -231,7 +231,9 @@ public class OrderService {
             : risks.assess(userId, price.total(), currency);
     if (method == PaymentMethod.COD && remainder.signum() > 0 && risk.blocksCod()) {
       throw new RiskBlockedException(
-          "Cash on delivery is not available for this order (" + String.join("; ", risk.reasons()) + ")");
+          "Cash on delivery is not available for this order ("
+              + String.join("; ", risk.reasons())
+              + ")");
     }
     if (method == PaymentMethod.COD
         && remainder.signum() > 0
@@ -265,7 +267,10 @@ public class OrderService {
 
     List<OrderRemote.StockLine> stockLines =
         saved.items().stream()
-            .map(i -> new OrderRemote.StockLine(i.productId(), i.variantId(), i.offerId(), i.quantity()))
+            .map(
+                i ->
+                    new OrderRemote.StockLine(
+                        i.productId(), i.variantId(), i.offerId(), i.quantity()))
             .toList();
 
     List<Allocation> allocations;
@@ -323,7 +328,9 @@ public class OrderService {
         remote.redeemCoupon(
             couponCode, userId, saved.id(), saved.subtotalAmount(), saved.currency(), firstOrder);
       } catch (RuntimeException e) {
-        abandon(saved.id(), "Coupon could not be applied", false);
+        // Release too: a timeout can hide a redemption that did commit, and release by order id
+        // is a no-op when nothing was redeemed.
+        abandon(saved.id(), "Coupon could not be applied", true);
         throw e;
       }
     }
@@ -332,7 +339,8 @@ public class OrderService {
       try {
         remote.redeemCoins(userId, coins, saved.id());
       } catch (RuntimeException e) {
-        abandon(saved.id(), "Coins could not be redeemed", couponCode != null);
+        // Same reasoning as the coupon: release by order id is safe if nothing was taken.
+        unwind(saved, "Coins could not be redeemed", couponCode != null, true, false);
         throw e;
       }
     }
@@ -342,6 +350,8 @@ public class OrderService {
         remote.debitWallet(userId, walletAmount, currency, saved.id());
       } catch (RuntimeException e) {
         unwind(saved, "Wallet could not be charged", couponCode != null, coins > 0, false);
+        // The debit may have committed before the failure (a timeout): give it back if it did.
+        remote.reverseWalletDebitDurable(userId, walletAmount, currency, saved.id());
         throw e;
       }
     }
@@ -445,11 +455,11 @@ public class OrderService {
     }
     List<Line> lines = new ArrayList<>();
     for (CartItemResponse i : cart.items()) {
-      lines.add(new Line(i.productId(), i.variantId(), i.variantLabel(), i.quantity(), i.offerId()));
+      lines.add(
+          new Line(i.productId(), i.variantId(), i.variantLabel(), i.quantity(), i.offerId()));
     }
     return lines;
   }
-
 
   private static List<Line> buyNowLines(List<OrderLineRequest> items) {
     record Key(UUID productId, UUID variantId, UUID offerId) {}
@@ -468,7 +478,11 @@ public class OrderService {
       }
       lines.add(
           new Line(
-              e.getKey().productId(), e.getKey().variantId(), null, e.getValue(), e.getKey().offerId()));
+              e.getKey().productId(),
+              e.getKey().variantId(),
+              null,
+              e.getValue(),
+              e.getKey().offerId()));
     }
     return lines;
   }
@@ -488,7 +502,8 @@ public class OrderService {
       views.add(fetchProduct(line.productId()));
     }
     List<DealPrice> deals =
-        remote.dealPrices(userId, lines.stream().map(l -> new DealKey(l.productId(), l.variantId())).toList());
+        remote.dealPrices(
+            userId, lines.stream().map(l -> new DealKey(l.productId(), l.variantId())).toList());
     Order order = null;
     String currency = null;
     for (int n = 0; n < lines.size(); n++) {
@@ -503,7 +518,8 @@ public class OrderService {
             product.variants() == null
                 ? null
                 : product.variants().stream()
-                    .filter(v -> line.variantId().equals(v.id()) && !Boolean.FALSE.equals(v.active()))
+                    .filter(
+                        v -> line.variantId().equals(v.id()) && !Boolean.FALSE.equals(v.active()))
                     .findFirst()
                     .orElse(null);
         if (variant == null) {

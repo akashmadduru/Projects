@@ -1,0 +1,13 @@
+{
+ "product_id": "d147cb2c-42f6-40f0-47e7-b22b3b0a7d5b",
+ "name": "Losuze Air Fryer Elite",
+ "prompt": "studio packshot photo of a Navy Blue Losuze Air Fryer Elite, made of abs plastic, small appliances, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2425191939,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:00:50",
+ "file_path": "product-images/images/d147cb2c-42f6-40f0-47e7-b22b3b0a7d5b.jpg",
+ "file_size": 57349
+}

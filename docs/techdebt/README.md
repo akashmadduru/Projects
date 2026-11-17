@@ -16,13 +16,10 @@ Shortcuts taken while building customer accounts (login, Google SSO, user/cart/o
 |----|-------|------|----------|--------|------|
 | TD-P6-01 | No outbox: stock/coupon/event side effects after commit can be lost | phase6 | High | L | [phase6.md](phase6.md#td-p6-01) |
 | TD-P6-02 | Stripe and Razorpay live mode never exercised (only SIMULATED) | phase6 | High | S | [phase6.md](phase6.md#td-p6-02) |
-| TD-P6-03 | Late payment after cancel; PaymentIntent not cancelled | phase6 | High | M | [phase6.md](phase6.md#td-p6-03) |
-| TD-P6-04 | Stock reservation gaps (no inventory row = unlimited) | phase6 | High | M | [phase6.md](phase6.md#td-p6-04) |
-| TD-P6-05 | No tests for Phase 6; auth/storefront tests stale or uncompilable | phase6 | High | L | [phase6.md](phase6.md#td-p6-05) |
-| TD-TEST-01 | No tests for user/cart/order services | testing | High | L | [testing.md](testing.md#td-test-01) |
-| TD-TEST-02 | No frontend tests for auth/cart/checkout | testing | High | M | [testing.md](testing.md#td-test-02) |
+| TD-P6-05 | Phase 6 tests: coupons, OTP, returns, promotion/notification services (stale tests fixed) | phase6 | Med | L | [phase6.md](phase6.md#td-p6-05) |
+| TD-TEST-01 | Ownership is not tested per HTTP endpoint (service-level tests added) | testing | Med | M | [testing.md](testing.md#td-test-01) |
+| TD-TEST-02 | No frontend tests for checkout and the Google sign-in pages (stores covered) | testing | Med | M | [testing.md](testing.md#td-test-02) |
 | TD-SEC-01 | Real GOOGLE_CLIENT_SECRET in local deploy/local/.env (rotate) | infra-security | High | S | [infra-security.md](infra-security.md#td-sec-01) |
-| TD-SEC-02 | Admin SPA Google login starts via gateway (redirect_uri rejected) | infra-security | High | S | [infra-security.md](infra-security.md#td-sec-02) |
 | TD-P6-06 | Repo Dockerfiles for new services untested (Maven Central 403) | phase6 | Med | S | [phase6.md](phase6.md#td-p6-06) |
 | TD-P6-07 | Notifications fire-and-forget; in-memory de-dupe | phase6 | Med | M | [phase6.md](phase6.md#td-p6-07) |
 | TD-P6-08 | SMS is a dev stub that logs OTP codes | phase6 | Med | M | [phase6.md](phase6.md#td-p6-08) |
@@ -35,7 +32,6 @@ Shortcuts taken while building customer accounts (login, Google SSO, user/cart/o
 | TD-P6-15 | Invoice PDF is a minimal hand-written PDF (no rupee glyph) | phase6 | Med | S | [phase6.md](phase6.md#td-p6-15) |
 | TD-P6-16 | WELCOME10 still listed/validated for returning customers | phase6 | Med | S | [phase6.md](phase6.md#td-p6-16) |
 | TD-P6-17 | Shipping/tax/COD rules hard-wired; client-side estimates | phase6 | Med | M | [phase6.md](phase6.md#td-p6-17) |
-| TD-TEST-03 | Stale `http.test.ts`; `npm run type-check` fails | testing | Med | S | [testing.md](testing.md#td-test-03) |
 | TD-TEST-04 | Gateway route/authorization contract untested | testing | Med | M | [testing.md](testing.md#td-test-04) |
 | TD-BE-03 | Cart clear after order is best-effort, no outbox | backend | Med | M | [backend.md](backend.md#td-be-03) |
 | TD-BE-06 | Sequential product lookups in checkout | backend | Med | M | [backend.md](backend.md#td-be-06) |
@@ -53,7 +49,6 @@ Shortcuts taken while building customer accounts (login, Google SSO, user/cart/o
 | TD-BE-11 | No abandoned-cart cleanup / account-deletion propagation | backend | Low | M | [backend.md](backend.md#td-be-11) |
 | TD-BE-12 | SecurityConfig copy-pasted across 6 services | backend | Low | M | [backend.md](backend.md#td-be-12) |
 | TD-BE-14 | `user_profiles.email` never refreshed | backend | Low | S | [backend.md](backend.md#td-be-14) |
-| TD-TEST-05 | `tsconfig.build.json` excludes tests | testing | Low | S | [testing.md](testing.md#td-test-05) |
 | TD-BE-15 | Concurrent checkouts with different keys can double-order one cart | backend | Med | M | [backend.md](backend.md#td-be-15) |
 | TD-SEC-09 | Prod cookie/redirect defaults (AUTH_COOKIE_SECURE, localhost allow-list) must be overridden | infra-security | Med | S | [infra-security.md](infra-security.md#td-sec-09) |
 | TD-SEC-10 | Feign token relay goes to any `services.*.url` override | infra-security | Low | S | [infra-security.md](infra-security.md#td-sec-10) |
@@ -93,7 +88,7 @@ Shortcuts taken while building customer accounts (login, Google SSO, user/cart/o
 | TD-P6-30 | Razorpay order creation has no idempotency key | phase6 | Low | S | [phase6.md](phase6.md#td-p6-30) |
 | TD-P6-31 | Razorpay refunds recorded as done once accepted | phase6 | Med | M | [phase6.md](phase6.md#td-p6-31) |
 | TD-P6-32 | Razorpay INR only; manual capture not detected | phase6 | Low | M | [phase6.md](phase6.md#td-p6-32) |
-| TD-ADM-01 | No tests for admin APIs/screens (last-admin, self-change, 403 rules) | admin | High | M | [admin.md](admin.md#td-adm-01) |
+| TD-ADM-01 | Admin routes: no 403 tests per route, no SQL tests for admin queries (privilege rules covered) | admin | Med | M | [admin.md](admin.md#td-adm-01) |
 | TD-ADM-02 | Disable/demote leaves issued access tokens valid until TTL | admin | Med | M | [admin.md](admin.md#td-adm-02) |
 | TD-ADM-03 | Dashboard stats scan orders; "today" is the UTC day | admin | Med | S | [admin.md](admin.md#td-adm-03) |
 | TD-ADM-05 | No audit trail for admin actions | admin | Med | M | [admin.md](admin.md#td-adm-05) |
@@ -107,7 +102,6 @@ Shortcuts taken while building customer accounts (login, Google SSO, user/cart/o
 | TD-ADM-11 | `auth.storage.spec.ts` fails on Node ≥ 25 (pre-existing) | admin | Low | S | [admin.md](admin.md#td-adm-11) |
 | TD-ADM-13 | `/api/admin/**` ADMIN-only at the gateway | admin | Low | S | [admin.md](admin.md#td-adm-13) |
 | TD-P7-01 | No tests for Phase 7; storefront component tests likely stale | phase7 | High | L | [phase7.md](phase7.md#td-p7-01) |
-| TD-P7-07 | Variant stock gaps (no row = unlimited, no sync from editor) | phase7 | High | M | [phase7.md](phase7.md#td-p7-07) |
 | TD-P7-02 | `git stash` swept uncommitted work (unknown actor); work uncommitted | phase7 | Med | S | [phase7.md](phase7.md#td-p7-02) |
 | TD-P7-03 | Search: in-memory relevance over 2000-id cap, trigram index unused | phase7 | Med | M | [phase7.md](phase7.md#td-p7-03) |
 | TD-P7-04 | Facets computed in Java, no own-facet exclusion, comma-joined URLs | phase7 | Med | S | [phase7.md](phase7.md#td-p7-04) |
@@ -127,9 +121,8 @@ Shortcuts taken while building customer accounts (login, Google SSO, user/cart/o
 | TD-P7-19 | Admin Phase 7 shortcuts (free-text variants, non-atomic save) | phase7 | Low | S | [phase7.md](phase7.md#td-p7-19) |
 | TD-P7-20 | Phase 7 test data left in dev DB | phase7 | Low | S | [phase7.md](phase7.md#td-p7-20) |
 | TD-P7-21 | Internal-token wiring and dead Feign method | phase7 | Low | S | [phase7.md](phase7.md#td-p7-21) |
+| TD-P7-22 | Stock rows: up to 15 minutes before a new variant is sellable | phase7 | Low | S | [phase7.md](phase7.md#td-p7-22) |
 | TD-P8-01 | No tests for Phase 8 (money ledgers, checkout, campaigns, UI) | phase8 | High | L | [phase8.md](phase8.md#td-p8-01) |
-| TD-P8-06 | Gift card codes plaintext, no redeem rate limit, pending cards never swept | phase8 | High | S | [phase8.md](phase8.md#td-p8-06) |
-| TD-P8-07 | Wallet: single currency, best-effort credit-back, debit race | phase8 | High | M | [phase8.md](phase8.md#td-p8-07) |
 | TD-P8-02 | Campaign audience only users with a profile row; unthrottled ALL send | phase8 | Med | M | [phase8.md](phase8.md#td-p8-02) |
 | TD-P8-03 | Campaign send in-process (restart leaves SENDING); thin admin view | phase8 | Med | M | [phase8.md](phase8.md#td-p8-03) |
 | TD-P8-04 | Web push never delivered to a real push service | phase8 | Med | M | [phase8.md](phase8.md#td-p8-04) |
@@ -147,11 +140,11 @@ Shortcuts taken while building customer accounts (login, Google SSO, user/cart/o
 | TD-P8-18 | Storefront Phase 8 UX shortcuts (estimates, polling, fan-out) | phase8 | Low | M | [phase8.md](phase8.md#td-p8-18) |
 | TD-P8-19 | Phase 8 test data and Mailpit messages left in dev | phase8 | Low | S | [phase8.md](phase8.md#td-p8-19) |
 | TD-P8-20 | notification_db setup script, throwaway password, offline builds | phase8 | Low | S | [phase8.md](phase8.md#td-p8-20) |
+| TD-P8-21 | Gift cards: no per-IP redeem limit, no admin lookup | phase8 | Low | S | [phase8.md](phase8.md#td-p8-21) |
+| TD-P8-22 | Wallet product gaps: one currency, no top-up or admin adjustment | phase8 | Low | M | [phase8.md](phase8.md#td-p8-22) |
 | TD-P9-01 | No tests for Phase 9; admin/storefront specs likely stale | phase9 | High | L | [phase9.md](phase9.md#td-p9-01) |
-| TD-P9-02 | Two sources of truth for platform stock (warehouse_stock vs legacy) | phase9 | High | M | [phase9.md](phase9.md#td-p9-02) |
-| TD-P9-03 | Seller products go live without moderation | phase9 | High | M | [phase9.md](phase9.md#td-p9-03) |
-| TD-P9-07 | Seller ledger: consumer starts at latest, no DLQ, delivery fee not reversed | phase9 | High | M | [phase9.md](phase9.md#td-p9-07) |
-| TD-P9-09 | KYC format-only; static bank-data key; suspend keeps role | phase9 | High | M | [phase9.md](phase9.md#td-p9-09) |
+| TD-P9-02 | Legacy stock totals still exist beside warehouse stock (reconciled hourly) | phase9 | Med | M | [phase9.md](phase9.md#td-p9-02) |
+| TD-P9-09 | KYC format-only; bank data under one static key (role revoke and masking fixed) | phase9 | High | M | [phase9.md](phase9.md#td-p9-09) |
 | TD-P9-04 | Offer + stock writes non-atomic; bulk CSV per row | phase9 | Med | M | [phase9.md](phase9.md#td-p9-04) |
 | TD-P9-05 | Seller stock publishes no events; offer-without-stock fallback; sellers cannot stock platform warehouses | phase9 | Med | M | [phase9.md](phase9.md#td-p9-05) |
 | TD-P9-06 | List price not re-synced when an offer sells out via orders | phase9 | Med | S | [phase9.md](phase9.md#td-p9-06) |
@@ -166,10 +159,10 @@ Shortcuts taken while building customer accounts (login, Google SSO, user/cart/o
 | TD-P9-17 | Storefront Phase 9 UX shortcuts | phase9 | Low | M | [phase9.md](phase9.md#td-p9-17) |
 | TD-P9-18 | Seller portal assumed API shapes, raw-UUID forms | phase9 | Low | M | [phase9.md](phase9.md#td-p9-18) |
 | TD-P9-19 | Phase 9 test data left in dev (Laptop PDP 404) | phase9 | Low | S | [phase9.md](phase9.md#td-p9-19) |
-| TD-BE-17 | Six Kafka listeners swallow errors, bypassing retry and the DLQ | backend | High | S | [backend.md](backend.md#td-be-17) |
+| TD-P9-20 | Seller ledger: fee on returns, per-line refunds, no reconcile | phase9 | Med | M | [phase9.md](phase9.md#td-p9-20) |
+| TD-P9-21 | Product review: edits after approval are not re-reviewed | phase9 | Low | S | [phase9.md](phase9.md#td-p9-21) |
 | TD-SEC-14 | Database dumps with credential material remain in git history | infra-security | High | S | [infra-security.md](infra-security.md#td-sec-14) |
 | TD-TEST-07 | `spotlessCheck` fails on 4 product/inventory files | testing | Med | S | [testing.md](testing.md#td-test-07) |
-| TD-AI-01 | pgvector integration tests written but never run | ai | High | S | [ai.md](ai.md#td-ai-01) |
 | TD-AI-02 | No IRSA role or NetworkPolicy egress for Bedrock | ai | Med | S | [ai.md](ai.md#td-ai-02) |
 | TD-AI-03 | No search-specific rate limit | ai | Med | M | [ai.md](ai.md#td-ai-03) |
 | TD-AI-04 | Search relevance never evaluated | ai | Med | M | [ai.md](ai.md#td-ai-04) |
@@ -180,10 +173,10 @@ Shortcuts taken while building customer accounts (login, Google SSO, user/cart/o
 
 ## Resolved by Phase 6 (checked against the code)
 
-- TD-BE-01 oversell: order-service reserves stock via inventory-service (`OrderRemote.reserve`/`release`) and releases on cancel/failure. Residual gaps: TD-P6-04, TD-P6-01.
+- TD-BE-01 oversell: order-service reserves stock via inventory-service (`OrderRemote.reserve`/`release`) and releases on cancel/failure. Residual gaps: TD-P6-01 (TD-P6-04 fixed 2026-11-17).
 - TD-BE-02 no payment/shipping/tax: payment-service (Stripe + SIMULATED + COD), shipping and GST in order-service now exist. Residual: Stripe untested (TD-P6-02), no real carrier, rules hard-wired (TD-P6-17).
 - TD-BE-04 no `order.events` publisher: `OrderEventPublisher` exists and notification-service consumes it. Residual: no outbox (TD-P6-01), notification gaps (TD-P6-07).
-- TD-BE-05 cancel does not release stock or refund: cancel releases stock and calls `OrderRemote.refund`. Residual: TD-P6-03, TD-P6-14.
+- TD-BE-05 cancel does not release stock or refund: cancel releases stock and calls `OrderRemote.refund`. Residual: TD-P6-14 (TD-P6-03 fixed 2026-11-17).
 - TD-SEC-04 (email verification half) and TD-FE-05: email verification, password reset and phone OTP exist in auth-service and the storefront. Residual: unverified users can still log in, no captcha (TD-P6-10); open registration default remains in TD-SEC-04.
 - Feign timeouts were never applied (legacy `feign.client.config` prefix, keys by service name instead of `@FeignClient` contextId). Fixed in order, rating, product and auth `application.yml` (prefix `spring.cloud.openfeign.client.config`); payment-service already used the right one. Timeouts now bite (1 s connect / 3 s read; product inventory 1.5 s), so previously masked slow calls may surface as failures. This also covers the earlier cart/user/product timeout-key note.
 

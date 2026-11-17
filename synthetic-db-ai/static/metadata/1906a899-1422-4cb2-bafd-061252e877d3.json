@@ -1,0 +1,15 @@
+{
+ "product_id": "1906a899-1422-4cb2-bafd-061252e877d3",
+ "name": "Linu Deodorant Max",
+ "prompt": "studio packshot photo of a Grey Linu Deodorant Max, made of abs plastic, fragrances, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1486652427,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 768,
+ "created_at": "2026-11-15T23:08:21",
+ "file_path": "static/images/1906a899-1422-4cb2-bafd-061252e877d3.jpg",
+ "file_size": 70928,
+ "uploaded": false,
+ "s3_url": null
+}

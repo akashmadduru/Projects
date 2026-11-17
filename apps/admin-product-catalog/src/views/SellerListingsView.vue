@@ -224,9 +224,16 @@ onMounted(() => {
               <td class="text-sm">{{ o.dispatchDays ?? 1 }}d</td>
               <td class="text-sm tabular-nums">{{ o.availableQuantity ?? '-' }}</td>
               <td>
-                <span class="badge badge-sm" :class="o.active ? 'badge-success' : 'badge-ghost'">
+                <span v-if="o.reviewStatus === 'PENDING_REVIEW'" class="badge badge-warning badge-sm" data-test="review-pending">
+                  Waiting for review
+                </span>
+                <span v-else-if="o.reviewStatus === 'REJECTED'" class="badge badge-error badge-sm" :title="o.reviewNote ?? ''" data-test="review-rejected">
+                  Rejected
+                </span>
+                <span v-else class="badge badge-sm" :class="o.active ? 'badge-success' : 'badge-ghost'">
                   {{ o.active ? 'Active' : 'Inactive' }}
                 </span>
+                <span v-if="o.reviewStatus === 'REJECTED' && o.reviewNote" class="mt-1 block max-w-xs text-xs opacity-70">{{ o.reviewNote }}</span>
               </td>
               <td class="text-right">
                 <div class="flex justify-end gap-2">

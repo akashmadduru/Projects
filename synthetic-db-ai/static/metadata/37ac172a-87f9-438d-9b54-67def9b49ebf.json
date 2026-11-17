@@ -1,0 +1,15 @@
+{
+ "product_id": "37ac172a-87f9-438d-9b54-67def9b49ebf",
+ "name": "Arzesu Thermometer Max",
+ "prompt": "studio packshot photo of a Red Arzesu Thermometer Max, made of polyester, medical devices, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3716900949,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T01:36:19",
+ "file_path": "static/images/37ac172a-87f9-438d-9b54-67def9b49ebf.jpg",
+ "file_size": 58215,
+ "uploaded": false,
+ "s3_url": null
+}

@@ -1,0 +1,15 @@
+{
+ "product_id": "89087c3d-a602-4857-2072-873633fdf401",
+ "name": "Dexvo Helmet Max",
+ "prompt": "studio packshot photo of a Space Grey Dexvo Helmet Max, made of polyester, cycling, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3268295213,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:56:15",
+ "file_path": "static/images/89087c3d-a602-4857-2072-873633fdf401.jpg",
+ "file_size": 39281,
+ "uploaded": false,
+ "s3_url": null
+}

@@ -1,0 +1,13 @@
+{
+ "product_id": "058a499f-405a-4adf-bb1e-ff6b0ea4c071",
+ "name": "Quatraka Cushion Cover Gen 3",
+ "prompt": "studio packshot photo of a White Quatraka Cushion Cover Gen 3, made of glass, home decor, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2221849805,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 768,
+ "created_at": "2026-11-15T22:34:35",
+ "file_path": "product-images/images/058a499f-405a-4adf-bb1e-ff6b0ea4c071.jpg",
+ "file_size": 76278
+}

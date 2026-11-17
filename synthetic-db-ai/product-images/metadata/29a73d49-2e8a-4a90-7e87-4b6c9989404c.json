@@ -1,0 +1,13 @@
+{
+ "product_id": "29a73d49-2e8a-4a90-7e87-4b6c9989404c",
+ "name": "Dexliven Mechanical Keyboard Plus",
+ "prompt": "studio packshot photo of a White Dexliven Mechanical Keyboard Plus, made of nylon, keyboards & mice, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1952952415,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-15T23:43:30",
+ "file_path": "product-images/images/29a73d49-2e8a-4a90-7e87-4b6c9989404c.jpg",
+ "file_size": 73609
+}

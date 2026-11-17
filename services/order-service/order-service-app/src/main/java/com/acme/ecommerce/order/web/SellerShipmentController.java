@@ -73,7 +73,8 @@ public class SellerShipmentController {
       @AuthenticationPrincipal Jwt jwt,
       @PathVariable UUID id,
       @Valid @RequestBody StatusUpdate request) {
-    OrderResponse ignored = lifecycle.sellerAdvanceShipment(UUID.fromString(jwt.getSubject()), id, request);
+    OrderResponse ignored =
+        lifecycle.sellerAdvanceShipment(UUID.fromString(jwt.getSubject()), id, request);
     return store.sellerShipment(sellerId(jwt), id);
   }
 

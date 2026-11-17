@@ -1,0 +1,15 @@
+{
+ "product_id": "79b2e8f0-a238-45d9-50d8-0168055e79b1",
+ "name": "Ionbaor Trimmer Elite",
+ "prompt": "studio packshot photo of a Black Ionbaor Trimmer Elite, made of leather, grooming, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3629919996,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:19:05",
+ "file_path": "static/images/79b2e8f0-a238-45d9-50d8-0168055e79b1.jpg",
+ "file_size": 44362,
+ "uploaded": false,
+ "s3_url": null
+}

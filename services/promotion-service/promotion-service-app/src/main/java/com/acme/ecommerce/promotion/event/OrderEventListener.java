@@ -5,8 +5,6 @@ import com.acme.ecommerce.promotion.service.CoinService;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
@@ -17,8 +15,6 @@ import org.springframework.stereotype.Component;
 @Component
 public class OrderEventListener {
 
-  private static final Logger log = LoggerFactory.getLogger(OrderEventListener.class);
-
   private final CoinService coins;
   private final PromotionProperties props;
 
@@ -27,29 +23,31 @@ public class OrderEventListener {
     this.props = props;
   }
 
+  /**
+   * Coin credits and claw-backs are idempotent (unique ledger key, ON CONFLICT DO NOTHING), so a
+   * failure propagates: the container retries, then dead-letters the event (TD-BE-17). Malformed
+   * ids or timestamps go to the DLT without retries.
+   */
   @KafkaListener(
       topics = "order.events",
       groupId = "promotion-service-order-listener",
       containerFactory = "orderEventListenerFactory")
   public void onOrderEvent(OrderEvent e) {
-    try {
-      if (e == null || e.type() == null || e.orderId() == null || e.userId() == null) {
-        return;
-      }
-      if (e.occurredAt() != null
-          && Instant.parse(e.occurredAt())
-              .isBefore(Instant.now().minus(Duration.ofDays(props.getCoins().getMaxEventAgeDays())))) {
-        return;
-      }
-      UUID orderId = UUID.fromString(e.orderId());
-      UUID userId = UUID.fromString(e.userId());
-      if ("ORDER_STATUS_CHANGED".equals(e.type()) && "DELIVERED".equals(e.status())) {
-        coins.onDelivered(orderId, userId, e.totalAmount(), e.currency());
-      } else if ("RETURN_REFUNDED".equals(e.type()) && "REFUNDED".equals(e.paymentStatus())) {
-        coins.onFullyRefunded(orderId, userId);
-      }
-    } catch (RuntimeException ex) {
-      log.error("Could not process order event {}: {}", e == null ? null : e.eventId(), ex.toString());
+    if (e == null || e.type() == null || e.orderId() == null || e.userId() == null) {
+      return;
+    }
+    if (e.occurredAt() != null
+        && Instant.parse(e.occurredAt())
+            .isBefore(
+                Instant.now().minus(Duration.ofDays(props.getCoins().getMaxEventAgeDays())))) {
+      return;
+    }
+    UUID orderId = UUID.fromString(e.orderId());
+    UUID userId = UUID.fromString(e.userId());
+    if ("ORDER_STATUS_CHANGED".equals(e.type()) && "DELIVERED".equals(e.status())) {
+      coins.onDelivered(orderId, userId, e.totalAmount(), e.currency());
+    } else if ("RETURN_REFUNDED".equals(e.type()) && "REFUNDED".equals(e.paymentStatus())) {
+      coins.onFullyRefunded(orderId, userId);
     }
   }
 }

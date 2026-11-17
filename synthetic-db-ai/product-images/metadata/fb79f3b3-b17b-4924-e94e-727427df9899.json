@@ -1,0 +1,13 @@
+{
+ "product_id": "fb79f3b3-b17b-4924-e94e-727427df9899",
+ "name": "Fynulo Trimmer Pro",
+ "prompt": "studio packshot photo of a Midnight Fynulo Trimmer Pro, made of wood, grooming, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2734649521,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:36:49",
+ "file_path": "product-images/images/fb79f3b3-b17b-4924-e94e-727427df9899.jpg",
+ "file_size": 61746
+}

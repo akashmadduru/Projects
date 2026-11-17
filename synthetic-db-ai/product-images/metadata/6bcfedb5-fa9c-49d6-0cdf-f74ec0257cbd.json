@@ -1,0 +1,13 @@
+{
+ "product_id": "6bcfedb5-fa9c-49d6-0cdf-f74ec0257cbd",
+ "name": "Fyvo Protein Powder Series 2",
+ "prompt": "studio packshot photo of a Grey Fyvo Protein Powder Series 2, made of bamboo, supplements, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2823060991,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:08:57",
+ "file_path": "product-images/images/6bcfedb5-fa9c-49d6-0cdf-f74ec0257cbd.jpg",
+ "file_size": 39370
+}

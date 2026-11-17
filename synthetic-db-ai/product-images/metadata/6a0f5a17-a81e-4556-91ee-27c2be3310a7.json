@@ -1,0 +1,13 @@
+{
+ "product_id": "6a0f5a17-a81e-4556-91ee-27c2be3310a7",
+ "name": "Covo Kurta Essential",
+ "prompt": "studio packshot photo of a Black Covo Kurta Essential, made of abs plastic, women's clothing, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3957207815,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:35:12",
+ "file_path": "product-images/images/6a0f5a17-a81e-4556-91ee-27c2be3310a7.jpg",
+ "file_size": 35614
+}

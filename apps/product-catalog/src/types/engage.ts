@@ -26,6 +26,8 @@ export type GiftCardStatus = 'ACTIVE' | 'REDEEMED' | 'PENDING_PAYMENT' | 'CANCEL
 export interface GiftCard {
   id: string
   status: GiftCardStatus
+  /** Masked ("****-****-****-7KQ2"); the full code is only ever in the recipient's email. */
+  code?: string | null
   amount?: number
   currency?: string
   recipientEmail?: string

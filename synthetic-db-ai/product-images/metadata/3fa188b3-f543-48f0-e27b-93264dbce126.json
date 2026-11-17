@@ -1,0 +1,13 @@
+{
+ "product_id": "3fa188b3-f543-48f0-e27b-93264dbce126",
+ "name": "Exnulo Acrylic Paint Kit Plus",
+ "prompt": "studio packshot photo of a Rose Gold Exnulo Acrylic Paint Kit Plus, made of aluminium, art supplies, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2457159095,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:07:16",
+ "file_path": "product-images/images/3fa188b3-f543-48f0-e27b-93264dbce126.jpg",
+ "file_size": 70431
+}

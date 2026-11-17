@@ -1,0 +1,13 @@
+{
+ "product_id": "884b1a17-0381-4b2d-a5a9-415d8ecaf6c4",
+ "name": "Bami Trekking Backpack Series 2",
+ "prompt": "studio packshot photo of a Blue Bami Trekking Backpack Series 2, made of leather, camping, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1783865540,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:55:59",
+ "file_path": "product-images/images/884b1a17-0381-4b2d-a5a9-415d8ecaf6c4.jpg",
+ "file_size": 39871
+}

@@ -127,9 +127,7 @@ public class PrivacyService {
               return new ExportJob(
                   rs.getObject("id", UUID.class),
                   status,
-                  "READY".equals(status)
-                      ? "/api/users/me/export/" + jobId + "/download"
-                      : null,
+                  "READY".equals(status) ? "/api/users/me/export/" + jobId + "/download" : null,
                   rs.getObject("expires_at", OffsetDateTime.class));
             })
         .optional()
@@ -176,7 +174,11 @@ public class PrivacyService {
       all.append("\"userId\":\"").append(userId).append("\",\"sections\":{");
       boolean first = true;
       for (Map.Entry<String, String> e : sections.entrySet()) {
-        all.append(first ? "" : ",").append('"').append(e.getKey()).append("\":").append(e.getValue());
+        all.append(first ? "" : ",")
+            .append('"')
+            .append(e.getKey())
+            .append("\":")
+            .append(e.getValue());
         first = false;
       }
       all.append("}}");
@@ -208,9 +210,12 @@ public class PrivacyService {
           email,
           "PRIVACY_EXPORT_READY",
           Map.of(
-              "name", "there",
-              "link", storefront + "/account/privacy",
-              "expiresAt", HUMAN.format(expires.atOffset(ZoneOffset.UTC))));
+              "name",
+              "there",
+              "link",
+              storefront + "/account/privacy",
+              "expiresAt",
+              HUMAN.format(expires.atOffset(ZoneOffset.UTC))));
     } catch (RuntimeException | java.io.IOException e) {
       log.error("Export {} failed: {}", jobId, e.toString());
       jdbc.sql("UPDATE users.export_jobs SET status = 'FAILED', error = :e WHERE id = :id")
@@ -276,7 +281,8 @@ public class PrivacyService {
             "SELECT scheduled_for FROM users.deletion_requests WHERE user_id = :u AND status ="
                 + " 'SCHEDULED'")
         .param("u", userId)
-        .query((rs, n) -> new DeletionState(true, rs.getObject("scheduled_for", OffsetDateTime.class)))
+        .query(
+            (rs, n) -> new DeletionState(true, rs.getObject("scheduled_for", OffsetDateTime.class)))
         .optional()
         .orElse(new DeletionState(false, null));
   }
@@ -298,7 +304,8 @@ public class PrivacyService {
     notifier.email(
         email,
         "OTP",
-        Map.of("name", "there", "code", code, "purpose", "confirm account deletion", "minutes", "10"));
+        Map.of(
+            "name", "there", "code", code, "purpose", "confirm account deletion", "minutes", "10"));
   }
 
   @Transactional
@@ -330,9 +337,12 @@ public class PrivacyService {
         email,
         "PRIVACY_DELETE_SCHEDULED",
         Map.of(
-            "name", "there",
-            "scheduledFor", HUMAN.format(when),
-            "link", storefront + "/account/privacy"));
+            "name",
+            "there",
+            "scheduledFor",
+            HUMAN.format(when),
+            "link",
+            storefront + "/account/privacy"));
     return new DeletionState(true, when);
   }
 
@@ -359,10 +369,12 @@ public class PrivacyService {
             .query((rs, n) -> new String[] {rs.getString("code_hash"), rs.getString("attempts")})
             .optional();
     if (row.isEmpty() || Integer.parseInt(row.get()[1]) >= 5) {
-      throw new CodedException(ErrorCode.VALIDATION_FAILED, "Confirmation code expired; request a new one");
+      throw new CodedException(
+          ErrorCode.VALIDATION_FAILED, "Confirmation code expired; request a new one");
     }
     if (!MessageDigest.isEqual(
-        row.get()[0].getBytes(StandardCharsets.UTF_8), sha256(otp.trim()).getBytes(StandardCharsets.UTF_8))) {
+        row.get()[0].getBytes(StandardCharsets.UTF_8),
+        sha256(otp.trim()).getBytes(StandardCharsets.UTF_8))) {
       jdbc.sql("UPDATE users.delete_codes SET attempts = attempts + 1 WHERE user_id = :u")
           .param("u", userId)
           .update();
@@ -371,7 +383,9 @@ public class PrivacyService {
     jdbc.sql("DELETE FROM users.delete_codes WHERE user_id = :u").param("u", userId).update();
   }
 
-  /** @return {hasPassword, valid} */
+  /**
+   * @return {hasPassword, valid}
+   */
   private boolean[] authVerify(UUID userId, String password) {
     try {
       String body =
@@ -386,7 +400,8 @@ public class PrivacyService {
       };
     } catch (RuntimeException e) {
       log.warn("auth verify failed: {}", e.toString());
-      throw new CodedException(ErrorCode.DEPENDENCY_UNAVAILABLE, "Could not verify your identity right now");
+      throw new CodedException(
+          ErrorCode.DEPENDENCY_UNAVAILABLE, "Could not verify your identity right now");
     }
   }
 
@@ -402,12 +417,15 @@ public class PrivacyService {
       openReturns = intField(o, "openReturns");
       String p =
           http.get(
-              "http://payment-service/internal/privacy/users/{id}/deletion-blockers", token, userId);
+              "http://payment-service/internal/privacy/users/{id}/deletion-blockers",
+              token,
+              userId);
       pendingPayments = intField(p, "pendingPayments");
     } catch (RuntimeException e) {
       log.warn("blocker check failed: {}", e.toString());
       throw new CodedException(
-          ErrorCode.DEPENDENCY_UNAVAILABLE, "Could not check open orders right now; try again shortly");
+          ErrorCode.DEPENDENCY_UNAVAILABLE,
+          "Could not check open orders right now; try again shortly");
     }
     if (openOrders + openReturns + pendingPayments > 0) {
       throw new CodedException(
@@ -467,7 +485,8 @@ public class PrivacyService {
       log.info("Deletion of {} postponed: {}", userId, e.getMessage());
       return false;
     }
-    jdbc.sql("UPDATE users.user_profiles SET email = NULL, display_name = 'Deleted user', phone = NULL WHERE user_id = :u")
+    jdbc.sql(
+            "UPDATE users.user_profiles SET email = NULL, display_name = 'Deleted user', phone = NULL WHERE user_id = :u")
         .param("u", userId)
         .update();
     for (String sql :
@@ -511,7 +530,8 @@ public class PrivacyService {
   private static String sha256(String s) {
     try {
       return HexFormat.of()
-          .formatHex(MessageDigest.getInstance("SHA-256").digest(s.getBytes(StandardCharsets.UTF_8)));
+          .formatHex(
+              MessageDigest.getInstance("SHA-256").digest(s.getBytes(StandardCharsets.UTF_8)));
     } catch (java.security.NoSuchAlgorithmException e) {
       throw new IllegalStateException(e);
     }

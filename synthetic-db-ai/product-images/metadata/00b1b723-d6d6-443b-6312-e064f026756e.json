@@ -1,0 +1,13 @@
+{
+ "product_id": "00b1b723-d6d6-443b-6312-e064f026756e",
+ "name": "Noze Cushion Cover Edition",
+ "prompt": "studio packshot photo of a Olive Noze Cushion Cover Edition, made of nylon, home decor, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1881117862,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T01:59:21",
+ "file_path": "product-images/images/00b1b723-d6d6-443b-6312-e064f026756e.jpg",
+ "file_size": 61887
+}

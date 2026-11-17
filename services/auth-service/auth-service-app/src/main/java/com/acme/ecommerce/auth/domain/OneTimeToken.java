@@ -8,8 +8,8 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * A single-use secret: password-reset link token, email-verification link token, or a 6-digit
- * code (phone verification / OTP login). Only the SHA-256 hash is stored.
+ * A single-use secret: password-reset link token, email-verification link token, or a 6-digit code
+ * (phone verification / OTP login). Only the SHA-256 hash is stored.
  */
 @Entity
 @Table(name = "one_time_tokens")
@@ -48,7 +48,12 @@ public class OneTimeToken {
   }
 
   public OneTimeToken(
-      UUID userId, String purpose, String tokenHash, String target, Instant now, Instant expiresAt) {
+      UUID userId,
+      String purpose,
+      String tokenHash,
+      String target,
+      Instant now,
+      Instant expiresAt) {
     this.id = UUID.randomUUID();
     this.userId = userId;
     this.purpose = purpose;

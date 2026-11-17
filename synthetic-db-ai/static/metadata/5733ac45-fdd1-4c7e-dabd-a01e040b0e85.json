@@ -1,0 +1,15 @@
+{
+ "product_id": "5733ac45-fdd1-4c7e-dabd-a01e040b0e85",
+ "name": "Fyar Electric Shaver Max",
+ "prompt": "studio packshot photo of a Red Fyar Electric Shaver Max, made of abs plastic, grooming, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3793189428,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:22:32",
+ "file_path": "static/images/5733ac45-fdd1-4c7e-dabd-a01e040b0e85.jpg",
+ "file_size": 78704,
+ "uploaded": false,
+ "s3_url": null
+}

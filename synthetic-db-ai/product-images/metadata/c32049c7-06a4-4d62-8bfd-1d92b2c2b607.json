@@ -1,0 +1,13 @@
+{
+ "product_id": "c32049c7-06a4-4d62-8bfd-1d92b2c2b607",
+ "name": "Nuliion LED TV Edition",
+ "prompt": "studio packshot photo of a Silver Nuliion LED TV Edition, made of stainless steel, televisions, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 566534284,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:35:20",
+ "file_path": "product-images/images/c32049c7-06a4-4d62-8bfd-1d92b2c2b607.jpg",
+ "file_size": 28194
+}

@@ -1,17 +1,17 @@
 package com.acme.ecommerce.cart.reminder;
 
-import com.acme.ecommerce.common.web.job.JobLock;
-import org.springframework.beans.factory.annotation.Autowired;
 import com.acme.ecommerce.cart.client.NotificationFeignClient;
 import com.acme.ecommerce.cart.client.NotificationFeignClient.EmailBody;
 import com.acme.ecommerce.cart.client.NotificationFeignClient.InboxBody;
 import com.acme.ecommerce.cart.client.UserFeignClient;
+import com.acme.ecommerce.common.web.job.JobLock;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -54,7 +54,9 @@ public class ReminderService {
     run(DEFAULT_MIN_AGE_MINUTES);
   }
 
-  /** @return number of reminders sent */
+  /**
+   * @return number of reminders sent
+   */
   public int run(int minAgeMinutes) {
     List<CartRow> carts =
         jdbc.sql(
@@ -114,7 +116,8 @@ public class ReminderService {
     data.put("name", "there");
     data.put(
         "items",
-        String.join("\n", lines) + (total > lines.size() ? "\n...and " + (total - lines.size()) + " more" : ""));
+        String.join("\n", lines)
+            + (total > lines.size() ? "\n...and " + (total - lines.size()) + " more" : ""));
     data.put("link", storefront + "/cart");
     notifications.sendEmail(new EmailBody(c.email(), "CART_REMINDER", data));
     try {

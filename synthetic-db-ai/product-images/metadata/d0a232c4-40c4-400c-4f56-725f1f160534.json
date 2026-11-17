@@ -1,0 +1,13 @@
+{
+ "product_id": "d0a232c4-40c4-400c-4f56-725f1f160534",
+ "name": "Livoli Face Serum Elite",
+ "prompt": "studio packshot photo of a Red Livoli Face Serum Elite, made of bamboo, skin care, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1350069757,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:43:08",
+ "file_path": "product-images/images/d0a232c4-40c4-400c-4f56-725f1f160534.jpg",
+ "file_size": 40597
+}

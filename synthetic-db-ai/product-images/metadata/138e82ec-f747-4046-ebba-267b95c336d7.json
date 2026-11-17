@@ -1,0 +1,13 @@
+{
+ "product_id": "138e82ec-f747-4046-ebba-267b95c336d7",
+ "name": "Pinu Helmet Lite",
+ "prompt": "studio packshot photo of a Space Grey Pinu Helmet Lite, made of nylon, cycling, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3187119166,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 768,
+ "created_at": "2026-11-15T23:02:42",
+ "file_path": "product-images/images/138e82ec-f747-4046-ebba-267b95c336d7.jpg",
+ "file_size": 61727
+}

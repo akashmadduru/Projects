@@ -1,0 +1,13 @@
+{
+ "product_id": "f10c29ae-5a84-42af-6b88-241986a0ca9b",
+ "name": "Riion Frying Pan Series 2",
+ "prompt": "studio packshot photo of a Rose Gold Riion Frying Pan Series 2, made of cotton, cookware, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2391995882,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T22:03:49",
+ "file_path": "product-images/images/f10c29ae-5a84-42af-6b88-241986a0ca9b.jpg",
+ "file_size": 57151
+}

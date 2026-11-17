@@ -1,0 +1,13 @@
+{
+ "product_id": "78ddfec8-8883-406a-059a-881845fe2de8",
+ "name": "Bavo Toaster Edition",
+ "prompt": "studio packshot photo of a Olive Bavo Toaster Edition, made of ceramic, small appliances, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1032617407,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:45:17",
+ "file_path": "product-images/images/78ddfec8-8883-406a-059a-881845fe2de8.jpg",
+ "file_size": 36570
+}

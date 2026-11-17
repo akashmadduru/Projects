@@ -1,0 +1,13 @@
+{
+ "product_id": "639ed5c2-ab05-4b01-9f88-bbe0e83b8c04",
+ "name": "Quanu Laptop Pro",
+ "prompt": "studio packshot photo of a Black Quanu Laptop Pro, made of ceramic, laptops, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2819998242,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:29:52",
+ "file_path": "product-images/images/639ed5c2-ab05-4b01-9f88-bbe0e83b8c04.jpg",
+ "file_size": 59664
+}

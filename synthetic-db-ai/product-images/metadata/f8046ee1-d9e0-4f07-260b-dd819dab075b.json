@@ -1,0 +1,13 @@
+{
+ "product_id": "f8046ee1-d9e0-4f07-260b-dd819dab075b",
+ "name": "Lita WiFi Router Max",
+ "prompt": "studio packshot photo of a Navy Blue Lita WiFi Router Max, made of ceramic, networking, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2789721934,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:07:26",
+ "file_path": "product-images/images/f8046ee1-d9e0-4f07-260b-dd819dab075b.jpg",
+ "file_size": 25975
+}

@@ -1,0 +1,15 @@
+{
+ "product_id": "6d9f0824-8ed9-4998-9248-041a8f473680",
+ "name": "Arnoqua Planner Pro",
+ "prompt": "studio packshot photo of a Green Arnoqua Planner Pro, made of bamboo, stationery, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1936718086,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:37:03",
+ "file_path": "static/images/6d9f0824-8ed9-4998-9248-041a8f473680.jpg",
+ "file_size": 32923,
+ "uploaded": false,
+ "s3_url": null
+}

@@ -1,9 +1,8 @@
 package com.acme.ecommerce.user.membership;
 
-import com.acme.ecommerce.common.web.job.JobLock;
-import org.springframework.beans.factory.annotation.Autowired;
 import com.acme.ecommerce.common.core.error.CodedException;
 import com.acme.ecommerce.common.core.error.ErrorCode;
+import com.acme.ecommerce.common.web.job.JobLock;
 import com.acme.ecommerce.user.client.PaymentFeignClient;
 import com.acme.ecommerce.user.client.PaymentFeignClient.CreatePayment;
 import java.math.BigDecimal;
@@ -15,6 +14,7 @@ import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -66,8 +66,7 @@ public class MembershipService {
   @Transactional(readOnly = true)
   public MembershipView view(UUID userId, String currency) {
     Optional<MemberRow> row = find(userId);
-    boolean active =
-        row.map(r -> isActive(r.status(), r.endsAt())).orElse(false);
+    boolean active = row.map(r -> isActive(r.status(), r.endsAt())).orElse(false);
     return new MembershipView(
         active,
         row.map(MemberRow::plan).orElse(null),
@@ -82,10 +81,7 @@ public class MembershipService {
   public Lookup lookup(UUID userId) {
     Optional<MemberRow> row = find(userId);
     boolean active = row.map(r -> isActive(r.status(), r.endsAt())).orElse(false);
-    return new Lookup(
-        active,
-        active ? row.get().plan() : null,
-        active ? row.get().endsAt() : null);
+    return new Lookup(active, active ? row.get().plan() : null, active ? row.get().endsAt() : null);
   }
 
   /**
@@ -106,7 +102,8 @@ public class MembershipService {
             .orElseThrow(
                 () ->
                     new CodedException(
-                        ErrorCode.VALIDATION_FAILED, "Unknown plan or currency: " + plan + "/" + cur));
+                        ErrorCode.VALIDATION_FAILED,
+                        "Unknown plan or currency: " + plan + "/" + cur));
     UUID ref = UUID.randomUUID();
     jdbc.sql(
             "INSERT INTO users.membership_payments (id, user_id, plan, currency, amount, email)"
@@ -212,10 +209,14 @@ public class MembershipService {
         a.email(),
         "MEMBERSHIP_WELCOME",
         Map.of(
-            "name", "there",
-            "plan", a.plan(),
-            "endsAt", ends.toLocalDate().toString(),
-            "link", storefront + "/account/membership"));
+            "name",
+            "there",
+            "plan",
+            a.plan(),
+            "endsAt",
+            ends.toLocalDate().toString(),
+            "link",
+            storefront + "/account/membership"));
     notifier.inbox(
         a.userId(),
         "ACCOUNT",

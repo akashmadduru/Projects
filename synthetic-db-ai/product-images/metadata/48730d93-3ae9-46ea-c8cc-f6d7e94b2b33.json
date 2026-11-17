@@ -1,0 +1,13 @@
+{
+ "product_id": "48730d93-3ae9-46ea-c8cc-f6d7e94b2b33",
+ "name": "Babalo Sleeping Bag Plus",
+ "prompt": "studio packshot photo of a Red Babalo Sleeping Bag Plus, made of silicone, camping, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2105280766,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T00:33:16",
+ "file_path": "product-images/images/48730d93-3ae9-46ea-c8cc-f6d7e94b2b33.jpg",
+ "file_size": 43163
+}

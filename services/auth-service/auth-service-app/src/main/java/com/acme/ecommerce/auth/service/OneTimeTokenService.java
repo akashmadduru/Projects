@@ -20,9 +20,9 @@ import org.springframework.transaction.annotation.Transactional;
  * Issues and redeems every single-use secret in the service: link tokens (password reset, email
  * verification) and 6-digit codes (phone verification, OTP login).
  *
- * <p>Only SHA-256 hashes are stored. Link tokens are 256 bits of CSPRNG output, so an unsalted
- * hash is appropriate (same reasoning as refresh tokens). Codes only have 10^6 values, so the hash
- * is salted with {@code userId:purpose:} and protection comes from the short expiry plus the hard
+ * <p>Only SHA-256 hashes are stored. Link tokens are 256 bits of CSPRNG output, so an unsalted hash
+ * is appropriate (same reasoning as refresh tokens). Codes only have 10^6 values, so the hash is
+ * salted with {@code userId:purpose:} and protection comes from the short expiry plus the hard
  * attempt cap - not from the hash. Redemption is atomic (conditional UPDATE), so a token or code
  * works exactly once even under concurrent requests.
  */

@@ -1,0 +1,13 @@
+{
+ "product_id": "5c74b4ca-3719-499a-24ac-a2e751c0b32e",
+ "name": "Zeloco Notebook Pack Plus",
+ "prompt": "studio packshot photo of a Navy Blue Zeloco Notebook Pack Plus, made of ceramic, stationery, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1485735671,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:25:25",
+ "file_path": "product-images/images/5c74b4ca-3719-499a-24ac-a2e751c0b32e.jpg",
+ "file_size": 56177
+}

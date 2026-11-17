@@ -1,0 +1,13 @@
+{
+ "product_id": "4334809e-2011-4e95-c0cd-67d869046d86",
+ "name": "Venexdex Phone Lite",
+ "prompt": "studio packshot photo of a Space Grey Venexdex Phone Lite, made of abs plastic, mobiles & smartphones, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1729356710,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:09:44",
+ "file_path": "product-images/images/4334809e-2011-4e95-c0cd-67d869046d86.jpg",
+ "file_size": 47427
+}

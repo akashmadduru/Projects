@@ -1,0 +1,15 @@
+{
+ "product_id": "83c7382e-29d8-4310-25c6-173676416915",
+ "name": "Arfyco Mountain Bike Gen 3",
+ "prompt": "studio packshot photo of a Black Arfyco Mountain Bike Gen 3, made of bamboo, cycling, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1678333483,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T01:56:18",
+ "file_path": "static/images/83c7382e-29d8-4310-25c6-173676416915.jpg",
+ "file_size": 63266,
+ "uploaded": false,
+ "s3_url": null
+}

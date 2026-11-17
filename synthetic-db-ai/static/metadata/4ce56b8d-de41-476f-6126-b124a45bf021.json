@@ -1,0 +1,15 @@
+{
+ "product_id": "4ce56b8d-de41-476f-6126-b124a45bf021",
+ "name": "Nuven Mesh System Prime",
+ "prompt": "studio packshot photo of a Red Nuven Mesh System Prime, made of silicone, networking, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1311869353,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:13:32",
+ "file_path": "static/images/4ce56b8d-de41-476f-6126-b124a45bf021.jpg",
+ "file_size": 47250,
+ "uploaded": false,
+ "s3_url": null
+}

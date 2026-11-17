@@ -329,9 +329,9 @@ curl -X POST http://localhost:8083/api/inventory \
 **Causes, in the order to check:**
 1. The ratings were inserted by a seed migration, which publishes no `rating.events`. Run
    `deploy/local/scripts/backfill-product-ratings.sh` ([TD-RT-01](../techdebt/ratings.md#td-rt-01)).
-2. product-service could not reach rating-service when the event arrived. `RatingEventListener`
-   logs the error and drops the event ([TD-BE-17](../techdebt/backend.md#td-be-17)); the next rating
-   change for that product repairs it, or run the backfill script.
+2. product-service could not reach rating-service when the event arrived. The event is retried 3 times
+   and then moved to `rating.events.DLT`; check that topic. The next rating change for that product
+   repairs it, or run the backfill script.
 3. The consumer group is lagging:
    `kafka-consumer-groups.sh --bootstrap-server localhost:9092 --describe --group product-service-rating-listener`
    inside `ecommerce-kafka`.

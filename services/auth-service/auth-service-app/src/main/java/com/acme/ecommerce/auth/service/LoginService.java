@@ -9,7 +9,6 @@ import com.acme.ecommerce.auth.metrics.AuthMetrics;
 import com.acme.ecommerce.auth.security.AuthUserDetails;
 import com.acme.ecommerce.auth.token.AuthenticatedPrincipal;
 import com.acme.ecommerce.auth.token.DeviceContext;
-import com.acme.ecommerce.auth.token.TokenPair;
 import com.acme.ecommerce.auth.token.TokenService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

@@ -1,0 +1,13 @@
+{
+ "product_id": "134a9b33-7aa2-48ac-2f6d-0d87ab4240fc",
+ "name": "Mitraar Sketch Pad Gen 3",
+ "prompt": "studio packshot photo of a Olive Mitraar Sketch Pad Gen 3, made of ceramic, art supplies, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2309867426,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:43:11",
+ "file_path": "product-images/images/134a9b33-7aa2-48ac-2f6d-0d87ab4240fc.jpg",
+ "file_size": 61600
+}

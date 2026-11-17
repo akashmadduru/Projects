@@ -1,0 +1,15 @@
+{
+ "product_id": "122790ef-95e8-4d79-8589-5c005927d72f",
+ "name": "Exquaba Mechanical Keyboard Lite",
+ "prompt": "studio packshot photo of a Rose Gold Exquaba Mechanical Keyboard Lite, made of ceramic, keyboards & mice, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 837875340,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:34:35",
+ "file_path": "static/images/122790ef-95e8-4d79-8589-5c005927d72f.jpg",
+ "file_size": 74464,
+ "uploaded": false,
+ "s3_url": null
+}

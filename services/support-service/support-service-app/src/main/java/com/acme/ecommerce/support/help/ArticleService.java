@@ -37,7 +37,12 @@ public class ArticleService {
       Instant updatedAt) {}
 
   public record ArticleRequest(
-      String slug, String category, String title, String body, List<String> keywords, Boolean published) {}
+      String slug,
+      String category,
+      String title,
+      String body,
+      List<String> keywords,
+      Boolean published) {}
 
   private static final RowMapper<Article> MAPPER =
       (rs, n) ->
@@ -89,7 +94,9 @@ public class ArticleService {
   }
 
   public Article bySlug(String slug) {
-    return jdbc.query("select * from faq_articles where slug = ? and published", MAPPER, slug).stream()
+    return jdbc
+        .query("select * from faq_articles where slug = ? and published", MAPPER, slug)
+        .stream()
         .findFirst()
         .orElseThrow(() -> new ResourceNotFoundException("Article", slug));
   }
@@ -98,7 +105,8 @@ public class ArticleService {
     String col = helpful ? "helpful_yes" : "helpful_no";
     int n =
         jdbc.update(
-            "update faq_articles set " + col + " = " + col + " + 1 where slug = ? and published", slug);
+            "update faq_articles set " + col + " = " + col + " + 1 where slug = ? and published",
+            slug);
     if (n == 0) {
       throw new ResourceNotFoundException("Article", slug);
     }

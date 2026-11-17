@@ -1,0 +1,15 @@
+{
+ "product_id": "51074229-7e2c-4630-31fb-fcb25a6cce18",
+ "name": "Kavoba Spice Box Prime",
+ "prompt": "studio packshot photo of a Rose Gold Kavoba Spice Box Prime, made of nylon, pantry, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 550404280,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:18:13",
+ "file_path": "static/images/51074229-7e2c-4630-31fb-fcb25a6cce18.jpg",
+ "file_size": 55885,
+ "uploaded": false,
+ "s3_url": null
+}

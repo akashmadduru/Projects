@@ -1,0 +1,13 @@
+{
+ "product_id": "3e94131d-f10e-43c1-52c8-0b14e6b44925",
+ "name": "Miex Perfume Classic",
+ "prompt": "studio packshot photo of a Rose Gold Miex Perfume Classic, made of nylon, fragrances, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 685344257,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:16:12",
+ "file_path": "product-images/images/3e94131d-f10e-43c1-52c8-0b14e6b44925.jpg",
+ "file_size": 43192
+}

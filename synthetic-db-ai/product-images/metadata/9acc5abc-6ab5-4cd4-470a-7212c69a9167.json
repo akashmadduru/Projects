@@ -1,0 +1,13 @@
+{
+ "product_id": "9acc5abc-6ab5-4cd4-470a-7212c69a9167",
+ "name": "Travenion Jacket Edition",
+ "prompt": "studio packshot photo of a Olive Travenion Jacket Edition, made of wood, men's clothing, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1892775491,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:54:02",
+ "file_path": "product-images/images/9acc5abc-6ab5-4cd4-470a-7212c69a9167.jpg",
+ "file_size": 34588
+}

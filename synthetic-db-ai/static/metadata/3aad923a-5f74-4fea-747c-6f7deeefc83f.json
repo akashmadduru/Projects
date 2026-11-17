@@ -1,0 +1,15 @@
+{
+ "product_id": "3aad923a-5f74-4fea-747c-6f7deeefc83f",
+ "name": "Rilo Resistance Bands Prime",
+ "prompt": "studio packshot photo of a Space Grey Rilo Resistance Bands Prime, made of wood, fitness, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2958011960,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:04:37",
+ "file_path": "static/images/3aad923a-5f74-4fea-747c-6f7deeefc83f.jpg",
+ "file_size": 36382,
+ "uploaded": false,
+ "s3_url": null
+}

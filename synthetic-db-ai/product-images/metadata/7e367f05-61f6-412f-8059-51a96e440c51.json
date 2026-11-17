@@ -1,0 +1,13 @@
+{
+ "product_id": "7e367f05-61f6-412f-8059-51a96e440c51",
+ "name": "Lumfy Study Table Gen 3",
+ "prompt": "studio packshot photo of a Grey Lumfy Study Table Gen 3, made of nylon, furniture, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3126312288,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:49:05",
+ "file_path": "product-images/images/7e367f05-61f6-412f-8059-51a96e440c51.jpg",
+ "file_size": 24613
+}

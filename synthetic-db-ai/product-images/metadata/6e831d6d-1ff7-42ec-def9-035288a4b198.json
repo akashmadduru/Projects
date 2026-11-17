@@ -1,0 +1,13 @@
+{
+ "product_id": "6e831d6d-1ff7-42ec-def9-035288a4b198",
+ "name": "Kalumno Mop Lite",
+ "prompt": "studio packshot photo of a Navy Blue Kalumno Mop Lite, made of stainless steel, cleaning, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3285348645,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:37:50",
+ "file_path": "product-images/images/6e831d6d-1ff7-42ec-def9-035288a4b198.jpg",
+ "file_size": 47417
+}

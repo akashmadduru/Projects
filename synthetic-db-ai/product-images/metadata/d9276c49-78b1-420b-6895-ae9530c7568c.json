@@ -1,0 +1,13 @@
+{
+ "product_id": "d9276c49-78b1-420b-6895-ae9530c7568c",
+ "name": "Noka Massager Gen 3",
+ "prompt": "studio packshot photo of a Olive Noka Massager Gen 3, made of glass, personal wellness, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2435154949,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:49:44",
+ "file_path": "product-images/images/d9276c49-78b1-420b-6895-ae9530c7568c.jpg",
+ "file_size": 41860
+}

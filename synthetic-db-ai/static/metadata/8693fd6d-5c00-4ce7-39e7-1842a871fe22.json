@@ -1,0 +1,15 @@
+{
+ "product_id": "8693fd6d-5c00-4ce7-39e7-1842a871fe22",
+ "name": "Zecoze Trimmer Pro",
+ "prompt": "studio packshot photo of a Blue Zecoze Trimmer Pro, made of ceramic, grooming, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3173882318,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T01:57:17",
+ "file_path": "static/images/8693fd6d-5c00-4ce7-39e7-1842a871fe22.jpg",
+ "file_size": 58578,
+ "uploaded": false,
+ "s3_url": null
+}

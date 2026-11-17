@@ -1,0 +1,13 @@
+{
+ "product_id": "b27474bd-6c94-4edb-dab8-b0cbd903fb11",
+ "name": "Aror Action Camera Lite",
+ "prompt": "studio packshot photo of a Navy Blue Aror Action Camera Lite, made of ceramic, cameras, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1606446102,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T01:58:23",
+ "file_path": "product-images/images/b27474bd-6c94-4edb-dab8-b0cbd903fb11.jpg",
+ "file_size": 47613
+}

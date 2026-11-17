@@ -1,0 +1,13 @@
+{
+ "product_id": "c4543a6a-3190-49f0-45e3-4d1c7f2f889e",
+ "name": "Voionmi Trolley Bag Pro",
+ "prompt": "studio packshot photo of a Navy Blue Voionmi Trolley Bag Pro, made of bamboo, bags & luggage, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3311180847,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:35:58",
+ "file_path": "product-images/images/c4543a6a-3190-49f0-45e3-4d1c7f2f889e.jpg",
+ "file_size": 53021
+}

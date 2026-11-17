@@ -1,0 +1,15 @@
+{
+ "product_id": "5462ae08-ca22-42af-8523-6a550b51f1d4",
+ "name": "Dexri Monitor Pro",
+ "prompt": "studio packshot photo of a Green Dexri Monitor Pro, made of abs plastic, monitors, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1561566018,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:20:23",
+ "file_path": "static/images/5462ae08-ca22-42af-8523-6a550b51f1d4.jpg",
+ "file_size": 40777,
+ "uploaded": false,
+ "s3_url": null
+}

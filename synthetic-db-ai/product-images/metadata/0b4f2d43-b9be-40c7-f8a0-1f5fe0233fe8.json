@@ -1,0 +1,13 @@
+{
+ "product_id": "0b4f2d43-b9be-40c7-f8a0-1f5fe0233fe8",
+ "name": "Orar Badminton Racket Prime",
+ "prompt": "studio packshot photo of a Space Grey Orar Badminton Racket Prime, made of aluminium, team sports, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2355411435,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 768,
+ "created_at": "2026-11-15T22:44:12",
+ "file_path": "product-images/images/0b4f2d43-b9be-40c7-f8a0-1f5fe0233fe8.jpg",
+ "file_size": 73978
+}

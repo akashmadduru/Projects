@@ -1,0 +1,15 @@
+{
+ "product_id": "4bfab9b8-0b99-4711-f088-d0179f543a0f",
+ "name": "Venex Notebook Pack Classic",
+ "prompt": "studio packshot photo of a Silver Venex Notebook Pack Classic, made of glass, stationery, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1581331730,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T00:39:11",
+ "file_path": "static/images/4bfab9b8-0b99-4711-f088-d0179f543a0f.jpg",
+ "file_size": 40256,
+ "uploaded": false,
+ "s3_url": null
+}

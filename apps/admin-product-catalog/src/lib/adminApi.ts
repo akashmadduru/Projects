@@ -19,6 +19,7 @@ import type {
   Deal,
   DealRequest,
   OrderStatusRequest,
+  ModerationItem,
   PagedModel,
 } from '@/types/commerce';
 
@@ -208,6 +209,7 @@ export function deleteRating(id: string): Promise<void> {
 export function listPayments(query: {
   status?: string;
   method?: string;
+  mode?: string;
   orderId?: string;
   page: number;
   size: number;
@@ -365,4 +367,25 @@ export function reindexEmbeddings(productId?: string): Promise<{ queued: number 
     method: 'POST',
     query: productId ? { productId } : {},
   });
+}
+
+// ---- Product moderation (TD-P9-03) ----------------------------------------------------------
+
+export function listModeration(query: {
+  status?: string;
+  page: number;
+  size: number;
+}): Promise<PagedModel<ModerationItem>> {
+  return apiFetch<PagedModel<ModerationItem>>('/api/products/admin/moderation', { query });
+}
+
+export function decideModeration(
+  productId: string,
+  decision: 'APPROVE' | 'REJECT',
+  note?: string,
+): Promise<ModerationItem> {
+  return apiFetch<ModerationItem>(
+    `/api/products/admin/moderation/${encodeURIComponent(productId)}`,
+    { method: 'POST', body: { decision, note: note ?? null } },
+  );
 }

@@ -1,0 +1,13 @@
+{
+ "product_id": "7afa7fc2-187e-4bfa-709a-a2479ea426ef",
+ "name": "Quakaor Pressure Cooker Elite",
+ "prompt": "studio packshot photo of a Red Quakaor Pressure Cooker Elite, made of polyester, cookware, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1566455691,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:07:49",
+ "file_path": "product-images/images/7afa7fc2-187e-4bfa-709a-a2479ea426ef.jpg",
+ "file_size": 40105
+}

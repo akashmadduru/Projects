@@ -37,22 +37,20 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
-import java.util.Locale;
-import java.util.Set;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.web.context.request.RequestContextHolder;
-import org.springframework.web.context.request.ServletRequestAttributes;
-import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -74,8 +72,8 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>THE {@code Map<String,Object>} <-> JSON-STRING BOUNDARY FOR {@code specifications} LIVES HERE,
  * NOT ON {@link Product}. {@code Product.java} deliberately stays free of any JSON-library
  * dependency (see its own javadoc); this class already owns the entity<->DTO translation, so it is
- * the natural, and only, place that boundary belongs (docs/architecture/design/LLD-catalog-enrichment-and-saga.md
- * S2.1).
+ * the natural, and only, place that boundary belongs
+ * (docs/architecture/design/LLD-catalog-enrichment-and-saga.md S2.1).
  *
  * <p>{@code list()} DOES NOT LOAD IMAGES, {@code findById()} DOES. Loading a product's images per
  * row on the paged list would be an extra query per row - an N+1 the LLD's S8 Performance
@@ -100,6 +98,10 @@ public class ProductCatalogService {
   /** Optional: absent in plain unit tests; keeps the image server in step with product changes. */
   @org.springframework.beans.factory.annotation.Autowired(required = false)
   private com.acme.ecommerce.product.imagestore.ProductImageService imageFiles;
+
+  /** Optional for the same reason: resolves image keys against the admin-set parentUrl. */
+  @org.springframework.beans.factory.annotation.Autowired(required = false)
+  private com.acme.ecommerce.product.imagestore.ImageUrlResolver imageUrls;
 
   private final ObjectMapper objectMapper;
   private final TimeProvider timeProvider;
@@ -131,8 +133,7 @@ public class ProductCatalogService {
     List<UUID> ranked = hasQuery ? natives.rankedIds(filter.query()) : null;
     Specification<Product> spec = ProductSpecifications.matching(filter, ranked);
     boolean relevance =
-        hasQuery
-            && pageable.getSort().stream().anyMatch(o -> o.getProperty().equals("relevance"));
+        hasQuery && pageable.getSort().stream().anyMatch(o -> o.getProperty().equals("relevance"));
     Page<Product> page;
     if (relevance) {
       Map<UUID, Integer> rank = new HashMap<>();
@@ -175,9 +176,7 @@ public class ProductCatalogService {
   /** A single product by slug, with images and variants. */
   public ProductResponse findBySlug(String slug) {
     Product product =
-        products
-            .findBySlug(slug)
-            .orElseThrow(() -> new ResourceNotFoundException("Product", slug));
+        products.findBySlug(slug).orElseThrow(() -> new ResourceNotFoundException("Product", slug));
     return detail(product);
   }
 
@@ -209,7 +208,7 @@ public class ProductCatalogService {
                     .attributes(readSpecifications(v.getAttributes()))
                     .priceAmount(v.getPriceAmount())
                     .salePrice(v.getSalePrice())
-                    .imageUrl(v.getImageUrl())
+                    .imageUrl(imageUrl(v.getImageUrl()))
                     .active(v.isActive())
                     .sortOrder(v.getSortOrder())
                     .availableQuantity(stock.get(v.getId()))
@@ -287,7 +286,7 @@ public class ProductCatalogService {
       v.setAttributes(r.getAttributes() == null ? "{}" : writeSpecifications(r.getAttributes()));
       v.setPriceAmount(r.getPriceAmount());
       v.setSalePrice(r.getSalePrice());
-      v.setImageUrl(r.getImageUrl());
+      v.setImageUrl(storedImage(r.getImageUrl()));
       v.setActive(r.getActive() == null || r.getActive());
       v.setSortOrder(r.getSortOrder() != null ? r.getSortOrder() : ord);
       v.setUpdatedAt(now);
@@ -349,6 +348,14 @@ public class ProductCatalogService {
    *     Optional} returned to the controller: the translation to an HTTP status must happen in
    *     exactly one place in the platform, and that place is the advice.
    */
+  /**
+   * Publishes PRODUCT_UPDATED for a product changed outside {@link #update} (moderation decisions,
+   * seller bulk edits). Must run inside the transaction that made the change.
+   */
+  public void publishUpdated(UUID id) {
+    events.publishAfterCommit(ProductEventType.PRODUCT_UPDATED, findById(id));
+  }
+
   public ProductResponse findById(UUID id) {
     Product product =
         products.findById(id).orElseThrow(() -> new ResourceNotFoundException("Product", id));
@@ -367,7 +374,9 @@ public class ProductCatalogService {
     return createFor(request, Offer.PLATFORM_SELLER_ID, "PLATFORM");
   }
 
-  /** Creates a product owned by {@code sellerId}; a platform product also gets the platform offer. */
+  /**
+   * Creates a product owned by {@code sellerId}; a platform product also gets the platform offer.
+   */
   @Transactional
   public ProductResponse createFor(CreateProductRequest request, UUID sellerId, String listedBy) {
     Instant now = timeProvider.now();
@@ -389,6 +398,11 @@ public class ProductCatalogService {
             .createdAt(now)
             .updatedAt(now)
             .build();
+    if ("SELLER".equals(listedBy)) {
+      // A marketplace seller's product is hidden until an admin approves it (TD-P9-03).
+      product.setActive(false);
+      product.setModerationStatus("PENDING_REVIEW");
+    }
     try {
       // saveAndFlush, NOT save. With a client-assigned @GeneratedValue(UUID) id,
       // JpaRepository.save() only enqueues the INSERT in the persistence context
@@ -476,6 +490,12 @@ public class ProductCatalogService {
     }
     product.setPriceCurrency(request.getPriceCurrency());
     product.setActive(request.isActive());
+    if (request.isActive() && !"APPROVED".equals(product.getModerationStatus())) {
+      // An admin or catalog manager activating a product is approving it.
+      product.setModerationStatus("APPROVED");
+      product.setModerationNote(null);
+      product.setReviewedAt(now);
+    }
     product.setCategoryId(request.getCategoryId());
     product.setSellerName(request.getSellerName());
     if (request.getBrand() != null) {
@@ -495,7 +515,9 @@ public class ProductCatalogService {
     // a version that is already wrong.
     Product saved = products.saveAndFlush(product);
     List<String> previousImageUrls =
-        images.findByProductIdOrderByDisplayOrderAsc(id).stream().map(ProductImage::getUrl).toList();
+        images.findByProductIdOrderByDisplayOrderAsc(id).stream()
+            .map(ProductImage::getUrl)
+            .toList();
     images.deleteByProductId(id);
     List<ProductImage> savedImages = images.saveAll(toImageEntities(id, request.getImages(), now));
     // Images the update dropped must also leave the image server (files are keyed by URL).
@@ -523,7 +545,9 @@ public class ProductCatalogService {
    * @param id the product identifier
    * @throws ResourceNotFoundException when no such product exists
    */
-  /** Writes the buy-box price into the product row (and publishes PRODUCT_UPDATED when it moved). */
+  /**
+   * Writes the buy-box price into the product row (and publishes PRODUCT_UPDATED when it moved).
+   */
   @Transactional
   public void applyBuyBoxPrice(UUID id, java.math.BigDecimal effective) {
     Product p = products.findById(id).orElse(null);
@@ -558,14 +582,18 @@ public class ProductCatalogService {
   public void delete(UUID id) {
     Product product =
         products.findById(id).orElseThrow(() -> new ResourceNotFoundException("Product", id));
-    List<String> imageUrls =
-        images.findByProductIdOrderByDisplayOrderAsc(id).stream().map(ProductImage::getUrl).toList();
+    List<String> storedImageUrls =
+        images.findByProductIdOrderByDisplayOrderAsc(id).stream()
+            .map(ProductImage::getUrl)
+            .toList();
     products.delete(product);
-    deleteImageFilesAfterCommit(imageUrls);
+    deleteImageFilesAfterCommit(storedImageUrls);
     events.publishAfterCommit(ProductEventType.PRODUCT_DELETED, id, null);
   }
 
-  /** Removes image files from the image server once the DB change has committed (no-op if unset). */
+  /**
+   * Removes image files from the image server once the DB change has committed (no-op if unset).
+   */
   private void deleteImageFilesAfterCommit(List<String> urls) {
     if (imageFiles == null || urls.isEmpty()) {
       return;
@@ -645,7 +673,7 @@ public class ProductCatalogService {
     }
   }
 
-  private static List<ProductImage> toImageEntities(
+  private List<ProductImage> toImageEntities(
       UUID productId, List<ProductImageRequest> requests, Instant now) {
     if (requests == null) {
       return List.of();
@@ -655,7 +683,7 @@ public class ProductCatalogService {
             request ->
                 ProductImage.builder()
                     .productId(productId)
-                    .url(request.getUrl())
+                    .url(storedImage(request.getUrl()))
                     .displayOrder(request.getDisplayOrder())
                     .createdAt(now)
                     .build())
@@ -686,13 +714,13 @@ public class ProductCatalogService {
         product.getCategoryId(),
         product.getSellerName(),
         readSpecifications(product.getSpecifications()),
-        productImages.stream().map(ProductCatalogService::toImageResponse).toList(),
+        productImages.stream().map(this::toImageResponse).toList(),
         product.getLastKnownQuantity(),
         product.getDescription(),
         product.getListPrice(),
         product.getSalePrice(),
         product.getDiscountPercent(),
-        product.getThumbnailUrl(),
+        imageUrl(product.getThumbnailUrl()),
         readVideoUrls(product.getVideoUrls()),
         product.getView360Url(),
         product.getWeightGrams(),
@@ -720,7 +748,9 @@ public class ProductCatalogService {
         product.getSellerId(),
         product.getListedBy(),
         null,
-        null);
+        null,
+        product.getModerationStatus(),
+        product.getModerationNote());
   }
 
   /**
@@ -758,8 +788,19 @@ public class ProductCatalogService {
     }
   }
 
-  private static ProductImageResponse toImageResponse(ProductImage image) {
-    return new ProductImageResponse(image.getId(), image.getUrl(), image.getDisplayOrder());
+  private ProductImageResponse toImageResponse(ProductImage image) {
+    return new ProductImageResponse(
+        image.getId(), imageUrl(image.getUrl()), image.getDisplayOrder());
+  }
+
+  /** Browser URL for a stored image value (relative keys resolve against parentUrl). */
+  private String imageUrl(String stored) {
+    return imageUrls == null ? stored : imageUrls.resolve(stored);
+  }
+
+  /** Stored form of a client-supplied image URL (URLs under parentUrl become relative keys). */
+  private String storedImage(String url) {
+    return imageUrls == null ? url : imageUrls.toStored(url);
   }
 
   /**

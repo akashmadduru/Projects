@@ -49,6 +49,8 @@ class InventoryServiceTest {
 
   @Mock private InventoryRepository repository;
   @Mock private InventoryEventPublisher events;
+  @Mock private com.acme.ecommerce.inventory.repository.VariantStockRepository variantStock;
+  @Mock private com.acme.ecommerce.inventory.repository.WarehouseStockRepository warehouseStock;
 
   // Built in @BeforeEach, NOT as a field initializer: a field initializer runs during instance
   // construction, before MockitoExtension injects @Mock fields, so `repository`/`events` would
@@ -57,7 +59,9 @@ class InventoryServiceTest {
 
   @BeforeEach
   void setUp() {
-    service = new InventoryService(repository, new FixedTimeProvider(NOW), events);
+    service =
+        new InventoryService(
+            repository, new FixedTimeProvider(NOW), events, variantStock, warehouseStock);
   }
 
   @Test

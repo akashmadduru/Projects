@@ -1,0 +1,13 @@
+{
+ "product_id": "154ddd74-3817-478a-a7f3-f608fa1459f2",
+ "name": "Sumi Strategy Game Max",
+ "prompt": "studio packshot photo of a Green Sumi Strategy Game Max, made of nylon, board games, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3647449801,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:18:42",
+ "file_path": "product-images/images/154ddd74-3817-478a-a7f3-f608fa1459f2.jpg",
+ "file_size": 40637
+}

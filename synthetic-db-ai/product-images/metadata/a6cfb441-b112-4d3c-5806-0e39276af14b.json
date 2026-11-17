@@ -1,0 +1,13 @@
+{
+ "product_id": "a6cfb441-b112-4d3c-5806-0e39276af14b",
+ "name": "Arvo Headphones Ultra",
+ "prompt": "studio packshot photo of a Space Grey Arvo Headphones Ultra, made of cotton, headphones & earbuds, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3337701023,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:22:33",
+ "file_path": "product-images/images/a6cfb441-b112-4d3c-5806-0e39276af14b.jpg",
+ "file_size": 53235
+}
