@@ -1,5 +1,6 @@
 package com.acme.ecommerce.user.web;
 
+import com.acme.ecommerce.user.config.UserProperties;
 import com.acme.ecommerce.user.membership.MembershipService;
 import com.acme.ecommerce.user.membership.MembershipService.JoinResult;
 import com.acme.ecommerce.user.membership.MembershipService.MembershipView;
@@ -35,13 +36,16 @@ public class EngageController {
   private final PreferenceService preferences;
   private final ReferralService referrals;
   private final JdbcClient jdbc;
+  private final UserProperties properties;
 
   public EngageController(
       MembershipService membership,
       PreferenceService preferences,
       ReferralService referrals,
-      JdbcClient jdbc) {
+      JdbcClient jdbc,
+      UserProperties properties) {
     this.jdbc = jdbc;
+    this.properties = properties;
     this.membership = membership;
     this.preferences = preferences;
     this.referrals = referrals;
@@ -78,7 +82,8 @@ public class EngageController {
 
   @GetMapping("/api/referrals")
   public ReferralView referrals(@AuthenticationPrincipal Jwt jwt, HttpServletRequest http) {
-    return referrals.view(uid(jwt), ClientIp.resolve(http));
+    return referrals.view(
+        uid(jwt), ClientIp.resolve(http, properties.getReferral().getTrustedProxyHops()));
   }
 
   @PostMapping("/api/referrals/claim")
@@ -87,7 +92,10 @@ public class EngageController {
       @AuthenticationPrincipal Jwt jwt,
       @RequestBody ClaimRequest request,
       HttpServletRequest http) {
-    referrals.claim(uid(jwt), request.code(), ClientIp.resolve(http));
+    referrals.claim(
+        uid(jwt),
+        request.code(),
+        ClientIp.resolve(http, properties.getReferral().getTrustedProxyHops()));
   }
 
   /** Makes sure a profile row (email) exists so the user is reachable by audience listings. */

@@ -24,6 +24,7 @@ public class IpFingerprint {
 
   private static final Logger log = LoggerFactory.getLogger(IpFingerprint.class);
   private static final String ALGORITHM = "HmacSHA256";
+  private static final int MIN_SALT_BYTES = 32;
 
   private final SecretKeySpec key;
 
@@ -42,6 +43,12 @@ public class IpFingerprint {
               + " matches only work within this process. Set USER_REFERRAL_IP_HASH_SALT in production.");
     } else {
       keyBytes = salt.getBytes(StandardCharsets.UTF_8);
+      if (keyBytes.length < MIN_SALT_BYTES) {
+        log.warn(
+            "user.referral.ip-hash-salt is shorter than {} bytes: a leaked table could be brute"
+                + " forced offline. Generate one with `openssl rand -hex 32`.",
+            MIN_SALT_BYTES);
+      }
     }
     this.key = new SecretKeySpec(keyBytes, ALGORITHM);
   }

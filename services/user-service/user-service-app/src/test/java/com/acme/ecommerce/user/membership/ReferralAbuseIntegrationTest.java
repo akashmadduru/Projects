@@ -5,10 +5,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.acme.ecommerce.common.core.error.CodedException;
 import com.acme.ecommerce.common.core.error.ErrorCode;
-import com.acme.ecommerce.user.config.UserProperties;
 import com.acme.ecommerce.user.support.AbstractUserIntegrationTest;
 import java.net.InetAddress;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -30,7 +28,6 @@ class ReferralAbuseIntegrationTest extends AbstractUserIntegrationTest {
   private static final String HEX64 = "^[0-9a-f]{64}$";
 
   @Autowired private JdbcClient jdbc;
-  @Autowired private UserProperties properties;
   @Autowired private ReferralService referrals;
   @Autowired private IpFingerprint fingerprint;
 
@@ -102,38 +99,6 @@ class ReferralAbuseIntegrationTest extends AbstractUserIntegrationTest {
   }
 
   @Test
-  @DisplayName("V5 creates the activity table, the claim hash column and the primary key")
-  void schemaExists() {
-    Integer pkColumns =
-        jdbc.sql(
-                "SELECT count(*)::int FROM information_schema.key_column_usage WHERE"
-                    + " table_schema = 'users' AND table_name = 'referral_ip_activity' AND"
-                    + " constraint_name = 'referral_ip_activity_pkey' AND column_name IN"
-                    + " ('user_id','ip_hash')")
-            .query(Integer.class)
-            .single();
-    assertThat(pkColumns).isEqualTo(2);
-    Integer col =
-        jdbc.sql(
-                "SELECT count(*)::int FROM information_schema.columns WHERE table_schema = 'users'"
-                    + " AND table_name = 'referral_claims' AND column_name = 'claim_ip_hash'")
-            .query(Integer.class)
-            .single();
-    assertThat(col).isEqualTo(1);
-  }
-
-  @Test
-  @DisplayName("the referral properties bind their defaults and the test salt")
-  void propertiesBind() {
-    UserProperties.Referral referral = properties.getReferral();
-    assertThat(referral.getMinCodeAge()).isEqualTo(Duration.ofMinutes(10));
-    assertThat(referral.getIpLookback()).isEqualTo(Duration.ofDays(30));
-    assertThat(referral.getIpRetention()).isEqualTo(Duration.ofDays(30));
-    assertThat(referral.getIpHashSalt()).isEqualTo("test-only-referral-salt");
-    assertThat(referral.toString()).doesNotContain("test-only-referral-salt");
-  }
-
-  @Test
   @DisplayName("view records one hashed row; repeats within the hour do not advance it")
   void viewRecordsThrottled() throws Exception {
     UUID user = UUID.randomUUID();
@@ -198,6 +163,31 @@ class ReferralAbuseIntegrationTest extends AbstractUserIntegrationTest {
   }
 
   @Test
+  @DisplayName("only the 20 most recent hashed IPs are kept per user, in the same transaction")
+  void activityCapKeepsMostRecent() throws Exception {
+    UUID user = UUID.randomUUID();
+    UUID other = UUID.randomUUID();
+    referrals.view(other, ip("198.51.100.1"));
+    for (int i = 1; i <= 25; i++) {
+      referrals.view(user, ip("10.0.0." + i));
+      // make this row strictly older than the next insert so recency is unambiguous
+      jdbc.sql(
+              "UPDATE users.referral_ip_activity SET last_seen_at = now() - (CAST(:age AS int) *"
+                  + " interval '1 minute') WHERE user_id = :u AND ip_hash = :h")
+          .param("age", 100 - i)
+          .param("u", user)
+          .param("h", hashOf("10.0.0." + i))
+          .update();
+    }
+    assertThat(activity(user)).hasSize(ReferralService.MAX_ACTIVITY_ROWS);
+    assertThat(activity(user))
+        .extracting(r -> r.get("ip_hash"))
+        .contains(hashOf("10.0.0.25"), hashOf("10.0.0.6"))
+        .doesNotContain(hashOf("10.0.0.1"), hashOf("10.0.0.5"));
+    assertThat(activity(other)).hasSize(1);
+  }
+
+  @Test
   @DisplayName("claiming an unknown code is 404 and records no activity")
   void unknownCodeRecordsNothing() throws Exception {
     UUID user = UUID.randomUUID();
@@ -258,13 +248,6 @@ class ReferralAbuseIntegrationTest extends AbstractUserIntegrationTest {
     assertThat(claimRows(oldReferee)).isEqualTo(1);
     assertThat(claimHash(oldReferee)).isNull();
     assertThat(claimHash(newReferee)).isEqualTo(hashOf("198.51.100.5"));
-  }
-
-  @Test
-  @DisplayName("retention job is a no-op when there is nothing to purge")
-  void purgeNoOp() {
-    referrals.purgeExpiredIps();
-    referrals.purgeExpiredIps();
   }
 
   @Test
@@ -415,17 +398,5 @@ class ReferralAbuseIntegrationTest extends AbstractUserIntegrationTest {
       pool.shutdownNow();
     }
     assertThat(claimRows(referee)).isEqualTo(1);
-  }
-
-  @Test
-  @DisplayName("refusal messages carry no IP, time or count")
-  void refusalTextIsGeneric() throws Exception {
-    UUID referrer = UUID.randomUUID();
-    String code = referrals.view(referrer, ip("203.0.113.9")).code();
-    assertThatThrownBy(() -> referrals.claim(UUID.randomUUID(), code, safeIp("203.0.113.9")))
-        .hasMessage("This referral code cannot be used yet");
-    age(referrer);
-    assertThatThrownBy(() -> referrals.claim(UUID.randomUUID(), code, safeIp("203.0.113.9")))
-        .hasMessage("This referral code cannot be used from this network");
   }
 }

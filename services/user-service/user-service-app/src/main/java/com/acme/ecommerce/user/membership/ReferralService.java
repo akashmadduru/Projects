@@ -25,6 +25,10 @@ public class ReferralService {
   private static final Logger log = LoggerFactory.getLogger(ReferralService.class);
 
   private static final String ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+
+  /** Most recent hashed IPs kept per user; bounds growth from a rotating client address. */
+  static final int MAX_ACTIVITY_ROWS = 20;
+
   private static final SecureRandom RANDOM = new SecureRandom();
 
   public record ReferralView(String code, String link, long invited, long rewarded, long rewards) {}
@@ -109,7 +113,7 @@ public class ReferralService {
   /** Abuse checks, in order: code age, then network match. A throw rolls the claim back. */
   private void refuseIfAbusive(UUID referrer, Optional<InetAddress> ip) {
     UserProperties.Referral cfg = properties.getReferral();
-    if (!cfg.getMinCodeAge().isZero()) {
+    if (cfg.getMinCodeAge().toSeconds() > 0) {
       boolean tooNew =
           jdbc.sql(
                   "SELECT EXISTS (SELECT 1 FROM users.referral_codes WHERE user_id = :p AND"
@@ -123,7 +127,7 @@ public class ReferralService {
             ErrorCode.REFERRAL_CODE_TOO_NEW, "This referral code cannot be used yet");
       }
     }
-    if (!cfg.getIpLookback().isZero() && ip.isPresent()) {
+    if (cfg.getIpLookback().toSeconds() > 0 && ip.isPresent()) {
       boolean sameNetwork =
           jdbc.sql(
                   "SELECT EXISTS (SELECT 1 FROM users.referral_ip_activity WHERE user_id = :p AND"
@@ -148,7 +152,10 @@ public class ReferralService {
         .single();
   }
 
-  /** Upserts the referrer's hashed IP; an existing row is only refreshed when over an hour old. */
+  /**
+   * Upserts the referrer's hashed IP (an existing row is only refreshed when over an hour old),
+   * then keeps only the {@link #MAX_ACTIVITY_ROWS} most recent rows for the user.
+   */
   private void recordActivity(UUID userId, String hash) {
     jdbc.sql(
             "INSERT INTO users.referral_ip_activity (user_id, ip_hash) VALUES (:u, :h) ON CONFLICT"
@@ -156,6 +163,13 @@ public class ReferralService {
                 + " users.referral_ip_activity.last_seen_at < now() - interval '1 hour'")
         .param("u", userId)
         .param("h", hash)
+        .update();
+    jdbc.sql(
+            "DELETE FROM users.referral_ip_activity WHERE user_id = :u AND ip_hash NOT IN (SELECT"
+                + " ip_hash FROM users.referral_ip_activity WHERE user_id = :u ORDER BY"
+                + " last_seen_at DESC, ip_hash LIMIT :n)")
+        .param("u", userId)
+        .param("n", MAX_ACTIVITY_ROWS)
         .update();
   }
 

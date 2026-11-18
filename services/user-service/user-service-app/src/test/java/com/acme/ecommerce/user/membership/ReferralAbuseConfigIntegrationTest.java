@@ -29,7 +29,6 @@ class ReferralAbuseConfigIntegrationTest extends AbstractUserIntegrationTest {
   @Autowired private JdbcClient jdbc;
   @Autowired private UserProperties properties;
   @Autowired private ReferralService referrals;
-  @Autowired private IpFingerprint fingerprint;
 
   private static Optional<InetAddress> ip(String literal) throws Exception {
     return Optional.of(InetAddress.getByName(literal));
@@ -67,6 +66,9 @@ class ReferralAbuseConfigIntegrationTest extends AbstractUserIntegrationTest {
     assertThat(r.getMinCodeAge()).isEqualTo(Duration.ofHours(2));
     assertThat(r.getIpLookback()).isEqualTo(Duration.ofDays(1));
     assertThat(r.getIpRetention()).isEqualTo(Duration.ofDays(1));
+    assertThat(r.getTrustedProxyHops()).isEqualTo(1);
+    assertThat(r.getIpHashSalt()).isEqualTo("test-only-referral-salt");
+    assertThat(r.toString()).doesNotContain("test-only-referral-salt");
   }
 
   @Test
@@ -114,6 +116,89 @@ class ReferralAbuseConfigIntegrationTest extends AbstractUserIntegrationTest {
     referrals.purgeExpiredIps();
     assertThat(activityRows(oldUser)).isZero();
     assertThat(activityRows(freshUser)).isEqualTo(1);
-    assertThat(fingerprint.hash(InetAddress.getByName("203.0.113.9"))).hasSize(64);
+  }
+
+  /** Runs the body with the given thresholds, then restores the bean (AC-9). */
+  private void withThresholds(Duration minCodeAge, Duration ipLookback, ThrowingRunnable body)
+      throws Exception {
+    UserProperties.Referral r = properties.getReferral();
+    Duration age = r.getMinCodeAge();
+    Duration lookback = r.getIpLookback();
+    try {
+      r.setMinCodeAge(minCodeAge);
+      r.setIpLookback(ipLookback);
+      body.run();
+    } finally {
+      r.setMinCodeAge(age);
+      r.setIpLookback(lookback);
+    }
+  }
+
+  private interface ThrowingRunnable {
+    void run() throws Exception;
+  }
+
+  @Test
+  @DisplayName("AC-9: with both checks off, a young code from the same network is accepted")
+  void bothChecksOff() throws Exception {
+    withThresholds(
+        Duration.ZERO,
+        Duration.ZERO,
+        () -> {
+          UUID referrer = UUID.randomUUID();
+          String code = referrals.view(referrer, ip("203.0.113.9")).code();
+          UUID referee = UUID.randomUUID();
+          referrals.claim(referee, code, ip("203.0.113.9"));
+          assertThat(referrals.byReferee(referee)).isPresent();
+        });
+  }
+
+  @Test
+  @DisplayName("AC-9: lookback 0 keeps the age check but ignores the network")
+  void ipCheckOffAgeCheckOn() throws Exception {
+    withThresholds(
+        Duration.ofHours(2),
+        Duration.ZERO,
+        () -> {
+          UUID referrer = UUID.randomUUID();
+          String code = referrals.view(referrer, ip("203.0.113.9")).code();
+          assertThatThrownBy(() -> referrals.claim(UUID.randomUUID(), code, ip("198.51.100.4")))
+              .isInstanceOfSatisfying(
+                  CodedException.class,
+                  e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.REFERRAL_CODE_TOO_NEW));
+        });
+  }
+
+  @Test
+  @DisplayName("AC-9: age 0 keeps the network check but ignores the code age")
+  void ageCheckOffIpCheckOn() throws Exception {
+    withThresholds(
+        Duration.ZERO,
+        Duration.ofDays(1),
+        () -> {
+          UUID referrer = UUID.randomUUID();
+          String code = referrals.view(referrer, ip("203.0.113.9")).code();
+          assertThatThrownBy(() -> referrals.claim(UUID.randomUUID(), code, ip("203.0.113.9")))
+              .isInstanceOfSatisfying(
+                  CodedException.class,
+                  e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.REFERRAL_IP_MATCH));
+        });
+  }
+
+  @Test
+  @DisplayName("sub-second and negative durations count as disabled")
+  void subSecondAndNegativeAreDisabled() throws Exception {
+    for (Duration off : new Duration[] {Duration.ofMillis(500), Duration.ofSeconds(-5)}) {
+      withThresholds(
+          off,
+          off,
+          () -> {
+            UUID referrer = UUID.randomUUID();
+            String code = referrals.view(referrer, ip("203.0.113.9")).code();
+            UUID referee = UUID.randomUUID();
+            referrals.claim(referee, code, ip("203.0.113.9"));
+            assertThat(referrals.byReferee(referee)).isPresent();
+          });
+    }
   }
 }

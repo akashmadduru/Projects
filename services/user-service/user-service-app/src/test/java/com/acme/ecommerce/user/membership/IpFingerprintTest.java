@@ -2,9 +2,14 @@ package com.acme.ecommerce.user.membership;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import java.net.InetAddress;
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 
 class IpFingerprintTest {
 
@@ -48,5 +53,27 @@ class IpFingerprintTest {
     assertThat(a.hash(ip("203.0.113.7"))).isEqualTo(a.hash(ip("203.0.113.7"))).hasSize(64);
     assertThat(new IpFingerprint("  ").hash(ip("203.0.113.7")))
         .isNotEqualTo(a.hash(ip("203.0.113.7")));
+  }
+
+  private static List<String> warningsFor(String salt) {
+    Logger logger = (Logger) LoggerFactory.getLogger(IpFingerprint.class);
+    ListAppender<ILoggingEvent> appender = new ListAppender<>();
+    appender.start();
+    logger.addAppender(appender);
+    try {
+      new IpFingerprint(salt);
+      return appender.list.stream().map(ILoggingEvent::getFormattedMessage).toList();
+    } finally {
+      logger.detachAppender(appender);
+    }
+  }
+
+  @Test
+  @DisplayName("a salt under 32 bytes warns at startup without failing; a long one is silent")
+  void shortSaltWarns() {
+    List<String> weak = warningsFor("short-salt");
+    assertThat(weak).hasSize(1);
+    assertThat(weak.get(0)).contains("shorter than 32 bytes").doesNotContain("short-salt");
+    assertThat(warningsFor("x".repeat(32))).isEmpty();
   }
 }

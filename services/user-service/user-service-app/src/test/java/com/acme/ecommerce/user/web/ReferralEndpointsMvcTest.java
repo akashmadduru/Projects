@@ -114,10 +114,10 @@ class ReferralEndpointsMvcTest extends AbstractUserIntegrationTest {
   }
 
   @Test
-  @DisplayName("AC-6 and AC-13: only the first X-Forwarded-For entry is recorded, as a hash")
-  void recordsFirstForwardedEntry() throws Exception {
+  @DisplayName("AC-6 and AC-13: only the trusted (rightmost, hops=1) entry is recorded, as a hash")
+  void recordsTrustedForwardedEntry() throws Exception {
     UUID user = UUID.randomUUID();
-    view(user, "203.0.113.50, 10.0.0.1, 10.0.0.2");
+    view(user, "10.0.0.1, 10.0.0.2, 203.0.113.50");
     assertThat(hashes(user))
         .containsExactly(fingerprint.hash(InetAddress.getByName("203.0.113.50")));
   }
@@ -174,15 +174,36 @@ class ReferralEndpointsMvcTest extends AbstractUserIntegrationTest {
   }
 
   @Test
-  @DisplayName("AC-13: the first X-Forwarded-For entry is the one compared on claim")
-  void claimComparesFirstForwardedEntry() throws Exception {
+  @DisplayName("AC-13: the trusted entry is the one compared on claim")
+  void claimComparesTrustedForwardedEntry() throws Exception {
     String code = view(UUID.randomUUID(), "203.0.113.50").get("code").asText();
     ageCode(code);
-    MockHttpServletResponse hit = claim(UUID.randomUUID(), code, "203.0.113.50, 198.51.100.77");
+    MockHttpServletResponse hit = claim(UUID.randomUUID(), code, "198.51.100.77, 203.0.113.50");
     assertThat(hit.getStatus()).isEqualTo(422);
     assertThat(objectMapper.readTree(hit.getContentAsString()).get("code").asText())
         .isEqualTo("REFERRAL_IP_MATCH");
-    assertThat(claim(UUID.randomUUID(), code, "198.51.100.77, 203.0.113.50").getStatus())
+    assertThat(claim(UUID.randomUUID(), code, "203.0.113.50, 198.51.100.77").getStatus())
+        .isEqualTo(204);
+  }
+
+  @Test
+  @DisplayName("a forged left entry can neither cause nor avoid a REFERRAL_IP_MATCH")
+  void forgedLeftEntryHasNoEffect() throws Exception {
+    // the referrer was seen from 203.0.113.50 (the entry the gateway appended)
+    UUID referrer = UUID.randomUUID();
+    String code = view(referrer, "6.6.6.6, 203.0.113.50").get("code").asText();
+    assertThat(hashes(referrer))
+        .containsExactly(fingerprint.hash(InetAddress.getByName("203.0.113.50")));
+    ageCode(code);
+
+    // avoid: the claimant really is on the referrer's network but forges a different left entry
+    MockHttpServletResponse avoid = claim(UUID.randomUUID(), code, "198.51.100.77, 203.0.113.50");
+    assertThat(avoid.getStatus()).isEqualTo(422);
+    assertThat(objectMapper.readTree(avoid.getContentAsString()).get("code").asText())
+        .isEqualTo("REFERRAL_IP_MATCH");
+
+    // cause: the claimant is elsewhere but forges the referrer's IP in the left entry
+    assertThat(claim(UUID.randomUUID(), code, "203.0.113.50, 198.51.100.77").getStatus())
         .isEqualTo(204);
   }
 
