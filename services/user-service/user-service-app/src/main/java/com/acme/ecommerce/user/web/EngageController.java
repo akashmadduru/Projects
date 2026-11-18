@@ -8,6 +8,7 @@ import com.acme.ecommerce.user.membership.PreferenceService.Preferences;
 import com.acme.ecommerce.user.membership.PreferenceService.PreferencesUpdate;
 import com.acme.ecommerce.user.membership.ReferralService;
 import com.acme.ecommerce.user.membership.ReferralService.ReferralView;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.constraints.NotBlank;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
@@ -76,14 +77,17 @@ public class EngageController {
   }
 
   @GetMapping("/api/referrals")
-  public ReferralView referrals(@AuthenticationPrincipal Jwt jwt) {
-    return referrals.view(uid(jwt));
+  public ReferralView referrals(@AuthenticationPrincipal Jwt jwt, HttpServletRequest http) {
+    return referrals.view(uid(jwt), ClientIp.resolve(http));
   }
 
   @PostMapping("/api/referrals/claim")
   @ResponseStatus(HttpStatus.NO_CONTENT)
-  public void claim(@AuthenticationPrincipal Jwt jwt, @RequestBody ClaimRequest request) {
-    referrals.claim(uid(jwt), request.code());
+  public void claim(
+      @AuthenticationPrincipal Jwt jwt,
+      @RequestBody ClaimRequest request,
+      HttpServletRequest http) {
+    referrals.claim(uid(jwt), request.code(), ClientIp.resolve(http));
   }
 
   /** Makes sure a profile row (email) exists so the user is reachable by audience listings. */
