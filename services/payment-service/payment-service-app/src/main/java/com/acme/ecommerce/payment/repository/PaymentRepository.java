@@ -194,12 +194,18 @@ public class PaymentRepository {
         .update();
   }
 
-  public void bumpAttempts(UUID id) {
-    jdbc.sql(
+  /** Maximum report attempts before the reporter gives up; see {@link #findUnreported}. */
+  public static final int MAX_REPORT_ATTEMPTS = 200;
+
+  /** Increments the attempt counter and returns the new value (0 if the row is gone). */
+  public int bumpAttempts(UUID id) {
+    return jdbc.sql(
             "UPDATE payment.payments SET report_attempts = report_attempts + 1, "
-                + "updated_at = now() WHERE id = :i")
+                + "updated_at = now() WHERE id = :i RETURNING report_attempts")
         .param("i", id)
-        .update();
+        .query(Integer.class)
+        .optional()
+        .orElse(0);
   }
 
   /** CARD outcomes not yet delivered to order-service, oldest first. */
@@ -208,7 +214,8 @@ public class PaymentRepository {
             "SELECT "
                 + COLS
                 + " FROM payment.payments WHERE reported = false AND method = 'CARD' "
-                + "AND status IN ('SUCCEEDED', 'FAILED') AND report_attempts < 200 ORDER BY updated_at LIMIT :l")
+                + "AND status IN ('SUCCEEDED', 'FAILED') AND report_attempts < :max ORDER BY updated_at LIMIT :l")
+        .param("max", MAX_REPORT_ATTEMPTS)
         .param("l", limit)
         .query(PaymentRepository::map)
         .list();

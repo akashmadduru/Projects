@@ -22,26 +22,71 @@ const deals = ref<readonly Deal[]>([]);
 const loading = ref(false);
 const error = ref<{ message: string; correlationId: string | null } | null>(null);
 
-/** Product names for display + the picker (first 200 products; larger catalogs = tech debt). */
-const products = ref<readonly Product[]>([]);
-const productName = computed(() => new Map(products.value.map((p) => [p.id, p.name])));
+/** Names of the products the listed deals point at, fetched by id (TD-P7-19). */
+const names = ref<ReadonlyMap<string, string>>(new Map());
+const productName = computed(() => names.value);
 
-async function loadProducts(): Promise<void> {
+async function loadNames(ids: readonly string[]): Promise<void> {
+  const missing = [...new Set(ids)].filter((id) => !names.value.has(id));
+  const next = new Map(names.value);
+  // The batch endpoint takes at most 50 ids per call.
+  for (let i = 0; i < missing.length; i += 50) {
+    try {
+      const batch = await apiFetch<readonly Product[]>('/api/products/batch', {
+        query: { ids: missing.slice(i, i + 50).join(',') },
+      });
+      batch.forEach((p) => next.set(p.id, p.name));
+    } catch {
+      // Names are cosmetic; the id is shown instead.
+    }
+  }
+  names.value = next;
+}
+
+/** Picker: server-side search by name/sku instead of a fixed first page of the catalog. */
+const productQuery = ref('');
+const products = ref<readonly Product[]>([]);
+let searchTimer: ReturnType<typeof setTimeout> | undefined;
+
+async function searchProducts(): Promise<void> {
+  const q = productQuery.value.trim();
   try {
     const res = await apiFetch<PagedModel<Product>>('/api/products', {
-      query: { page: 0, size: 200, sort: 'name,asc' },
+      query: { page: 0, size: 20, sort: 'name,asc', ...(q ? { q } : {}) },
     });
     products.value = res.content;
+    const next = new Map(names.value);
+    res.content.forEach((p) => next.set(p.id, p.name));
+    names.value = next;
   } catch {
     products.value = [];
   }
 }
+
+function onProductQuery(): void {
+  if (searchTimer) clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => void searchProducts(), 250);
+}
+
+/** A variant option label: SKU plus its options ("SKU-1 · Red / M"). */
+function variantLabel(v: ProductVariant): string {
+  const opts = Object.values(v.attributes ?? {}).join(' / ');
+  return opts ? `${v.sku} · ${opts}` : v.sku;
+}
+
+/** Client-side paging: the admin list returns every deal (curated by hand, so few). */
+const PAGE_SIZE = 20;
+const page = ref(0);
+const pageCount = computed(() => Math.max(1, Math.ceil(deals.value.length / PAGE_SIZE)));
+const pagedDeals = computed(() => deals.value.slice(page.value * PAGE_SIZE, (page.value + 1) * PAGE_SIZE));
 
 async function load(): Promise<void> {
   loading.value = true;
   error.value = null;
   try {
     deals.value = await listDeals();
+    page.value = Math.min(page.value, Math.max(0, Math.ceil(deals.value.length / PAGE_SIZE) - 1));
+    void loadNames(deals.value.map((d) => d.productId));
   } catch (e: unknown) {
     error.value = errorInfo(e);
     deals.value = [];
@@ -216,7 +261,7 @@ function dealState(d: Deal): { label: string; cls: string } {
 }
 
 onMounted(() => {
-  void loadProducts();
+  void searchProducts();
   void load();
 });
 </script>
@@ -266,7 +311,7 @@ onMounted(() => {
             </tr>
           </thead>
           <tbody>
-            <tr v-for="d in deals" :key="d.id" data-test="deal-row">
+            <tr v-for="d in pagedDeals" :key="d.id" data-test="deal-row">
               <td>
                 <div class="text-sm font-semibold">{{ d.title || productName.get(d.productId) || d.productId }}</div>
                 <div class="text-xs opacity-70">
@@ -298,6 +343,11 @@ onMounted(() => {
           </tbody>
         </table>
       </div>
+      <div v-if="pageCount > 1" class="flex items-center justify-end gap-2 p-3 text-sm" data-test="deal-pager">
+        <button class="btn btn-ghost btn-xs" type="button" :disabled="page === 0" @click="page--">Previous</button>
+        <span>Page {{ page + 1 }} of {{ pageCount }}</span>
+        <button class="btn btn-ghost btn-xs" type="button" :disabled="page >= pageCount - 1" data-test="deal-next" @click="page++">Next</button>
+      </div>
     </div>
 
     <div v-if="modalOpen" class="modal modal-open" role="dialog" aria-modal="true" data-test="deal-modal">
@@ -312,6 +362,15 @@ onMounted(() => {
         <form class="mt-3 grid grid-cols-2 gap-3" novalidate @submit.prevent="submit">
           <label class="form-control col-span-2">
             <span class="label-text">Product</span>
+            <input
+              v-model="productQuery"
+              class="input input-bordered input-sm mb-1 w-full"
+              type="search"
+              placeholder="Search products by name or SKU"
+              aria-label="Search products"
+              data-test="deal-product-search"
+              @input="onProductQuery"
+            />
             <select
               v-model="form.productId"
               class="select select-bordered w-full"
@@ -319,8 +378,8 @@ onMounted(() => {
               @change="onProductChange"
             >
               <option value="">Select a product…</option>
-              <option v-if="form.productId && !productName.has(form.productId)" :value="form.productId">
-                Current ({{ form.productId.slice(0, 8) }})
+              <option v-if="form.productId && !products.some((p) => p.id === form.productId)" :value="form.productId">
+                {{ productName.get(form.productId) ?? `Current (${form.productId.slice(0, 8)})` }}
               </option>
               <option v-for="p in products" :key="p.id" :value="p.id">{{ p.name }}</option>
             </select>
@@ -333,7 +392,7 @@ onMounted(() => {
                 Current ({{ form.variantId.slice(0, 8) }})
               </option>
               <option v-for="v in variants" :key="v.id" :value="v.id">
-                {{ v.sku }}
+                {{ variantLabel(v) }}
               </option>
             </select>
           </label>

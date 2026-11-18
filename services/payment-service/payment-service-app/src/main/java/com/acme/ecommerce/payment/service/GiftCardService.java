@@ -46,6 +46,12 @@ public class GiftCardService {
 
   static final int LOCKOUT_WINDOW_MINUTES = 15;
 
+  /**
+   * Failed redeem attempts allowed per client IP in the same window (TD-P8-21): stops one client
+   * spreading guesses over many accounts, while leaving room for a household or office NAT.
+   */
+  static final int MAX_FAILED_REDEEMS_PER_IP = 30;
+
   /** A resend mails the recipient, so it is limited to stop it being used to spam an address. */
   static final int RESEND_INTERVAL_MINUTES = 10;
 
@@ -286,6 +292,12 @@ public class GiftCardService {
    * #LOCKOUT_WINDOW_MINUTES} minutes the user gets 429 RATE_LIMITED, even for a valid code.
    */
   public Balance redeem(UUID userId, String rawCode) {
+    return redeem(userId, rawCode, null);
+  }
+
+  /** As {@link #redeem(UUID, String)}, also limiting failures per client IP when known. */
+  public Balance redeem(UUID userId, String rawCode, String clientIp) {
+    String ip = clientIp == null || clientIp.isBlank() ? null : clientIp.trim();
     Integer recentFailures =
         jdbc.sql(
                 "SELECT count(*) FROM payment.gift_card_redeem_failures WHERE user_id = :u"
@@ -300,14 +312,33 @@ public class GiftCardService {
           ErrorCode.RATE_LIMITED,
           "Too many invalid gift card codes. Try again in " + LOCKOUT_WINDOW_MINUTES + " minutes.");
     }
+    if (ip != null) {
+      Integer ipFailures =
+          jdbc.sql(
+                  "SELECT count(*) FROM payment.gift_card_redeem_failures WHERE ip = :ip"
+                      + " AND failed_at > now() - make_interval(mins => "
+                      + LOCKOUT_WINDOW_MINUTES
+                      + ")")
+              .param("ip", ip)
+              .query(Integer.class)
+              .single();
+      if (ipFailures != null && ipFailures >= MAX_FAILED_REDEEMS_PER_IP) {
+        throw new CodedException(
+            ErrorCode.RATE_LIMITED,
+            "Too many invalid gift card codes from this network. Try again in "
+                + LOCKOUT_WINDOW_MINUTES
+                + " minutes.");
+      }
+    }
     String code = canonical(rawCode);
     try {
       return tx.execute(status -> redeemLocked(userId, code));
     } catch (CodedException e) {
       if (e.errorCode() == ErrorCode.GIFT_CARD_INVALID) {
         // Outside the redeem transaction, which has rolled back.
-        jdbc.sql("INSERT INTO payment.gift_card_redeem_failures (user_id) VALUES (:u)")
+        jdbc.sql("INSERT INTO payment.gift_card_redeem_failures (user_id, ip) VALUES (:u, :ip)")
             .param("u", userId)
+            .param("ip", ip)
             .update();
       }
       throw e;

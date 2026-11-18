@@ -67,19 +67,12 @@ TD-FE-05 (forgot password, email verification) was resolved by Phase 6; remainin
 - **Risk:** Two simultaneous Google sign-ins can swap destinations. Harmless: only same-origin paths are accepted by `safeNext`.
 - **Fix:** Carry a per-attempt nonce.
 
-<a id="td-fe-12"></a>
-## TD-FE-12 Storefront test harness does not boot on Node 26
-- **Severity / Effort:** Med / S
-- **Where:** `apps/product-catalog/src/test/setup.ts:16` (MSW `setupServer`), `vitest@1`, `msw@2`.
-- **Risk:** All 15 storefront test files fail at suite setup with `Cannot read properties of undefined (reading 'on')` before any test runs, so the suite gives zero signal. This was found on 2026-11-12 while doing the profile/deals UI pass; it predates that change, which touched no test or setup files. It is separate from the stale-type errors in TD-TEST-03.
-- **Fix:** Pin Node 22 LTS for the app (`.nvmrc` + `engines`), or upgrade `vitest`/`msw` to versions that support Node 26's globals, then re-run.
-
 <a id="td-fe-13"></a>
 ## TD-FE-13 Profile/deals UI pass is untested
 - **Severity / Effort:** Low / S
 - **Where:** `src/components/DealsStrip.tsx`, `src/pages/account/{OrdersPage,AddressesPage,RecentlyViewedPage}.tsx`, `src/lib/retroLights.ts`.
 - **Risk:** There are no tests for the order tracker step mapping, the inline address delete confirm, the history clear/remove, or the lights toggle. The order list summary has no line items, so cards cannot show product thumbnails without an N-call fan-out.
-- **Fix:** Once TD-FE-12 is fixed, add RTL tests for these. To get thumbnails, add the first item's image and name to the backend `OrderSummaryResponse`.
+- **Fix:** Add RTL tests (the harness works on Node 26 since 2026-11-18) for these. To get thumbnails, add the first item's image and name to the backend `OrderSummaryResponse`.
 
 ## Phase 8 storefront (moved)
 

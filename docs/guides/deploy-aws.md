@@ -61,6 +61,9 @@ or `aws configure` (set `AWS_PROFILE` in `config.env` for a named profile).
 
 1. `cp deploy/aws/config.example.env deploy/aws/config.env` and fill in at least `DOMAIN_NAME` and the
    all three values of at least one payment provider (`STRIPE_*` and/or `RAZORPAY_*`). Everything else has a default. **Keep `SIZE_PROFILE=lean` for a first run.**
+   For browser push notifications also set `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY`
+   (`npx web-push generate-vapid-keys`, once; keep them, because a new pair invalidates every
+   browser subscription). Without them push is off in production.
 2. `./deploy/aws/deploy.sh --plan` shows what Terraform would create. This step does create the
    Terraform state bucket and the Route 53 zone (both nearly free); nothing else.
 3. `./deploy/aws/deploy.sh`. If the domain has no hosted zone yet the script creates one, prints the

@@ -125,8 +125,9 @@ curl http://localhost:8082/actuator/health/readiness
 curl -H 'Accept: application/json' http://localhost:8761/eureka/apps/PRODUCT-SERVICE
 ```
 
-A restarted service takes about 30–40 seconds to become routable through the gateway (Eureka
-registration plus the gateway's registry refresh); until then the gateway answers 503 (TD-BE-08).
+A restarted service takes up to about 10 seconds to become routable through the gateway (Eureka
+registration, the gateway's 5 s registry fetch and its 5 s load-balancer cache); until then the
+gateway answers 503.
 The timing settings are explained in [eureka-server](../services/eureka-server.md).
 
 ## Monitoring & Metrics

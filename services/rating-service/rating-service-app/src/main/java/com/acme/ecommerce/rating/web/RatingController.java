@@ -2,7 +2,6 @@ package com.acme.ecommerce.rating.web;
 
 import com.acme.ecommerce.common.core.error.CodedException;
 import com.acme.ecommerce.common.core.error.ValidationException;
-import com.acme.ecommerce.common.security.Roles;
 import com.acme.ecommerce.rating.api.dto.MyRatingStatusResponse;
 import com.acme.ecommerce.rating.api.dto.RatingMediaResponse;
 import com.acme.ecommerce.rating.api.dto.RatingResponse;
@@ -32,7 +31,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -158,11 +156,9 @@ public class RatingController {
   @ResponseStatus(HttpStatus.NO_CONTENT)
   @PreAuthorize("isAuthenticated()")
   public void deleteMedia(
-      @PathVariable UUID ratingId,
-      @PathVariable UUID mediaId,
-      @AuthenticationPrincipal Jwt jwt,
-      Authentication authentication) {
-    mediaService.delete(ratingId, mediaId, userId(jwt), isAdmin(authentication));
+      @PathVariable UUID ratingId, @PathVariable UUID mediaId, @AuthenticationPrincipal Jwt jwt) {
+    // Author only; staff remove a whole review via the audited admin endpoint (TD-ADM-05).
+    mediaService.delete(ratingId, mediaId, userId(jwt), false);
   }
 
   @GetMapping("/media/{mediaId}")
@@ -239,17 +235,18 @@ public class RatingController {
   public RatingResponse update(
       @PathVariable UUID id,
       @Valid @RequestBody UpdateRatingRequest request,
-      @AuthenticationPrincipal Jwt jwt,
-      Authentication authentication) {
-    return ratings.update(id, request, userId(jwt), isAdmin(authentication));
+      @AuthenticationPrincipal Jwt jwt) {
+    // Author only: staff never rewrite a customer's words (they delete or approve instead).
+    return ratings.update(id, request, userId(jwt), false);
   }
 
   @DeleteMapping("/{id}")
   @ResponseStatus(HttpStatus.NO_CONTENT)
   @PreAuthorize("isAuthenticated()")
-  public void delete(
-      @PathVariable UUID id, @AuthenticationPrincipal Jwt jwt, Authentication authentication) {
-    ratings.delete(id, userId(jwt), isAdmin(authentication));
+  public void delete(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
+    // Author only. Admins delete other people's reviews through DELETE /api/admin/ratings/{id},
+    // which the audit interceptor records (TD-ADM-05).
+    ratings.delete(id, userId(jwt), false);
   }
 
   @PostMapping("/{ratingId}/votes/{voteType}")
@@ -264,10 +261,5 @@ public class RatingController {
 
   private static UUID userId(Jwt jwt) {
     return UUID.fromString(jwt.getSubject());
-  }
-
-  private static boolean isAdmin(Authentication authentication) {
-    return authentication.getAuthorities().stream()
-        .anyMatch(a -> Roles.ROLE_ADMIN.equals(a.getAuthority()));
   }
 }

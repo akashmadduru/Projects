@@ -56,6 +56,21 @@ public class InternalOrderLookupController {
         .toList();
   }
 
+  public record FirstOrderStatus(boolean firstOrder) {}
+
+  /**
+   * Whether the user's next order would be their first (no order other than cancelled ones). Same
+   * rule order-service applies at placement; promotion-service uses it to hide and reject
+   * first-order coupons before checkout (TD-P6-16).
+   */
+  @GetMapping("/by-user/{userId}/first-order")
+  public FirstOrderStatus firstOrder(@PathVariable UUID userId) {
+    return new FirstOrderStatus(
+        orders.countByUserIdAndStatusNot(
+                userId, com.acme.ecommerce.order.domain.OrderStatus.CANCELLED)
+            == 0);
+  }
+
   /** One order's brief, including the owner (caller compares with the ticket author). */
   @GetMapping("/{id}/brief")
   public OrderBrief one(@PathVariable UUID id) {

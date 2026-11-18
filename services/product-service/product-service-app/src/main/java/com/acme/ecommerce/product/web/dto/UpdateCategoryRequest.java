@@ -1,5 +1,7 @@
 package com.acme.ecommerce.product.web.dto;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
@@ -21,4 +23,16 @@ public class UpdateCategoryRequest {
 
   @NotNull(message = "version is required for optimistic lock")
   Long version;
+
+  /** JSON name is {@code active}; {@code isActive} is still accepted (TD-ADM-09). */
+  @JsonProperty("active")
+  @JsonAlias("isActive")
+  public void setActive(boolean active) {
+    this.isActive = active;
+  }
+
+  @JsonProperty("active")
+  public boolean isActive() {
+    return isActive;
+  }
 }

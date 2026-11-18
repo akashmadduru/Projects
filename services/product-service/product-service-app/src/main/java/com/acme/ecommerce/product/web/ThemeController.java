@@ -35,8 +35,265 @@ public class ThemeController {
 
   private static final Pattern HEX = Pattern.compile("^#[0-9a-fA-F]{6}$");
   private static final Pattern SAFE_URL = Pattern.compile("^(https://|/)[^\\s\"'<>()\\\\]{1,490}$");
-  private static final Set<String> RADII = Set.of("sharp", "soft", "round");
-  private static final Set<String> BORDER_WIDTHS = Set.of("thin", "standard", "bold");
+  // ---- allow-lists: GENERATED from themeEngine.ts / themeFonts.ts, keep in sync ----
+  private static final Set<String> RADII =
+      Set.of("square", "micro", "sharp", "soft", "round", "pill", "mega");
+  private static final Set<String> BORDER_WIDTHS =
+      Set.of("none", "thin", "standard", "bold", "heavy");
+  private static final Set<String> BORDER_COLORS =
+      Set.of("subtle", "muted", "default", "strong", "brand", "accent");
+  private static final Set<String> BORDER_STYLES = Set.of("solid", "dashed", "dotted", "double");
+  private static final Set<String> SHADOW_INTENSITIES =
+      Set.of("whisper", "light", "medium", "strong", "dramatic");
+  private static final Set<String> SHADOW_TINTS = Set.of("ink", "brand", "accent", "danger", "duo");
+  private static final Set<String> CARD_HOVERS =
+      Set.of(
+          "default", "none", "lift", "float", "glow", "scale", "pop", "tilt", "press", "border",
+          "dim");
+  private static final Set<String> CARD_FILLS =
+      Set.of(
+          "default",
+          "tinted",
+          "accent",
+          "muted",
+          "gradient",
+          "glass",
+          "outline",
+          "dots",
+          "stripes",
+          "grid");
+  private static final Set<String> CARD_SHAPES = Set.of("default", "leaf", "notch", "top");
+  private static final Set<String> CARD_ACCENTS = Set.of("none", "top", "left", "bottom");
+  private static final Set<String> BUTTON_SHAPES =
+      Set.of("default", "square", "rounded", "squircle", "pill", "leaf", "tab");
+  private static final Set<String> BUTTON_FILLS =
+      Set.of("default", "solid", "brand", "soft", "outline", "ghost", "glass", "inverse");
+  private static final Set<String> BUTTON_TEXTS =
+      Set.of("default", "upper", "bold", "wide", "smallcaps");
+  private static final Set<String> BUTTON_HOVERS =
+      Set.of("default", "none", "lift", "grow", "glow", "darken");
+  private static final Set<String> HEADING_WEIGHTS =
+      Set.of("default", "medium", "semibold", "bold");
+  private static final Set<String> TRACKINGS = Set.of("tight", "default", "wide");
+  private static final Set<String> LINE_HEIGHTS = Set.of("compact", "default", "relaxed");
+  private static final Set<String> SHADOWS =
+      Set.of(
+          "none",
+          "soft",
+          "layered",
+          "lifted",
+          "dreamy",
+          "floating",
+          "elevated",
+          "paper",
+          "glow",
+          "neon",
+          "ring",
+          "inner",
+          "crisp",
+          "retro",
+          "long",
+          "stacked",
+          "drop",
+          "left");
+
+  /** Families verified to serve real 400-700 weights on Google Fonts (see themeFonts.ts). */
+  private static final Set<String> FONTS =
+      Set.of(
+          "Afacad",
+          "Albert Sans",
+          "Anek Latin",
+          "Archivo",
+          "Asap",
+          "Assistant",
+          "Atkinson Hyperlegible Next",
+          "Bai Jamjuree",
+          "Barlow",
+          "Be Vietnam Pro",
+          "Cabin",
+          "Cairo",
+          "Catamaran",
+          "Chakra Petch",
+          "Chivo",
+          "Commissioner",
+          "DM Sans",
+          "Darker Grotesque",
+          "Encode Sans",
+          "Encode Sans Expanded",
+          "Exo 2",
+          "Familjen Grotesk",
+          "Figtree",
+          "Fira Sans",
+          "Funnel Sans",
+          "Gantari",
+          "Geist",
+          "Geologica",
+          "Golos Text",
+          "Hanken Grotesk",
+          "Heebo",
+          "Hind",
+          "Host Grotesk",
+          "Hubot Sans",
+          "IBM Plex Sans",
+          "Instrument Sans",
+          "Inter",
+          "Inter Tight",
+          "Jost",
+          "Kanit",
+          "Karla",
+          "Kumbh Sans",
+          "League Spartan",
+          "Lexend",
+          "Lexend Deca",
+          "Libre Franklin",
+          "Mada",
+          "Manrope",
+          "Merriweather Sans",
+          "Mitr",
+          "Mona Sans",
+          "Montserrat",
+          "Montserrat Alternates",
+          "Mukta",
+          "Mulish",
+          "Noto Sans",
+          "Noto Sans Display",
+          "Nunito Sans",
+          "Onest",
+          "Open Sans",
+          "Outfit",
+          "Overpass",
+          "Pathway Extreme",
+          "Plus Jakarta Sans",
+          "Poppins",
+          "Prompt",
+          "Public Sans",
+          "Radio Canada",
+          "Radio Canada Big",
+          "Raleway",
+          "Readex Pro",
+          "Red Hat Text",
+          "Reddit Sans",
+          "Rethink Sans",
+          "Roboto",
+          "Rubik",
+          "Saira",
+          "Sarabun",
+          "Sen",
+          "Signika",
+          "Sofia Sans",
+          "Sora",
+          "Source Sans 3",
+          "Spline Sans",
+          "Ubuntu Sans",
+          "Varta",
+          "Wix Madefor Display",
+          "Wix Madefor Text",
+          "Work Sans",
+          "Alegreya",
+          "Aleo",
+          "Besley",
+          "Bodoni Moda",
+          "Brygada 1918",
+          "Castoro",
+          "Cinzel",
+          "Cormorant",
+          "Cormorant Garamond",
+          "Cormorant Infant",
+          "Cormorant Upright",
+          "Crimson Pro",
+          "Domine",
+          "EB Garamond",
+          "Eczar",
+          "Faustina",
+          "Frank Ruhl Libre",
+          "Fraunces",
+          "Gelasio",
+          "Hahmlet",
+          "IBM Plex Serif",
+          "Inknut Antiqua",
+          "Libre Baskerville",
+          "Literata",
+          "Lora",
+          "Merriweather",
+          "Newsreader",
+          "Noto Serif",
+          "Noto Serif Display",
+          "Petrona",
+          "Piazzolla",
+          "Playfair",
+          "Playfair Display",
+          "Roboto Serif",
+          "Source Serif 4",
+          "Spectral",
+          "Texturina",
+          "Vollkorn",
+          "Bricolage Grotesque",
+          "Epilogue",
+          "Exo",
+          "Funnel Display",
+          "Gabarito",
+          "Josefin Sans",
+          "Jura",
+          "Kodchasan",
+          "Lexend Zetta",
+          "Orbitron",
+          "Red Hat Display",
+          "Schibsted Grotesk",
+          "Space Grotesk",
+          "Syne",
+          "Tektur",
+          "Unbounded",
+          "Urbanist",
+          "Baloo 2",
+          "Comfortaa",
+          "Fredoka",
+          "Grandstander",
+          "Mali",
+          "Nunito",
+          "Quicksand",
+          "Bitter",
+          "Josefin Slab",
+          "Kreon",
+          "Podkova",
+          "Roboto Slab",
+          "Rokkitt",
+          "Zilla Slab",
+          "Antonio",
+          "Archivo Narrow",
+          "Asap Condensed",
+          "Barlow Condensed",
+          "Barlow Semi Condensed",
+          "Big Shoulders Display",
+          "Encode Sans Condensed",
+          "Fira Sans Condensed",
+          "Khand",
+          "Oswald",
+          "Rajdhani",
+          "Reddit Sans Condensed",
+          "Roboto Condensed",
+          "Saira Condensed",
+          "Smooch Sans",
+          "Sofia Sans Condensed",
+          "Teko",
+          "Azeret Mono",
+          "Chivo Mono",
+          "Fira Code",
+          "Geist Mono",
+          "IBM Plex Mono",
+          "JetBrains Mono",
+          "Martian Mono",
+          "Noto Sans Mono",
+          "Recursive",
+          "Red Hat Mono",
+          "Roboto Mono",
+          "Sometype Mono",
+          "Source Code Pro",
+          "Spline Sans Mono",
+          "Caveat",
+          "Dancing Script",
+          "Edu SA Beginner",
+          "system-ui");
+
   private static final Set<String> TEXT_SCALES = Set.of("small", "default", "large");
   private static final Set<String> MOTION = Set.of("full", "reduced", "none");
   private static final Set<String> STYLES =
@@ -66,34 +323,6 @@ public class ThemeController {
           "maximalism",
           "spatial-ui",
           "conversational-ai");
-  private static final Set<String> SHADOWS = Set.of("none", "soft", "crisp", "retro", "lifted");
-  private static final Set<String> FONTS =
-      Set.of(
-          "Quicksand",
-          "Poppins",
-          "Inter",
-          "DM Sans",
-          "Manrope",
-          "Space Grotesk",
-          "Playfair Display",
-          "Lora",
-          "Nunito",
-          "Montserrat",
-          "Raleway",
-          "Work Sans",
-          "Rubik",
-          "Outfit",
-          "Plus Jakarta Sans",
-          "Sora",
-          "Josefin Sans",
-          "Cormorant Garamond",
-          "Fraunces",
-          "Archivo",
-          "Karla",
-          "Source Sans 3",
-          "IBM Plex Sans",
-          "Oswald",
-          "system-ui");
   private static final List<String> FORBIDDEN_CSS =
       List.of(
           "@import", "url(", "expression", "javascript:", "behavior", "binding", "<", ">", "\\");
@@ -112,10 +341,16 @@ public class ThemeController {
       String text,
       String danger) {}
 
-  /** Corner radius and outline thickness. */
-  public record Border(String radius, String width) {}
+  /** Corner radius, outline thickness and outline colour. */
+  public record Border(String radius, String width, String color, String style) {}
 
-  public record Shadow(String style) {}
+  public record Shadow(String style, String intensity, String tint) {}
+
+  /** Card hover behaviour and fill. */
+  public record Card(String hover, String fill, String shape, String accent) {}
+
+  /** Call-to-action button shape, fill and label style. */
+  public record Button(String shape, String fill, String text, String hover) {}
 
   /** Design language id; the effects themselves are rendered client-side. */
   public record Style(String id) {}
@@ -123,7 +358,8 @@ public class ThemeController {
   /** Global comfort options: text size and motion. */
   public record Options(String textScale, String motion) {}
 
-  public record Fonts(String display, String body) {}
+  public record Fonts(
+      String display, String body, String headingWeight, String tracking, String lineHeight) {}
 
   public record ThemeConfig(
       String preset,
@@ -132,6 +368,8 @@ public class ThemeController {
       Palette dark,
       Border border,
       Shadow shadow,
+      Card card,
+      Button button,
       Style style,
       Options options,
       Fonts fonts,
@@ -203,15 +441,34 @@ public class ThemeController {
             text("brand.name", b.name(), 40, true),
             text("brand.tagline", b.tagline(), 120, false),
             url("brand.logoUrl", b.logoUrl()));
-    Border bd = c.border() == null ? new Border("soft", "standard") : c.border();
+    // Fields added after the first release are optional: null falls back to the built-in value.
+    Border bd = c.border() == null ? new Border(null, null, null, null) : c.border();
     Border border =
         new Border(
             oneOf("border.radius", bd.radius(), RADII, "soft"),
-            oneOf("border.width", bd.width(), BORDER_WIDTHS, "standard"));
+            oneOf("border.width", bd.width(), BORDER_WIDTHS, "standard"),
+            oneOf("border.color", bd.color(), BORDER_COLORS, "default"),
+            oneOf("border.style", bd.style(), BORDER_STYLES, "solid"));
+    Shadow sh = c.shadow() == null ? new Shadow(null, null, null) : c.shadow();
     Shadow shadow =
         new Shadow(
-            oneOf(
-                "shadow.style", c.shadow() == null ? null : c.shadow().style(), SHADOWS, "retro"));
+            oneOf("shadow.style", sh.style(), SHADOWS, "retro"),
+            oneOf("shadow.intensity", sh.intensity(), SHADOW_INTENSITIES, "medium"),
+            oneOf("shadow.tint", sh.tint(), SHADOW_TINTS, "ink"));
+    Card cd = c.card() == null ? new Card(null, null, null, null) : c.card();
+    Card card =
+        new Card(
+            oneOf("card.hover", cd.hover(), CARD_HOVERS, "default"),
+            oneOf("card.fill", cd.fill(), CARD_FILLS, "default"),
+            oneOf("card.shape", cd.shape(), CARD_SHAPES, "default"),
+            oneOf("card.accent", cd.accent(), CARD_ACCENTS, "none"));
+    Button bt = c.button() == null ? new Button(null, null, null, null) : c.button();
+    Button button =
+        new Button(
+            oneOf("button.shape", bt.shape(), BUTTON_SHAPES, "default"),
+            oneOf("button.fill", bt.fill(), BUTTON_FILLS, "default"),
+            oneOf("button.text", bt.text(), BUTTON_TEXTS, "default"),
+            oneOf("button.hover", bt.hover(), BUTTON_HOVERS, "default"));
     Style designStyle =
         new Style(oneOf("style.id", c.style() == null ? null : c.style().id(), STYLES, "default"));
     Options op = c.options() == null ? new Options("default", "full") : c.options();
@@ -219,8 +476,14 @@ public class ThemeController {
         new Options(
             oneOf("options.textScale", op.textScale(), TEXT_SCALES, "default"),
             oneOf("options.motion", op.motion(), MOTION, "full"));
-    Fonts f = c.fonts() == null ? new Fonts("Quicksand", "Poppins") : c.fonts();
-    Fonts fonts = new Fonts(font("fonts.display", f.display()), font("fonts.body", f.body()));
+    Fonts f = c.fonts() == null ? new Fonts("Quicksand", "Poppins", null, null, null) : c.fonts();
+    Fonts fonts =
+        new Fonts(
+            font("fonts.display", f.display()),
+            font("fonts.body", f.body()),
+            oneOf("fonts.headingWeight", f.headingWeight(), HEADING_WEIGHTS, "default"),
+            oneOf("fonts.tracking", f.tracking(), TRACKINGS, "default"),
+            oneOf("fonts.lineHeight", f.lineHeight(), LINE_HEIGHTS, "default"));
     return new ThemeConfig(
         preset.isEmpty() ? "custom" : preset,
         brand,
@@ -228,6 +491,8 @@ public class ThemeController {
         palette("dark", c.dark()),
         border,
         shadow,
+        card,
+        button,
         designStyle,
         options,
         fonts,
@@ -286,7 +551,7 @@ public class ThemeController {
 
   private static String font(String field, String v) {
     if (v == null || !FONTS.contains(v)) {
-      throw ValidationException.forField(field, "must be one of " + FONTS);
+      throw ValidationException.forField(field, "must be one of the supported font families");
     }
     return v;
   }

@@ -49,7 +49,7 @@ public interface ProductViewFeignClient {
       String name,
       BigDecimal priceAmount,
       String priceCurrency,
-      boolean active,
+      Boolean active,
       BigDecimal salePrice,
       String thumbnailUrl,
       List<Variant> variants,

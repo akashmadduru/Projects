@@ -42,8 +42,8 @@ docker compose -f deploy/local/docker-compose.yml up -d --build
 docker compose -f deploy/local/docker-compose.yml ps
 ```
 
-The gateway answers 503 for about 30 to 40 seconds after a restart, until Eureka registrations
-propagate (TD-BE-08).
+The gateway may answer 503 for up to about 10 seconds after a restart, until the new
+registration reaches its registry copy and load-balancer cache (both refresh every 5 s).
 
 On the **first** start, `deploy/local/postgres/init/01-schemas.sql` creates 12 databases, each owned by its
 own role. That script only runs on an empty volume. On an **existing** volume, create any databases

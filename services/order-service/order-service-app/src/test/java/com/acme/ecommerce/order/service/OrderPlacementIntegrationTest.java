@@ -55,6 +55,9 @@ class OrderPlacementIntegrationTest extends AbstractOrderIntegrationTest {
 
   @Autowired private OrderService orders;
   @Autowired private JdbcTemplate jdbc;
+  @Autowired private OrderStore store;
+
+  @Autowired private com.acme.ecommerce.order.web.InternalOrderLookupController lookup;
 
   private final UUID user = UUID.randomUUID();
   private final UUID addressId = UUID.randomUUID();
@@ -163,6 +166,23 @@ class OrderPlacementIntegrationTest extends AbstractOrderIntegrationTest {
             jdbc.queryForObject(
                 "select count(*) from orders.orders where user_id = ?", Integer.class, user))
         .isEqualTo(1);
+  }
+
+  @Test
+  @DisplayName("admin list counts items with one grouped query; first-order lookup flips after")
+  void adminListItemCountAndFirstOrder() {
+    assertThat(lookup.firstOrder(user).firstOrder()).isTrue();
+
+    OrderService.Placement p =
+        orders.place(user, "c@example.com", "key-" + UUID.randomUUID(), buyNow(shirt, 2));
+
+    var page =
+        store.adminList(
+            null, null, user, null, org.springframework.data.domain.PageRequest.of(0, 20));
+    assertThat(page.getContent()).hasSize(1);
+    assertThat(page.getContent().get(0).id()).isEqualTo(p.order().id());
+    assertThat(page.getContent().get(0).itemCount()).isEqualTo(2);
+    assertThat(lookup.firstOrder(user).firstOrder()).isFalse();
   }
 
   @Test
@@ -377,5 +397,127 @@ class OrderPlacementIntegrationTest extends AbstractOrderIntegrationTest {
             () -> orders.place(user, "c@example.com", "key-coins", withExtras(null, null, 100_000)))
         .hasMessageContaining("coins");
     verify(remote, never()).reserveStock(any(), any(), anyString());
+  }
+
+  // --- TD-BE-15: one cart, one order -------------------------------------------------------
+
+  private void cartHolds(Instant addedAt) {
+    when(carts.getCart())
+        .thenReturn(
+            new com.acme.ecommerce.cart.api.dto.CartResponse(
+                List.of(
+                    new com.acme.ecommerce.cart.api.dto.CartItemResponse(
+                        shirt,
+                        2,
+                        "Shirt",
+                        new BigDecimal("499.00"),
+                        "INR",
+                        null,
+                        new BigDecimal("998.00"),
+                        addedAt,
+                        null,
+                        null,
+                        null,
+                        null)),
+                "INR",
+                2,
+                new BigDecimal("998.00"),
+                List.of()));
+  }
+
+  private PlaceOrderRequest fromCart() {
+    return new PlaceOrderRequest(
+        addressId, PaymentMethodRequest.CARD, null, null, null, null, null);
+  }
+
+  private int orderCount() {
+    return jdbc.queryForObject(
+        "select count(*) from orders.orders where user_id = ?", Integer.class, user);
+  }
+
+  @Test
+  @DisplayName("the same cart placed again with a new key is refused, and the clear is retried")
+  void sameCartTwice() {
+    cartHolds(Instant.parse("2026-11-18T10:00:00Z"));
+    OrderService.Placement first = orders.place(user, "c@example.com", "tab-1", fromCart());
+
+    assertThatThrownBy(() -> orders.place(user, "c@example.com", "tab-2", fromCart()))
+        .isInstanceOf(CodedException.class)
+        .hasMessageContaining(first.order().id().toString())
+        .extracting(e -> ((CodedException) e).errorCode())
+        .isEqualTo(ErrorCode.RESOURCE_CONFLICT);
+    assertThat(orderCount()).isEqualTo(1);
+    verify(carts, times(2)).clearCart();
+    // Refused at the insert, before any stock was reserved for it.
+    verify(remote, times(1)).reserveStock(any(), any(), anyString());
+  }
+
+  @Test
+  @DisplayName("two checkouts of one cart at the same moment create one order")
+  void concurrentCheckouts() throws Exception {
+    cartHolds(Instant.parse("2026-11-18T11:00:00Z"));
+    var pool = java.util.concurrent.Executors.newFixedThreadPool(2);
+    var start = new java.util.concurrent.CountDownLatch(1);
+    try {
+      List<java.util.concurrent.Future<Boolean>> results = new java.util.ArrayList<>();
+      for (String key : List.of("race-a", "race-b")) {
+        results.add(
+            pool.submit(
+                () -> {
+                  start.await();
+                  try {
+                    orders.place(user, "c@example.com", key, fromCart());
+                    return true;
+                  } catch (CodedException e) {
+                    return false;
+                  }
+                }));
+      }
+      start.countDown();
+      long placed = 0;
+      for (var r : results) {
+        placed += r.get(30, java.util.concurrent.TimeUnit.SECONDS) ? 1 : 0;
+      }
+      assertThat(placed).isEqualTo(1);
+      assertThat(orderCount()).isEqualTo(1);
+    } finally {
+      pool.shutdownNow();
+    }
+  }
+
+  @Test
+  @DisplayName("a cancelled order frees its cart, and items re-added after a clear are a new cart")
+  void cancelledOrRefilledCartCanBeOrdered() {
+    Instant added = Instant.parse("2026-11-18T12:00:00Z");
+    cartHolds(added);
+    OrderService.Placement first = orders.place(user, "c@example.com", "k-1", fromCart());
+    jdbc.update("update orders.orders set status = 'CANCELLED' where id = ?", first.order().id());
+
+    orders.place(user, "c@example.com", "k-2", fromCart());
+
+    cartHolds(added.plusSeconds(60));
+    orders.place(user, "c@example.com", "k-3", fromCart());
+    assertThat(orderCount()).isEqualTo(3);
+  }
+
+  @Test
+  @DisplayName("the fingerprint ignores line order and needs every added-at instant")
+  void fingerprint() {
+    Instant t = Instant.parse("2026-11-18T09:00:00Z");
+    var a = item(shirt, 1, t);
+    var b = item(mug, 2, t.plusSeconds(1));
+    assertThat(OrderService.cartFingerprint(List.of(a, b)))
+        .isEqualTo(OrderService.cartFingerprint(List.of(b, a)))
+        .hasSize(64);
+    assertThat(OrderService.cartFingerprint(List.of(a, item(mug, 3, t.plusSeconds(1)))))
+        .isNotEqualTo(OrderService.cartFingerprint(List.of(a, b)));
+    assertThat(OrderService.cartFingerprint(List.of(a, item(mug, 2, null)))).isNull();
+  }
+
+  private static com.acme.ecommerce.cart.api.dto.CartItemResponse item(
+      UUID productId, int qty, Instant addedAt) {
+    return new com.acme.ecommerce.cart.api.dto.CartItemResponse(
+        productId, qty, "x", BigDecimal.ONE, "INR", null, BigDecimal.ONE, addedAt, null, null, null,
+        null);
   }
 }

@@ -67,5 +67,5 @@ public/           manifest.webmanifest, sw.js, offline.html, icons, robots.txt
 
 - Tests: 10 failing, plus `tsc --noEmit` errors in `http.test.ts` and `OverviewPage.test.tsx`
   ([CI/CD baseline](../guides/ci-cd.md#baseline-to-clear-before-ci_enforcetrue)).
-- The main chunk is large ([TD-P7-18](../techdebt/phase7.md#td-p7-18)).
+- Code splitting: the catalog and product pages are in the main chunk (about 259 kB); React and the router are a separate long-cached `react-vendor` chunk; checkout (with Stripe), orders, sign-in, wishlist and the account area load on first visit.
 - More: [techdebt/frontend.md](../techdebt/frontend.md).

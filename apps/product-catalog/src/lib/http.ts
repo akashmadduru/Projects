@@ -22,7 +22,8 @@ interface ApiRequestConfig {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
   headers?: Record<string, string>
   body?: unknown
-  params?: Record<string, string | number | boolean>
+  /** Query parameters. An array value is sent as a repeated parameter (`brand=A&brand=B`). */
+  params?: QueryParams
 }
 
 interface RefreshResponse {
@@ -41,11 +42,19 @@ export function takeMfaChallenge(): string | null {
   return token
 }
 
-function buildUrl(baseUrl: string, params?: Record<string, string | number | boolean>): string {
+export type QueryParamValue = string | number | boolean
+export type QueryParams = Record<string, QueryParamValue | readonly QueryParamValue[]>
+
+export function buildUrl(baseUrl: string, params?: QueryParams): string {
   const url = new URL(baseUrl, typeof window !== 'undefined' ? window.location.origin : 'http://localhost')
   if (params) {
     Object.entries(params).forEach(([key, value]) => {
-      url.searchParams.set(key, String(value))
+      if (Array.isArray(value)) {
+        url.searchParams.delete(key)
+        value.forEach((v) => url.searchParams.append(key, String(v)))
+      } else {
+        url.searchParams.set(key, String(value))
+      }
     })
   }
   return url.toString()
@@ -59,13 +68,24 @@ function isAuthPath(url: string): boolean {
   return new URL(url).pathname.startsWith(AUTH_PATH_PREFIX)
 }
 
+function isSameOrigin(url: string): boolean {
+  if (typeof window === 'undefined') return true
+  try {
+    return new URL(url, window.location.origin).origin === window.location.origin
+  } catch {
+    return false
+  }
+}
+
 function send(url: string, init: RequestInit): Promise<Response> {
   const headers = new Headers(init.headers)
   if (init.body !== undefined && init.body !== null && !(init.body instanceof FormData)) {
     headers.set('Content-Type', 'application/json')
   }
   headers.set('Accept-Language', getLang())
-  if (accessToken) {
+  // The token only ever goes to our own origin: a future absolute or user-influenced URL must not
+  // receive it (TD-SEC-11). All API calls are relative `/api/*`, proxied by the gateway.
+  if (accessToken && isSameOrigin(url)) {
     headers.set('Authorization', `Bearer ${accessToken}`)
   }
   return fetch(url, { ...init, headers, credentials: 'include' })

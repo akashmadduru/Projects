@@ -39,7 +39,7 @@ Stock rows: an order line with no stock row is **out of stock** (`INVENTORY_MISS
 the default). product-service's catalog sync (every 15 minutes) calls `POST /internal/inventory/stock/ensure`
 so every active product and variant has a platform row; a new row starts at `INVENTORY_DEFAULT_STOCK_QUANTITY`
 (0 in production, 100 in the local stack). Known gaps: a new variant waits for the next sync
-([TD-P7-22](../techdebt/phase7.md#td-p7-22)); legacy `stock_levels` and `warehouse_stock` are both
+(TD-P7-22 (fixed 2026-11-18)); legacy `stock_levels` and `warehouse_stock` are both
 written ([TD-P9-02](../techdebt/phase9.md#td-p9-02)).
 
 ## Scope, and what this service is not

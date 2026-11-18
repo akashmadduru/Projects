@@ -18,6 +18,10 @@ dependencies {
     implementation libs.micrometer.registry.prometheus
     implementation libs.bundles.tracing
 
+    testImplementation libs.bundles.testing.unit
+    testImplementation libs.bundles.testing.containers
+    testImplementation libs.spring.security.test
+
     compileOnly libs.lombok
     annotationProcessor libs.lombok
 

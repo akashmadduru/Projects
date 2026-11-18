@@ -244,8 +244,8 @@ public class CampaignService {
       return;
     }
     if (node.isObject()) {
-      node.fields()
-          .forEachRemaining(
+      node.properties()
+          .forEach(
               e -> {
                 Instant at = instantOf(e.getValue());
                 UUID id = uuid(e.getKey());
@@ -257,7 +257,7 @@ public class CampaignService {
       for (JsonNode item : node) {
         UUID id = uuid(item.path("userId").asText(null));
         Instant at = null;
-        for (var it = item.fields(); it.hasNext() && at == null; ) {
+        for (var it = item.properties().iterator(); it.hasNext() && at == null; ) {
           var f = it.next();
           if (!"userId".equals(f.getKey())) {
             at = instantOf(f.getValue());
@@ -283,7 +283,7 @@ public class CampaignService {
       return null;
     }
     if (v.isObject()) {
-      for (var it = v.fields(); it.hasNext(); ) {
+      for (var it = v.properties().iterator(); it.hasNext(); ) {
         Instant at = instantOf(it.next().getValue());
         if (at != null) {
           return at;

@@ -2,7 +2,6 @@ package com.acme.ecommerce.auth.service;
 
 import com.acme.ecommerce.auth.api.AuthErrorCode;
 import com.acme.ecommerce.auth.api.dto.AuthMethod;
-import com.acme.ecommerce.auth.cache.UserSnapshotFactory;
 import com.acme.ecommerce.auth.domain.UserAccount;
 import com.acme.ecommerce.auth.error.AuthException;
 import com.acme.ecommerce.auth.metrics.AuthMetrics;
@@ -36,27 +35,22 @@ public class OtpLoginService {
   private final UserAccountRepository users;
   private final OneTimeTokenService tokens;
   private final NotificationGateway notifications;
-  private final TokenService tokenService;
   private final UserPrincipalService principals;
-  private final UserSnapshotFactory snapshots;
   private final TwoFactorService twoFactor;
   private final AuthMetrics metrics;
 
+  /** Tokens are issued (or a second factor demanded) by {@link TwoFactorService}. */
   public OtpLoginService(
       UserAccountRepository users,
       OneTimeTokenService tokens,
       NotificationGateway notifications,
-      TokenService tokenService,
       UserPrincipalService principals,
-      UserSnapshotFactory snapshots,
       AuthMetrics metrics,
       TwoFactorService twoFactor) {
     this.users = users;
     this.tokens = tokens;
     this.notifications = notifications;
-    this.tokenService = tokenService;
     this.principals = principals;
-    this.snapshots = snapshots;
     this.metrics = metrics;
     this.twoFactor = twoFactor;
   }

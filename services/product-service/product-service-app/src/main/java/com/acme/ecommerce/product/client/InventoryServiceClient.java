@@ -37,7 +37,6 @@ public interface InventoryServiceClient {
       @org.springframework.web.bind.annotation.RequestParam("ids") java.util.List<UUID> ids,
       @RequestHeader("X-Internal-Token") String internalToken);
 
-  /** Same read, forwarding the caller's bearer token (inventory reads need authentication). */
   /** Stock rows per (variant, seller, warehouse) for one product (internal). */
   @GetMapping("/internal/inventory/stock/by-product/{productId}")
   java.util.List<InventoryDto.StockRow> stockRows(
@@ -54,9 +53,4 @@ public interface InventoryServiceClient {
   InventoryDto.EnsureResult ensureStock(
       @org.springframework.web.bind.annotation.RequestBody InventoryDto.EnsureRequest body,
       @RequestHeader("X-Internal-Token") String internalToken);
-
-  @GetMapping("/api/inventory/by-product/{productId}")
-  InventoryDto getByProductWithAuth(
-      @PathVariable UUID productId,
-      @RequestHeader(value = "Authorization", required = false) String authorization);
 }

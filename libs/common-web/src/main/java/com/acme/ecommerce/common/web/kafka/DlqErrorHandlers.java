@@ -14,7 +14,6 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.support.ExponentialBackOffWithMaxRetries;
-import org.springframework.kafka.support.serializer.JsonSerializer;
 
 /**
  * Shared dead-letter wiring for every {@code @KafkaListener} container factory: 3 retries with
@@ -27,7 +26,6 @@ import org.springframework.kafka.support.serializer.JsonSerializer;
  * ({@link IllegalArgumentException}, for example a bad UUID, and {@link
  * java.time.DateTimeException}) cannot succeed on retry, so it goes to the DLT at once.
  */
-@SuppressWarnings("removal")
 public final class DlqErrorHandlers {
 
   private static final Logger log = LoggerFactory.getLogger(DlqErrorHandlers.class);
@@ -45,11 +43,10 @@ public final class DlqErrorHandlers {
         new KafkaTemplate<String, byte[]>(
             new DefaultKafkaProducerFactory<String, byte[]>(
                 base, new StringSerializer(), new ByteArraySerializer()));
-    JsonSerializer<Object> json = new JsonSerializer<>();
-    json.setAddTypeInfo(false);
     KafkaTemplate<String, Object> objects =
         new KafkaTemplate<String, Object>(
-            new DefaultKafkaProducerFactory<String, Object>(base, new StringSerializer(), json));
+            new DefaultKafkaProducerFactory<String, Object>(
+                base, new StringSerializer(), KafkaJson.payloadSerializer()));
 
     Map<Class<?>, KafkaOperations<?, ?>> templates = new LinkedHashMap<>();
     templates.put(byte[].class, bytes);

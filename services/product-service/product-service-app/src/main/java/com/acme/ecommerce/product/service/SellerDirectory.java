@@ -39,6 +39,9 @@ public class SellerDirectory {
 
   private record Cached(SellerInfo info, long at) {}
 
+  /** How long an expired entry may still be served while seller-service is down. */
+  private static final long STALE_MAX_MS = 24L * 60 * 60 * 1000;
+
   private final SellerFeignClient client;
   private final Map<UUID, Cached> cache = new ConcurrentHashMap<>();
 
@@ -89,7 +92,21 @@ public class SellerDirectory {
           }
         }
       } catch (RuntimeException e) {
-        log.warn("seller-service lookup failed ({}); using defaults", e.toString());
+        // Stale-while-error (TD-P9-11): an expired entry beats the "Seller" / 4.0 defaults, which
+        // also skew the buy-box score. Only sellers never seen fall back to the defaults.
+        int stale = 0;
+        for (UUID id : missing) {
+          Cached c = cache.get(id);
+          if (c != null && now - c.at() < STALE_MAX_MS) {
+            out.put(id, c.info());
+            stale++;
+          }
+        }
+        log.warn(
+            "seller-service lookup failed ({}); {} of {} served from stale cache, rest default",
+            e.toString(),
+            stale,
+            missing.size());
       }
     }
     return out;

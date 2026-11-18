@@ -49,7 +49,9 @@ public class AdminPaymentQueries {
       /* Provider references for looking the payment up in the Stripe or Razorpay dashboard. */
       String stripePaymentIntentId,
       String providerOrderId,
-      String providerPaymentId) {}
+      String providerPaymentId,
+      /* ORDER, MEMBERSHIP or GIFT_CARD: what orderId identifies (TD-P8-14). */
+      String purpose) {}
 
   public record RefundRow(
       UUID id, BigDecimal amount, String reason, Instant createdAt, String providerRefundId) {}
@@ -57,7 +59,7 @@ public class AdminPaymentQueries {
   private static final String COLS =
       "id, order_id, user_id, method, mode, amount, currency, status, refunded_amount,"
           + " created_at, updated_at, stripe_payment_intent_id, provider_order_id,"
-          + " provider_payment_id";
+          + " provider_payment_id, purpose";
 
   private final JdbcClient jdbc;
 
@@ -163,7 +165,8 @@ public class AdminPaymentQueries {
         instant(rs, "updated_at"),
         rs.getString("stripe_payment_intent_id"),
         rs.getString("provider_order_id"),
-        rs.getString("provider_payment_id"));
+        rs.getString("provider_payment_id"),
+        rs.getString("purpose"));
   }
 
   private static Instant instant(ResultSet rs, String col) throws SQLException {

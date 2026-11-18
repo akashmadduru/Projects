@@ -4,7 +4,7 @@
  */
 
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { AddToCartButton } from '../components/AddToCartButton'
 import { AlertButtons } from '../components/AlertButtons'
 import { Seal, Starburst } from '../components/Atomic'
@@ -79,6 +79,17 @@ function StockLine({ quantity }: { quantity: number | null }) {
   return <p className="font-semibold text-success">In stock</p>
 }
 
+/** The product's hosted 360-degree viewer, if it is an http(s) URL (never `javascript:` etc.). */
+export function safeHttpUrl(raw: string | null | undefined): string | undefined {
+  if (!raw) return undefined
+  try {
+    const url = new URL(raw)
+    return url.protocol === 'https:' || url.protocol === 'http:' ? url.toString() : undefined
+  } catch {
+    return undefined
+  }
+}
+
 function variantPrice(v: ProductVariant, product: Product): number {
   if (v.salePrice && v.salePrice > 0) return v.salePrice
   return v.priceAmount ?? effectivePrice(product)
@@ -102,18 +113,23 @@ export function ProductDetailPage() {
   const options = product?.variantOptions ?? {}
   const hasVariants = variants.length > 0 && Object.keys(options).length > 0
 
-  // The route reuses this component when moving to another product.
+  // The route reuses this component when moving to another product. `?variant=` (a wishlist link)
+  // preselects that variant; otherwise the first available one.
+  const [searchParams] = useSearchParams()
+  const requestedVariant = searchParams.get('variant')
   useEffect(() => {
     setImageIndex(0)
     setQuantity(1)
-    const first = variants.find(isVariantAvailable) ?? variants[0]
+    const first =
+      variants.find((v) => v.id === requestedVariant) ?? variants.find(isVariantAvailable) ?? variants[0]
     setSelected(first ? { ...first.attributes } : {})
-  }, [productId, variants])
+  }, [productId, variants, requestedVariant])
 
   // /products/:id is only an alias: move to the canonical slug URL once known.
   useEffect(() => {
-    if (id && product?.slug) navigate(`/p/${product.slug}`, { replace: true })
-  }, [id, product?.slug, navigate])
+    // Keep the query (?variant=) across the redirect.
+    if (id && product?.slug) navigate(`/p/${product.slug}${requestedVariant ? `?variant=${encodeURIComponent(requestedVariant)}` : ''}`, { replace: true })
+  }, [id, product?.slug, navigate, requestedVariant])
 
   // View beacon, local recently-viewed list and (signed in) server sync.
   useEffect(() => {
@@ -289,6 +305,16 @@ export function ProductDetailPage() {
               </div>
             }
           />
+          {safeHttpUrl(product.view360Url) && (
+            <a
+              href={safeHttpUrl(product.view360Url)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="press mt-3 inline-flex items-center gap-2 rounded-full border-2 border-ink bg-surface px-4 py-2 text-sm font-bold text-on-surface shadow-cta hover:bg-vivid-amber/25"
+            >
+              360° view
+            </a>
+          )}
         </div>
 
         {/* Buy box */}

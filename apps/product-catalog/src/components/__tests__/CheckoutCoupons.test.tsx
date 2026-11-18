@@ -103,8 +103,9 @@ describe('CheckoutCoupons', () => {
     const onApply = vi.fn().mockResolvedValue(false)
     setup({ onApply, error: 'Coupon expired' })
     await user.click(screen.getByRole('button', { name: 'See all 7 coupons' }))
-    await user.click(screen.getByRole('button', { name: 'Apply coupon C20' }))
     const dialog = screen.getByRole('dialog')
+    // C20 is also an inline quick pick behind the dialog, so scope to the dialog.
+    await user.click(within(dialog).getByRole('button', { name: 'Apply coupon C20' }))
     expect(within(dialog).getByRole('alert')).toHaveTextContent('Coupon expired')
   })
 
@@ -116,7 +117,8 @@ describe('CheckoutCoupons', () => {
     await user.type(search, 'c1')
     expect(search).toHaveFocus() // would fail if the dialog remounted on each keystroke
     const rows = within(screen.getByRole('list', { name: 'All available coupons' })).getAllByRole('listitem')
-    expect(rows.map((r) => r.querySelector('.font-mono')?.textContent)).toEqual(['C15', 'C10', 'C01'])
+    // Plain substring match on code and description: "c1" matches C15 and C10, not C01.
+    expect(rows.map((r) => r.querySelector('.font-mono')?.textContent)).toEqual(['C15', 'C10'])
     await user.clear(search)
     await user.type(search, 'zzz')
     expect(screen.getByText(/No coupons match/)).toBeInTheDocument()

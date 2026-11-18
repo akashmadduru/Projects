@@ -183,6 +183,10 @@ public class Order {
   @Column(name = "risk_hold", nullable = false)
   private boolean riskHold;
 
+  /** Fingerprint of the cart this order consumed (null for buy-now and subscription orders). */
+  @Column(name = "cart_fingerprint", updatable = false, length = 64)
+  private String cartFingerprint;
+
   @Column(name = "exchange_quote_id")
   private UUID exchangeQuoteId;
 
@@ -350,6 +354,15 @@ public class Order {
   }
 
   /** Phase 10: risk assessment at placement (hold = needs admin release before fulfilment). */
+  /** Records the cart this order is made from (TD-BE-15: one cart, one order). */
+  public void consumeCart(String fingerprint) {
+    this.cartFingerprint = fingerprint;
+  }
+
+  public String getCartFingerprint() {
+    return cartFingerprint;
+  }
+
   public void applyRisk(int score, List<String> reasons, boolean hold) {
     this.riskScore = score;
     this.riskReasons =

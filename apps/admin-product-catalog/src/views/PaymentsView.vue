@@ -142,7 +142,7 @@ onMounted(load);
           <thead>
             <tr>
               <th scope="col">Payment</th>
-              <th scope="col">Order</th>
+              <th scope="col">For</th>
               <th scope="col">Method</th>
               <th scope="col">Status</th>
               <th scope="col" class="text-right">Amount</th>
@@ -161,7 +161,7 @@ onMounted(load);
               @keydown.enter="open(p)"
             >
               <td class="font-mono text-xs">{{ p.id.slice(0, 8) }}</td>
-              <td class="font-mono text-xs">{{ p.orderId.slice(0, 8) }}</td>
+              <td class="text-xs"><span v-if="p.purpose && p.purpose !== 'ORDER'" class="badge badge-ghost badge-xs mr-1">{{ p.purpose === 'GIFT_CARD' ? 'gift card' : 'membership' }}</span><span class="font-mono">{{ p.orderId.slice(0, 8) }}</span></td>
               <td class="text-sm">{{ p.method }}<span v-if="p.method === 'CARD' || p.mode === 'SIMULATED'" class="badge badge-ghost badge-xs ml-1">{{ p.mode === 'SIMULATED' ? 'sim' : p.mode.toLowerCase() }}</span></td>
               <td><span class="badge badge-sm" :class="statusBadge(p.status)">{{ p.status }}</span></td>
               <td class="text-right tabular-nums">{{ money(p.amount, p.currency) }}</td>

@@ -163,6 +163,7 @@ Request and response shapes for Phases 1–5 are in [api.md](api.md); later phas
 | GET | `/internal/orders/{id}/brief` | InternalOrderLookupController |
 | POST | `/internal/orders/{id}/payment-result` | InternalOrderController |
 | GET | `/internal/orders/by-user/{userId}` | InternalOrderLookupController |
+| GET | `/internal/orders/by-user/{userId}/first-order` | InternalOrderLookupController |
 | GET | `/internal/orders/last-order-dates` | InternalSubscriptionController |
 | GET | `/internal/orders/shipments/{id}` | InternalOrderController |
 | GET | `/internal/privacy/users/{userId}/deletion-blockers` | PrivacyBlockersController |
@@ -295,6 +296,7 @@ Request and response shapes for Phases 1–5 are in [api.md](api.md); later phas
 | POST | `/api/ratings/questions/{questionId}/answers` | RatingController |
 | POST | `/api/ratings/questions/{questionId}/upvote` | RatingController |
 | GET | `/api/admin/ratings` | AdminRatingController |
+| DELETE | `/api/admin/ratings/{id}` | AdminRatingController |
 | GET | `/internal/privacy/users/{userId}/export` | PrivacyExportController |
 
 ## seller-service (25)

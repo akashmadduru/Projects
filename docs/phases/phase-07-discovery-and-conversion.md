@@ -10,17 +10,17 @@
 |---|---|---|---|---|---|---|
 | 1 | **Search autocomplete and suggestions** (products, categories, recent searches) | Most sessions start in the search box | Plain keyword box | product-service, SearchBar | M | ✅ Built (`/api/products/suggest`, recent searches, did-you-mean) ([TD-P7-03](../techdebt/phase7.md#td-p7-03)) |
 | 2 | **Typo-tolerant, relevance-ranked search** (Postgres full-text + trigram first, OpenSearch later) | "iphnoe" must still find iPhone | Substring match | product-service | M | ✅ Built, partial: Postgres full-text + trigram; in-memory ranking over a 2000-id cap, trigram index unused ([TD-P7-03](../techdebt/phase7.md#td-p7-03)) |
-| 3 | **Product variants** (size, colour, storage) with per-variant price, stock and images | Fashion/electronics are unsellable without it | One SKU per product | product-service, inventory-service, PDP, cart | L | ✅ Built, partial: thin variant model (variant stock rows fixed 2026-11-17, residual [TD-P7-22](../techdebt/phase7.md#td-p7-22); [TD-P7-06](../techdebt/phase7.md#td-p7-06), [TD-P7-08](../techdebt/phase7.md#td-p7-08)) |
-| 4 | **Brand and attribute facets** (brand, RAM, size, colour…) driven by category | Amazon's left rail; narrows big catalogues fast | 8 fixed filters | product-service, FilterPanel | M | ✅ Built, partial: counts do not exclude a facet's own filter, no caching ([TD-P7-04](../techdebt/phase7.md#td-p7-04)) |
+| 3 | **Product variants** (size, colour, storage) with per-variant price, stock and images | Fashion/electronics are unsellable without it | One SKU per product | product-service, inventory-service, PDP, cart | L | ✅ Built, partial: thin variant model (variant stock rows fixed 2026-11-17, residual TD-P7-22 (fixed 2026-11-18); [TD-P7-06](../techdebt/phase7.md#td-p7-06), TD-P7-08 (fixed 2026-11-18)) |
+| 4 | **Brand and attribute facets** (brand, RAM, size, colour…) driven by category | Amazon's left rail; narrows big catalogues fast | 8 fixed filters | product-service, FilterPanel | M | ✅ Built: counted in SQL, each facet ignores its own filter, case-insensitive values, repeated URL parameters, 30 s cache per filter (TD-P7-04, fixed 2026-11-18) |
 | 5 | **Pincode delivery check on the product page** ("Delivery by Fri, free") | Removes the biggest pre-cart doubt | — | product page (reuses Phase 6 #6) | S | ✅ Already built in Phase 6 (Phase 6 #6, `PincodeCheck`); kept on the Phase 7 PDP |
 | 6 | **Offers on the product page**: bank offers, coupons that apply, EMI options | Flipkart's conversion driver | — | promotion-service, PDP | M | ✅ Built, partial: bank offers and EMI are display-only, not applied at checkout ([TD-P7-10](../techdebt/phase7.md#td-p7-10)) |
 | 7 | **Deals of the Day / lightning deals** with countdown and limited quantity | Urgency; homepage traffic magnet | Static promo banner | promotion-service, home page, admin | M | ✅ Built; pricing is best-effort if promotion-service is down ([TD-P7-09](../techdebt/phase7.md#td-p7-09)) |
 | 8 | **Recently viewed** and **Customers also viewed / Frequently bought together** | Cross-sell; Amazon attributes a large share of revenue to recommendations | "Related products" only | **new** recommendation-service (start with co-purchase counts from orders) | M | ✅ Built inside product/order/user services (no new recommendation-service); live queries, unauthenticated view tracking ([TD-P7-12](../techdebt/phase7.md#td-p7-12)) |
 | 9 | **Customer Q&A** on product pages (ask, answer, upvote) | Answers pre-purchase questions reviews don't cover | — | rating-service (new module), PDP | M | ✅ Built, partial: no moderation or admin view ([TD-P7-13](../techdebt/phase7.md#td-p7-13)) |
-| 10 | **Review photos/videos** and review filters (by stars, verified, with media) | Social proof; more trusted than seller photos | Text reviews only | rating-service, media upload | M | ✅ Built, partial: photos only (no video); local volume, runs as root ([TD-P7-14](../techdebt/phase7.md#td-p7-14), [TD-P7-15](../techdebt/phase7.md#td-p7-15)) |
+| 10 | **Review photos/videos** and review filters (by stars, verified, with media) | Social proof; more trusted than seller photos | Text reviews only | rating-service, media upload | M | ✅ Built, partial: photos only (no video); local volume ([TD-P7-14](../techdebt/phase7.md#td-p7-14)) |
 | 11 | **Price-drop and back-in-stock alerts** on wishlist items | Brings users back at buying moments | Wishlist without alerts | notification-service, cart-service | S | ✅ Built, partial: client-supplied prices, consumers start at `latest` ([TD-P7-11](../techdebt/phase7.md#td-p7-11)) |
 | 12 | **Compare products** side by side (up to 4) | Key for electronics/appliances | — | storefront | S | ✅ Built (up to 4 products, `/compare`) |
-| 13 | **Image zoom, 360° and full-screen gallery** | Replaces touching the product | Basic gallery | storefront | S | Partial: hover zoom, lightbox and variant image switch built; 360-degree not built ([TD-P7-17](../techdebt/phase7.md#td-p7-17)) |
+| 13 | **Image zoom, 360° and full-screen gallery** | Replaces touching the product | Basic gallery | storefront | S | Built: hover zoom, lightbox (tested) and variant image switch; 360-degree is a link to the product's hosted viewer (`view360Url`), no in-page spin viewer (TD-P7-17, closed 2026-11-18) |
 | 14 | **SEO and shareability**: clean URLs with slugs, breadcrumbs, meta/OG tags, sitemap, share button | Free organic traffic | SPA with id URLs | storefront (SSR/prerender), product-service | M | Partial: slugs, breadcrumbs, meta/OG/JSON-LD (client-side), share button, sitemap built; SSR/prerender not built ([TD-P7-16](../techdebt/phase7.md#td-p7-16)) |
 
 ## Run notes
@@ -28,8 +28,8 @@
 - No new services. New endpoint families: product-service `/api/products/suggest`, `/facets`, `/batch`, `/slug/{slug}`, `/{id}/variants` (admin PUT), `/{id}/views`, `/{id}/also-viewed`, and public `/sitemap.xml`; promotion-service `/api/promotions/offers`, `/deals/active` and admin `/api/admin/deals` (plus `/internal/promotions/deals/*`); rating-service questions/answers/upvotes, review media (`/api/ratings/{id}/media`) and review filters (`stars`, `verified`, `withMedia`); cart-service `/api/alerts`; order-service `/api/recommendations/products/{id}/bought-together`; user-service `/api/users/me/recently-viewed`; inventory-service variant stock (`/api/inventory/variants/{id}`, internal `/internal/inventory/variants`).
 - Seeded demo data: 3 products with 4-6 variants each, 4 active deals ending in 1-3 days, 3 bank offers (HDFC, ICICI, Axis) and EMI plans (display-only).
 - Sitemap: `GET http://localhost:8080/sitemap.xml`; its URLs use `product.storefront-base-url` (default `http://localhost:3000`).
-- Review photos are stored on the `rating-media` docker volume (`/data/media`); rating-service runs as root so the fresh volume is writable ([TD-P7-15](../techdebt/phase7.md#td-p7-15)). `INTERNAL_API_TOKEN` is now also set for product-service.
-- Not built: SSR/prerender and 360-degree images ([TD-P7-16](../techdebt/phase7.md#td-p7-16), [TD-P7-17](../techdebt/phase7.md#td-p7-17)). Search, facets and relevance run in memory over capped id lists ([TD-P7-03](../techdebt/phase7.md#td-p7-03)); storefront main chunk is 584 kB ([TD-P7-18](../techdebt/phase7.md#td-p7-18)).
+- Review photos are stored on the `rating-media` docker volume (`/data/media`); the image creates it owned by the app user, so rating-service runs non-root (TD-P7-15, fixed 2026-11-18). `INTERNAL_API_TOKEN` is now also set for product-service.
+- Not built: SSR/prerender ([TD-P7-16](../techdebt/phase7.md#td-p7-16)); 360-degree is a link out, not an in-page viewer. Search and relevance run in memory over capped id lists ([TD-P7-03](../techdebt/phase7.md#td-p7-03)); the storefront main chunk is about 259 kB after code splitting (TD-P7-18, fixed 2026-11-18).
 - Integration run: 68 of 68 Phase 7 e2e checks and 99 of 99 Phase 6 regression checks passed. The dev DB still holds test data ([TD-P7-20](../techdebt/phase7.md#td-p7-20)).
 - Process risk: a `git stash` by an unknown actor swept uncommitted work and was restored by a 3-way merge; `stash@{0}` is kept as a backup ([TD-P7-02](../techdebt/phase7.md#td-p7-02)). Much of the Phase 6-7 work is still uncommitted, so avoid state-changing git commands until it is.
 
@@ -135,8 +135,8 @@ No database migrations. No new services. No new dependencies.
 #### Verification performed
 
 - Gradle `compileJava` (offline, `eclipse-temurin:25-jdk` container) passed for order, auth, rating, product and gateway. `compileTestJava` passed for gateway and product; auth-service tests were already uncompilable (TD-P6-05).
-- payment-service: the new files compiled with `javac` only (TD-ADM-12).
-- SPA: `vue-tsc --noEmit` and `vite build` are clean. Vitest: 61 of 64 pass; the 3 failures are the pre-existing Node ≥ 25 `localStorage` issue (TD-ADM-11).
+- payment-service: the new files compiled with `javac` only (TD-ADM-12, since built and tested through Gradle).
+- SPA: `vue-tsc --noEmit` and `vite build` are clean. Vitest: 61 of 64 pass; the 3 failures are the pre-existing Node ≥ 25 `localStorage` issue (TD-ADM-11, fixed 2026-11-18 with a test setup file).
 - Not done: running anything against live services.
 
 ### Decisions
@@ -166,7 +166,7 @@ Roles and status are columns of `auth.users` and `auth.user_roles`, and auth-ser
 **Why:** It matches the checkbox UI, is idempotent, and gives one place to run the last-admin check.
 
 #### D7. URL-level `/api/admin/**` rules at both the gateway and auth-service
-**Why:** auth-service has no method security enabled, so a URL rule protects any future controller there by default. The gateway rule is defence in depth for services that forget an annotation. Trade-off: TD-ADM-13.
+**Why:** auth-service has no method security enabled, so a URL rule protects any future controller there by default. The gateway rule is defence in depth for services that forget an annotation. The edge rule admits all staff roles (ADMIN, SUPPORT, FINANCE, CATALOG_MANAGER); each service narrows further.
 
 #### D8. Payments ledger is read-only
 **Why:** Refunds must keep order, stock and payment state consistent. The return flow (`ReturnService.refund`) already does this. A second refund path from the ledger would bypass restocking and the order's `refundedAmount`.

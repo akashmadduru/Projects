@@ -86,6 +86,10 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class ProductCatalogService {
 
+  /** Creates stock rows for new variants right after commit (TD-P7-22); absent in unit tests. */
+  @org.springframework.beans.factory.annotation.Autowired(required = false)
+  private com.acme.ecommerce.product.stock.CatalogStockSync stockSync;
+
   private final ProductRepository products;
   private final ProductImageRepository images;
   private final ProductVariantRepository variantRepo;
@@ -135,7 +139,7 @@ public class ProductCatalogService {
     boolean relevance =
         hasQuery && pageable.getSort().stream().anyMatch(o -> o.getProperty().equals("relevance"));
     Page<Product> page;
-    if (relevance) {
+    if (relevance && ranked != null) {
       Map<UUID, Integer> rank = new HashMap<>();
       for (int i = 0; i < ranked.size(); i++) {
         rank.put(ranked.get(i), i);
@@ -301,6 +305,9 @@ public class ProductCatalogService {
     } catch (DataIntegrityViolationException e) {
       throw new ResourceConflictException("Variant sku already exists on another product", e);
     }
+    if (stockSync != null) {
+      stockSync.ensureProductAfterCommit(productId);
+    }
     return variantResponses(productId, false);
   }
 
@@ -339,6 +346,14 @@ public class ProductCatalogService {
   }
 
   /**
+   * Publishes PRODUCT_UPDATED for a product changed outside {@link #update} (moderation decisions,
+   * seller bulk edits). Must run inside the transaction that made the change.
+   */
+  public void publishUpdated(UUID id) {
+    events.publishAfterCommit(ProductEventType.PRODUCT_UPDATED, findById(id));
+  }
+
+  /**
    * A single product, including its images.
    *
    * @param id the product identifier
@@ -348,14 +363,6 @@ public class ProductCatalogService {
    *     Optional} returned to the controller: the translation to an HTTP status must happen in
    *     exactly one place in the platform, and that place is the advice.
    */
-  /**
-   * Publishes PRODUCT_UPDATED for a product changed outside {@link #update} (moderation decisions,
-   * seller bulk edits). Must run inside the transaction that made the change.
-   */
-  public void publishUpdated(UUID id) {
-    events.publishAfterCommit(ProductEventType.PRODUCT_UPDATED, findById(id));
-  }
-
   public ProductResponse findById(UUID id) {
     Product product =
         products.findById(id).orElseThrow(() -> new ResourceNotFoundException("Product", id));
@@ -390,7 +397,7 @@ public class ProductCatalogService {
             .categoryId(request.getCategoryId())
             .sellerName(request.getSellerName())
             .brand(blankToNull(request.getBrand()))
-            .attributes(writeSpecifications(request.getAttributes()))
+            .attributes(writeAttributes(request.getAttributes()))
             .slug(uniqueSlug(request.getName()))
             .sellerId(sellerId)
             .listedBy(listedBy)
@@ -398,6 +405,10 @@ public class ProductCatalogService {
             .createdAt(now)
             .updatedAt(now)
             .build();
+    if (request.getListPrice() != null) {
+      applyListPrice(product, request.getListPrice(), request.getPriceAmount());
+      applySellingPrice(product, request.getPriceAmount());
+    }
     if ("SELLER".equals(listedBy)) {
       // A marketplace seller's product is hidden until an admin approves it (TD-P9-03).
       product.setActive(false);
@@ -421,8 +432,17 @@ public class ProductCatalogService {
     // after the product itself has one - hence after the saveAndFlush above.
     List<ProductImage> savedImages =
         images.saveAll(toImageEntities(product.getId(), request.getImages(), now));
+    // Variants in the same transaction (TD-P7-19): a bad variant rolls the whole create back.
+    if (request.getVariants() != null) {
+      replaceVariants(product.getId(), request.getVariants());
+    }
 
-    ProductResponse response = toResponse(product, savedImages);
+    List<ProductVariantResponse> createdVariants =
+        request.getVariants() == null ? List.of() : variantResponses(product.getId(), false);
+    ProductResponse response =
+        createdVariants.isEmpty()
+            ? toResponse(product, savedImages)
+            : toResponse(product, savedImages, createdVariants, true);
     if (Offer.PLATFORM_SELLER_ID.equals(sellerId)) {
       offerService.upsertPlatformOffer(
           product.getId(), request.getPriceAmount(), request.getPriceCurrency());
@@ -473,21 +493,10 @@ public class ProductCatalogService {
     Instant now = timeProvider.now();
 
     product.setName(request.getName());
-    product.setPriceAmount(request.getPriceAmount());
-    if (product.getSalePrice() != null) {
-      // sale_price mirrors the selling price; leaving it stale made the storefront keep showing
-      // the old price after an admin price edit.
-      product.setSalePrice(request.getPriceAmount());
-      if (product.getListPrice() != null && product.getListPrice().signum() > 0) {
-        product.setDiscountPercent(
-            product
-                .getListPrice()
-                .subtract(request.getPriceAmount())
-                .multiply(java.math.BigDecimal.valueOf(100))
-                .divide(product.getListPrice(), 2, RoundingMode.HALF_UP)
-                .max(java.math.BigDecimal.ZERO));
-      }
+    if (request.getListPrice() != null) {
+      applyListPrice(product, request.getListPrice(), request.getPriceAmount());
     }
+    applySellingPrice(product, request.getPriceAmount());
     product.setPriceCurrency(request.getPriceCurrency());
     product.setActive(request.isActive());
     if (request.isActive() && !"APPROVED".equals(product.getModerationStatus())) {
@@ -502,7 +511,8 @@ public class ProductCatalogService {
       product.setBrand(blankToNull(request.getBrand()));
     }
     if (request.getAttributes() != null) {
-      product.setAttributes(writeSpecifications(request.getAttributes()));
+      // null keeps the attributes; an empty object clears them.
+      product.setAttributes(writeAttributes(request.getAttributes()));
     }
     product.setSpecifications(writeSpecifications(request.getSpecifications()));
     product.setUpdatedAt(now);
@@ -514,17 +524,28 @@ public class ProductCatalogService {
     // stale value) - a client acting on that response would send the next PUT with
     // a version that is already wrong.
     Product saved = products.saveAndFlush(product);
-    List<String> previousImageUrls =
-        images.findByProductIdOrderByDisplayOrderAsc(id).stream()
-            .map(ProductImage::getUrl)
-            .toList();
-    images.deleteByProductId(id);
-    List<ProductImage> savedImages = images.saveAll(toImageEntities(id, request.getImages(), now));
-    // Images the update dropped must also leave the image server (files are keyed by URL).
-    Set<String> keptImageUrls = new HashSet<>();
-    savedImages.forEach(i -> keptImageUrls.add(i.getUrl()));
-    deleteImageFilesAfterCommit(
-        previousImageUrls.stream().filter(u -> !keptImageUrls.contains(u)).toList());
+    List<ProductImage> savedImages;
+    if (request.getImages() == null) {
+      // Omitted = keep. (It used to delete every image row and file: the admin console omits
+      // images whenever the user did not touch them.)
+      savedImages = images.findByProductIdOrderByDisplayOrderAsc(id);
+    } else {
+      List<String> previousImageUrls =
+          images.findByProductIdOrderByDisplayOrderAsc(id).stream()
+              .map(ProductImage::getUrl)
+              .toList();
+      images.deleteByProductId(id);
+      savedImages = images.saveAll(toImageEntities(id, request.getImages(), now));
+      // Images the update dropped must also leave the image server (files are keyed by URL).
+      Set<String> keptImageUrls = new HashSet<>();
+      savedImages.forEach(i -> keptImageUrls.add(i.getUrl()));
+      deleteImageFilesAfterCommit(
+          previousImageUrls.stream().filter(u -> !keptImageUrls.contains(u)).toList());
+    }
+    // Variants in the same transaction (TD-P7-19); null leaves them as they are.
+    if (request.getVariants() != null) {
+      replaceVariants(id, request.getVariants());
+    }
     if (Offer.PLATFORM_SELLER_ID.equals(saved.getSellerId())) {
       offerService.upsertPlatformOffer(id, request.getPriceAmount(), request.getPriceCurrency());
       offerService.syncPrices(id);
@@ -537,15 +558,6 @@ public class ProductCatalogService {
   }
 
   /**
-   * Deletes a product.
-   *
-   * <p>Any images belonging to it are removed by the database's {@code ON DELETE CASCADE} on {@code
-   * product.product_images.product_id} - no explicit repository call needed here.
-   *
-   * @param id the product identifier
-   * @throws ResourceNotFoundException when no such product exists
-   */
-  /**
    * Writes the buy-box price into the product row (and publishes PRODUCT_UPDATED when it moved).
    */
   @Transactional
@@ -554,18 +566,7 @@ public class ProductCatalogService {
     if (p == null || p.getPriceAmount() != null && p.getPriceAmount().compareTo(effective) == 0) {
       return;
     }
-    p.setPriceAmount(effective);
-    if (p.getSalePrice() != null) {
-      p.setSalePrice(effective);
-      if (p.getListPrice() != null && p.getListPrice().signum() > 0) {
-        p.setDiscountPercent(
-            p.getListPrice()
-                .subtract(effective)
-                .multiply(java.math.BigDecimal.valueOf(100))
-                .divide(p.getListPrice(), 2, RoundingMode.HALF_UP)
-                .max(java.math.BigDecimal.ZERO));
-      }
-    }
+    applySellingPrice(p, effective);
     p.setUpdatedAt(timeProvider.now());
     Product saved = products.saveAndFlush(p);
     List<ProductVariantResponse> variantList = variantResponses(id, false);
@@ -578,6 +579,15 @@ public class ProductCatalogService {
             !variantList.isEmpty()));
   }
 
+  /**
+   * Deletes a product.
+   *
+   * <p>Any images belonging to it are removed by the database's {@code ON DELETE CASCADE} on {@code
+   * product.product_images.product_id} - no explicit repository call needed here.
+   *
+   * @param id the product identifier
+   * @throws ResourceNotFoundException when no such product exists
+   */
   @Transactional
   public void delete(UUID id) {
     Product product =
@@ -811,6 +821,50 @@ public class ProductCatalogService {
    *     unreachable for a map that arrived via a JSON-deserialized request body, but handled
    *     explicitly rather than left to propagate a raw Jackson exception.
    */
+  /** Facet attributes: an empty object is stored as null ("no attributes"). */
+  private String writeAttributes(Map<String, Object> attributes) {
+    return attributes == null || attributes.isEmpty() ? null : writeSpecifications(attributes);
+  }
+
+  /**
+   * The selling price. {@code sale_price} mirrors it whenever the product shows a discount (a sale
+   * price or a list price is set), and {@code discount_percent} is recomputed against the list
+   * price, so the price customers pay always follows an edit.
+   */
+  static void applySellingPrice(Product product, java.math.BigDecimal price) {
+    product.setPriceAmount(price);
+    boolean hasList = product.getListPrice() != null && product.getListPrice().signum() > 0;
+    if (product.getSalePrice() != null || hasList) {
+      product.setSalePrice(price);
+    }
+    if (hasList) {
+      product.setDiscountPercent(
+          product
+              .getListPrice()
+              .subtract(price)
+              .multiply(java.math.BigDecimal.valueOf(100))
+              .divide(product.getListPrice(), 2, RoundingMode.HALF_UP)
+              .max(java.math.BigDecimal.ZERO));
+    }
+  }
+
+  /**
+   * The list price (MRP) shown struck through. {@code 0} clears it (and the discount); a positive
+   * value must not be below the selling price.
+   */
+  static void applyListPrice(
+      Product product, java.math.BigDecimal listPrice, java.math.BigDecimal sellingPrice) {
+    if (listPrice.signum() == 0) {
+      product.setListPrice(null);
+      product.setDiscountPercent(null);
+      return;
+    }
+    if (sellingPrice != null && listPrice.compareTo(sellingPrice) < 0) {
+      throw ValidationException.forField("listPrice", "must not be below priceAmount");
+    }
+    product.setListPrice(listPrice);
+  }
+
   private String writeSpecifications(Map<String, Object> specifications) {
     if (specifications == null) {
       return null;

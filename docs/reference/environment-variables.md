@@ -48,7 +48,7 @@ service-level setting (add it under that service's `env:` in `values.yaml`). Rel
 |---|---|---|---|---|---|
 | `AUTH_ALLOWED_REDIRECT_URIS` | auth | `http://localhost:5173/auth/callback` |  | .env + helm | Comma-separated exact URLs the SPAs may be redirected to after sign-in. No wildcards. |
 | `AUTH_COOKIE_SECURE` | auth | `false` |  | .env + helm | Marks the refresh-token cookie `Secure` (HTTPS only). `true` everywhere except local HTTP. |
-| `AUTH_DATA_KEY` 🔒 | auth | `""` |  | .env + helm | AES-256 key (base64, 32 bytes) that encrypts two-factor secrets at rest. Blank: the service starts, but enabling two-factor fails. Losing or changing it locks existing 2FA users out. |
+| `AUTH_DATA_KEY` 🔒 | auth | `""` |  | .env + helm | AES-256 key (base64, 32 bytes) that encrypts two-factor secrets at rest; a key derived from it also hashes one-time codes (OTP, phone verification). Blank: the service starts, but enabling two-factor fails and codes are hashed without a server secret (a warning is logged). Losing or changing it locks existing 2FA users out and invalidates codes in flight. |
 | `AUTH_DEFAULT_REDIRECT_URI` | auth | `http://localhost:5173/auth/callback` |  | .env + helm | Redirect used when the caller does not name one. |
 | `AUTH_JWT_AUDIENCES` | all services | `ecommerce-platform` |  | .env + helm | Token audience (`aud`). Same rule as the issuer. |
 | `AUTH_JWT_ISSUER` | all services | `https://auth.acme-ecommerce.internal` |  | .env + helm | Token issuer (`iss`). Must be identical in auth-service, the gateway and every resource server, or every request fails with `invalid_token`. |
@@ -111,8 +111,8 @@ service-level setting (add it under that service's `env:` in `values.yaml`). Rel
 | `SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH` | notification | _Spring default_ |  | compose + helm | SMTP authentication on/off. `true` with a real provider. |
 | `SPRING_MAIL_PROPERTIES_MAIL_SMTP_SSL_ENABLE` | notification | _Spring default_ |  | compose + helm | Implicit TLS (port 465). |
 | `SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE` | notification | _Spring default_ |  | compose + helm | Upgrade the SMTP connection with STARTTLS (port 587). |
-| `VAPID_PRIVATE_KEY` 🔒 | notification | `""` |  | .env | Browser-push private key. Blank: generated on first start. |
-| `VAPID_PUBLIC_KEY` | notification | `""` |  | .env | Browser-push public key. Blank: generated on first start and stored in the database. |
+| `VAPID_PRIVATE_KEY` 🔒 | notification | `""` |  | .env | Browser-push private key, paired with `VAPID_PUBLIC_KEY`. Required for web push under `prod`, where it is never generated or stored in the database. |
+| `VAPID_PUBLIC_KEY` | notification | `""` |  | .env | Browser-push public key (base64url; `npx web-push generate-vapid-keys`). Blank outside `prod`: generated on first start and stored in the database. Blank under `prod`: web push is off (an ERROR is logged). Changing the pair invalidates every browser subscription. |
 | `VAPID_SUBJECT` | notification | `mailto:admin@acme.local` |  | .env + helm | Contact (`mailto:`) sent to push services. |
 
 ## Edge, CORS and rate limits

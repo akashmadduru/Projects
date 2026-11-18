@@ -86,7 +86,7 @@
     },
     "AUTH_DATA_KEY": {
       "group": "Identity and tokens",
-      "text": "AES-256 key (base64, 32 bytes) that encrypts two-factor secrets at rest. Blank: the service starts, but enabling two-factor fails. Losing or changing it locks existing 2FA users out."
+      "text": "AES-256 key (base64, 32 bytes) that encrypts two-factor secrets at rest; a key derived from it also hashes one-time codes (OTP, phone verification). Blank: the service starts, but enabling two-factor fails and codes are hashed without a server secret (a warning is logged). Losing or changing it locks existing 2FA users out and invalidates codes in flight."
     },
     "AUTH_STATE_COOKIE_SECRET": {
       "group": "Identity and tokens",
@@ -284,11 +284,11 @@
     "VAPID_PUBLIC_KEY": {
       "group": "Email, SMS and push",
       "secret": false,
-      "text": "Browser-push public key. Blank: generated on first start and stored in the database."
+      "text": "Browser-push public key (base64url; `npx web-push generate-vapid-keys`). Blank outside `prod`: generated on first start and stored in the database. Blank under `prod`: web push is off (an ERROR is logged). Changing the pair invalidates every browser subscription."
     },
     "VAPID_PRIVATE_KEY": {
       "group": "Email, SMS and push",
-      "text": "Browser-push private key. Blank: generated on first start."
+      "text": "Browser-push private key, paired with `VAPID_PUBLIC_KEY`. Required for web push under `prod`, where it is never generated or stored in the database."
     },
     "VAPID_SUBJECT": {
       "group": "Email, SMS and push",

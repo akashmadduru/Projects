@@ -52,6 +52,12 @@ spring:
       # the caller's decision, informed by the 503 the circuit breaker returns.
       retry:
         enabled: false
+      # The load balancer keeps its own copy of the instance list, 35s by default.
+      # On top of the 5s registry fetch that left routes pointing at a restarted
+      # instance's old address for 30-40s (503s after every restart, TD-BE-08).
+      # 5s matches registry-fetch-interval-seconds, so a change is seen within ~10s.
+      cache:
+        ttl: 5s
 
     gateway:
       server:

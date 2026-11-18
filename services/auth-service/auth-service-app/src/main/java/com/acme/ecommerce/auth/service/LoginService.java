@@ -3,7 +3,6 @@ package com.acme.ecommerce.auth.service;
 import com.acme.ecommerce.auth.api.AuthErrorCode;
 import com.acme.ecommerce.auth.api.dto.AuthMethod;
 import com.acme.ecommerce.auth.api.dto.LoginRequest;
-import com.acme.ecommerce.auth.cache.UserSnapshotFactory;
 import com.acme.ecommerce.auth.error.AuthException;
 import com.acme.ecommerce.auth.metrics.AuthMetrics;
 import com.acme.ecommerce.auth.security.AuthUserDetails;
@@ -48,23 +47,18 @@ public class LoginService {
 
   private final AuthenticationManager authenticationManager;
   private final LoginAttemptService loginAttempts;
-  private final TokenService tokenService;
   private final AuthMetrics metrics;
-  private final UserSnapshotFactory snapshots;
   private final TwoFactorService twoFactor;
 
+  /** Tokens are issued (or a second factor demanded) by {@link TwoFactorService}. */
   public LoginService(
       AuthenticationManager authenticationManager,
       LoginAttemptService loginAttempts,
-      TokenService tokenService,
       AuthMetrics metrics,
-      UserSnapshotFactory snapshots,
       TwoFactorService twoFactor) {
     this.authenticationManager = authenticationManager;
     this.loginAttempts = loginAttempts;
-    this.tokenService = tokenService;
     this.metrics = metrics;
-    this.snapshots = snapshots;
     this.twoFactor = twoFactor;
   }
 

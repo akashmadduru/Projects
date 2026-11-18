@@ -434,7 +434,7 @@ public class SellerCatalogService {
     final String currencyFinal = currency;
     boolean wasCreated = existing == null;
     UUID productId;
-    if (wasCreated) {
+    if (existing == null) {
       boolean platform = Offer.PLATFORM_SELLER_ID.equals(ctx.sellerId());
       productId =
           tx.execute(
@@ -466,10 +466,11 @@ public class SellerCatalogService {
                 return p.getId();
               });
     } else {
-      productId = existing.getId();
+      UUID existingId = existing.getId();
+      productId = existingId;
       tx.executeWithoutResult(
           s -> {
-            Product e = products.findById(existing.getId()).orElseThrow();
+            Product e = products.findById(existingId).orElseThrow();
             if ("REJECTED".equals(e.getModerationStatus())) {
               // A rejected listing that the seller edits goes back into the review queue.
               e.setModerationStatus("PENDING_REVIEW");

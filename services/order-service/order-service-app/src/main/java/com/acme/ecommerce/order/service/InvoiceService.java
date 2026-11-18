@@ -108,7 +108,8 @@ public class InvoiceService {
                 && !"Acme Retail".equalsIgnoreCase(ship.sellerName())
             ? ship.sellerName()
             : null;
-    String otherSellerWarehouse = otherSellerName == null || ship == null ? null : ship.warehouseCode();
+    String otherSellerWarehouse =
+        otherSellerName == null || ship == null ? null : ship.warehouseCode();
     String rule = "-".repeat(WIDTH_CHARS);
 
     lines.add(new Line("TAX INVOICE", true, 16));

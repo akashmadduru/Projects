@@ -59,6 +59,14 @@ describe('apiFetch', () => {
     expect(calls[0]?.headers.get('Authorization')).toBe('Bearer token-1')
   })
 
+  it('never sends the bearer token to another origin (TD-SEC-11)', async () => {
+    setAccessToken('token-1')
+    stubFetch(() => json(200, { ok: true }))
+
+    await apiFetch('https://elsewhere.example/api/products')
+    expect(calls[0]?.headers.get('Authorization')).toBeNull()
+  })
+
   it('adds query parameters to the URL', async () => {
     stubFetch(() => json(200, {}))
 

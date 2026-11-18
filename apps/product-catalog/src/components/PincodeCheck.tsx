@@ -55,10 +55,12 @@ export function PincodeCheck({ price, currency }: Props) {
     }
   }
 
-  // Re-check a remembered pincode when the product (price) changes.
+  // Re-check a remembered pincode when the product (price) changes. `check` is recreated every
+  // render; depending on it would re-run this on every render, so only price/currency trigger it.
   useEffect(() => {
     const stored = readStored()
     if (stored) void check(stored)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [price, currency])
 
   return (

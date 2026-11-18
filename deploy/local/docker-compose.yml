@@ -763,8 +763,10 @@ services:
       RATING_MEDIA_DIR: /data/media
       # Phase 10 privacy: /internal/privacy/** guard
       INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?set INTERNAL_API_TOKEN in deploy/local/.env}
-    # Review photos. Root so the freshly created named volume is writable (see tech debt).
-    user: "0:0"
+    # Review photos. The image creates /data/media owned by the app user, so a new volume is
+    # writable without root. A volume created before 2026-11-18 is root-owned: fix it once with
+    #   docker compose run --rm --user 0 --entrypoint chown rating-service -R spring:spring /data/media
+    # (or `docker compose down -v`). See TD-P7-15.
     volumes:
       - rating-media:/data/media
     ports:

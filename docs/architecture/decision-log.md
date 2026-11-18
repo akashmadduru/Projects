@@ -8,7 +8,7 @@ Phase-specific decisions live in the [phase pages](../phases/README.md); foundat
 |---|---|---|
 | 5 | Optimistic locking via JPA `@Version` | ✅ Holds for catalog and stock writes |
 | 4 | Event choreography, not orchestration | 🟡 Holds for catalog/inventory/rating. Checkout (Phase 5–6) is orchestrated synchronously by order-service ([Phase 5 D5](../phases/phase-05-customer-accounts.md#decisions)). |
-| 3 | Eventual consistency across services | ✅ Holds. Gap: no outbox, so a lost event is never re-sent ([TD-P6-01](../techdebt/phase6.md#td-p6-01)). |
+| 3 | Eventual consistency across services | ✅ Holds. order-service writes events and side effects to a transactional outbox (2026-11-17); other services still publish best effort ([TD-P6-33](../techdebt/phase6.md#td-p6-33)). |
 | 2 | Feign only for reads, not writes | ❌ **Superseded in Phase 6.** order-service now writes to other services over Feign through `/internal/**` endpoints: stock reservations, payments and refunds, coupon redemption, wallet debit/credit, coins, exchange quotes. |
 | 1 | No schema registry; event classes duplicated | ✅ Holds, although the trigger it set for revisiting it ("a second consumer") has been reached: `product.events` and `inventory.events` have 2 consumers each, `order.events` 3, `user.events` 9. |
 
@@ -212,7 +212,7 @@ InventoryEventListener.onInventoryEvent(event) {
 
 > **Superseded (Phase 6).** Kept for the reasoning. Writes now go through `/internal/**` endpoints
 > guarded by the shared `X-Internal-Token` (TD-P6-12), and cross-service writes after the order
-> commit are best-effort (TD-P6-01).
+> commit go through order-service's transactional outbox and are retried (TD-P6-01, fixed 2026-11-17).
 
 **Phase:** 3 (catalog enrichment aggregate read)  
 **Status:** see the table at the top  

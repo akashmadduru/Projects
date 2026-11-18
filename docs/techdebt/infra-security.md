@@ -9,13 +9,6 @@ Index: [README](README.md)
 - **Risk:** The secret was pasted into plaintext and handled during this work; anyone with the machine or a shared copy has it.
 - **Fix:** Rotate the secret in Google Cloud Console and update `deploy/local/.env`; use a secrets manager outside local dev. Confirm with `git log -p -- deploy/local/.env` that it was never committed.
 
-<a id="td-sec-03"></a>
-## TD-SEC-03 Dev DB passwords committed
-- **Severity / Effort:** Med / S
-- **Where:** `deploy/local/.env.example` (`USER_DB_PASSWORD`, `CART_DB_PASSWORD`, `ORDER_DB_PASSWORD`), `deploy/local/scripts/create-customer-dbs.sql`, `deploy/local/postgres/init/01-schemas.sql`. Compose requires them via `:?`.
-- **Risk:** Throwaway values, same pattern as sibling services; dangerous if reused outside local dev.
-- **Fix:** Generate per-environment passwords; remove literals from SQL (use psql variables).
-
 <a id="td-sec-04"></a>
 ## TD-SEC-04 Open registration by default
 - **Severity / Effort:** Med / S
@@ -30,13 +23,6 @@ Index: [README](README.md)
 - **Risk:** Init scripts run only on an empty volume. Existing environments must run the script by hand, or user/cart/order services fail to start. No migration runner for infra.
 - **Fix:** A one-shot `db-bootstrap` compose service that runs idempotent role/db creation on every `up`.
 
-<a id="td-sec-06"></a>
-## TD-SEC-06 Dev admin seed removed, no replacement
-- **Severity / Effort:** Med / S
-- **Where:** `deploy/local/postgres/init/01-schemas.sql`. The old seed inserted into `auth.users` before Flyway had created it (broken).
-- **Risk:** No documented way to get a first ADMIN account for the admin SPA.
-- **Fix:** Dev-only bootstrap in auth-service (property-gated) or a documented SQL step.
-
 <a id="td-sec-07"></a>
 ## TD-SEC-07 rating-service not runnable
 - **Severity / Effort:** Med / M
@@ -50,41 +36,6 @@ Index: [README](README.md)
 - **Where:** auth-service `FederatedIdentityResolver` (unchanged) and the storefront login page.
 - **Risk:** A Google login whose email matches a password account is resolved by auth-service as-is; the storefront does not explain or confirm linking.
 - **Fix:** Confirm-linking step requiring the existing password.
-
-<a id="td-sec-09"></a>
-## TD-SEC-09 Prod cookie/redirect defaults must be overridden
-- **Severity / Effort:** Med / S
-- **Where:** `services/auth-service/auth-service-app/src/main/resources/application.yml` (`AUTH_COOKIE_SECURE` default false), `deploy/local/docker-compose.yml` (`AUTH_ALLOWED_REDIRECT_URIS` defaults to localhost 5173/3000).
-- **Risk:** Carried into a real deployment, the refresh cookie travels over HTTP and localhost redirects are accepted.
-- **Fix:** Set `AUTH_COOKIE_SECURE=true` and an HTTPS-only allow-list explicitly in prod; confirm the prod profile's `secure: true` is active.
-
-<a id="td-sec-10"></a>
-## TD-SEC-10 Feign token relay goes to any `services.*.url` override
-- **Severity / Effort:** Low / S
-- **Where:** order-service `CartFeignClient`, `UserFeignClient`, `ProductFeignClient` (`url=${services.x.url:}`); `libs/common-web/.../CorrelationAndAuthForwardingInterceptor.java` forwards `Authorization` to every Feign target.
-- **Risk:** An operator-set override pointing outside the cluster would receive user tokens. Needs deployment config access.
-- **Fix:** Never set the overrides outside local dev; optionally assert internal hosts at startup or relay only for known client names.
-
-<a id="td-sec-11"></a>
-## TD-SEC-11 `http.ts` attaches bearer token to absolute URLs
-- **Severity / Effort:** Low / S
-- **Where:** `apps/product-catalog/src/lib/http.ts` (`buildUrl` accepts absolute URLs; `send` always adds `Authorization`).
-- **Risk:** All callers use relative `/api/*` today; a future absolute or user-influenced URL would leak the token.
-- **Fix:** Attach the header only when the request origin equals `window.location.origin`.
-
-<a id="td-sec-12"></a>
-## TD-SEC-12 Non-UUID JWT `sub` returns 500
-- **Severity / Effort:** Low / S
-- **Where:** `UserController`, `CartController`, `OrderController` (`UUID.fromString(jwt.getSubject())`).
-- **Risk:** Cannot happen with auth-service tokens; robustness only.
-- **Fix:** Map `IllegalArgumentException` from subject parsing to 401.
-
-<a id="td-sec-13"></a>
-## TD-SEC-13 DB `CONNECT` not revoked from PUBLIC
-- **Severity / Effort:** Low / S
-- **Where:** `deploy/local/postgres/init/01-schemas.sql`, `deploy/local/scripts/create-customer-dbs.sql` (all service DBs, matching existing siblings).
-- **Risk:** Any role can connect; tables are owner-only, so no data access today.
-- **Fix:** `REVOKE CONNECT ON DATABASE <db> FROM PUBLIC` for every service database.
 
 <a id="td-sec-14"></a>
 ## TD-SEC-14 Database dumps with credential material remain in git history

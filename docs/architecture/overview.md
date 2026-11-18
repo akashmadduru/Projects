@@ -47,7 +47,7 @@ described in their [phase pages](../phases/README.md), and every endpoint is lis
 | `audit.events` | auth-service and `common-web` `AuditPublisher` | support-service |
 
 Phase 5 to 10 changes to the principles below: order-service orchestrates checkout synchronously
-(Phase 5 decision D5); there is no transactional outbox yet, so post-commit events can be lost (TD-P6-01).
+(Phase 5 decision D5); order-service records its events and follow-up calls in a transactional outbox and a relay delivers them with retries (TD-P6-01, fixed 2026-11-17); other services still publish best effort (TD-P6-33).
 
 
 ## Table of Contents
@@ -400,7 +400,7 @@ All asynchronous, service-to-service updates flow through Kafka.
 
 | Limitation | Tracked as |
 |---|---|
-| No transactional outbox: an event or a post-commit side effect lost between commit and send is never retried | [TD-P6-01](../techdebt/phase6.md#td-p6-01) |
+| Only order-service has a transactional outbox; other services can still lose an event between commit and send | [TD-P6-33](../techdebt/phase6.md#td-p6-33) |
 | Single Kafka broker, replication factor 1, PLAINTEXT | [technical audit](../audit/technical-audit.md#8-security-audit) |
 | One shared `INTERNAL_API_TOKEN` for every `/internal/**` call | TD-P6-12 |
 | No gateway rate limiting; auth's Bucket4j limits are per instance | [api.md](../reference/api.md#rate-limits) |

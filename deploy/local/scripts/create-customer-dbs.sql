@@ -111,3 +111,13 @@ ALTER DATABASE support_db SET search_path TO public;
 -- Lives in `public` (not `product` like pg_trgm): this runs before Flyway creates `product`.
 \connect product_db
 CREATE EXTENSION IF NOT EXISTS vector SCHEMA public;
+
+-- TD-SEC-13: only each database's owner (and superusers) may connect, as on AWS (db-bootstrap.yaml).
+-- Idempotent; covers every service database that exists when this runs.
+DO $$
+DECLARE d text;
+BEGIN
+  FOR d IN SELECT datname FROM pg_database WHERE datname LIKE '%\_db' LOOP
+    EXECUTE format('REVOKE CONNECT ON DATABASE %I FROM PUBLIC', d);
+  END LOOP;
+END $$;

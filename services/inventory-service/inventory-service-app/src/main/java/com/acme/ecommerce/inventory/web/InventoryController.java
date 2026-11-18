@@ -75,8 +75,11 @@ public class InventoryController {
   @GetMapping
   public PagedModel<InventoryResponse> list(
       @PageableDefault(size = DEFAULT_PAGE_SIZE, sort = "productId", direction = Sort.Direction.ASC)
-          Pageable pageable) {
-    return new PagedModel<>(inventory.list(pageable));
+          Pageable pageable,
+      @org.springframework.web.bind.annotation.RequestParam(defaultValue = "false")
+          boolean lowStock) {
+    // lowStock=true: rows at or below their own threshold; totalElements is the true count.
+    return new PagedModel<>(lowStock ? inventory.listLowStock(pageable) : inventory.list(pageable));
   }
 
   /**

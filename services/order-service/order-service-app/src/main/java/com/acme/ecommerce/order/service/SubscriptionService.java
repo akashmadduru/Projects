@@ -139,7 +139,7 @@ public class SubscriptionService {
     } catch (FeignException e) {
       throw new CodedException(ErrorCode.PRODUCT_UNAVAILABLE, "Product is not available");
     }
-    if (!p.active()) {
+    if (!Boolean.TRUE.equals(p.active())) {
       throw new CodedException(ErrorCode.PRODUCT_UNAVAILABLE, "Product is not available");
     }
     boolean hasVariants =

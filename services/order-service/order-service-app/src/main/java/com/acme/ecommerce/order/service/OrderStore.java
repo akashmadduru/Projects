@@ -16,7 +16,6 @@ import com.acme.ecommerce.order.config.OrderProperties;
 import com.acme.ecommerce.order.domain.HistoryActor;
 import com.acme.ecommerce.order.domain.Order;
 import com.acme.ecommerce.order.domain.Order.ReturnLine;
-import com.acme.ecommerce.order.domain.OrderItem;
 import com.acme.ecommerce.order.domain.OrderReturn;
 import com.acme.ecommerce.order.domain.OrderReturnItem;
 import com.acme.ecommerce.order.domain.OrderShipment;
@@ -124,6 +123,12 @@ public class OrderStore {
             });
   }
 
+  /** The live (not cancelled) order made from this cart, if any (TD-BE-15). */
+  @Transactional(readOnly = true)
+  public Optional<UUID> findActiveOrderForCart(UUID userId, String cartFingerprint) {
+    return orders.findActiveIdByCartFingerprint(userId, cartFingerprint);
+  }
+
   @Transactional
   public OrderResponse save(Order order) {
     return mapper.toResponse(orders.saveAndFlush(order));
@@ -220,22 +225,28 @@ public class OrderStore {
           }
           return cb.and(ps.toArray(new Predicate[0]));
         };
-    return orders
-        .findAll(spec, pageable)
-        .map(
-            o ->
-                new AdminOrderSummary(
-                    o.getId(),
-                    o.getStatus().name(),
-                    o.getPaymentMethod().name(),
-                    o.getPaymentStatus().name(),
-                    o.getEmail(),
-                    o.getTotalAmount(),
-                    o.getCurrency(),
-                    o.getItems().stream().mapToLong(OrderItem::getQuantity).sum(),
-                    o.getPlacedAt(),
-                    o.isRiskHold(),
-                    o.getRiskScore()));
+    Page<Order> page = orders.findAll(spec, pageable);
+    // One grouped query for the page instead of lazily loading every order's items (TD-P6-27).
+    Map<UUID, Long> itemCounts = new java.util.HashMap<>();
+    if (page.hasContent()) {
+      for (Object[] row : orders.itemCounts(page.map(Order::getId).getContent())) {
+        itemCounts.put((UUID) row[0], ((Number) row[1]).longValue());
+      }
+    }
+    return page.map(
+        o ->
+            new AdminOrderSummary(
+                o.getId(),
+                o.getStatus().name(),
+                o.getPaymentMethod().name(),
+                o.getPaymentStatus().name(),
+                o.getEmail(),
+                o.getTotalAmount(),
+                o.getCurrency(),
+                itemCounts.getOrDefault(o.getId(), 0L),
+                o.getPlacedAt(),
+                o.isRiskHold(),
+                o.getRiskScore()));
   }
 
   /** Admin release of a risk hold (idempotent). */

@@ -4,29 +4,40 @@ import com.acme.ecommerce.order.api.dto.OrderItemResponse;
 import com.acme.ecommerce.order.api.dto.OrderResponse;
 import com.acme.ecommerce.order.api.dto.ReturnResponse;
 import com.acme.ecommerce.order.api.dto.ShipmentResponse;
+import com.acme.ecommerce.order.outbox.Outbox;
+import com.acme.ecommerce.order.outbox.Outbox.Kind;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
 /**
- * Fail-open publisher for {@code order.events}. Called by the orchestration layer AFTER the
- * database transaction has committed (there is no outbox: a crash between commit and publish loses
- * the event - see tech debt).
+ * Publisher for {@code order.events}, through the outbox (TD-P6-01): {@link #publish} builds the
+ * event as of now and records it, in the caller's transaction when there is one, so the event
+ * exists if and only if the order change committed. {@link
+ * com.acme.ecommerce.order.outbox.OutboxRelay} sends it with {@link #sendNow}, in order per order,
+ * retrying until Kafka acknowledges it. Delivery is at least once; consumers de-duplicate on the
+ * event id.
  */
 @Component
 public class OrderEventPublisher {
 
   private static final String TOPIC = "order.events";
   private static final Logger log = LoggerFactory.getLogger(OrderEventPublisher.class);
+  private static final long SEND_TIMEOUT_SECONDS = 10;
 
   private final KafkaTemplate<String, OrderEvent> kafka;
+  private final Outbox outbox;
 
-  public OrderEventPublisher(KafkaTemplate<String, OrderEvent> kafka) {
+  public OrderEventPublisher(KafkaTemplate<String, OrderEvent> kafka, Outbox outbox) {
     this.kafka = kafka;
+    this.outbox = outbox;
   }
 
   public void publish(OrderEventType type, OrderResponse o) {
@@ -104,12 +115,28 @@ public class OrderEventPublisher {
   }
 
   private void send(OrderEventType type, OrderResponse o, OrderEvent event) {
+    record(o.id(), event);
+    log.debug("Queued order event type={} orderId={}", type, o.id());
+  }
+
+  private void record(UUID aggregateId, OrderEvent event) {
+    outbox.enqueue(Kind.ORDER_EVENT, aggregateId, event, "event:" + event.eventId());
+  }
+
+  /**
+   * Sends one recorded event and waits for Kafka's acknowledgement; throws on failure so the relay
+   * retries. The key is the aggregate id, so one order's events stay on one partition, in order.
+   */
+  public void sendNow(UUID aggregateId, OrderEvent event) {
     try {
-      kafka.send(TOPIC, o.id().toString(), event);
-      log.info("Published order event type={} orderId={}", type, o.id());
-    } catch (RuntimeException e) {
-      log.warn(
-          "Failed to publish order event type={} orderId={}: {}", type, o.id(), e.getMessage());
+      kafka.send(TOPIC, aggregateId.toString(), event).get(SEND_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+      log.info("Published order event type={} orderId={}", event.type(), aggregateId);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new IllegalStateException("Interrupted while publishing an order event", e);
+    } catch (ExecutionException | TimeoutException e) {
+      throw new IllegalStateException(
+          "Kafka did not acknowledge order event " + event.eventId(), e);
     }
   }
 
@@ -147,10 +174,6 @@ public class OrderEventPublisher {
             null,
             null,
             null);
-    try {
-      kafka.send(TOPIC, subscriptionId.toString(), event);
-    } catch (RuntimeException e) {
-      log.warn("Failed to publish subscription event {}: {}", subscriptionId, e.getMessage());
-    }
+    record(subscriptionId, event);
   }
 }

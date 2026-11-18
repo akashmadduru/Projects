@@ -2,7 +2,7 @@
  * Product API client
  */
 
-import { apiFetch } from '../lib/http'
+import { apiFetch, type QueryParams } from '../lib/http'
 import type {
   BackendPagedModel,
   BackendProductResponse,
@@ -32,8 +32,8 @@ export function toQueryParams(
   page: number,
   size: number,
   query: ProductQuery = {},
-): Record<string, string | number | boolean> {
-  const params: Record<string, string | number | boolean> = { page, size }
+): QueryParams {
+  const params: QueryParams = { page, size }
   const q = query.q?.trim()
   if (q) params['q'] = q
   if (query.categoryId) params['categoryId'] = query.categoryId
@@ -48,9 +48,10 @@ export function toQueryParams(
   if (query.onSale) params['onSale'] = true
   if (query.featured) params['featured'] = true
   if (query.verifiedSeller) params['verifiedSeller'] = true
-  if (query.brand?.length) params['brand'] = query.brand.join(',')
+  // Repeated parameters, never comma-joined: a brand or attribute value may contain a comma.
+  if (query.brand?.length) params['brand'] = [...query.brand]
   for (const [key, values] of Object.entries(query.attrs ?? {})) {
-    if (values.length) params[`attr.${key}`] = values.join(',')
+    if (values.length) params[`attr.${key}`] = [...values]
   }
   const sort = query.sort ? SORT_PARAM[query.sort] : undefined
   if (sort) params['sort'] = sort
@@ -89,13 +90,13 @@ export function usesSmartSearch(query: ProductQuery = {}): boolean {
 }
 
 /** Params for /api/products/search and /search/facets. Only call when {@link usesSmartSearch}. */
-export function toSearchParams(page: number, size: number, query: ProductQuery): Record<string, string | number> {
-  const params: Record<string, string | number> = { q: query.q!.trim(), mode: 'hybrid', page, size }
+export function toSearchParams(page: number, size: number, query: ProductQuery): QueryParams {
+  const params: QueryParams = { q: query.q!.trim(), mode: 'hybrid', page, size }
   if (query.categoryId) params['categoryId'] = query.categoryId
   if (query.minPrice != null) params['minPrice'] = query.minPrice
   if (query.maxPrice != null) params['maxPrice'] = query.maxPrice
   if (query.minRating != null) params['minRating'] = query.minRating
-  if (query.brand?.length) params['brand'] = query.brand.join(',')
+  if (query.brand?.length) params['brand'] = [...query.brand]
   const sort = query.sort ? SEARCH_SORT[query.sort] : undefined
   if (sort) params['sort'] = sort
   return params

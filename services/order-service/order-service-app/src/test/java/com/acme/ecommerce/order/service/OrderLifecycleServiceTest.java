@@ -24,6 +24,8 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.transaction.support.TransactionCallback;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /** TD-P6-03: cancelling an unpaid order voids its payment; a failed late refund is retried. */
 class OrderLifecycleServiceTest {
@@ -35,12 +37,17 @@ class OrderLifecycleServiceTest {
   private OrderLifecycleService service;
 
   @BeforeEach
+  @SuppressWarnings("unchecked")
   void setUp() {
     store = mock(OrderStore.class);
     remote = mock(OrderRemote.class);
+    TransactionTemplate tx = mock(TransactionTemplate.class);
+    when(tx.execute(any()))
+        .thenAnswer(
+            inv -> ((TransactionCallback<Object>) inv.getArgument(0)).doInTransaction(null));
     service =
         new OrderLifecycleService(
-            store, remote, mock(OrderEventPublisher.class), new OrderProperties());
+            store, remote, mock(OrderEventPublisher.class), new OrderProperties(), tx);
   }
 
   private OrderResponse order(String status, String method, String paymentStatus) {

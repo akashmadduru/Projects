@@ -241,10 +241,10 @@ public class MembershipService {
     return view(userId, "INR");
   }
 
-  /** Daily: flips lapsed memberships to EXPIRED and tells the member. */
   /** Cluster-wide guard so only one replica runs this job per tick. */
   @Autowired private JobLock jobLock;
 
+  /** Daily: flips lapsed memberships to EXPIRED and tells the member. */
   @Scheduled(cron = "${user.membership.expiry-cron:0 15 3 * * *}")
   public void expireLapsed() {
     jobLock.runExclusive("user-membership-expiry", this::expireLapsedLocked);

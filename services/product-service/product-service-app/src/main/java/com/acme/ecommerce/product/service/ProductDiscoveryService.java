@@ -1,26 +1,29 @@
 package com.acme.ecommerce.product.service;
 
 import com.acme.ecommerce.common.core.error.ResourceNotFoundException;
+import com.acme.ecommerce.common.core.time.TimeProvider;
 import com.acme.ecommerce.common.web.job.JobLock;
 import com.acme.ecommerce.product.api.dto.ProductResponse;
 import com.acme.ecommerce.product.domain.Category;
 import com.acme.ecommerce.product.domain.Product;
 import com.acme.ecommerce.product.repository.CategoryRepository;
+import com.acme.ecommerce.product.repository.ProductFacetQueries;
 import com.acme.ecommerce.product.repository.ProductFilter;
+import com.acme.ecommerce.product.repository.ProductFilterNativeSql;
+import com.acme.ecommerce.product.repository.ProductFilterNativeSql.Omit;
 import com.acme.ecommerce.product.repository.ProductNativeQueries;
 import com.acme.ecommerce.product.repository.ProductRepository;
-import com.acme.ecommerce.product.repository.ProductSpecifications;
 import com.acme.ecommerce.product.web.dto.FacetsResponse;
 import com.acme.ecommerce.product.web.dto.SuggestResponse;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import java.math.BigDecimal;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.UUID;
+import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,7 +43,8 @@ public class ProductDiscoveryService {
   private final CategoryRepository categories;
   private final ProductNativeQueries natives;
   private final ProductCatalogService catalog;
-  private final ObjectMapper objectMapper;
+  private final ProductFacetQueries facetQueries;
+  private final TimeProvider time;
 
   /** Optional (absent in plain unit tests): resolves image keys against parentUrl. */
   @Autowired(required = false)
@@ -96,13 +100,68 @@ public class ProductDiscoveryService {
     return changed ? String.join(" ", out) : null;
   }
 
-  /** Facets over the full filtered set (not excluding each facet's own filter - tech debt). */
+  /** How long a facet answer is reused for the same filter (counts may lag writes by this). */
+  static final Duration FACET_CACHE_TTL = Duration.ofSeconds(30);
+
+  private static final int FACET_CACHE_MAX = 500;
+
+  private record CachedFacets(FacetsResponse facets, long expiresAtMillis) {}
+
+  /** LRU + TTL by filter value (records compare by content, so the filter is its own hash key). */
+  private final Map<ProductFilter, CachedFacets> facetCache =
+      new LinkedHashMap<>(16, 0.75f, true) {
+        private static final long serialVersionUID = 1L;
+
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<ProductFilter, CachedFacets> eldest) {
+          return size() > FACET_CACHE_MAX;
+        }
+      };
+
+  /**
+   * Brand / attribute / price facets for the catalog list. Each facet drops its OWN filter (see
+   * {@link ProductFilterNativeSql}), so selecting one brand still shows every other brand's count.
+   * Counted in the database; answers are reused for {@link #FACET_CACHE_TTL} per filter.
+   */
   @Transactional(readOnly = true)
   public FacetsResponse facets(ProductFilter filter) {
+    long now = time.epochMilli();
+    synchronized (facetCache) {
+      CachedFacets hit = facetCache.get(filter);
+      if (hit != null && hit.expiresAtMillis() > now) {
+        return hit.facets();
+      }
+    }
     boolean hasQuery = filter.query() != null && !filter.query().isBlank();
     List<UUID> ranked = hasQuery ? natives.rankedIds(filter.query()) : null;
-    List<Product> set = products.findAll(ProductSpecifications.matching(filter, ranked));
-    return facetsOf(set);
+    FacetsResponse computed = computeFacets(filter, ranked);
+    synchronized (facetCache) {
+      facetCache.put(filter, new CachedFacets(computed, now + FACET_CACHE_TTL.toMillis()));
+    }
+    return computed;
+  }
+
+  private FacetsResponse computeFacets(ProductFilter filter, List<UUID> ranked) {
+    var brandBuckets = facetQueries.brands(ProductFilterNativeSql.of(filter, ranked, Omit.BRANDS));
+
+    Map<String, List<String>> selected =
+        filter.attributes() == null ? Map.of() : filter.attributes();
+    List<String> selectedKeys =
+        selected.entrySet().stream()
+            .filter(e -> !e.getValue().isEmpty())
+            .map(Map.Entry::getKey)
+            .toList();
+    List<ProductFacetQueries.Bucket> attrBuckets =
+        new ArrayList<>(
+            facetQueries.attributes(
+                ProductFilterNativeSql.of(filter, ranked, Omit.NONE), null, selectedKeys));
+    for (String key : selectedKeys) {
+      attrBuckets.addAll(
+          facetQueries.attributes(
+              ProductFilterNativeSql.of(filter, ranked, Omit.attribute(key)), key, null));
+    }
+    var price = facetQueries.price(ProductFilterNativeSql.of(filter, ranked, Omit.PRICE));
+    return assemble(brandBuckets, attrBuckets, price);
   }
 
   /**
@@ -111,49 +170,35 @@ public class ProductDiscoveryService {
    */
   @Transactional(readOnly = true)
   public FacetsResponse facetsForIds(java.util.Collection<UUID> ids) {
-    return facetsOf(ids.isEmpty() ? List.of() : products.findAllById(ids));
+    var where = ProductFilterNativeSql.ofIds(ids);
+    return assemble(
+        facetQueries.brands(where),
+        facetQueries.attributes(where, null, null),
+        facetQueries.price(where));
   }
 
-  private FacetsResponse facetsOf(List<Product> set) {
-    Map<String, Long> brandCounts = new LinkedHashMap<>();
-    Map<String, Map<String, Long>> attrCounts = new LinkedHashMap<>();
-    BigDecimal min = null;
-    BigDecimal max = null;
-    for (Product p : set) {
-      if (p.getBrand() != null && !p.getBrand().isBlank()) {
-        brandCounts.merge(p.getBrand(), 1L, Long::sum);
-      }
-      if (p.getAttributes() != null) {
-        try {
-          Map<String, Object> attrs =
-              objectMapper.readValue(p.getAttributes(), new TypeReference<>() {});
-          attrs.forEach(
-              (k, v) ->
-                  attrCounts
-                      .computeIfAbsent(k, x -> new LinkedHashMap<>())
-                      .merge(String.valueOf(v), 1L, Long::sum));
-        } catch (Exception e) {
-          log.debug("Skipping unreadable attributes for {}", p.getId());
-        }
-      }
-      BigDecimal price = p.getPriceAmount();
-      if (price != null) {
-        min = min == null || price.compareTo(min) < 0 ? price : min;
-        max = max == null || price.compareTo(max) > 0 ? price : max;
-      }
+  private static FacetsResponse assemble(
+      List<ProductFacetQueries.Bucket> brandBuckets,
+      List<ProductFacetQueries.Bucket> attrBuckets,
+      ProductFacetQueries.Range price) {
+    List<FacetsResponse.Value> brands =
+        sorted(brandBuckets.stream().map(b -> new FacetsResponse.Value(b.value(), b.count())));
+    Map<String, List<FacetsResponse.Value>> byKey = new TreeMap<>();
+    for (var b : attrBuckets) {
+      byKey
+          .computeIfAbsent(b.key(), k -> new ArrayList<>())
+          .add(new FacetsResponse.Value(b.value(), b.count()));
     }
-    List<FacetsResponse.Value> brands = toValues(brandCounts);
     List<FacetsResponse.Attribute> attributes =
-        attrCounts.entrySet().stream()
-            .sorted(Map.Entry.comparingByKey())
-            .map(e -> new FacetsResponse.Attribute(e.getKey(), toValues(e.getValue())))
+        byKey.entrySet().stream()
+            .map(e -> new FacetsResponse.Attribute(e.getKey(), sorted(e.getValue().stream())))
             .toList();
-    return new FacetsResponse(brands, attributes, new FacetsResponse.PriceRange(min, max));
+    return new FacetsResponse(
+        brands, attributes, new FacetsResponse.PriceRange(price.min(), price.max()));
   }
 
-  private static List<FacetsResponse.Value> toValues(Map<String, Long> counts) {
-    return counts.entrySet().stream()
-        .map(e -> new FacetsResponse.Value(e.getKey(), e.getValue()))
+  private static List<FacetsResponse.Value> sorted(Stream<FacetsResponse.Value> values) {
+    return values
         .sorted(
             Comparator.comparingLong(FacetsResponse.Value::count)
                 .reversed()

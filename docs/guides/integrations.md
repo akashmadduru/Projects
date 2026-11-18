@@ -270,7 +270,7 @@ The **admin** SPA starts Google sign-in at `VITE_AUTH_BASE_URL` (default `http:/
 - [ ] Real SMTP with SPF and DKIM (section 4), and a real SMS provider if you use phone OTP (section 5).
 - [ ] Do not expose Postgres, Redis, Kafka, Eureka, Mailpit or the `/internal/**` ports publicly. Compose binds the service ports to `127.0.0.1` for this reason.
 - [ ] Rebuild both SPAs with production `VITE_*` values.
-- [ ] Review the open High items in [techdebt/README.md](../techdebt/README.md), notably TD-P6-01 (no outbox) and TD-ADM-01.
+- [ ] Review the open High items in [techdebt/README.md](../techdebt/README.md), notably the test-coverage items and anything marked as needing the owner.
 
 ## 9. Troubleshooting
 

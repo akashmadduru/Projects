@@ -1,4 +1,4 @@
-import { DEFAULT_THEME, type RadiusKind, type ShadowStyle, type ThemeConfig } from '@/lib/themeEngine';
+import { DEFAULT_THEME, type RadiusKind, type ShadowStyle, type ThemeConfig, type ThemePalette } from '@/lib/themeEngine';
 
 /**
  * Curated starting points. Each pairs a light and a dark palette, a font pairing and a corner
@@ -14,15 +14,22 @@ export interface ThemePreset {
 
 const base = DEFAULT_THEME;
 
-function preset(
-  id: string,
-  label: string,
-  bestFor: string,
-  c: Pick<ThemeConfig, 'light' | 'dark' | 'fonts'> & { radius: RadiusKind },
-): ThemePreset {
-  const { radius, ...rest } = c;
-  // Each look gets a shadow that suits its corners; the editor can change it independently.
-  const shadow: ShadowStyle = radius === 'sharp' ? 'crisp' : radius === 'round' ? 'lifted' : 'soft';
+interface PresetSpec {
+  light: ThemePalette;
+  dark: ThemePalette;
+  fonts: { display: string; body: string } & Partial<ThemeConfig['fonts']>;
+  radius: RadiusKind;
+  /** Optional refinements; anything omitted stays built-in. */
+  border?: Partial<ThemeConfig['border']>;
+  shadow?: Partial<ThemeConfig['shadow']>;
+  card?: Partial<ThemeConfig['card']>;
+  button?: Partial<ThemeConfig['button']>;
+}
+
+function preset(id: string, label: string, bestFor: string, c: PresetSpec): ThemePreset {
+  // Each look gets a shadow that suits its corners unless it names one; the editor can change it.
+  const shadow: ShadowStyle =
+    c.radius === 'sharp' || c.radius === 'square' ? 'crisp' : c.radius === 'round' || c.radius === 'pill' ? 'lifted' : 'soft';
   return {
     id,
     label,
@@ -32,9 +39,13 @@ function preset(
       preset: id,
       brand: base.brand,
       customCss: '',
-      ...rest,
-      border: { radius, width: 'standard' },
-      shadow: { style: shadow },
+      light: c.light,
+      dark: c.dark,
+      fonts: { ...base.fonts, ...c.fonts },
+      border: { ...base.border, width: 'standard', ...c.border, radius: c.radius },
+      shadow: { ...base.shadow, style: shadow, ...c.shadow },
+      card: { ...base.card, ...c.card },
+      button: { ...base.button, ...c.button },
     },
   };
 }
@@ -233,6 +244,127 @@ export const THEME_PRESETS: readonly ThemePreset[] = [
     dark: { primary: '#93b4ff', accent: '#fb923c', background: '#060b1c', surface: '#0e1630', text: '#e8eeff', danger: '#fb7185' },
     radius: 'sharp',
     fonts: { display: 'Oswald', body: 'Source Sans 3' },
+  }),
+  // ---- refined looks that also tune borders, shadows, cards and buttons ----
+  preset('silk-minimal', 'Silk Minimal', 'Premium DTC brands, home goods and apparel', {
+    light: { primary: '#1f2937', accent: '#b4532a', background: '#f7f6f3', surface: '#ffffff', text: '#1f2937', danger: '#b42318' },
+    dark: { primary: '#e5e7eb', accent: '#f0a37b', background: '#0f1012', surface: '#18191c', text: '#f3f4f6', danger: '#f97066' },
+    radius: 'soft',
+    fonts: { display: 'Geist', body: 'Geist', headingWeight: 'semibold', tracking: 'tight' },
+    border: { width: 'thin', color: 'subtle' },
+    shadow: { style: 'layered' },
+    card: { hover: 'lift' },
+    button: { shape: 'rounded', fill: 'solid' },
+  }),
+  preset('nordic-calm', 'Nordic Calm', 'Furniture, lighting and Scandinavian living', {
+    light: { primary: '#365a6b', accent: '#c26a45', background: '#f2f1ee', surface: '#fbfbf9', text: '#22313a', danger: '#b42318' },
+    dark: { primary: '#9cc3d5', accent: '#e6a07e', background: '#0f1518', surface: '#172024', text: '#e9eef0', danger: '#f97066' },
+    radius: 'round',
+    fonts: { display: 'Figtree', body: 'Figtree', headingWeight: 'semibold' },
+    border: { width: 'none' },
+    shadow: { style: 'soft', intensity: 'light' },
+    card: { hover: 'lift', fill: 'tinted' },
+    button: { shape: 'pill', fill: 'solid' },
+  }),
+  preset('neon-arcade', 'Neon Arcade', 'Gaming, gadgets, energy drinks and streetwear drops', {
+    light: { primary: '#5b21b6', accent: '#0e7490', background: '#f5f3ff', surface: '#ffffff', text: '#1e1033', danger: '#be123c' },
+    dark: { primary: '#c084fc', accent: '#22d3ee', background: '#0a0612', surface: '#140d22', text: '#f3e8ff', danger: '#fb7185' },
+    radius: 'round',
+    fonts: { display: 'Unbounded', body: 'Figtree' },
+    border: { width: 'thin', color: 'brand' },
+    shadow: { style: 'glow', tint: 'brand' },
+    card: { hover: 'glow' },
+    button: { shape: 'pill', text: 'upper' },
+  }),
+  preset('paper-press', 'Paper Press', 'Books, stationery, magazines and indie publishers', {
+    light: { primary: '#7c2d12', accent: '#1d4ed8', background: '#f8f4ec', surface: '#fffdf8', text: '#231a12', danger: '#b42318' },
+    dark: { primary: '#fdba8c', accent: '#93b4ff', background: '#14100b', surface: '#1f1912', text: '#f6efe3', danger: '#f97066' },
+    radius: 'square',
+    fonts: { display: 'Newsreader', body: 'Public Sans', headingWeight: 'semibold' },
+    border: { width: 'thin', color: 'strong' },
+    shadow: { style: 'none' },
+    card: { hover: 'none', fill: 'outline' },
+    button: { shape: 'square', fill: 'outline', text: 'upper' },
+  }),
+  preset('couture-noir', 'Couture Noir', 'Luxury fashion, fragrance and fine jewellery', {
+    light: { primary: '#111111', accent: '#8a6a1f', background: '#f6f4f0', surface: '#fffefc', text: '#141414', danger: '#a61b1b' },
+    dark: { primary: '#f1e6c8', accent: '#d8b45a', background: '#08080a', surface: '#121214', text: '#f4f1ea', danger: '#f87171' },
+    radius: 'square',
+    fonts: { display: 'Bodoni Moda', body: 'Hanken Grotesk', headingWeight: 'medium', tracking: 'wide' },
+    border: { width: 'thin', color: 'subtle' },
+    shadow: { style: 'none' },
+    card: { hover: 'scale' },
+    button: { shape: 'square', fill: 'solid', text: 'upper' },
+  }),
+  preset('peach-fuzz', 'Peach Fuzz', 'Bakery, cafes, candles and cosy gifting', {
+    light: { primary: '#9a3f22', accent: '#2f7d6d', background: '#fff3ec', surface: '#fffaf6', text: '#3a1f15', danger: '#b42318' },
+    dark: { primary: '#ffb592', accent: '#7fd1bf', background: '#1a0f0a', surface: '#26170f', text: '#fdeee5', danger: '#f97066' },
+    radius: 'pill',
+    fonts: { display: 'Crimson Pro', body: 'Nunito Sans', headingWeight: 'semibold' },
+    border: { width: 'none' },
+    shadow: { style: 'soft', tint: 'brand' },
+    card: { hover: 'lift', fill: 'gradient' },
+    button: { shape: 'pill', fill: 'soft' },
+  }),
+  preset('comic-pop', 'Comic Pop', 'Toys, collectibles, snacks and fun merch', {
+    light: { primary: '#1d4ed8', accent: '#c2410c', background: '#fff8e1', surface: '#ffffff', text: '#111827', danger: '#be123c' },
+    dark: { primary: '#93b4ff', accent: '#fb923c', background: '#0b1020', surface: '#141b33', text: '#f8fafc', danger: '#fb7185' },
+    radius: 'round',
+    fonts: { display: 'Gabarito', body: 'Nunito Sans', headingWeight: 'bold' },
+    border: { width: 'bold', color: 'strong' },
+    shadow: { style: 'long' },
+    card: { hover: 'lift' },
+    button: { shape: 'pill', text: 'upper' },
+  }),
+  preset('ocean-glass', 'Ocean Glass', 'Travel, swimwear, water sports and resorts', {
+    light: { primary: '#075985', accent: '#c2410c', background: '#ecf7fc', surface: '#ffffff', text: '#0c2a3a', danger: '#b91c1c' },
+    dark: { primary: '#7dd3fc', accent: '#fdba74', background: '#04131c', surface: '#0a2230', text: '#e6f6fd', danger: '#fb7185' },
+    radius: 'round',
+    fonts: { display: 'Urbanist', body: 'Inter', headingWeight: 'bold', tracking: 'tight' },
+    border: { width: 'thin', color: 'subtle' },
+    shadow: { style: 'layered', tint: 'brand' },
+    card: { hover: 'lift', fill: 'gradient' },
+    button: { shape: 'pill', fill: 'solid' },
+  }),
+  preset('matcha', 'Matcha', 'Tea, coffee, plant shops and slow living', {
+    light: { primary: '#3f6212', accent: '#9a3412', background: '#f4f6ec', surface: '#fcfdf7', text: '#1f2a12', danger: '#b42318' },
+    dark: { primary: '#bef264', accent: '#fdba74', background: '#0d1207', surface: '#161e0d', text: '#f0f5e4', danger: '#f97066' },
+    radius: 'round',
+    fonts: { display: 'Literata', body: 'Albert Sans', headingWeight: 'semibold' },
+    border: { width: 'thin', color: 'subtle' },
+    shadow: { style: 'soft', intensity: 'light' },
+    card: { hover: 'lift', fill: 'tinted' },
+    button: { shape: 'pill', fill: 'solid' },
+  }),
+  preset('tech-slate', 'Tech Slate', 'Electronics, B2B, SaaS add-ons and developer gear', {
+    light: { primary: '#2563eb', accent: '#0f766e', background: '#f6f7f9', surface: '#ffffff', text: '#0f172a', danger: '#b91c1c' },
+    dark: { primary: '#93b4ff', accent: '#5eead4', background: '#0b0f17', surface: '#121826', text: '#e5e9f0', danger: '#fb7185' },
+    radius: 'sharp',
+    fonts: { display: 'Geist', body: 'Inter', headingWeight: 'semibold', tracking: 'tight' },
+    border: { width: 'thin', color: 'subtle' },
+    shadow: { style: 'layered', intensity: 'light' },
+    card: { hover: 'glow' },
+    button: { shape: 'rounded', fill: 'solid' },
+  }),
+  preset('sunrise-candy', 'Sunrise Candy', 'Beauty, cosmetics and Gen-Z lifestyle', {
+    light: { primary: '#be185d', accent: '#6d28d9', background: '#fff1f6', surface: '#ffffff', text: '#3b0820', danger: '#b91c1c' },
+    dark: { primary: '#f9a8d4', accent: '#c4b5fd', background: '#1a0712', surface: '#2a0d1e', text: '#fde7f1', danger: '#fb7185' },
+    radius: 'pill',
+    fonts: { display: 'Bricolage Grotesque', body: 'Instrument Sans', headingWeight: 'bold' },
+    border: { width: 'none' },
+    shadow: { style: 'glow', tint: 'accent', intensity: 'light' },
+    card: { hover: 'scale', fill: 'gradient' },
+    button: { shape: 'pill' },
+  }),
+  preset('heritage-library', 'Heritage Library', 'Wine, spirits, antiques and heritage brands', {
+    light: { primary: '#5b1a1a', accent: '#8a6a1f', background: '#f5efe3', surface: '#fcf8f0', text: '#2a1b12', danger: '#a61b1b' },
+    dark: { primary: '#f0a8a0', accent: '#e0bf6a', background: '#120c08', surface: '#1e150f', text: '#f4ecdf', danger: '#f87171' },
+    radius: 'sharp',
+    fonts: { display: 'EB Garamond', body: 'Mulish', headingWeight: 'semibold', tracking: 'wide', lineHeight: 'relaxed' },
+    border: { width: 'thin', color: 'strong' },
+    shadow: { style: 'soft', intensity: 'light' },
+    card: { hover: 'lift' },
+    button: { shape: 'square', fill: 'solid', text: 'upper' },
   }),
 ];
 

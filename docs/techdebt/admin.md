@@ -2,7 +2,7 @@
 
 Index: [README](README.md). Feature: [Phase7-Admin-Feature](../phases/phase-07-discovery-and-conversion.md#admin-console-completion). Changes: [Phase7-Admin-Changes](../phases/phase-07-discovery-and-conversion.md#changes).
 
-Built on 2026-11-12 under "no test cases, build features fast, record shortcuts here". What was verified: all changed backend modules compile in an `eclipse-temurin:25-jdk` container (Gradle offline). payment-service is the exception, see TD-ADM-12. On the SPA, `vue-tsc --noEmit` and `vite build` are clean, and the existing Vitest suite passes except the 3 tests in TD-ADM-11. **Nothing was run end-to-end against live services.** `<svc>` means `services/<name>/<name>-app/src/main/java/com/acme/ecommerce/<name>`.
+Built on 2026-11-12 under "no test cases, build features fast, record shortcuts here". What was verified: all changed backend modules compile in an `eclipse-temurin:25-jdk` container (Gradle offline). payment-service was the exception; it has since built and passed its tests through Gradle (2026-11-17). On the SPA, `vue-tsc --noEmit` and `vite build` are clean, and the existing Vitest suite passes (the 3 Node 25+ failures were fixed on 2026-11-18). **Nothing was run end-to-end against live services.** `<svc>` means `services/<name>/<name>-app/src/main/java/com/acme/ecommerce/<name>`.
 
 <a id="td-adm-01"></a>
 ## TD-ADM-01 Admin routes: no 403 tests per route, no SQL tests for admin queries
@@ -25,20 +25,6 @@ Built on 2026-11-12 under "no test cases, build features fast, record shortcuts 
 - **Risk:** The stats run three grouped aggregates per dashboard load, with no index on `(placed_at, status)` and no cache. That is fine at today's volume but grows linearly. "Revenue today" truncates to the UTC day, which for an IST store starts at 05:30 local time. Revenue is reported per currency and never converted.
 - **Fix:** Add a Flyway index on `orders (placed_at) INCLUDE (status, currency, total_amount, refunded_amount)` and cache the result for about 60 s. Take the store timezone from config (`order.reporting-zone`). Later, move to a daily rollup table fed by `order.events`.
 
-<a id="td-adm-04"></a>
-## TD-ADM-04 Low-stock tile looks only at the 50 lowest rows
-- **Severity / Effort:** Low / S
-- **Where:** `apps/admin-product-catalog/src/views/DashboardView.vue`, `lib/adminApi.ts#lowestStock`.
-- **Risk:** inventory-service has no "quantity ≤ threshold" filter. The SPA fetches the 50 lowest-quantity rows and filters them on the client. A product with a high per-row threshold but a quantity above the 50th-lowest is missed.
-- **Fix:** Add `GET /api/inventory?lowStock=true` (a `quantity <= low_stock_threshold` predicate) and use its `totalElements`.
-
-<a id="td-adm-05"></a>
-## TD-ADM-05 No audit trail for admin actions
-- **Severity / Effort:** Med / M
-- **Where:** user status and role changes (`AdminUserService`), review deletes (`RatingService.delete`), category deletes, order and return status changes.
-- **Risk:** Role and status changes go only to the application log (`log.info`), and review deletes are not logged per actor at all. Nobody can answer "who made X an admin" or "who deleted this review" once the logs rotate.
-- **Fix:** Add an `admin_audit` table (actor, action, target, before/after JSON, at) in each owning service, or a shared `admin.events` Kafka topic. Show it on the customer detail page.
-
 <a id="td-adm-06"></a>
 ## TD-ADM-06 Review moderation is delete-only; reviews show product ids, not names
 - **Severity / Effort:** Low / M
@@ -53,20 +39,6 @@ Built on 2026-11-12 under "no test cases, build features fast, record shortcuts 
 - **Risk:** The ledger shows order and customer ids as text with no links to the order and customer screens. There is no manual "mark COD collected" or goodwill refund outside the return flow. Paging uses OFFSET, which slows down on deep pages.
 - **Fix:** Link the ids to `/orders?q=` and `/customers/:id`. Add an admin COD-collect action that reuses `PaymentRepository.markCodCollected` and reports it to order-service. Switch to keyset paging on `(created_at, id)`, with an index on `created_at`.
 
-<a id="td-adm-08"></a>
-## TD-ADM-08 Customer search is unindexed `LIKE '%q%'`
-- **Severity / Effort:** Low / S
-- **Where:** `<auth>/admin/AdminUserService.java#list`.
-- **Risk:** Every search is a sequential scan of `auth.users`, which is fine up to roughly 100k accounts. The role filter joins `user_roles`; roles for a page are loaded in one extra query.
-- **Fix:** Add a `pg_trgm` GIN index on `lower(email)` and `lower(display_name)`.
-
-<a id="td-adm-09"></a>
-## TD-ADM-09 Category JSON naming is inconsistent (`isActive` vs `active`)
-- **Severity / Effort:** Low / S
-- **Where:** product-service `CreateCategoryRequest` (boxed `Boolean isActive`, bound as `isActive`), `UpdateCategoryRequest` and `CategoryResponse` (primitive `boolean isActive`; Lombok makes the JSON property `active`).
-- **Risk:** The SPA sends both spellings and reads `active ?? isActive`. Any other client will get it wrong.
-- **Fix:** Add `@JsonProperty("active")` on all three, or use records, then drop the dual send in `lib/adminApi.ts`.
-
 <a id="td-adm-10"></a>
 ## TD-ADM-10 Category model limits: hard delete, fixed parent, no slug/order
 - **Severity / Effort:** Low / S
@@ -74,23 +46,3 @@ Built on 2026-11-12 under "no test cases, build features fast, record shortcuts 
 - **Risk:** Delete is now refused (409) while products or subcategories reference the category, but a successful delete is still a hard delete. A category cannot be moved under another parent. There is no slug or sort order for storefront navigation.
 - **Fix:** Soft-delete through `is_active`, an optional `parentCategoryId` on update with the depth re-check, plus `slug` and `sort_order` columns.
 
-<a id="td-adm-11"></a>
-## TD-ADM-11 `auth.storage.spec.ts` fails on Node ≥ 25 (pre-existing)
-- **Severity / Effort:** Low / S
-- **Where:** `apps/admin-product-catalog/src/stores/auth.storage.spec.ts`, `vitest.config.ts`.
-- **Risk:** Node's experimental global `localStorage` (undefined without `--localstorage-file`) shadows jsdom's, so all 3 tests fail in `beforeEach` with "Cannot read properties of undefined (reading 'clear')". This is unrelated to Phase 7 and was already failing on this machine, but it hides real regressions in the token-storage guarantee.
-- **Fix:** Pin Node 22 LTS for the SPA (`.nvmrc` / `engines`), or stub `globalThis.localStorage` from jsdom's window in `src/test/support.ts`.
-
-<a id="td-adm-12"></a>
-## TD-ADM-12 payment-service not compiled by Gradle for this change
-- **Severity / Effort:** Med / S
-- **Where:** `<payment>/web/AdminPaymentController.java`, `repository/AdminPaymentQueries.java`.
-- **Risk:** The offline Gradle cache has no `stripe-java:34.1.0`, and the sandbox gets 403 from Maven Central. The two new files were compiled with `javac` against `common-core` and the cached Spring jars, which passed, but not through the module's real classpath, Spotless or the annotation processors.
-- **Fix:** On a machine with network access, run `./gradlew :services:payment-service:payment-service-app:build` (and `spotlessApply` for the whole changeset; see TD-BE-16).
-
-<a id="td-adm-13"></a>
-## TD-ADM-13 `/api/admin/**` is ADMIN-only at the gateway
-- **Severity / Effort:** Low / S
-- **Where:** `services/gateway/src/main/java/com/acme/ecommerce/gateway/config/SecurityConfig.java`.
-- **Risk:** This is intentional defence in depth, but a future admin endpoint meant for CATALOG_MANAGER (for example a catalog report) will be refused at the edge until this rule changes. The rule is documented in the code.
-- **Fix:** When that need appears, add a narrower `pathMatchers(...).hasAnyAuthority(ROLE_ADMIN, ROLE_CATALOG_MANAGER)` above the blanket rule.

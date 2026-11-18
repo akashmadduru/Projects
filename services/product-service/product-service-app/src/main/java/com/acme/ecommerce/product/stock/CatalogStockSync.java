@@ -67,6 +67,48 @@ public class CatalogStockSync {
     }
   }
 
+  /**
+   * After the current transaction commits, asks inventory-service for stock rows for one product
+   * and its variants, so a variant created in the editor is sellable at once instead of after the
+   * next full pass (TD-P7-22). Off the request thread and fail-open: the scheduled pass is the
+   * backstop. Without a transaction it runs straight away.
+   */
+  public void ensureProductAfterCommit(UUID productId) {
+    Runnable job =
+        () ->
+            Thread.startVirtualThread(
+                () -> {
+                  try {
+                    List<InventoryDto.EnsureItem> items = new ArrayList<>();
+                    items.add(new InventoryDto.EnsureItem(productId, null));
+                    jdbc.sql("SELECT id FROM product.product_variants WHERE product_id = :p")
+                        .param("p", productId)
+                        .query(UUID.class)
+                        .list()
+                        .forEach(v -> items.add(new InventoryDto.EnsureItem(productId, v)));
+                    inventory.ensureStock(new InventoryDto.EnsureRequest(items), internalToken);
+                  } catch (RuntimeException e) {
+                    log.warn(
+                        "Stock rows for product {} not ensured now ({}); the next sync will",
+                        productId,
+                        e.toString());
+                  }
+                });
+    if (org.springframework.transaction.support.TransactionSynchronizationManager
+        .isSynchronizationActive()) {
+      org.springframework.transaction.support.TransactionSynchronizationManager
+          .registerSynchronization(
+              new org.springframework.transaction.support.TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                  job.run();
+                }
+              });
+    } else {
+      job.run();
+    }
+  }
+
   /** One full pass. Returns how many rows inventory-service created. */
   public int sync() {
     int created = 0;

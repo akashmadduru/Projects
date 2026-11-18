@@ -77,6 +77,11 @@ public class InventoryService {
     return inventory.findAll(pageable).map(InventoryService::toResponse);
   }
 
+  /** Only rows at or below their own low-stock threshold. */
+  public Page<InventoryResponse> listLowStock(Pageable pageable) {
+    return inventory.findLowStock(pageable).map(InventoryService::toResponse);
+  }
+
   /**
    * A single stock-level row.
    *
@@ -363,15 +368,6 @@ public class InventoryService {
         .ifPresent(row -> row.applyProductSnapshot(name, sku, timeProvider.now()));
   }
 
-  /**
-   * Publishes {@code INVENTORY_LOW_STOCK} when the row's current quantity is at or below its
-   * low-stock threshold. No edge-detection/hysteresis
-   * (docs/architecture/design/HLD-catalog-enrichment-and-saga.md S11 Open Question #3) - a quantity
-   * that stays at or below the threshold across repeated writes publishes repeatedly; accepted for
-   * this slice.
-   *
-   * @param row the just-saved stock-level row
-   */
   /** Admin platform-stock write: moves the legacy platform totals by delta and publishes. */
   @Transactional
   public void shiftLegacyTotals(UUID productId, UUID variantId, int delta) {
@@ -405,6 +401,15 @@ public class InventoryService {
     maybePublishLowStock(saved);
   }
 
+  /**
+   * Publishes {@code INVENTORY_LOW_STOCK} when the row's current quantity is at or below its
+   * low-stock threshold. No edge-detection/hysteresis
+   * (docs/architecture/design/HLD-catalog-enrichment-and-saga.md S11 Open Question #3) - a quantity
+   * that stays at or below the threshold across repeated writes publishes repeatedly; accepted for
+   * this slice.
+   *
+   * @param row the just-saved stock-level row
+   */
   private void maybePublishLowStock(Inventory row) {
     if (row.getQuantity() <= row.getLowStockThreshold()) {
       events.publishAfterCommit(InventoryEventType.INVENTORY_LOW_STOCK, row);

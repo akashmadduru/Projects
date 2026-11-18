@@ -7,7 +7,6 @@ import com.acme.ecommerce.payment.service.GiftCardService.GiftCardView;
 import com.acme.ecommerce.payment.service.GiftCardService.Pending;
 import com.acme.ecommerce.payment.service.PaymentService;
 import com.acme.ecommerce.payment.service.WalletService;
-import com.acme.ecommerce.payment.service.WalletService.Balance;
 import com.acme.ecommerce.payment.service.WalletService.WalletView;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
@@ -95,9 +94,14 @@ public class WalletController {
 
   @PostMapping("/api/gift-cards/redeem")
   public WalletView redeem(
-      @AuthenticationPrincipal Jwt jwt, @Valid @RequestBody RedeemRequest req) {
+      @AuthenticationPrincipal Jwt jwt,
+      @Valid @RequestBody RedeemRequest req,
+      jakarta.servlet.http.HttpServletRequest http) {
     UUID userId = UUID.fromString(jwt.getSubject());
-    Balance b = giftCards.redeem(userId, req.code());
+    // The gateway sets X-Forwarded-For; its first entry is the client (TD-P8-21 per-IP limit).
+    String xff = http.getHeader("X-Forwarded-For");
+    String ip = xff != null && !xff.isBlank() ? xff.split(",")[0].trim() : http.getRemoteAddr();
+    giftCards.redeem(userId, req.code(), ip);
     return wallet.view(userId);
   }
 

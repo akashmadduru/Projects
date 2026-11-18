@@ -247,6 +247,8 @@ export interface AdminPayment {
   readonly stripePaymentIntentId?: string | null;
   readonly providerOrderId?: string | null;
   readonly providerPaymentId?: string | null;
+  /** What `orderId` identifies: an order, a membership or a gift card (TD-P8-14). */
+  readonly purpose?: 'ORDER' | 'MEMBERSHIP' | 'GIFT_CARD' | null;
 }
 
 export const PAYMENT_MODES = ['STRIPE', 'RAZORPAY', 'SIMULATED'] as const;

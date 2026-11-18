@@ -9,6 +9,7 @@ Phase 9 was built under "no tests, no HLD/LLD, record shortcuts as debt". The in
 - **Severity / Effort:** High / L
 - **Where:** `services/seller-service` (new), product-service offers/buy box/bulk upload, inventory-service warehouses and reservation routing, order-service shipments, cart-service offer lines; admin seller portal and admin seller/payout/warehouse screens; storefront seller page, sponsored grid, shipment order page.
 - **Progress 2026-11-17:** the stale admin specs were re-run: guards.spec fixed (role-aware landing), the admin suite passes 139/139; seller suspension and KYC masking, product moderation and the stock-totals reconcile have tests. Still untested: seller ledger arithmetic (commission, fee, reversals), buy-box scoring, warehouse routing and splits, shipment status derivation, the gateway route contract.
+- **Progress 2026-11-18:** a seller-service Testcontainers suite covers the ledger (postings once per shipment, return reversal once, payout hold, never paid twice, carry-forward). Still untested: onboarding/KYC, offers and buy box, split shipments, ads, the seller portal and admin specs.
 - **Risk:** The only safety net is the one-off e2e script. Ledger arithmetic (commission, fee, reversals), buy-box scoring, warehouse routing and derived order status have no unit or contract tests. In the admin app the guest-only redirect is now role-aware (`homeRouteFor`) and dashboard/products/categories/inventory now require `ADMIN` or `CATALOG_MANAGER`, so `guards.spec`, `LoginView.spec` and `ProductsView.spec` may fail (not re-run). Extends [TD-P8-01](phase8.md#td-p8-01), [TD-P7-01](phase7.md#td-p7-01), [TD-ADM-01](admin.md#td-adm-01).
 - **Fix:** Ledger idempotency and reversal tests, buy-box table tests, reservation routing/split tests, shipment-status derivation tests, gateway route contract test ([TD-TEST-04](testing.md#td-test-04)); update the admin specs; Playwright for apply, approve, list, sell, fulfil, payout.
 
@@ -22,7 +23,7 @@ Phase 9 was built under "no tests, no HLD/LLD, record shortcuts as debt". The in
 ## TD-P9-04 Offer and stock writes are not atomic; bulk upload is per row
 - **Severity / Effort:** Med / M
 - **Where:** product-service offer create (then inventory `PUT /api/seller/stock`); bulk CSV import.
-- **Risk:** The offer commits in product-service and the stock write to inventory-service follows, so a failure leaves an offer with no stock rows (it is never the buy box, but it shows in the seller's list). Bulk CSV runs one transaction per row with no de-duplication within a file, no async execution and no progress reporting (1000 rows / 2 MB in one request). Same non-atomic shape as [TD-P7-06](phase7.md#td-p7-06) (variants) and [TD-P6-01](phase6.md#td-p6-01).
+- **Risk:** The offer commits in product-service and the stock write to inventory-service follows, so a failure leaves an offer with no stock rows (it is never the buy box, but it shows in the seller's list). Bulk CSV runs one transaction per row with no de-duplication within a file, no async execution and no progress reporting (1000 rows / 2 MB in one request). Same non-atomic shape as [TD-P7-06](phase7.md#td-p7-06) (variants) and [TD-P6-33](phase6.md#td-p6-33).
 - **Fix:** Create offer and stock through one inventory-owned operation or an outbox-driven saga; async bulk job with status polling and in-file duplicate detection.
 
 <a id="td-p9-05"></a>
@@ -36,19 +37,12 @@ Phase 9 was built under "no tests, no HLD/LLD, record shortcuts as debt". The in
   - Warehouse CRUD edit (`PUT /api/admin/warehouses/{id}`) is assumed by the admin app and is not in the contract.
 - **Fix:** Publish `inventory.events` from the warehouse write path; reject (not fall back) a reservation for an offer with no stock; decide whether sellers may hold stock at platform warehouses (fulfilment-by-platform); per-warehouse stock table in the portal.
 
-<a id="td-p9-06"></a>
-## TD-P9-06 List-row price and buy box freshness
-- **Severity / Effort:** Med / S
-- **Where:** product-service `price_amount` sync (`POST /internal/products/{id}/sync-prices`), PDP buy box computed on read; inventory `WarehouseService.writeStock`.
-- **Risk:** The buy box is computed on every PDP read, but list/search rows show `product.price_amount`, which is re-synced only when an offer changes or a seller stock write succeeds (async, after commit, fail-open). A seller offer that sells out through **orders** leaves the list-row price at the seller price until the next offer or stock write. Platform legacy-stock writes via the old `InventoryController` do not trigger a sync either, and a failed sync call is only lost.
-- **Fix:** Trigger sync from reservation/release and from `inventory.events` (see [TD-P9-05](#td-p9-05)); periodic reconcile job; or compute list price from the buy box in the search query.
-
 <a id="td-p9-08"></a>
 ## TD-P9-08 Payout run is manual and simulated
 - **Severity / Effort:** Med / M
 - **Where:** `<seller>/` payout service, `POST /api/admin/payouts/run`, `GET /api/admin/payouts`.
-- **Risk:** There is no scheduler: an admin must click Run (dev: `minAgeDays=0` skips the 7-day hold; the default hold is configurable). The bank transfer is simulated (a fake `UTR...` reference); no bank file or payout API, no failed/retry status. Negative balances are carried forward. There is a small race between a ledger insert and a run (`FOR UPDATE` only on the selected rows). The run has no preview/dry-run and no audit of who triggered it. `GET /api/admin/payouts` is not in the contract and is assumed by the admin app.
-- **Fix:** Scheduled run with a lock (see [TD-P6-13](phase6.md#td-p6-13)); real payout provider (RazorpayX, Cashfree, bank API) with failure handling; dry-run preview; audit log ([TD-ADM-05](admin.md#td-adm-05)).
+- **Risk:** There is no scheduler: an admin must click Run (dev: `minAgeDays=0` skips the 7-day hold; the default hold is configurable). The bank transfer is simulated (a fake `UTR...` reference); no bank file or payout API, no failed/retry status. Negative balances are carried forward. There is a small race between a ledger insert and a run (`FOR UPDATE` only on the selected rows). The run has no preview/dry-run (who triggered it is in the audit log). `GET /api/admin/payouts` is not in the contract and is assumed by the admin app.
+- **Fix:** Scheduled run under `JobLock`; real payout provider (RazorpayX, Cashfree, bank API) with failure handling; dry-run preview.
 
 <a id="td-p9-09"></a>
 ## TD-P9-09 KYC is format-only; bank data under one static key

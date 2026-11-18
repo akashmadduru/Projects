@@ -49,6 +49,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Checkout orchestration: cart, address and product lookups are remote calls made on the REQUEST
@@ -82,6 +83,7 @@ public class OrderService {
   private final OrderEventPublisher events;
   private final OrderProperties props;
   private final RiskService risks;
+  private final TransactionTemplate tx;
 
   public OrderService(
       OrderStore store,
@@ -92,8 +94,10 @@ public class OrderService {
       OrderRemote remote,
       OrderEventPublisher events,
       OrderProperties props,
-      RiskService risks) {
+      RiskService risks,
+      TransactionTemplate tx) {
     this.risks = risks;
+    this.tx = tx;
     this.store = store;
     this.carts = carts;
     this.users = users;
@@ -126,7 +130,8 @@ public class OrderService {
     }
 
     boolean buyNow = req.items() != null && !req.items().isEmpty();
-    List<Line> lines = buyNow ? buyNowLines(req.items()) : cartLines();
+    CartSnapshot cart = buyNow ? null : cartSnapshot();
+    List<Line> lines = buyNow ? buyNowLines(req.items()) : cart.lines();
     PaymentMethod method = PaymentMethod.valueOf(req.paymentMethod().name());
 
     AddressResponse address =
@@ -252,6 +257,9 @@ public class OrderService {
     order.switchPaymentMethod(method);
     order.applyMoney(coins, price.coinsValue(), walletAmount, member, subscriptionId);
     order.begin(price, couponCode, estimate.estimatedDeliveryDate(), Instant.now());
+    if (cart != null && cart.fingerprint() != null) {
+      order.consumeCart(cart.fingerprint());
+    }
 
     OrderResponse saved;
     try {
@@ -259,10 +267,22 @@ public class OrderService {
     } catch (DataIntegrityViolationException race) {
       // A concurrent request with the same key won the unique constraint: return its order.
       Optional<OrderResponse> winner = store.findReplay(userId, idempotencyKey, req.addressId());
-      if (winner.isEmpty()) {
+      if (winner.isPresent()) {
+        return new Placement(winner.get(), false);
+      }
+      // Otherwise this exact cart is already an order (another tab, or a new-key retry after the
+      // cart clear failed): refuse instead of ordering it twice, and retry the clear.
+      Optional<UUID> existing =
+          cart == null || cart.fingerprint() == null
+              ? Optional.empty()
+              : store.findActiveOrderForCart(userId, cart.fingerprint());
+      if (existing.isEmpty()) {
         throw race;
       }
-      return new Placement(winner.get(), false);
+      clearCartBestEffort(existing.get());
+      throw new CodedException(
+          ErrorCode.RESOURCE_CONFLICT,
+          "This cart has already been ordered (order " + existing.get() + ")");
     }
 
     List<OrderRemote.StockLine> stockLines =
@@ -362,8 +382,15 @@ public class OrderService {
             : OrderEventType.ORDER_PLACED;
     PaymentBlockResponse paymentBlock = null;
     if (method == PaymentMethod.WALLET) {
-      OrderResponse paid = store.markPaid(saved.id(), null).order();
-      events.publish(placedType, paid);
+      // Paid status and its ORDER_PLACED event commit together (outbox, TD-P6-01).
+      UUID savedId = saved.id();
+      OrderResponse paid =
+          tx.execute(
+              s -> {
+                OrderResponse o = store.markPaid(savedId, null).order();
+                events.publish(placedType, o);
+                return o;
+              });
       if (!buyNow) {
         clearCartBestEffort(saved.id());
       }
@@ -444,7 +471,10 @@ public class OrderService {
         p.paymentId(), p.status(), p.mode(), p.clientSecret(), p.publishableKey());
   }
 
-  private List<Line> cartLines() {
+  /** The cart's lines and its fingerprint (null when a line has no added-at instant). */
+  private record CartSnapshot(List<Line> lines, String fingerprint) {}
+
+  private CartSnapshot cartSnapshot() {
     CartResponse cart = call("cart-service", carts::getCart);
     if (cart == null || cart.items() == null || cart.items().isEmpty()) {
       throw new CodedException(ErrorCode.CART_EMPTY, "Your cart is empty");
@@ -458,7 +488,33 @@ public class OrderService {
       lines.add(
           new Line(i.productId(), i.variantId(), i.variantLabel(), i.quantity(), i.offerId()));
     }
-    return lines;
+    return new CartSnapshot(lines, cartFingerprint(cart.items()));
+  }
+
+  /**
+   * SHA-256 over every line's product, variant, offer, quantity and added-at instant, in a stable
+   * order. The added-at instant is what tells "the same cart read twice" from "the same items
+   * added again after the last order cleared the cart", so without it there is no fingerprint.
+   */
+  static String cartFingerprint(List<CartItemResponse> items) {
+    List<String> parts = new ArrayList<>();
+    for (CartItemResponse i : items) {
+      if (i.addedAt() == null) {
+        return null;
+      }
+      parts.add(
+          i.productId() + "|" + i.variantId() + "|" + i.offerId() + "|" + i.quantity() + "|"
+              + i.addedAt().toEpochMilli());
+    }
+    java.util.Collections.sort(parts);
+    try {
+      byte[] hash =
+          java.security.MessageDigest.getInstance("SHA-256")
+              .digest(String.join("\n", parts).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+      return java.util.HexFormat.of().formatHex(hash);
+    } catch (java.security.NoSuchAlgorithmException e) {
+      throw new IllegalStateException(e);
+    }
   }
 
   private static List<Line> buyNowLines(List<OrderLineRequest> items) {
@@ -554,7 +610,7 @@ public class OrderService {
           }
         }
       }
-      if (!product.active() || unit == null) {
+      if (!Boolean.TRUE.equals(product.active()) || unit == null) {
         throw new CodedException(
             ErrorCode.PRODUCT_UNAVAILABLE, "Product is no longer available: " + product.name());
       }
@@ -578,7 +634,8 @@ public class OrderService {
                 .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
       }
       String lineCurrency = product.priceCurrency();
-      if (currency == null) {
+      // The first line creates the order; both are set together, tested together for clarity.
+      if (order == null || currency == null) {
         currency = lineCurrency;
         order =
             Order.draft(

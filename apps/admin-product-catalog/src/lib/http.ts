@@ -101,6 +101,11 @@ export function googleAuthorizationUrl(): string {
 
 function buildUrl(path: string, query?: Readonly<Record<string, QueryValue>>): string {
   const url = new URL(`${apiBaseUrl}${path}`);
+  // The bearer token is attached to every request, so a path must never move it to another host
+  // (for example "@evil.example/x" turns the base into userinfo). TD-SEC-11.
+  if (!path.startsWith('/') || url.origin !== new URL(apiBaseUrl).origin) {
+    throw new Error(`Refusing request outside the API origin: ${path}`);
+  }
   if (query) {
     for (const [key, value] of Object.entries(query)) {
       if (value !== undefined && value !== null) {

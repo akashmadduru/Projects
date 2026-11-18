@@ -2,6 +2,7 @@ package com.acme.ecommerce.user.privacy;
 
 import com.acme.ecommerce.common.core.error.CodedException;
 import com.acme.ecommerce.common.core.error.ErrorCode;
+import com.acme.ecommerce.common.web.job.JobLock;
 import com.acme.ecommerce.user.membership.Notifier;
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
@@ -25,6 +26,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -470,12 +472,19 @@ public class PrivacyService {
     return done;
   }
 
+  /** Cluster-wide guard so only one replica completes deletions per tick (TD-P6-13). */
+  @Autowired private JobLock jobLock;
+
   @Scheduled(fixedDelay = 900_000L, initialDelay = 180_000L)
   public void runDueScheduled() {
-    int n = runDue(Instant.now());
-    if (n > 0) {
-      log.info("Completed {} account deletion(s)", n);
-    }
+    jobLock.runExclusive(
+        "user-account-deletion",
+        () -> {
+          int n = runDue(Instant.now());
+          if (n > 0) {
+            log.info("Completed {} account deletion(s)", n);
+          }
+        });
   }
 
   private boolean complete(UUID userId) {

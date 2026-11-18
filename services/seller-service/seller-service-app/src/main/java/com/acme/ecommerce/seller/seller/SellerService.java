@@ -392,13 +392,14 @@ public class SellerService {
   @Transactional(readOnly = true)
   public Paged<Seller> adminList(String status, int page, int size) {
     int s = Paged.clampSize(size);
-    String where = status == null || status.isBlank() ? "" : " WHERE status = :st";
+    String st = status == null || status.isBlank() ? null : status.toUpperCase(Locale.ROOT);
+    String where = st == null ? "" : " WHERE status = :st";
     var count = jdbc.sql("SELECT count(*) FROM sellers" + where);
     var list =
         jdbc.sql("SELECT * FROM sellers" + where + " ORDER BY created_at DESC LIMIT :l OFFSET :o");
-    if (!where.isEmpty()) {
-      count = count.param("st", status.toUpperCase(Locale.ROOT));
-      list = list.param("st", status.toUpperCase(Locale.ROOT));
+    if (st != null) {
+      count = count.param("st", st);
+      list = list.param("st", st);
     }
     long total = count.query(Long.class).single();
     List<Seller> rows =

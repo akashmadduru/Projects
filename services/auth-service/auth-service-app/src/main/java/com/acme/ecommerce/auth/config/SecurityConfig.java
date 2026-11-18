@@ -13,6 +13,7 @@ import com.acme.ecommerce.auth.token.JwtKeyProvider;
 import com.acme.ecommerce.common.security.AudienceValidator;
 import com.acme.ecommerce.common.security.PlatformJwtAuthenticationConverter;
 import com.acme.ecommerce.common.security.Roles;
+import com.acme.ecommerce.common.security.UuidSubjectValidator;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.jwk.source.ImmutableJWKSet;
 import com.nimbusds.jose.jwk.source.JWKSource;
@@ -234,6 +235,7 @@ public class SecurityConfig {
         .findFirst()
         .map(AudienceValidator::new)
         .ifPresent(validators::add);
+    validators.add(new UuidSubjectValidator());
     decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(validators));
     return decoder;
   }

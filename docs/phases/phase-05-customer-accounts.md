@@ -49,7 +49,7 @@ Not included: payment, inventory reservation, shipping/tax, order events. See [t
    ```
    docker compose -f deploy/local/docker-compose.yml up -d --build auth-service user-service cart-service order-service
    ```
-   Allow ~30-40 seconds after a restart before the gateway stops answering 503 (TD-BE-08).
+   Allow ~10 seconds after a restart before the gateway stops answering 503 (was 30-40 s until the load-balancer cache TTL was cut, TD-BE-08).
 4. **Start the storefront.** `npm run dev` inside `apps/product-catalog` serves http://localhost:3000 (pinned with `strictPort`; 3000 is the allow-listed Google callback origin).
 5. **Google console.** The authorized redirect URI must be `http://localhost:8081/login/oauth2/code/google`. auth-service allows storefront redirects to `http://localhost:5173/auth/callback` and `http://localhost:3000/auth/callback` (`AUTH_ALLOWED_REDIRECT_URIS`); the default is the 5173 one (`AUTH_DEFAULT_REDIRECT_URI`).
 

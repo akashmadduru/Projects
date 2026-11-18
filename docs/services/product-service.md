@@ -85,7 +85,7 @@ write must never appear to inventory-service as if it happened.
 **A publish failure is logged, never thrown.** By the time `afterCommit()` runs, the write has
 already committed and the HTTP response is about to return, so a Kafka outage must not turn a
 successful write into a 500. The cost: with no outbox, an event that fails to send is **lost**, not
-delayed, and inventory-service never sees that change ([TD-P6-01](../techdebt/phase6.md#td-p6-01)). `KafkaTopicConfig` provisions the
+delayed, and inventory-service never sees that change ([TD-P6-33](../techdebt/phase6.md#td-p6-33)). `KafkaTopicConfig` provisions the
 topic on startup if it does not already exist.
 
 `ProductEvent`/`ProductEventType` live in `com.acme.ecommerce.product.event`

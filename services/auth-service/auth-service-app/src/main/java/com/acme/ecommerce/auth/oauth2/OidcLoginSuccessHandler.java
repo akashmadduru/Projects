@@ -1,7 +1,6 @@
 package com.acme.ecommerce.auth.oauth2;
 
 import com.acme.ecommerce.auth.api.dto.AuthMethod;
-import com.acme.ecommerce.auth.cache.UserSnapshotFactory;
 import com.acme.ecommerce.auth.metrics.AuthMetrics;
 import com.acme.ecommerce.auth.token.AuthenticatedPrincipal;
 import com.acme.ecommerce.auth.token.DeviceContext;
@@ -43,28 +42,23 @@ public class OidcLoginSuccessHandler implements AuthenticationSuccessHandler {
 
   private static final Logger log = LoggerFactory.getLogger(OidcLoginSuccessHandler.class);
 
-  private final TokenService tokenService;
   private final RefreshCookieWriter refreshCookies;
   private final CookieOAuth2AuthorizationRequestRepository authorizationRequests;
   private final RequestDeviceContext deviceContexts;
   private final AuthMetrics metrics;
-  private final UserSnapshotFactory snapshots;
   private final com.acme.ecommerce.auth.service.TwoFactorService twoFactor;
 
+  /** Tokens are issued (or a second factor demanded) by {@code TwoFactorService}. */
   public OidcLoginSuccessHandler(
-      TokenService tokenService,
       RefreshCookieWriter refreshCookies,
       CookieOAuth2AuthorizationRequestRepository authorizationRequests,
       RequestDeviceContext deviceContexts,
       AuthMetrics metrics,
-      UserSnapshotFactory snapshots,
       com.acme.ecommerce.auth.service.TwoFactorService twoFactor) {
-    this.tokenService = tokenService;
     this.refreshCookies = refreshCookies;
     this.authorizationRequests = authorizationRequests;
     this.deviceContexts = deviceContexts;
     this.metrics = metrics;
-    this.snapshots = snapshots;
     this.twoFactor = twoFactor;
   }
 

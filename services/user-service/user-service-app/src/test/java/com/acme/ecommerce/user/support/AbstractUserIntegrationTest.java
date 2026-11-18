@@ -11,6 +11,7 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 @ActiveProfiles("test")
 public abstract class AbstractUserIntegrationTest {
 
+  @SuppressWarnings("resource") // one container per JVM on purpose; Ryuk removes it at exit
   protected static final PostgreSQLContainer POSTGRES =
       new PostgreSQLContainer("postgres:17")
           .withDatabaseName("user_db")

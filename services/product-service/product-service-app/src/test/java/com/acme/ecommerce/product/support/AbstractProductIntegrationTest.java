@@ -41,6 +41,7 @@ public abstract class AbstractProductIntegrationTest {
    * container user is the superuser, so V10 can CREATE EXTENSION itself; deployed environments
    * install the extension in their bootstrap scripts instead.
    */
+  @SuppressWarnings("resource") // one container per JVM on purpose; Ryuk removes it at exit
   protected static final PostgreSQLContainer POSTGRES =
       new PostgreSQLContainer(
               DockerImageName.parse("pgvector/pgvector:0.8.7-pg17")

@@ -1,5 +1,6 @@
 package com.acme.ecommerce.seller.ledger;
 
+import com.acme.ecommerce.common.web.kafka.KafkaJson;
 import com.acme.ecommerce.seller.ledger.LedgerService.Item;
 import com.acme.ecommerce.seller.ledger.LedgerService.Part;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
@@ -18,8 +19,6 @@ import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
-import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
-import org.springframework.kafka.support.serializer.JsonDeserializer;
 import org.springframework.stereotype.Component;
 
 /**
@@ -56,13 +55,7 @@ public class OrderEventConsumer {
     props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
     DefaultKafkaConsumerFactory<String, OrderEvt> cf =
         new DefaultKafkaConsumerFactory<>(
-            props,
-            StringDeserializer::new,
-            () -> {
-              JsonDeserializer<OrderEvt> json = new JsonDeserializer<>(OrderEvt.class, false);
-              json.addTrustedPackages("*");
-              return new ErrorHandlingDeserializer<>(json);
-            });
+            props, StringDeserializer::new, () -> KafkaJson.eventDeserializer(OrderEvt.class, "*"));
     ConcurrentKafkaListenerContainerFactory<String, OrderEvt> f =
         new ConcurrentKafkaListenerContainerFactory<>();
     f.setConsumerFactory(cf);

@@ -13,7 +13,8 @@ import java.util.UUID;
 import org.springframework.data.jpa.domain.Specification;
 
 /**
- * Translates a {@link ProductFilter} into a single-table query.
+ * Translates a {@link ProductFilter} into a single-table query. {@link ProductFilterNativeSql} is
+ * the SQL twin used by the facets: keep the two in step.
  *
  * <p>Still ONE {@code SELECT} against {@code product.products} per page (plus the count), keeping
  * {@link Product}'s "no associations, no N+1" invariant: the subcategory expansion is a correlated
@@ -116,13 +117,15 @@ public final class ProductSpecifications {
           if (entry.getValue().isEmpty()) {
             continue;
           }
+          // Case-insensitive, like brands: "Red" in the URL matches "red" in the data.
           predicates.add(
-              cb.function(
-                      "jsonb_extract_path_text",
-                      String.class,
-                      root.get("attributes"),
-                      cb.literal(entry.getKey()))
-                  .in(entry.getValue()));
+              cb.lower(
+                      cb.function(
+                          "jsonb_extract_path_text",
+                          String.class,
+                          root.get("attributes"),
+                          cb.literal(entry.getKey())))
+                  .in(entry.getValue().stream().map(v -> v.toLowerCase(Locale.ROOT)).toList()));
         }
       }
 
@@ -131,7 +134,7 @@ public final class ProductSpecifications {
   }
 
   // Without this, a search for "100%" or "a_b" would be read as LIKE wildcards.
-  private static String escapeLike(String value) {
+  static String escapeLike(String value) {
     return value
         .replace(String.valueOf(LIKE_ESCAPE), "" + LIKE_ESCAPE + LIKE_ESCAPE)
         .replace("%", LIKE_ESCAPE + "%")

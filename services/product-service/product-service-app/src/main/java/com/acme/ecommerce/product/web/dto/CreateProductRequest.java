@@ -54,7 +54,9 @@ public class CreateProductRequest {
   @Size(max = 120)
   String brand;
 
+  /** Facet attributes. On update: null keeps them, an empty object clears them. */
   Map<String, Object> attributes;
+
   @Valid List<ProductImageRequest> images;
 
   /** Custom validation: active products require initialQuantity >= 1. */
@@ -62,4 +64,18 @@ public class CreateProductRequest {
   public boolean isInitialStockValidWhenActive() {
     return !active || (initialQuantity != null && initialQuantity >= 1);
   }
+
+  /**
+   * The list price (MRP) shown struck through, with the discount computed against it. Optional:
+   * null keeps it (update) or leaves it unset (create); {@code 0} clears it. Must not be below
+   * {@code priceAmount}. There is no separate sale price: {@code priceAmount} is the price paid.
+   */
+  @DecimalMin("0.00")
+  BigDecimal listPrice;
+
+  /**
+   * The full variant list, saved in the same transaction as the product (replace semantics, as
+   * {@code PUT /api/products/{id}/variants}). Null leaves the variants untouched.
+   */
+  @Valid List<VariantRequest> variants;
 }
