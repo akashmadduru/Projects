@@ -170,6 +170,7 @@ service-level setting (add it under that service's `env:` in `values.yaml`). Rel
 | `USER_REFERRAL_IP_LOOKBACK` | user | `30d` |  | - | How far back a referrer's recorded network counts when a referee claims. A claim from a network the referrer used within this window is refused. 0 turns the IP check off. |
 | `USER_REFERRAL_IP_RETENTION` | user | `30d` |  | - | How long hashed IPs are kept before the daily cleanup deletes them. Keep it at least as long as the lookback; if shorter, retention is the effective lookback. |
 | `USER_REFERRAL_MIN_CODE_AGE` | user | `10m` |  | - | Minimum age of a referral code before it can be claimed. A newer code is refused. 0 turns the check off. |
+| `USER_REFERRAL_TRUSTED_PROXY_HOPS` | user | `1` |  | helm | Which `X-Forwarded-For` entry, counted from the right, is the caller's IP for the referral checks. Each proxy appends, so only entries on the left can be forged. 1 for Compose (the gateway appends the caller); 3 on AWS (CloudFront, ALB, gateway). 0 ignores the header and uses the socket peer. |
 | `USER_REFERRAL_REWARD_COINS` | user | `100` |  | - | Coins awarded for a successful referral. |
 
 ## AI and search

@@ -362,6 +362,10 @@
       "group": "Business rules",
       "text": "Minimum age of a referral code before it can be claimed. A newer code is refused. 0 turns the check off."
     },
+    "USER_REFERRAL_TRUSTED_PROXY_HOPS": {
+      "group": "Business rules",
+      "text": "Which `X-Forwarded-For` entry, counted from the right, is the caller's IP for the referral checks. Each proxy appends, so only entries on the left can be forged. 1 for Compose (the gateway appends the caller); 3 on AWS (CloudFront, ALB, gateway). 0 ignores the header and uses the socket peer."
+    },
     "USER_REFERRAL_REWARD_COINS": {
       "group": "Business rules",
       "text": "Coins awarded for a successful referral."

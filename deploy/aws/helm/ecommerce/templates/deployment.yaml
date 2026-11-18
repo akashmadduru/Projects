@@ -123,6 +123,10 @@ spec:
             - { name: GATEWAY_RATE_LIMIT_READS, value: {{ $g.gateway.rateLimitReadsPerMinute | quote }} }
             - { name: GATEWAY_RATE_LIMIT_TRUSTED_PROXY_HOPS, value: {{ $g.gateway.trustedProxyHops | quote }} }
             {{- end }}
+            {{- if eq $name "user-service" }}
+            {{- /* Referral abuse checks read the client from X-Forwarded-For: the gateway's trusted hops plus the gateway's own append. */}}
+            - { name: USER_REFERRAL_TRUSTED_PROXY_HOPS, value: {{ add (int $g.gateway.trustedProxyHops) 1 | quote }} }
+            {{- end }}
             {{- if eq $name "auth-service" }}
             - { name: AUTH_ALLOWED_REDIRECT_URIS, value: "{{ $g.shopUrl }}/auth/callback,{{ $g.adminUrl }}/auth/callback" }
             - { name: AUTH_DEFAULT_REDIRECT_URI, value: "{{ $g.shopUrl }}/auth/callback" }
