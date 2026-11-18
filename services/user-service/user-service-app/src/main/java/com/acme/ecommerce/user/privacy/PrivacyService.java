@@ -504,6 +504,8 @@ public class PrivacyService {
             "DELETE FROM users.recently_viewed WHERE user_id = :u",
             "DELETE FROM users.user_preferences WHERE user_id = :u",
             "DELETE FROM users.referral_codes WHERE user_id = :u",
+            "DELETE FROM users.referral_ip_activity WHERE user_id = :u",
+            "UPDATE users.referral_claims SET claim_ip_hash = NULL WHERE referee_user_id = :u",
             "DELETE FROM users.delete_codes WHERE user_id = :u",
             "DELETE FROM users.export_jobs WHERE user_id = :u",
             "UPDATE users.memberships SET email = NULL, auto_renew = false WHERE user_id = :u",
