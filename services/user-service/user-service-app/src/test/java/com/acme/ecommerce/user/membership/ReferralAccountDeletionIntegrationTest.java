@@ -45,6 +45,7 @@ class ReferralAccountDeletionIntegrationTest extends AbstractUserIntegrationTest
     String otherCode =
         referrals.view(other, Optional.of(InetAddress.getByName("203.0.113.9"))).code();
     UUID referee = UUID.randomUUID();
+    jdbc.sql("UPDATE users.referral_codes SET created_at = now() - interval '1 day'").update();
     referrals.claim(user, otherCode, Optional.of(InetAddress.getByName("198.51.100.4")));
     referrals.claim(referee, code, Optional.of(InetAddress.getByName("198.51.100.5")));
 

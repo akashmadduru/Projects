@@ -101,7 +101,6 @@ Shortcuts taken while building customer accounts (login, Google SSO, user/cart/o
 | TD-P8-09 | Coins: earn-rate deviation, expiry informational, consumer limits | phase8 | Med | M | [phase8.md](phase8.md#td-p8-09) |
 | TD-P8-11 | Subscribe and Save: generic failure mail, no discount line | phase8 | Med | M | [phase8.md](phase8.md#td-p8-11) |
 | TD-P8-12 | Membership: no renew/proration, uncached live lookups | phase8 | Med | M | [phase8.md](phase8.md#td-p8-12) |
-| TD-P8-13 | Referral claims have no abuse checks | phase8 | Med | S | [phase8.md](phase8.md#td-p8-13) |
 | TD-P8-10 | Order list DTO lacks coins/wallet | phase8 | Low | S | [phase8.md](phase8.md#td-p8-10) |
 | TD-P8-15 | Inbox/preferences shortcuts (no retention, coupled text) | phase8 | Low | M | [phase8.md](phase8.md#td-p8-15) |
 | TD-P8-16 | Lists: hybrid storage, unpaged, no move endpoint | phase8 | Low | S | [phase8.md](phase8.md#td-p8-16) |
@@ -110,6 +109,7 @@ Shortcuts taken while building customer accounts (login, Google SSO, user/cart/o
 | TD-P8-19 | Phase 8 test data and Mailpit messages left in dev | phase8 | Low | S | [phase8.md](phase8.md#td-p8-19) |
 | TD-P8-20 | notification_db setup script, throwaway password, offline builds | phase8 | Low | S | [phase8.md](phase8.md#td-p8-20) |
 | TD-P8-22 | Wallet product gaps: one currency, no top-up or admin adjustment | phase8 | Low | M | [phase8.md](phase8.md#td-p8-22) |
+| TD-P8-24 | Referral IP hash salt not wired through Helm; prod does not fail closed | phase8 | Med | S | [phase8.md](phase8.md#td-p8-24) |
 | TD-P9-01 | No tests for Phase 9; admin/storefront specs likely stale | phase9 | High | L | [phase9.md](phase9.md#td-p9-01) |
 | TD-P9-02 | Legacy stock totals still exist beside warehouse stock (reconciled hourly) | phase9 | Med | M | [phase9.md](phase9.md#td-p9-02) |
 | TD-P9-09 | KYC format-only; bank data under one static key (role revoke and masking fixed) | phase9 | High | M | [phase9.md](phase9.md#td-p9-09) |

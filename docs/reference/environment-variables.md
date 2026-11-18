@@ -166,6 +166,10 @@ service-level setting (add it under that service's `env:` in `values.yaml`). Rel
 | `ORDER_RISK_AVG_MIN_ORDERS` | order (Compose) | _Spring default_ |  | compose | Minimum past orders before the "unusually large order" check applies (Compose default 3). |
 | `ORDER_RISK_AVG_MULTIPLIER` | order (Compose) | _Spring default_ |  | compose | How many times the customer's average an order may be before it is flagged (Compose default 10). |
 | `ORDER_RISK_VELOCITY_THRESHOLD` | order (Compose) | _Spring default_ |  | compose | Orders in a short window that trigger a velocity risk flag (Compose default 8). Mapped by Spring onto `order.risk.*`. |
+| `USER_REFERRAL_IP_HASH_SALT` 🔒 | user | `""` |  | - | Secret key for hashing client IPs on referral pages and claims (HMAC-SHA256; raw IPs are never stored). Blank fails safe: a random key is made per process and a WARN is logged, so IP matches can only be missed (hashes differ across restarts and replicas), never wrongly refused, and the code-age check still applies. Production must set it. |
+| `USER_REFERRAL_IP_LOOKBACK` | user | `30d` |  | - | How far back a referrer's recorded network counts when a referee claims. A claim from a network the referrer used within this window is refused. 0 turns the IP check off. |
+| `USER_REFERRAL_IP_RETENTION` | user | `30d` |  | - | How long hashed IPs are kept before the daily cleanup deletes them. Keep it at least as long as the lookback; if shorter, retention is the effective lookback. |
+| `USER_REFERRAL_MIN_CODE_AGE` | user | `10m` |  | - | Minimum age of a referral code before it can be claimed. A newer code is refused. 0 turns the check off. |
 | `USER_REFERRAL_REWARD_COINS` | user | `100` |  | - | Coins awarded for a successful referral. |
 
 ## AI and search

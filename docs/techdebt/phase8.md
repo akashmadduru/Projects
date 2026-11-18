@@ -69,13 +69,6 @@ Phase 8 was built under "no tests, no HLD/LLD, record shortcuts as debt". The in
 - **Risk:** No auto-renew, no proration or refund on cancel, no expiring-soon reminder. The payment result relies on payment-service routing purpose `MEMBERSHIP` to `/internal/users/membership/payment-result`. Free shipping, 2x coins and members-only deals each make a live user-service lookup with no cache, and a failure means "not a member", so a member can be charged shipping or miss a bonus during an outage. Deals' `members_only_until` only filters the public active list and internal prices, so a member who sees a deal late still pays list price if promotion-service is down (extends [TD-P7-09](phase7.md#td-p7-09)). No admin view of plans or member counts (no admin endpoints in the contract).
 - **Fix:** Short-TTL cache plus fail-open for members; renewal and reminder jobs; admin plans and members endpoints.
 
-<a id="td-p8-13"></a>
-## TD-P8-13 Referral claims have no abuse checks
-- **Severity / Effort:** Med / S
-- **Where:** user-service referrals (`POST /api/referrals/claim`); promotion-service `CoinService.referralReward`.
-- **Risk:** Narrowed 2026-11-18: promotion-service already reports the reward back (`POST /internal/referrals/by-referee/{id}/rewarded`) and reads a typed lookup, and the storefront now shows the claim result. Left: no abuse checks on a claim (same device or IP as the referrer, account age). The reward only pays after the referee's first delivered order, which limits farming to real orders.
-- **Fix:** Record the claim IP/device and refuse (or hold for review) a claim matching the referrer's; minimum account age.
-
 <a id="td-p8-15"></a>
 ## TD-P8-15 Notification centre, preferences and inbox shortcuts
 - **Severity / Effort:** Low / M
@@ -131,3 +124,10 @@ Phase 8 was built under "no tests, no HLD/LLD, record shortcuts as debt". The in
 - **Where:** payment-service `WalletService`; admin and storefront wallet screens.
 - **Risk:** Residual of TD-P8-07 (fixed 2026-11-17: money owed back to a wallet is recorded in `orders.pending_wallet_credits` before payment-service is called and retried with backoff until it lands; "WALLET CREDIT STUCK" is logged at ERROR after 10 attempts). The debit was already atomic (row lock plus balance check), so a checkout race fails cleanly with 409. A wallet still holds one currency (reset only at a zero balance), and there is no top-up, withdrawal, expiry or audited admin adjustment.
 - **Fix:** Product decisions first (multi-currency or conversion rules, top-up via the payment providers); then an admin adjustment endpoint, audited.
+
+<a id="td-p8-24"></a>
+## TD-P8-24 Referral IP hash salt is not wired through Helm and prod does not fail closed
+- **Severity / Effort:** Med / S
+- **Where:** `user-service/.../` `membership/IpFingerprint`, `user.referral.ip-hash-salt` (`USER_REFERRAL_IP_HASH_SALT`); `deploy/aws/helm/ecommerce` values and `app` secret; `config.env` and Terraform.
+- **Risk:** The referral abuse checks (TD-P8-13, fixed) hash client IPs with HMAC-SHA256 keyed by this salt. Nothing sets it in the AWS deployment, so each replica uses its own random per-process key. That fails safe (IP matches can only be missed, never wrongly refused; the code-age check still applies), but the IP check is then weak in production: hashes differ across replicas and restarts, so a same-network claim usually passes. Under the `prod` profile the service also starts without the salt and only logs a WARN.
+- **Fix:** Plumb the secret through `config.env` → Terraform → `app` secret → Helm `secretEnv` (as done for the VAPID keys, TD-P8-05); add a `prod`-profile guard that refuses to start with a blank salt.

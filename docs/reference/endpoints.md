@@ -391,3 +391,5 @@ Request and response shapes for Phases 1–5 are in [api.md](api.md); later phas
 | GET | `/internal/users/{userId}/membership` | InternalEngageController |
 | GET | `/internal/users/{userId}/preferences` | InternalEngageController |
 | POST | `/internal/users/membership/payment-result` | InternalEngageController |
+
+`GET /api/referrals` records a hashed copy of the caller's IP (never the raw address). `POST /api/referrals/claim` answers 422 `REFERRAL_CODE_TOO_NEW` or `REFERRAL_IP_MATCH` when a claim is refused.

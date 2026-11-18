@@ -345,6 +345,23 @@
       "usedBy": "order (Compose)",
       "text": "How many times the customer's average an order may be before it is flagged (Compose default 10)."
     },
+    "USER_REFERRAL_IP_HASH_SALT": {
+      "group": "Business rules",
+      "secret": true,
+      "text": "Secret key for hashing client IPs on referral pages and claims (HMAC-SHA256; raw IPs are never stored). Blank fails safe: a random key is made per process and a WARN is logged, so IP matches can only be missed (hashes differ across restarts and replicas), never wrongly refused, and the code-age check still applies. Production must set it."
+    },
+    "USER_REFERRAL_IP_LOOKBACK": {
+      "group": "Business rules",
+      "text": "How far back a referrer's recorded network counts when a referee claims. A claim from a network the referrer used within this window is refused. 0 turns the IP check off."
+    },
+    "USER_REFERRAL_IP_RETENTION": {
+      "group": "Business rules",
+      "text": "How long hashed IPs are kept before the daily cleanup deletes them. Keep it at least as long as the lookback; if shorter, retention is the effective lookback."
+    },
+    "USER_REFERRAL_MIN_CODE_AGE": {
+      "group": "Business rules",
+      "text": "Minimum age of a referral code before it can be claimed. A newer code is refused. 0 turns the check off."
+    },
     "USER_REFERRAL_REWARD_COINS": {
       "group": "Business rules",
       "text": "Coins awarded for a successful referral."

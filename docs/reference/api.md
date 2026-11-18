@@ -74,7 +74,7 @@ Every error is an RFC 9457 `application/problem+json` document:
 5xx responses never include exception text; the details are in the service log under the
 `X-Correlation-Id` returned with the response.
 
-All 38 codes (`libs/common-core/.../error/ErrorCode.java`):
+All 40 codes (`libs/common-core/.../error/ErrorCode.java`):
 
 | HTTP | Code | Title |
 |---|---|---|
@@ -112,6 +112,8 @@ All 38 codes (`libs/common-core/.../error/ErrorCode.java`):
 | 422 | `DOMAIN_RULE_VIOLATION` | Domain rule violation |
 | 422 | `GIFT_CARD_INVALID` | Gift card invalid |
 | 422 | `PAYMENT_METHOD_UNAVAILABLE` | Payment method unavailable |
+| 422 | `REFERRAL_CODE_TOO_NEW` | Referral code too new |
+| 422 | `REFERRAL_IP_MATCH` | Referral not allowed from this network |
 | 429 | `RATE_LIMITED` | Too many requests |
 | 500 | `INTERNAL_ERROR` | Internal server error |
 | 503 | `DEPENDENCY_UNAVAILABLE` | Dependency unavailable |

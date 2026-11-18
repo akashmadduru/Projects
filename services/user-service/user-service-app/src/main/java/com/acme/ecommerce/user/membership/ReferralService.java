@@ -86,6 +86,11 @@ public class ReferralService {
     if (referrer.equals(userId)) {
       throw new CodedException(ErrorCode.DOMAIN_RULE_VIOLATION, "You cannot use your own code");
     }
+    if (claimExists(userId)) {
+      throw new CodedException(
+          ErrorCode.RESOURCE_CONFLICT, "A referral code was already applied to this account");
+    }
+    refuseIfAbusive(referrer, ip);
     try {
       jdbc.sql(
               "INSERT INTO users.referral_claims (referee_user_id, referrer_user_id, code,"
@@ -99,6 +104,48 @@ public class ReferralService {
       throw new CodedException(
           ErrorCode.RESOURCE_CONFLICT, "A referral code was already applied to this account");
     }
+  }
+
+  /** Abuse checks, in order: code age, then network match. A throw rolls the claim back. */
+  private void refuseIfAbusive(UUID referrer, Optional<InetAddress> ip) {
+    UserProperties.Referral cfg = properties.getReferral();
+    if (!cfg.getMinCodeAge().isZero()) {
+      boolean tooNew =
+          jdbc.sql(
+                  "SELECT EXISTS (SELECT 1 FROM users.referral_codes WHERE user_id = :p AND"
+                      + " created_at > now() - (:s * interval '1 second'))")
+              .param("p", referrer)
+              .param("s", cfg.getMinCodeAge().toSeconds())
+              .query(Boolean.class)
+              .single();
+      if (tooNew) {
+        throw new CodedException(
+            ErrorCode.REFERRAL_CODE_TOO_NEW, "This referral code cannot be used yet");
+      }
+    }
+    if (!cfg.getIpLookback().isZero() && ip.isPresent()) {
+      boolean sameNetwork =
+          jdbc.sql(
+                  "SELECT EXISTS (SELECT 1 FROM users.referral_ip_activity WHERE user_id = :p AND"
+                      + " ip_hash = :h AND last_seen_at > now() - (:s * interval '1 second'))")
+              .param("p", referrer)
+              .param("h", fingerprint.hash(ip.get()))
+              .param("s", cfg.getIpLookback().toSeconds())
+              .query(Boolean.class)
+              .single();
+      if (sameNetwork) {
+        throw new CodedException(
+            ErrorCode.REFERRAL_IP_MATCH, "This referral code cannot be used from this network");
+      }
+    }
+  }
+
+  private boolean claimExists(UUID referee) {
+    return jdbc.sql(
+            "SELECT EXISTS (SELECT 1 FROM users.referral_claims WHERE referee_user_id = :r)")
+        .param("r", referee)
+        .query(Boolean.class)
+        .single();
   }
 
   /** Upserts the referrer's hashed IP; an existing row is only refreshed when over an hour old. */

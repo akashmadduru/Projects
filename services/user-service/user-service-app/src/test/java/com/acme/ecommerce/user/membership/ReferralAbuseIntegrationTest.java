@@ -9,10 +9,16 @@ import com.acme.ecommerce.user.config.UserProperties;
 import com.acme.ecommerce.user.support.AbstractUserIntegrationTest;
 import java.net.InetAddress;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,6 +36,14 @@ class ReferralAbuseIntegrationTest extends AbstractUserIntegrationTest {
 
   private static Optional<InetAddress> ip(String literal) throws Exception {
     return Optional.of(InetAddress.getByName(literal));
+  }
+
+  private static Optional<InetAddress> safeIp(String literal) {
+    try {
+      return ip(literal);
+    } catch (Exception e) {
+      throw new IllegalStateException(e);
+    }
   }
 
   private String hashOf(String literal) throws Exception {
@@ -56,6 +70,35 @@ class ReferralAbuseIntegrationTest extends AbstractUserIntegrationTest {
         .param("u", referee)
         .query(Integer.class)
         .single();
+  }
+
+  /** Makes the referrer's code old enough to pass the default minimum-age check. */
+  private void age(UUID referrer) {
+    setCodeAge(referrer, "1 day");
+  }
+
+  private void setCodeAge(UUID referrer, String interval) {
+    jdbc.sql(
+            "UPDATE users.referral_codes SET created_at = now() - CAST(:i AS interval) WHERE"
+                + " user_id = :u")
+        .param("i", interval)
+        .param("u", referrer)
+        .update();
+  }
+
+  private void backdateActivity(UUID referrer, String interval) {
+    jdbc.sql(
+            "UPDATE users.referral_ip_activity SET last_seen_at = now() - CAST(:i AS interval)"
+                + " WHERE user_id = :u")
+        .param("i", interval)
+        .param("u", referrer)
+        .update();
+  }
+
+  private static void assertRefused(Runnable call, ErrorCode expected) {
+    assertThatThrownBy(call::run)
+        .isInstanceOfSatisfying(
+            CodedException.class, e -> assertThat(e.errorCode()).isEqualTo(expected));
   }
 
   @Test
@@ -139,6 +182,7 @@ class ReferralAbuseIntegrationTest extends AbstractUserIntegrationTest {
     UUID referrer = UUID.randomUUID();
     UUID referee = UUID.randomUUID();
     String code = referrals.view(referrer, ip("203.0.113.9")).code();
+    age(referrer);
     referrals.claim(referee, code, ip("198.51.100.4"));
 
     assertThat(claimHash(referee)).matches(HEX64).isEqualTo(hashOf("198.51.100.4"));
@@ -171,6 +215,7 @@ class ReferralAbuseIntegrationTest extends AbstractUserIntegrationTest {
     UUID referrer = UUID.randomUUID();
     UUID referee = UUID.randomUUID();
     String code = referrals.view(referrer, Optional.empty()).code();
+    age(referrer);
     assertThatThrownBy(() -> referrals.claim(referrer, code, Optional.empty()))
         .isInstanceOfSatisfying(
             CodedException.class,
@@ -187,6 +232,7 @@ class ReferralAbuseIntegrationTest extends AbstractUserIntegrationTest {
   void purgeRemovesOnlyExpired() throws Exception {
     UUID referrer = UUID.randomUUID();
     String code = referrals.view(referrer, ip("203.0.113.9")).code();
+    age(referrer);
     referrals.view(referrer, ip("203.0.113.10"));
     jdbc.sql(
             "UPDATE users.referral_ip_activity SET last_seen_at = now() - interval '31 days'"
@@ -219,5 +265,167 @@ class ReferralAbuseIntegrationTest extends AbstractUserIntegrationTest {
   void purgeNoOp() {
     referrals.purgeExpiredIps();
     referrals.purgeExpiredIps();
+  }
+
+  @Test
+  @DisplayName("AC-1: an aged code and a different network is accepted")
+  void agedCodeDifferentIpAccepted() throws Exception {
+    UUID referrer = UUID.randomUUID();
+    UUID referee = UUID.randomUUID();
+    String code = referrals.view(referrer, ip("203.0.113.9")).code();
+    age(referrer);
+    referrals.claim(referee, code, ip("198.51.100.4"));
+    assertThat(claimRows(referee)).isEqualTo(1);
+  }
+
+  @Test
+  @DisplayName("AC-2: a young code is refused with no row")
+  void youngCodeRefused() throws Exception {
+    UUID referrer = UUID.randomUUID();
+    UUID referee = UUID.randomUUID();
+    String code = referrals.view(referrer, ip("203.0.113.9")).code();
+    assertRefused(
+        () -> referrals.claim(referee, code, safeIp("198.51.100.4")),
+        ErrorCode.REFERRAL_CODE_TOO_NEW);
+    assertThat(claimRows(referee)).isZero();
+  }
+
+  @Test
+  @DisplayName("AC-3 and AC-15: the referrer's network is refused, however the IPv6 is written")
+  void sameIpRefused() throws Exception {
+    UUID referrer = UUID.randomUUID();
+    String code = referrals.view(referrer, ip("203.0.113.9")).code();
+    String code6 = referrals.view(referrer, ip("2001:DB8::1")).code();
+    age(referrer);
+    UUID referee = UUID.randomUUID();
+    assertRefused(
+        () -> referrals.claim(referee, code, safeIp("203.0.113.9")), ErrorCode.REFERRAL_IP_MATCH);
+    assertRefused(
+        () -> referrals.claim(referee, code6, safeIp("2001:0db8:0:0:0:0:0:1")),
+        ErrorCode.REFERRAL_IP_MATCH);
+    assertRefused(
+        () -> referrals.claim(referee, code6, safeIp("2001:db8::1%1")),
+        ErrorCode.REFERRAL_IP_MATCH);
+    assertThat(claimRows(referee)).isZero();
+  }
+
+  @Test
+  @DisplayName("AC-4: activity older than the lookback is ignored")
+  void oldActivityIgnored() throws Exception {
+    UUID referrer = UUID.randomUUID();
+    String code = referrals.view(referrer, ip("203.0.113.9")).code();
+    age(referrer);
+    backdateActivity(referrer, "31 days");
+    UUID referee = UUID.randomUUID();
+    referrals.claim(referee, code, ip("203.0.113.9"));
+    assertThat(claimRows(referee)).isEqualTo(1);
+  }
+
+  @Test
+  @DisplayName("AC-10: a young code with the same IP reports only the code age")
+  void ageCheckBeforeIpCheck() throws Exception {
+    UUID referrer = UUID.randomUUID();
+    String code = referrals.view(referrer, ip("203.0.113.9")).code();
+    assertRefused(
+        () -> referrals.claim(UUID.randomUUID(), code, safeIp("203.0.113.9")),
+        ErrorCode.REFERRAL_CODE_TOO_NEW);
+  }
+
+  @Test
+  @DisplayName("AC-11: a refusal does not burn the referee's one claim")
+  void refusalKeepsSlotFree() throws Exception {
+    UUID referrer = UUID.randomUUID();
+    UUID referrer2 = UUID.randomUUID();
+    String code = referrals.view(referrer, ip("203.0.113.9")).code();
+    String code2 = referrals.view(referrer2, ip("192.0.2.77")).code();
+    age(referrer2);
+    UUID referee = UUID.randomUUID();
+    assertRefused(
+        () -> referrals.claim(referee, code, safeIp("198.51.100.4")),
+        ErrorCode.REFERRAL_CODE_TOO_NEW);
+    age(referrer);
+    referrals.claim(referee, code, ip("198.51.100.4"));
+    assertThat(claimRows(referee)).isEqualTo(1);
+
+    UUID referee2 = UUID.randomUUID();
+    assertRefused(
+        () -> referrals.claim(referee2, code2, safeIp("192.0.2.77")), ErrorCode.REFERRAL_IP_MATCH);
+    referrals.claim(referee2, code, ip("192.0.2.77"));
+    assertThat(claimRows(referee2)).isEqualTo(1);
+  }
+
+  @Test
+  @DisplayName("a lower-case, padded code hits the same checks")
+  void normalisedCodeChecked() throws Exception {
+    UUID referrer = UUID.randomUUID();
+    String code = referrals.view(referrer, ip("203.0.113.9")).code();
+    assertRefused(
+        () ->
+            referrals.claim(UUID.randomUUID(), "  " + code.toLowerCase() + " ", safeIp("1.2.3.4")),
+        ErrorCode.REFERRAL_CODE_TOO_NEW);
+  }
+
+  @Test
+  @DisplayName("AC-12: a duplicate claim is 409 even while the code is young")
+  void duplicateBeforeAgeCheck() throws Exception {
+    UUID referrer = UUID.randomUUID();
+    UUID referee = UUID.randomUUID();
+    String code = referrals.view(referrer, ip("203.0.113.9")).code();
+    age(referrer);
+    referrals.claim(referee, code, ip("198.51.100.4"));
+    setCodeAge(referrer, "1 minute");
+    assertRefused(
+        () -> referrals.claim(referee, code, safeIp("203.0.113.9")), ErrorCode.RESOURCE_CONFLICT);
+  }
+
+  @Test
+  @DisplayName("two concurrent claims by one referee leave exactly one row")
+  void concurrentClaims() throws Exception {
+    UUID referrer = UUID.randomUUID();
+    String code = referrals.view(referrer, ip("203.0.113.9")).code();
+    age(referrer);
+    UUID referee = UUID.randomUUID();
+    ExecutorService pool = Executors.newFixedThreadPool(2);
+    try {
+      CountDownLatch go = new CountDownLatch(1);
+      List<Future<Boolean>> results = new ArrayList<>();
+      for (int i = 0; i < 2; i++) {
+        results.add(
+            pool.submit(
+                () -> {
+                  go.await();
+                  try {
+                    referrals.claim(referee, code, ip("198.51.100.4"));
+                    return true;
+                  } catch (CodedException e) {
+                    assertThat(e.errorCode()).isEqualTo(ErrorCode.RESOURCE_CONFLICT);
+                    return false;
+                  }
+                }));
+      }
+      go.countDown();
+      long ok = 0;
+      for (Future<Boolean> f : results) {
+        if (f.get(30, TimeUnit.SECONDS)) {
+          ok++;
+        }
+      }
+      assertThat(ok).isEqualTo(1);
+    } finally {
+      pool.shutdownNow();
+    }
+    assertThat(claimRows(referee)).isEqualTo(1);
+  }
+
+  @Test
+  @DisplayName("refusal messages carry no IP, time or count")
+  void refusalTextIsGeneric() throws Exception {
+    UUID referrer = UUID.randomUUID();
+    String code = referrals.view(referrer, ip("203.0.113.9")).code();
+    assertThatThrownBy(() -> referrals.claim(UUID.randomUUID(), code, safeIp("203.0.113.9")))
+        .hasMessage("This referral code cannot be used yet");
+    age(referrer);
+    assertThatThrownBy(() -> referrals.claim(UUID.randomUUID(), code, safeIp("203.0.113.9")))
+        .hasMessage("This referral code cannot be used from this network");
   }
 }

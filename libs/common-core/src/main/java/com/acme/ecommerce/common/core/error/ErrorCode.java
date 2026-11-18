@@ -98,6 +98,12 @@ public enum ErrorCode {
   /** Gift card code is unknown, already redeemed, expired or cancelled. */
   GIFT_CARD_INVALID("GIFT_CARD_INVALID", 422, "Gift card invalid"),
 
+  /** Referral code was created too recently to be used. */
+  REFERRAL_CODE_TOO_NEW("REFERRAL_CODE_TOO_NEW", 422, "Referral code too new"),
+
+  /** Referral claim comes from a network the referrer recently used. */
+  REFERRAL_IP_MATCH("REFERRAL_IP_MATCH", 422, "Referral not allowed from this network"),
+
   /** Wallet or coin balance is too low for the requested debit. */
   INSUFFICIENT_BALANCE("INSUFFICIENT_BALANCE", 409, "Insufficient balance"),
 
