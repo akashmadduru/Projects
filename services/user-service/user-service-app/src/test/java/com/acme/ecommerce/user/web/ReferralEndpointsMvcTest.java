@@ -174,6 +174,27 @@ class ReferralEndpointsMvcTest extends AbstractUserIntegrationTest {
   }
 
   @Test
+  @DisplayName("AC-13: the first X-Forwarded-For entry is the one compared on claim")
+  void claimComparesFirstForwardedEntry() throws Exception {
+    String code = view(UUID.randomUUID(), "203.0.113.50").get("code").asText();
+    ageCode(code);
+    MockHttpServletResponse hit = claim(UUID.randomUUID(), code, "203.0.113.50, 198.51.100.77");
+    assertThat(hit.getStatus()).isEqualTo(422);
+    assertThat(objectMapper.readTree(hit.getContentAsString()).get("code").asText())
+        .isEqualTo("REFERRAL_IP_MATCH");
+    assertThat(claim(UUID.randomUUID(), code, "198.51.100.77, 203.0.113.50").getStatus())
+        .isEqualTo(204);
+  }
+
+  @Test
+  @DisplayName("AC-15: an IPv4 address and an IPv6 address never match each other")
+  void v4AndV6DoNotMatch() throws Exception {
+    String code = view(UUID.randomUUID(), "1.2.3.4").get("code").asText();
+    ageCode(code);
+    assertThat(claim(UUID.randomUUID(), code, "::102:304").getStatus()).isEqualTo(204);
+  }
+
+  @Test
   @DisplayName("AC-5: no log line holds a raw IP or the salt across a view and claim flow")
   void noRawIpInLogs() throws Exception {
     Logger root = (Logger) LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME);
