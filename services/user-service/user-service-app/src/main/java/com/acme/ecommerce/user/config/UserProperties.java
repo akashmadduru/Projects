@@ -1,10 +1,13 @@
 package com.acme.ecommerce.user.config;
 
+import jakarta.annotation.PostConstruct;
 import java.time.Duration;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
@@ -13,6 +16,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * <p>JavaBean binding, so defaults are field initializers ({@code @DefaultValue} only applies to
  * constructor parameters and record components). Environment overrides live in application.yml.
  */
+@Slf4j
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -20,6 +24,38 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "user")
 public class UserProperties {
   @Builder.Default private Jwt jwt = new Jwt();
+  @Builder.Default private Referral referral = new Referral();
+
+  @PostConstruct
+  void warnOnShortRetention() {
+    Referral r = referral;
+    if (r != null && r.ipRetention.compareTo(r.ipLookback) < 0) {
+      log.warn(
+          "user.referral.ip-retention ({}) is shorter than ip-lookback ({}): the effective"
+              + " lookback is the retention",
+          r.ipRetention,
+          r.ipLookback);
+    }
+  }
+
+  /** Referral claim abuse checks (TD-P8-13). A zero duration disables the matching check. */
+  @Data
+  @NoArgsConstructor
+  @AllArgsConstructor
+  @Builder
+  public static class Referral {
+    /** A referral code must be at least this old before it can be claimed. */
+    @Builder.Default private Duration minCodeAge = Duration.ofMinutes(10);
+
+    /** A claim is refused when the referrer was seen from the claimant's IP within this window. */
+    @Builder.Default private Duration ipLookback = Duration.ofDays(30);
+
+    /** Hashed IPs older than this are deleted by the nightly job. */
+    @Builder.Default private Duration ipRetention = Duration.ofDays(30);
+
+    /** HMAC key for IP hashing; blank means a random per-process key (matches only in-process). */
+    @ToString.Exclude @Builder.Default private String ipHashSalt = "";
+  }
 
   /** Token validation contract with custom helper methods. */
   @Data

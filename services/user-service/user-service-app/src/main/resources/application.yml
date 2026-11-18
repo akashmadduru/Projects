@@ -110,6 +110,10 @@ user:
   storefront-url: ${STOREFRONT_BASE_URL:http://localhost:3000}
   referral:
     reward-coins: ${USER_REFERRAL_REWARD_COINS:100}
+    min-code-age: ${USER_REFERRAL_MIN_CODE_AGE:10m}
+    ip-lookback: ${USER_REFERRAL_IP_LOOKBACK:30d}
+    ip-retention: ${USER_REFERRAL_IP_RETENTION:30d}
+    ip-hash-salt: ${USER_REFERRAL_IP_HASH_SALT:}
   jwt:
     # SAME ENV VARS AND SAME DEFAULTS AS auth-service's `auth.jwt.*`, the
     # gateway's `gateway.jwt.*` and product-service's `product.jwt.*`. Any of
