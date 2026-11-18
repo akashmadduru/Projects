@@ -1,0 +1,19 @@
+# Test profile (TD-TEST-01). The datasource comes from AbstractCartIntegrationTest.
+spring:
+  kafka:
+    listener:
+      auto-startup: false
+    producer:
+      properties:
+        max.block.ms: 2000
+  cloud:
+    discovery:
+      enabled: false
+
+cart:
+  jwt:
+    jwks-uri: http://localhost:1/.well-known/jwks.json
+
+eureka:
+  client:
+    enabled: false

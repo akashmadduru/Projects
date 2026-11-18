@@ -275,5 +275,5 @@ curl -s -X PUT http://localhost:8080/api/products/11111111-1111-4111-8111-111111
   id lists ([TD-P7-03](../techdebt/phase7.md#td-p7-03)), which is the first thing to fix before adding a cache.
 - **Schema registry** for `ProductEvent`; the class is duplicated in inventory-service and cart-service
   ([ADR 0002](../architecture/adr/0002-event-driven-inventory-kafka-kraft-and-event-contract-duplication.md)).
-- **Seller listing moderation:** seller products go live immediately ([TD-P9-03](../techdebt/phase9.md#td-p9-03)).
+- **Seller listing moderation:** a seller's new product waits in the admin review queue (`/api/products/admin/moderation`) and goes live when approved; edits after approval are not re-reviewed ([TD-P9-21](../techdebt/phase9.md#td-p9-21)).
 

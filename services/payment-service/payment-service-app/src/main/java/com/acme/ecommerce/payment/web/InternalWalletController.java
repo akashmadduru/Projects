@@ -35,6 +35,13 @@ public class InternalWalletController {
       @Size(max = 100) String referenceId,
       @NotBlank @Size(max = 150) String idempotencyKey) {}
 
+  public record ReverseRequest(
+      @NotNull UUID userId,
+      @NotBlank @Size(max = 150) String debitKey,
+      @NotBlank @Size(max = 150) String creditKey) {}
+
+  public record ReverseResult(boolean reversed) {}
+
   private final WalletService wallet;
 
   public InternalWalletController(WalletService wallet) {
@@ -49,6 +56,12 @@ public class InternalWalletController {
   @PostMapping("/debit")
   public Balance debit(@Valid @RequestBody DebitRequest r) {
     return wallet.debit(r.userId(), r.amount(), r.currency(), r.orderId(), r.idempotencyKey());
+  }
+
+  /** Returns a debit only if it happened (ambiguous failures, TD-P8-23). Idempotent. */
+  @PostMapping("/reverse")
+  public ReverseResult reverse(@Valid @RequestBody ReverseRequest r) {
+    return new ReverseResult(wallet.reverseDebit(r.userId(), r.debitKey(), r.creditKey()));
   }
 
   @PostMapping("/credit")

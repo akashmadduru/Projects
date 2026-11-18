@@ -56,6 +56,8 @@ const order = (id: string, status: OrderSummary['status'], total: number): Order
   totalAmount: total,
   placedAt: '2026-02-01T10:00:00Z',
   itemCount: 2,
+  paymentMethod: 'CARD',
+  paymentStatus: 'PAID',
 })
 
 const page = (content: OrderSummary[], totalElements = content.length) => ({
@@ -91,6 +93,8 @@ describe('OverviewPage', () => {
     expect(await screen.findByRole('heading', { level: 2, name: /Ada/ })).toBeInTheDocument()
   })
 
+  // First test in the file: it pays the cold import of the page and its stores, which can pass
+  // 5 s on a loaded CI runner. The assertions themselves are fast.
   it('summarises orders, spend and addresses once loaded', async () => {
     renderOverview()
 
@@ -99,7 +103,7 @@ describe('OverviewPage', () => {
     expect(tile('Lifetime spend')).toHaveTextContent('$40.00')
     expect(tile('Lifetime spend')).toHaveTextContent('Excludes cancelled orders')
     expect(tile('Saved addresses')).toHaveTextContent('Default: Home')
-  })
+  }, 15_000)
 
   it('labels spend honestly when only the latest orders were counted', async () => {
     vi.mocked(orderApi.list).mockResolvedValue(page([order('11111111-aaaa', 'PLACED', 10)], 80))

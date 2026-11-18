@@ -5,11 +5,11 @@ Index: [README](README.md). Feature: [Phase7-Admin-Feature](../phases/phase-07-d
 Built on 2026-11-12 under "no test cases, build features fast, record shortcuts here". What was verified: all changed backend modules compile in an `eclipse-temurin:25-jdk` container (Gradle offline). payment-service is the exception, see TD-ADM-12. On the SPA, `vue-tsc --noEmit` and `vite build` are clean, and the existing Vitest suite passes except the 3 tests in TD-ADM-11. **Nothing was run end-to-end against live services.** `<svc>` means `services/<name>/<name>-app/src/main/java/com/acme/ecommerce/<name>`.
 
 <a id="td-adm-01"></a>
-## TD-ADM-01 No tests for the admin APIs or screens
-- **Severity / Effort:** High / M
-- **Where:** `<auth>/admin/AdminUserService.java`, `AdminUserController.java`; `<order>/service/OrderStore.java#adminStats`; `<rating>/web/AdminRatingController.java`; `<payment>/web/AdminPaymentController.java`, `repository/AdminPaymentQueries.java`; gateway `SecurityConfig` `/api/admin/**` rule; the six new/changed SPA views.
-- **Risk:** The privilege rules are the parts that most need tests and have none: no self-modification, never zero active admins, the ROLE_ADMIN row lock, and session revocation on disable or role removal. A regression there is a privilege-escalation or lockout bug.
-- **Fix:** `AdminUserService` tests: self-change gives 422 `SELF_MODIFICATION`; demoting or disabling the last active admin gives 422 `LAST_ADMIN`; disable calls `revokeAllSessions`; a role-set replace grants and revokes correctly. Concurrency test: two transactions demote the last two admins and exactly one succeeds. Add WebMvc/WebFlux slice tests that a VIEWER and a CATALOG_MANAGER get 403 on every `/api/admin/**` route, at the gateway and in each service. Add SQL tests for `AdminPaymentQueries` filters, and Vitest tests for the CustomerDetail guards.
+## TD-ADM-01 Admin routes: no 403 tests per route, no SQL tests for admin queries
+- **Severity / Effort:** Med / M
+- **Where:** gateway `SecurityConfig` `/api/admin/**` rule; each service's admin controllers; `<order>/service/OrderStore.java#adminStats`; `<payment>/repository/AdminPaymentQueries.java`; admin SPA CustomerDetail guards.
+- **Risk:** The privilege rules now have tests (2026-11-17, `AdminUserServiceIntegrationTest` on a real database): self-change is `SELF_MODIFICATION`; disabling or demoting the last active admin is `LAST_ADMIN`; two admins demoting each other at the same moment leaves exactly one admin (the ROLE_ADMIN row lock holds); disabling a user and removing a role revoke their sessions, adding a role does not. Still untested: that a VIEWER and a CATALOG_MANAGER get 403 on every `/api/admin/**` route at the gateway and in each service, the admin SQL filters, and the CustomerDetail guards in the SPA.
+- **Fix:** WebMvc/WebFlux slice tests per admin route with several roles; SQL tests for `AdminPaymentQueries`; Vitest for the CustomerDetail guards.
 
 <a id="td-adm-02"></a>
 ## TD-ADM-02 Disable/demote does not invalidate access tokens already issued

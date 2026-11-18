@@ -10,7 +10,7 @@ described a much earlier version.
 cd apps/product-catalog
 npm install
 npm run dev          # http://localhost:3000 (strictPort; /api is proxied to the gateway on :8080)
-npm run build        # tsc -p tsconfig.build.json && vite build (excludes tests from type-checking)
+npm run build        # tsc --noEmit && vite build (type-checks tests too, since 2026-11-17)
 npm run type-check   # tsc --noEmit, including tests
 npm run lint
 npm test             # vitest
