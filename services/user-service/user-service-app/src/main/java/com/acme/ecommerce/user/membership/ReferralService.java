@@ -58,9 +58,11 @@ public class ReferralService {
   }
 
   @Transactional
-  public ReferralView view(UUID userId, Optional<InetAddress> ip) {
+  public ReferralView view(UUID userId, InetAddress ip) {
     String code = codeFor(userId);
-    ip.map(fingerprint::hash).ifPresent(hash -> recordActivity(userId, hash));
+    if (ip != null) {
+      recordActivity(userId, fingerprint.hash(ip));
+    }
     long invited =
         jdbc.sql("SELECT count(*) FROM users.referral_claims WHERE referrer_user_id = :u")
             .param("u", userId)
@@ -77,16 +79,26 @@ public class ReferralService {
         code, storefront + "/register?ref=" + code, invited, rewarded, rewarded * rewardCoins);
   }
 
+  /**
+   * {@code ip} may be null when the caller's address is unknown; the IP checks are then skipped.
+   */
   @Transactional
-  public void claim(UUID userId, String rawCode, Optional<InetAddress> ip) {
+  public void claim(UUID userId, String rawCode, InetAddress ip) {
     String code = rawCode == null ? "" : rawCode.trim().toUpperCase(Locale.ROOT);
-    UUID referrer =
-        jdbc.sql("SELECT user_id FROM users.referral_codes WHERE code = :c")
+    long minAgeSeconds = properties.getReferral().getMinCodeAge().toSeconds();
+    CodeOwner owner =
+        jdbc.sql(
+                "SELECT user_id, created_at > now() - (:s * interval '1 second') AS too_new FROM"
+                    + " users.referral_codes WHERE code = :c")
+            .param("s", minAgeSeconds)
             .param("c", code)
-            .query(UUID.class)
+            .query(
+                (rs, n) ->
+                    new CodeOwner(rs.getObject("user_id", UUID.class), rs.getBoolean("too_new")))
             .optional()
             .orElseThrow(
                 () -> new CodedException(ErrorCode.RESOURCE_NOT_FOUND, "Referral code not found"));
+    UUID referrer = owner.userId();
     if (referrer.equals(userId)) {
       throw new CodedException(ErrorCode.DOMAIN_RULE_VIOLATION, "You cannot use your own code");
     }
@@ -94,7 +106,8 @@ public class ReferralService {
       throw new CodedException(
           ErrorCode.RESOURCE_CONFLICT, "A referral code was already applied to this account");
     }
-    refuseIfAbusive(referrer, ip);
+    String ipHash = ip == null ? null : fingerprint.hash(ip);
+    refuseIfAbusive(referrer, owner.tooNew() && minAgeSeconds > 0, ipHash);
     try {
       jdbc.sql(
               "INSERT INTO users.referral_claims (referee_user_id, referrer_user_id, code,"
@@ -102,7 +115,7 @@ public class ReferralService {
           .param("r", userId)
           .param("p", referrer)
           .param("c", code)
-          .param("h", ip.map(fingerprint::hash).orElse(null))
+          .param("h", ipHash)
           .update();
     } catch (DuplicateKeyException e) {
       throw new CodedException(
@@ -110,31 +123,23 @@ public class ReferralService {
     }
   }
 
+  private record CodeOwner(UUID userId, boolean tooNew) {}
+
   /** Abuse checks, in order: code age, then network match. A throw rolls the claim back. */
-  private void refuseIfAbusive(UUID referrer, Optional<InetAddress> ip) {
-    UserProperties.Referral cfg = properties.getReferral();
-    if (cfg.getMinCodeAge().toSeconds() > 0) {
-      boolean tooNew =
-          jdbc.sql(
-                  "SELECT EXISTS (SELECT 1 FROM users.referral_codes WHERE user_id = :p AND"
-                      + " created_at > now() - (:s * interval '1 second'))")
-              .param("p", referrer)
-              .param("s", cfg.getMinCodeAge().toSeconds())
-              .query(Boolean.class)
-              .single();
-      if (tooNew) {
-        throw new CodedException(
-            ErrorCode.REFERRAL_CODE_TOO_NEW, "This referral code cannot be used yet");
-      }
+  private void refuseIfAbusive(UUID referrer, boolean codeTooNew, String ipHash) {
+    if (codeTooNew) {
+      throw new CodedException(
+          ErrorCode.REFERRAL_CODE_TOO_NEW, "This referral code cannot be used yet");
     }
-    if (cfg.getIpLookback().toSeconds() > 0 && ip.isPresent()) {
+    long lookback = properties.getReferral().getIpLookback().toSeconds();
+    if (lookback > 0 && ipHash != null) {
       boolean sameNetwork =
           jdbc.sql(
                   "SELECT EXISTS (SELECT 1 FROM users.referral_ip_activity WHERE user_id = :p AND"
                       + " ip_hash = :h AND last_seen_at > now() - (:s * interval '1 second'))")
               .param("p", referrer)
-              .param("h", fingerprint.hash(ip.get()))
-              .param("s", cfg.getIpLookback().toSeconds())
+              .param("h", ipHash)
+              .param("s", lookback)
               .query(Boolean.class)
               .single();
       if (sameNetwork) {
@@ -153,17 +158,26 @@ public class ReferralService {
   }
 
   /**
-   * Upserts the referrer's hashed IP (an existing row is only refreshed when over an hour old),
-   * then keeps only the {@link #MAX_ACTIVITY_ROWS} most recent rows for the user.
+   * Upserts the referrer's hashed IP (an existing row is only refreshed when over an hour old).
+   * Only a newly inserted row can exceed the cap, so only then are all but the {@link
+   * #MAX_ACTIVITY_ROWS} most recent rows for the user dropped; a refresh or a throttled view writes
+   * nothing more.
    */
   private void recordActivity(UUID userId, String hash) {
-    jdbc.sql(
-            "INSERT INTO users.referral_ip_activity (user_id, ip_hash) VALUES (:u, :h) ON CONFLICT"
-                + " (user_id, ip_hash) DO UPDATE SET last_seen_at = now() WHERE"
-                + " users.referral_ip_activity.last_seen_at < now() - interval '1 hour'")
-        .param("u", userId)
-        .param("h", hash)
-        .update();
+    boolean inserted =
+        jdbc.sql(
+                "INSERT INTO users.referral_ip_activity (user_id, ip_hash) VALUES (:u, :h) ON"
+                    + " CONFLICT (user_id, ip_hash) DO UPDATE SET last_seen_at = now() WHERE"
+                    + " users.referral_ip_activity.last_seen_at < now() - interval '1 hour'"
+                    + " RETURNING (xmax = 0)")
+            .param("u", userId)
+            .param("h", hash)
+            .query(Boolean.class)
+            .optional()
+            .orElse(false);
+    if (!inserted) {
+      return;
+    }
     jdbc.sql(
             "DELETE FROM users.referral_ip_activity WHERE user_id = :u AND ip_hash NOT IN (SELECT"
                 + " ip_hash FROM users.referral_ip_activity WHERE user_id = :u ORDER BY"

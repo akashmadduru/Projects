@@ -9,7 +9,6 @@ import com.acme.ecommerce.user.config.UserProperties;
 import com.acme.ecommerce.user.support.AbstractUserIntegrationTest;
 import java.net.InetAddress;
 import java.time.Duration;
-import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -30,8 +29,8 @@ class ReferralAbuseConfigIntegrationTest extends AbstractUserIntegrationTest {
   @Autowired private UserProperties properties;
   @Autowired private ReferralService referrals;
 
-  private static Optional<InetAddress> ip(String literal) throws Exception {
-    return Optional.of(InetAddress.getByName(literal));
+  private static InetAddress ip(String literal) throws Exception {
+    return InetAddress.getByName(literal);
   }
 
   private void codeAge(UUID referrer, String interval) {

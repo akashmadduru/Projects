@@ -10,7 +10,6 @@ import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -31,11 +30,11 @@ class ReferralAbuseIntegrationTest extends AbstractUserIntegrationTest {
   @Autowired private ReferralService referrals;
   @Autowired private IpFingerprint fingerprint;
 
-  private static Optional<InetAddress> ip(String literal) throws Exception {
-    return Optional.of(InetAddress.getByName(literal));
+  private static InetAddress ip(String literal) throws Exception {
+    return InetAddress.getByName(literal);
   }
 
-  private static Optional<InetAddress> safeIp(String literal) {
+  private static InetAddress safeIp(String literal) {
     try {
       return ip(literal);
     } catch (Exception e) {
@@ -137,7 +136,7 @@ class ReferralAbuseIntegrationTest extends AbstractUserIntegrationTest {
 
     referrals.view(user, ip("198.51.100.4"));
     assertThat(activity(user)).hasSize(2);
-    referrals.view(user, Optional.empty());
+    referrals.view(user, null);
     assertThat(activity(user)).hasSize(2);
   }
 
@@ -157,7 +156,7 @@ class ReferralAbuseIntegrationTest extends AbstractUserIntegrationTest {
       assertThat(rows.toString()).doesNotContain("203.0.113.9").doesNotContain("198.51.100.4");
     }
     UUID noIp = UUID.randomUUID();
-    referrals.claim(noIp, code, Optional.empty());
+    referrals.claim(noIp, code, null);
     assertThat(claimRows(noIp)).isEqualTo(1);
     assertThat(claimHash(noIp)).isNull();
   }
@@ -204,14 +203,14 @@ class ReferralAbuseIntegrationTest extends AbstractUserIntegrationTest {
   void existingRulesUnchanged() throws Exception {
     UUID referrer = UUID.randomUUID();
     UUID referee = UUID.randomUUID();
-    String code = referrals.view(referrer, Optional.empty()).code();
+    String code = referrals.view(referrer, null).code();
     age(referrer);
-    assertThatThrownBy(() -> referrals.claim(referrer, code, Optional.empty()))
+    assertThatThrownBy(() -> referrals.claim(referrer, code, null))
         .isInstanceOfSatisfying(
             CodedException.class,
             e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.DOMAIN_RULE_VIOLATION));
-    referrals.claim(referee, code, Optional.empty());
-    assertThatThrownBy(() -> referrals.claim(referee, code, Optional.empty()))
+    referrals.claim(referee, code, null);
+    assertThatThrownBy(() -> referrals.claim(referee, code, null))
         .isInstanceOfSatisfying(
             CodedException.class,
             e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.RESOURCE_CONFLICT));

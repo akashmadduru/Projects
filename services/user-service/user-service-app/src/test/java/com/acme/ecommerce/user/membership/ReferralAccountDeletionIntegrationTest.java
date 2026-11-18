@@ -10,7 +10,6 @@ import com.acme.ecommerce.user.privacy.PrivacyService;
 import com.acme.ecommerce.user.support.AbstractUserIntegrationTest;
 import java.net.InetAddress;
 import java.time.Instant;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.junit.jupiter.api.DisplayName;
@@ -41,9 +40,8 @@ class ReferralAccountDeletionIntegrationTest extends AbstractUserIntegrationTest
 
     UUID user = UUID.randomUUID();
     UUID other = UUID.randomUUID();
-    String code = referrals.view(user, Optional.of(InetAddress.getByName("203.0.113.9"))).code();
-    String otherCode =
-        referrals.view(other, Optional.of(InetAddress.getByName("203.0.113.9"))).code();
+    String code = referrals.view(user, InetAddress.getByName("203.0.113.9")).code();
+    String otherCode = referrals.view(other, InetAddress.getByName("203.0.113.9")).code();
     UUID referee = UUID.randomUUID();
     jdbc.sql(
             "UPDATE users.referral_codes SET created_at = now() - interval '1 day' WHERE code IN"
@@ -51,8 +49,8 @@ class ReferralAccountDeletionIntegrationTest extends AbstractUserIntegrationTest
         .param("a", code)
         .param("b", otherCode)
         .update();
-    referrals.claim(user, otherCode, Optional.of(InetAddress.getByName("198.51.100.4")));
-    referrals.claim(referee, code, Optional.of(InetAddress.getByName("198.51.100.5")));
+    referrals.claim(user, otherCode, InetAddress.getByName("198.51.100.4"));
+    referrals.claim(referee, code, InetAddress.getByName("198.51.100.5"));
 
     jdbc.sql(
             "INSERT INTO users.deletion_requests (user_id, status, scheduled_for) VALUES (:u,"

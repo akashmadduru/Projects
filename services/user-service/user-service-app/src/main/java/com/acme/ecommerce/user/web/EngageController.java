@@ -83,7 +83,8 @@ public class EngageController {
   @GetMapping("/api/referrals")
   public ReferralView referrals(@AuthenticationPrincipal Jwt jwt, HttpServletRequest http) {
     return referrals.view(
-        uid(jwt), ClientIp.resolve(http, properties.getReferral().getTrustedProxyHops()));
+        uid(jwt),
+        ClientIp.resolve(http, properties.getReferral().getTrustedProxyHops()).orElse(null));
   }
 
   @PostMapping("/api/referrals/claim")
@@ -95,7 +96,7 @@ public class EngageController {
     referrals.claim(
         uid(jwt),
         request.code(),
-        ClientIp.resolve(http, properties.getReferral().getTrustedProxyHops()));
+        ClientIp.resolve(http, properties.getReferral().getTrustedProxyHops()).orElse(null));
   }
 
   /** Makes sure a profile row (email) exists so the user is reachable by audience listings. */
