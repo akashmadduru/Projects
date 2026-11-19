@@ -71,6 +71,17 @@ public class InventoryEventPublisher {
 
   public void publishAfterCommit(
       InventoryEventType type, UUID productId, UUID variantId, Integer newQuantity) {
+    publishAfterCommit(type, productId, variantId, newQuantity, null, null);
+  }
+
+  /** As above, for a seller-scoped event: {@code sellerId}/{@code offerId} are carried on it. */
+  public void publishAfterCommit(
+      InventoryEventType type,
+      UUID productId,
+      UUID variantId,
+      Integer newQuantity,
+      UUID sellerId,
+      UUID offerId) {
     if (!TransactionSynchronizationManager.isSynchronizationActive()) {
       throw new IllegalStateException("publishAfterCommit called outside an active transaction");
     }
@@ -87,7 +98,9 @@ public class InventoryEventPublisher {
                     newQuantity,
                     null,
                     null,
-                    variantId);
+                    variantId,
+                    sellerId,
+                    offerId);
             send(event);
           }
           // afterCompletion(int status) intentionally NOT overridden for
@@ -122,6 +135,8 @@ public class InventoryEventPublisher {
             null,
             requestedQuantity,
             reason,
+            null,
+            null,
             null);
     send(event);
   }

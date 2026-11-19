@@ -95,6 +95,23 @@ public class WarehouseStockRepository {
         .optional();
   }
 
+  /**
+   * What one seller's offers can sell of a product/variant: the sum over its offer-tagged rows
+   * (platform rows, which carry no offer id, and other sellers' rows are excluded).
+   */
+  public int offerTotal(UUID productId, UUID variantId, UUID sellerId) {
+    return jdbc.sql(
+            "SELECT COALESCE(SUM(ws.quantity), 0) FROM inventory.warehouse_stock ws"
+                + " WHERE ws.product_id = :p AND ws.variant_key = COALESCE(:v, "
+                + ZERO
+                + ") AND ws.seller_id = :s AND ws.offer_id IS NOT NULL")
+        .param("p", productId)
+        .param("v", variantId, java.sql.Types.OTHER)
+        .param("s", sellerId)
+        .query(Integer.class)
+        .single();
+  }
+
   public void add(UUID rowId, int delta) {
     jdbc.sql(
             "UPDATE inventory.warehouse_stock SET quantity = GREATEST(0, quantity + :d),"

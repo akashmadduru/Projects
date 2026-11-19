@@ -21,4 +21,9 @@ public class InventoryEvent {
   private Integer reservedQuantity;
   private String status;
   private UUID variantId;
+
+  /** Set on seller-scoped events (additive, nullable). */
+  private UUID sellerId;
+
+  private UUID offerId;
 }

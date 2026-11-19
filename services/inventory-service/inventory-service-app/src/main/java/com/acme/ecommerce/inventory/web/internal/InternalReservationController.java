@@ -3,6 +3,7 @@ package com.acme.ecommerce.inventory.web.internal;
 import com.acme.ecommerce.inventory.service.ReservationService;
 import com.acme.ecommerce.inventory.service.ReservationService.Allocation;
 import com.acme.ecommerce.inventory.service.ReservationService.Line;
+import com.acme.ecommerce.inventory.service.SellerDirectory;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotEmpty;
@@ -25,7 +26,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class InternalReservationController {
 
   public record ItemDto(
-      @NotNull UUID productId, UUID variantId, UUID offerId, @Min(1) int quantity) {}
+      @NotNull UUID productId, UUID variantId, UUID offerId, @Min(1) int quantity, UUID sellerId) {}
 
   public record ReserveRequest(
       @NotNull UUID orderId, String pincode, @NotEmpty List<@Valid ItemDto> items) {}
@@ -36,16 +37,18 @@ public class InternalReservationController {
   public record ReserveResponse(UUID orderId, List<Allocation> allocations) {}
 
   private final ReservationService reservations;
+  private final SellerDirectory sellers;
 
-  public InternalReservationController(ReservationService reservations) {
+  public InternalReservationController(ReservationService reservations, SellerDirectory sellers) {
     this.reservations = reservations;
+    this.sellers = sellers;
   }
 
   @PostMapping
   public ReserveResponse reserve(@Valid @RequestBody ReserveRequest request) {
     return new ReserveResponse(
         request.orderId(),
-        reservations.reserve(request.orderId(), request.pincode(), lines(request.items())));
+        reservations.reserve(request.orderId(), request.pincode(), reserveLines(request.items())));
   }
 
   @GetMapping("/{orderId}")
@@ -66,6 +69,26 @@ public class InternalReservationController {
         orderId,
         request.returnId() == null ? null : request.returnId().toString(),
         lines(request.items()));
+  }
+
+  /**
+   * Rolling-deploy fallback: an offer line without a sellerId has its owner looked up here, before
+   * the reservation transaction opens (no HTTP while holding row locks). An unknown offer (404)
+   * keeps the owner null, which the reservation treats as non-platform; an upstream error is a 503
+   * before any lock or stock change.
+   */
+  private List<Line> reserveLines(List<ItemDto> items) {
+    return items.stream()
+        .map(
+            i -> {
+              UUID owner = i.sellerId();
+              if (owner == null && i.offerId() != null) {
+                SellerDirectory.OfferRef ref = sellers.offer(i.offerId());
+                owner = ref == null ? null : ref.sellerId();
+              }
+              return new Line(i.productId(), i.variantId(), i.offerId(), i.quantity(), owner);
+            })
+        .toList();
   }
 
   private static List<Line> lines(List<ItemDto> items) {

@@ -107,6 +107,8 @@ Request and response shapes for Phases 1–5 are in [api.md](api.md); later phas
 | GET | `/internal/inventory/stock/by-product/{productId}` | InternalStockController |
 | GET | `/internal/inventory/variants` | InternalVariantStockController |
 
+Contract note (TD-P9-05): each item of `POST /internal/inventory/reservations` takes an optional `sellerId`, the owner of the line's offer. A line with an `offerId` is served from platform stock only when `sellerId` is the platform seller. For any other seller, or when the owner cannot be found, an offer with no stock rows is rejected with the usual out-of-stock response (also under `inventory.stock.missing-rows=UNLIMITED`). When `sellerId` is missing, inventory looks the owner up in product-service before the transaction opens and answers 503 if that lookup fails. Reservation and release bodies without `sellerId` still work.
+
 ## notification-service (14)
 
 | Method | Path | Controller |
@@ -235,6 +237,12 @@ Request and response shapes for Phases 1–5 are in [api.md](api.md); later phas
 | POST | `/api/seller/products` | SellerController |
 | POST | `/api/seller/products/bulk` | SellerController |
 | GET | `/api/seller/products/bulk/template.csv` | SellerController |
+
+Contract notes (TD-P9-04, TD-P9-05):
+- `POST /api/seller/offers` and `POST /api/seller/products` write stock after the offer or product is saved. If the stock write is rejected (unknown warehouse) the response is 400; if inventory is unavailable (5xx, timeout, open circuit) it is 503. In both cases the new offer (or product) is removed again and nothing is listed, so the call can be retried. A retry after a timeout that actually committed stock recreates the offer; a duplicate is rejected with 409.
+- `PUT /api/seller/offers/{id}` saves the offer first and then writes stock: a stock failure returns 503 (or 400) while the offer changes stay saved. Repeat the call to set the stock.
+- A create without `quantity` makes an offer that shows 0 available and cannot be ordered until stock is set.
+- `POST /api/seller/products/bulk` reports a later row that repeats an earlier SKU (trimmed, case-insensitive) in `errors` as "duplicate sku in file" with its row number. A row whose stock write fails is reported in `errors` and leaves no stockless offer.
 | GET | `/internal/offers/{id}` | InternalCatalogController |
 | POST | `/internal/products/{id}/sync-prices` | InternalCatalogController |
 | GET | `/internal/products/views/by-seller/{sellerId}` | InternalCatalogController |

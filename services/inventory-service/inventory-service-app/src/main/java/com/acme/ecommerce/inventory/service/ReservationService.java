@@ -46,7 +46,12 @@ public class ReservationService {
 
   private static final Logger log = LoggerFactory.getLogger(ReservationService.class);
 
-  public record Line(UUID productId, UUID variantId, UUID offerId, int quantity) {}
+  /** {@code sellerId} = the offer's owner (null when unknown: then never treated as platform). */
+  public record Line(UUID productId, UUID variantId, UUID offerId, int quantity, UUID sellerId) {
+    public Line(UUID productId, UUID variantId, UUID offerId, int quantity) {
+      this(productId, variantId, offerId, quantity, null);
+    }
+  }
 
   public record Allocation(
       UUID productId,
@@ -97,6 +102,12 @@ public class ReservationService {
       return allocations(orderId);
     }
     Map<Key, Integer> wanted = merge(lines);
+    Map<Key, UUID> owners = new java.util.HashMap<>();
+    for (Line l : lines) {
+      if (l.offerId() != null && l.sellerId() != null) {
+        owners.putIfAbsent(new Key(l.productId(), l.variantId(), l.offerId()), l.sellerId());
+      }
+    }
     Map<Key, List<Row>> rowsByKey = new LinkedHashMap<>();
     List<Shortfall> shortfalls = new ArrayList<>();
     List<Key> ordered = new ArrayList<>(wanted.keySet());
@@ -106,12 +117,17 @@ public class ReservationService {
             .thenComparing(k -> String.valueOf(k.offerId())));
     for (Key k : ordered) {
       List<Row> rows = stock.lockForLine(k.productId(), k.variantId(), k.offerId());
-      if (rows.isEmpty() && k.offerId() != null) {
-        // Platform offer (its stock rows carry no offer id) or an offer without stock rows.
+      if (rows.isEmpty() && k.offerId() != null && Platform.SELLER_ID.equals(owners.get(k))) {
+        // Platform offer: its stock rows carry no offer id. A seller offer (or one whose owner is
+        // unknown) without rows is never served from platform stock: it falls to the shortfall.
         rows = stock.lockForLine(k.productId(), k.variantId(), null);
       }
       if (rows.isEmpty()) {
-        if (properties.getStock().getMissingRows() == InventoryProperties.MissingRows.UNLIMITED) {
+        // UNLIMITED is for untracked catalogue items, never for a seller's offer.
+        boolean offerLine = k.offerId() != null && !Platform.SELLER_ID.equals(owners.get(k));
+        if (!offerLine
+            && properties.getStock().getMissingRows()
+                == InventoryProperties.MissingRows.UNLIMITED) {
           log.info("No stock rows for {}; treating as unlimited", k);
           continue;
         }

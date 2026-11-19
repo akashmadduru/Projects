@@ -13,6 +13,7 @@ import static org.mockito.Mockito.when;
 
 import com.acme.ecommerce.common.core.time.FixedTimeProvider;
 import com.acme.ecommerce.inventory.config.InventoryProperties;
+import com.acme.ecommerce.inventory.domain.Platform;
 import com.acme.ecommerce.inventory.event.InventoryEventPublisher;
 import com.acme.ecommerce.inventory.repository.InventoryRepository;
 import com.acme.ecommerce.inventory.repository.ReservationReleaseRepository;
@@ -102,5 +103,84 @@ class ReservationServiceStockRulesTest {
     service.release(order, "return-1", List.of(new Line(product, null, null, 5)));
 
     verify(releases, never()).save(any());
+  }
+
+  private static final UUID SELLER = UUID.randomUUID();
+  private static final UUID OFFER = UUID.randomUUID();
+
+  private WarehouseStockRepository.Row row(UUID seller, UUID offer, int qty) {
+    return new WarehouseStockRepository.Row(
+        UUID.randomUUID(), product, null, seller, offer, UUID.randomUUID(), "WH", "560001", qty);
+  }
+
+  private void assertShortfall(UUID sellerId, int wanted) {
+    assertThatThrownBy(
+            () ->
+                service.reserve(
+                    order, "560001", List.of(new Line(product, null, OFFER, wanted, sellerId))))
+        .isInstanceOf(OutOfStockException.class);
+    verify(reservations, never()).save(any());
+    verify(stock, never()).add(any(), anyInt());
+  }
+
+  @Test
+  @DisplayName("a seller offer without rows is a shortfall and never reads platform rows")
+  void sellerOfferWithoutRowsRejected() {
+    when(stock.lockForLine(product, null, null))
+        .thenReturn(List.of(row(Platform.SELLER_ID, null, 50)));
+
+    assertShortfall(SELLER, 1);
+
+    verify(stock, never()).lockForLine(product, null, null);
+  }
+
+  @Test
+  @DisplayName("the same holds under UNLIMITED (an offer is not an untracked catalogue item)")
+  void sellerOfferWithoutRowsRejectedWhenUnlimited() {
+    properties.getStock().setMissingRows(InventoryProperties.MissingRows.UNLIMITED);
+
+    assertShortfall(SELLER, 1);
+  }
+
+  @Test
+  @DisplayName("a stale or orphan offerId (rows nobody can reach) yields a shortfall, not a sale")
+  void staleOfferIdIsShortfall() {
+    // an orphan row exists, tagged with a different (deleted) offer id
+    when(stock.lockForLine(product, null, UUID.randomUUID()))
+        .thenReturn(List.of(row(SELLER, UUID.randomUUID(), 20)));
+
+    assertShortfall(SELLER, 1);
+  }
+
+  @Test
+  @DisplayName("an unknown owner (null sellerId) is treated as non-platform")
+  void unknownOwnerRejected() {
+    assertShortfall(null, 1);
+  }
+
+  @Test
+  @DisplayName("a platform offer by offerId is still served from the platform rows")
+  void platformOfferStillServed() {
+    when(stock.lockForLine(product, null, null))
+        .thenReturn(List.of(row(Platform.SELLER_ID, null, 10)));
+
+    var out =
+        service.reserve(
+            order, "560001", List.of(new Line(product, null, OFFER, 2, Platform.SELLER_ID)));
+
+    assertThat(out).hasSize(1);
+    verify(stock).add(any(), eq(-2));
+  }
+
+  @Test
+  @DisplayName("seller rows that fall short are rejected: no top-up from platform stock")
+  void shortSellerRowsAreNotToppedUp() {
+    when(stock.lockForLine(product, null, OFFER)).thenReturn(List.of(row(SELLER, OFFER, 1)));
+    when(stock.lockForLine(product, null, null))
+        .thenReturn(List.of(row(Platform.SELLER_ID, null, 99)));
+
+    assertShortfall(SELLER, 5);
+
+    verify(stock, never()).lockForLine(product, null, null);
   }
 }

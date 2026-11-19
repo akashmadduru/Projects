@@ -54,6 +54,8 @@ A field change must be made on both sides in the same change. All payloads are J
 | `RatingEvent` | `eventId`, `eventType`, `ratingId`, `productId`, `publishedAt`, `payload` (`RatingSnapshot`) |
 | `USER_DELETED` | `type`, `userId` |
 
+Seller stock writes also publish `INVENTORY_QUANTITY_CHANGED`, after commit and only when the quantity changed. These events add two optional fields, `sellerId` and `offerId`; `quantity` is that seller's total across warehouses for the product or variant. Consumers that ignore unknown fields need no change. Deploy product-service first, then order-service, then inventory-service.
+
 ## What each consumer does
 
 | Event | Consumer reaction |
@@ -61,7 +63,7 @@ A field change must be made on both sides in the same change. All payloads are J
 | `PRODUCT_CREATED` | inventory-service creates the stock row with `initialQuantity`. A duplicate delivery hits the unique `product_id` and is skipped. On failure it publishes `INVENTORY_PROVISIONING_FAILED`. |
 | `PRODUCT_UPDATED` | inventory-service copies product name and SKU onto the stock row. cart-service checks price-drop alerts. |
 | `PRODUCT_DELETED` | inventory-service removes the stock row. |
-| `INVENTORY_QUANTITY_CHANGED` | product-service sets the display-only `lastKnownQuantity`. cart-service checks back-in-stock alerts. |
+| `INVENTORY_QUANTITY_CHANGED` | product-service sets the display-only `lastKnownQuantity`, except for events that carry an `offerId`. cart-service checks back-in-stock alerts. |
 | `INVENTORY_PROVISIONING_FAILED` | product-service compensates the create (the saga's failure path, [Phase 3](../phases/phase-03-catalog-enrichment-and-saga.md)). |
 | `RATING_*` | product-service treats the event only as a trigger: it fetches the authoritative summary from rating-service over Feign and overwrites `average_rating`, `rating_count`, `review_count`, `rating_distribution`. Replays and out-of-order events therefore converge. |
 | `order.events` | notification-service sends email and inbox messages; promotion-service credits coins on delivery; seller-service books sale, commission and fee on shipment delivery and reverses them on return. |

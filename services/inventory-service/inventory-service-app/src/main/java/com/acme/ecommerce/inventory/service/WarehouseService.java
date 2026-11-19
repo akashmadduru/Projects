@@ -5,6 +5,8 @@ import com.acme.ecommerce.common.core.error.ResourceConflictException;
 import com.acme.ecommerce.common.core.error.ResourceNotFoundException;
 import com.acme.ecommerce.common.core.error.ValidationException;
 import com.acme.ecommerce.inventory.domain.Platform;
+import com.acme.ecommerce.inventory.event.InventoryEventPublisher;
+import com.acme.ecommerce.inventory.event.InventoryEventType;
 import com.acme.ecommerce.inventory.repository.WarehouseRepository;
 import com.acme.ecommerce.inventory.repository.WarehouseRepository.Warehouse;
 import com.acme.ecommerce.inventory.repository.WarehouseStockRepository;
@@ -20,6 +22,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class WarehouseService {
 
+  private static final org.slf4j.Logger log =
+      org.slf4j.LoggerFactory.getLogger(WarehouseService.class);
   private static final Pattern CODE = Pattern.compile("^[A-Z0-9-]{2,32}$");
   private static final Pattern PIN = Pattern.compile("^[0-9]{6}$");
 
@@ -27,12 +31,15 @@ public class WarehouseService {
   private final WarehouseStockRepository stock;
   private final InventoryService legacy;
   private final SellerDirectory sellers;
+  private final InventoryEventPublisher events;
 
   public WarehouseService(
       WarehouseRepository warehouses,
       WarehouseStockRepository stock,
       InventoryService legacy,
-      SellerDirectory sellers) {
+      SellerDirectory sellers,
+      InventoryEventPublisher events) {
+    this.events = events;
     this.warehouses = warehouses;
     this.stock = stock;
     this.legacy = legacy;
@@ -136,6 +143,20 @@ public class WarehouseService {
         stock.upsert(productId, variantId, sellerId, platform ? null : offerId, w.id(), quantity);
     if (platform) {
       legacy.shiftLegacyTotals(productId, variantId, quantity - previous);
+    } else if (quantity != previous) {
+      // Same after-commit publisher as platform writes; qty = what this seller's offers can sell.
+      // A publishing problem never fails the write.
+      try {
+        events.publishAfterCommit(
+            InventoryEventType.INVENTORY_QUANTITY_CHANGED,
+            productId,
+            variantId,
+            stock.offerTotal(productId, variantId, sellerId),
+            sellerId,
+            offerId);
+      } catch (RuntimeException e) {
+        log.warn("Could not queue stock event productId={} offerId={}", productId, offerId, e);
+      }
     }
     Row row = stock.find(productId, variantId, sellerId, w.id()).orElseThrow();
     afterCommit(() -> sellers.syncPricesAsync(productId));

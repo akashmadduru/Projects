@@ -1,9 +1,11 @@
 package com.acme.ecommerce.inventory.event;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -17,6 +19,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -139,6 +142,35 @@ class InventoryEventPublisherTest {
     triggerCommitThenClear();
 
     verify(kafka).send(eq("inventory.events"), eq(productId.toString()), any());
+  }
+
+  @Test
+  @DisplayName("the seller overload carries sellerId/offerId; the older overloads leave them null")
+  void sellerOverloadCarriesFields() {
+    TransactionSynchronizationManager.initSynchronization();
+    UUID productId = UUID.randomUUID();
+    UUID variantId = UUID.randomUUID();
+    UUID sellerId = UUID.randomUUID();
+    UUID offerId = UUID.randomUUID();
+
+    publisher.publishAfterCommit(
+        InventoryEventType.INVENTORY_QUANTITY_CHANGED, productId, variantId, 9, sellerId, offerId);
+    publisher.publishAfterCommit(
+        InventoryEventType.INVENTORY_QUANTITY_CHANGED, productId, variantId, 4);
+    triggerCommitThenClear();
+
+    ArgumentCaptor<InventoryEvent> captor = ArgumentCaptor.forClass(InventoryEvent.class);
+    verify(kafka, times(2))
+        .send(eq("inventory.events"), eq(productId.toString()), captor.capture());
+    InventoryEvent seller = captor.getAllValues().get(0);
+    assertThat(seller.getSellerId()).isEqualTo(sellerId);
+    assertThat(seller.getOfferId()).isEqualTo(offerId);
+    assertThat(seller.getVariantId()).isEqualTo(variantId);
+    assertThat(seller.getQuantity()).isEqualTo(9);
+    InventoryEvent legacy = captor.getAllValues().get(1);
+    assertThat(legacy.getSellerId()).isNull();
+    assertThat(legacy.getOfferId()).isNull();
+    assertThat(legacy.getQuantity()).isEqualTo(4);
   }
 
   @Test
