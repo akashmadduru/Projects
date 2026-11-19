@@ -44,10 +44,12 @@ class ReferralIpCheckDefaultOffIntegrationTest extends AbstractUserIntegrationTe
     assertThat(rows("referral_claims", "referee_user_id", referee)).isEqualTo(1);
     assertThat(rows("referral_ip_activity", "user_id", referrer)).isZero();
     assertThat(
-            jdbc.sql("SELECT claim_ip_hash FROM users.referral_claims WHERE referee_user_id = :u")
+            jdbc.sql(
+                    "SELECT count(*) FROM users.referral_claims WHERE referee_user_id = :u AND"
+                        + " claim_ip_hash IS NULL")
                 .param("u", referee)
-                .query(String.class)
-                .optional())
-        .isEmpty();
+                .query(Long.class)
+                .single())
+        .isEqualTo(1L);
   }
 }

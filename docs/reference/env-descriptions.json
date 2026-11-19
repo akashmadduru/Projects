@@ -544,6 +544,8 @@
     "VITE_STOREFRONT_ORIGIN": "Admin app: the storefront origin, used only to build \"Preview on storefront\" links in the theme editor. Default `http://localhost:3000`."
   },
   "deploy": {
+    "VAPID_PUBLIC_KEY": "Browser-push (VAPID) public key for the notification service, base64url. Blank in a non-prod environment: a keypair is generated on first start. Under `prod` blank turns web push off.",
+    "VAPID_PRIVATE_KEY": "Browser-push (VAPID) private key paired with `VAPID_PUBLIC_KEY`. Required for web push under `prod`.",
     "AWS_REGION": "Region for everything except CloudFront certificates and WAF (always us-east-1).",
     "AWS_PROFILE": "Named AWS CLI profile; blank uses the default credential chain.",
     "PROJECT": "Name prefix for every resource.",

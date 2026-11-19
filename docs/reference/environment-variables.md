@@ -36,12 +36,12 @@ service-level setting (add it under that service's `env:` in `values.yaml`). Rel
 | `MANAGEMENT_SERVER_PORT` | all services (Helm) | _Spring default_ |  | helm | Port for actuator (health, metrics). Equal to the service port for every service except the gateway, whose `prod` profile uses a separate port 8081. |
 | `RATING_MEDIA_DIR` | rating | `/data/media` |  | compose + helm | Directory where review images are stored. On AWS this is an EBS volume, which is why rating-service runs one replica. |
 | `SERVER_FORWARD_HEADERS_STRATEGY` | auth, gateway (Helm) | _Spring default_ |  | helm | auth-service: `framework`, so the Google sign-in callback URL uses the public host instead of the internal one. gateway: `none`, because Spring Boot defaults to `native` on Kubernetes, which would make the gateway trust the forgeable leftmost `X-Forwarded-For` entry; the rate limiter and the referral checks count from the right themselves. |
-| `USER_FORWARD_HEADERS_STRATEGY` | user | `none` |  | - | Maps to `server.forward-headers-strategy` for user-service. Keep the default `none`: the referral IP checks read the raw `X-Forwarded-For` chain, and Spring Boot's Kubernetes default (`native`) would make Tomcat rewrite it first. |
 | `SERVER_PORT` | all services | _per service_ |  | helm | Port the service listens on. Each service has its own default (gateway 8080, auth 8081, product 8082 ... support 8092). |
 | `SPRING_CONFIG_ADDITIONAL_LOCATION` | all services (Helm) | _Spring default_ |  | helm | Extra config directory. On AWS it points at `/config/`, where the discovery ConfigMap is mounted. |
 | `SPRING_LIFECYCLE_TIMEOUT_PER_SHUTDOWN_PHASE` | all services (Helm) | _Spring default_ |  | helm | How long a pod may spend finishing in-flight requests on shutdown. Must be shorter than the pod termination grace period. |
 | `SPRING_PROFILES_ACTIVE` | all services | _Spring default_ |  | compose + helm | Spring profile. `prod` turns on production behaviour: no default passwords, secure cookies, payments refuse to run in simulated mode. Set by Helm on AWS. |
 | `STOREFRONT_BASE_URL` | auth, cart, notification, seller, support, user | `http://localhost:3000` |  | .env + helm | Public origin of the storefront. Used in links inside emails (verify, reset password, order, referral) and as a CORS/redirect reference. |
+| `USER_FORWARD_HEADERS_STRATEGY` | user | `none` |  | - | Maps to `server.forward-headers-strategy` for user-service. Keep the default `none`: the referral IP checks read the raw `X-Forwarded-For` chain, and Spring Boot's Kubernetes default (`native`) would make Tomcat rewrite it first. |
 
 ## Identity and tokens
 
@@ -112,8 +112,8 @@ service-level setting (add it under that service's `env:` in `values.yaml`). Rel
 | `SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH` | notification | _Spring default_ |  | compose + helm | SMTP authentication on/off. `true` with a real provider. |
 | `SPRING_MAIL_PROPERTIES_MAIL_SMTP_SSL_ENABLE` | notification | _Spring default_ |  | compose + helm | Implicit TLS (port 465). |
 | `SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE` | notification | _Spring default_ |  | compose + helm | Upgrade the SMTP connection with STARTTLS (port 587). |
-| `VAPID_PRIVATE_KEY` 🔒 | notification | `""` |  | .env | Browser-push private key, paired with `VAPID_PUBLIC_KEY`. Required for web push under `prod`, where it is never generated or stored in the database. |
-| `VAPID_PUBLIC_KEY` | notification | `""` |  | .env | Browser-push public key (base64url; `npx web-push generate-vapid-keys`). Blank outside `prod`: generated on first start and stored in the database. Blank under `prod`: web push is off (an ERROR is logged). Changing the pair invalidates every browser subscription. |
+| `VAPID_PRIVATE_KEY` 🔒 | notification | `""` |  | .env + helm | Browser-push private key, paired with `VAPID_PUBLIC_KEY`. Required for web push under `prod`, where it is never generated or stored in the database. |
+| `VAPID_PUBLIC_KEY` | notification | `""` |  | .env + helm | Browser-push public key (base64url; `npx web-push generate-vapid-keys`). Blank outside `prod`: generated on first start and stored in the database. Blank under `prod`: web push is off (an ERROR is logged). Changing the pair invalidates every browser subscription. |
 | `VAPID_SUBJECT` | notification | `mailto:admin@acme.local` |  | .env + helm | Contact (`mailto:`) sent to push services. |
 
 ## Edge, CORS and rate limits
@@ -169,10 +169,10 @@ service-level setting (add it under that service's `env:` in `values.yaml`). Rel
 | `ORDER_RISK_VELOCITY_THRESHOLD` | order (Compose) | _Spring default_ |  | compose | Orders in a short window that trigger a velocity risk flag (Compose default 8). Mapped by Spring onto `order.risk.*`. |
 | `USER_REFERRAL_IP_HASH_SALT` 🔒 | user | `""` |  | - | Secret key for hashing client IPs on referral pages and claims (HMAC-SHA256; raw IPs are never stored). Blank fails safe: a random key is made per process and a WARN is logged, so IP matches can only be missed (hashes differ across restarts and replicas), never wrongly refused, and the code-age check still applies. Production must set it. |
 | `USER_REFERRAL_IP_LOOKBACK` | user | `0` |  | - | How far back a referrer's recorded network counts when a referee claims. A claim from a network the referrer used within this window is refused. Default 0: the IP check is OFF and no IP activity is recorded, until the gateway forwards a trustworthy client IP (backlog B-1); do not enable it behind the current gateway. A blank value keeps the default. |
-| `USER_REFERRAL_IP_RETENTION` | user | `30d` |  | - | How long hashed IPs are kept before the daily cleanup deletes them. Keep it at least as long as the lookback; if shorter, retention is the effective lookback. 0 or negative disables the cleanup (hashed IPs are then kept indefinitely; a WARN is logged at startup). Blank is a startup error. |
+| `USER_REFERRAL_IP_RETENTION` | user | `30d` |  | - | How long hashed IPs are kept before the daily cleanup deletes them. Keep it at least as long as the lookback; if shorter, retention is the effective lookback. 0 or negative disables the cleanup (hashed IPs are then kept indefinitely; a WARN is logged at startup). A blank value keeps the default. |
 | `USER_REFERRAL_MIN_CODE_AGE` | user | `10m` |  | - | Minimum age of a referral code before it can be claimed. A newer code is refused. 0 turns the check off. |
-| `USER_REFERRAL_TRUSTED_PROXY_HOPS` | user | `1` |  | helm | Which `X-Forwarded-For` entry, counted from the right, is the caller's IP for the referral checks. Each proxy appends, so only entries on the left can be forged. 1 for Compose (the gateway appends the caller); 3 on AWS (CloudFront, ALB, gateway). 0 ignores the header and uses the socket peer. |
 | `USER_REFERRAL_REWARD_COINS` | user | `100` |  | - | Coins awarded for a successful referral. |
+| `USER_REFERRAL_TRUSTED_PROXY_HOPS` | user | `1` |  | helm | Which `X-Forwarded-For` entry, counted from the right, is the caller's IP for the referral checks. Each proxy appends, so only entries on the left can be forged. 1 for Compose (the gateway appends the caller); 3 on AWS (CloudFront, ALB, gateway). 0 ignores the header and uses the socket peer. |
 
 ## AI and search
 
@@ -230,6 +230,8 @@ Read by `deploy.sh` / `destroy.sh`. Commented-out lines in the template are opti
 | `RAZORPAY_KEY_ID` | `""` | **One provider required.** Razorpay key id. Set all three Razorpay values or none. You may configure Stripe, Razorpay or both. |
 | `RAZORPAY_KEY_SECRET` 🔒 |  | Razorpay key secret (all three Razorpay values or none). |
 | `RAZORPAY_WEBHOOK_SECRET` 🔒 |  | Secret of the Razorpay webhook endpoint (all three Razorpay values or none). |
+| `VAPID_PUBLIC_KEY` 🔒 |  | Browser-push (VAPID) public key for the notification service, base64url. Blank in a non-prod environment: a keypair is generated on first start. Under `prod` blank turns web push off. |
+| `VAPID_PRIVATE_KEY` 🔒 |  | Browser-push (VAPID) private key paired with `VAPID_PUBLIC_KEY`. Required for web push under `prod`. |
 | `GOOGLE_CLIENT_ID` | `""` | Optional. Blank disables Google sign-in. |
 | `GOOGLE_CLIENT_SECRET` 🔒 |  | Optional. Blank disables Google sign-in. |
 | `KUBERNETES_API_ALLOWED_CIDRS` | `0.0.0.0/0` | Comma-separated CIDRs allowed to reach the Kubernetes API. Narrow it for production. |

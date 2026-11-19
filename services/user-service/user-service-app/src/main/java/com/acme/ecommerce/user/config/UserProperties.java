@@ -35,6 +35,13 @@ public class UserProperties {
     requireDuration("user.referral.min-code-age", r.minCodeAge);
     requireDuration("user.referral.ip-lookback", r.ipLookback);
     requireDuration("user.referral.ip-retention", r.ipRetention);
+    if (r.ipLookback.toSeconds() > 0) {
+      log.warn(
+          "user.referral.ip-lookback ({}) enables the same-network referral check. It needs a"
+              + " trustworthy client IP from the gateway (backlog B-1 / F-20261119-03) and must"
+              + " not be enabled behind the current gateway",
+          r.ipLookback);
+    }
     if (r.ipRetention.compareTo(Duration.ofSeconds(1)) < 0) {
       log.warn(
           "user.referral.ip-retention ({}) is zero or negative: the nightly purge is DISABLED and"

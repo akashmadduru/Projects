@@ -60,7 +60,7 @@ public class ReferralService {
   @Transactional
   public ReferralView view(UUID userId, InetAddress ip) {
     String code = codeFor(userId);
-    if (ip != null && properties.getReferral().getIpLookback().toSeconds() > 0) {
+    if (ip != null && ipCheckOn()) {
       recordActivity(userId, fingerprint.hash(ip));
     }
     long invited =
@@ -106,8 +106,7 @@ public class ReferralService {
       throw new CodedException(
           ErrorCode.RESOURCE_CONFLICT, "A referral code was already applied to this account");
     }
-    boolean ipCheckOn = properties.getReferral().getIpLookback().toSeconds() > 0;
-    String ipHash = ip == null || !ipCheckOn ? null : fingerprint.hash(ip);
+    String ipHash = ip == null || !ipCheckOn() ? null : fingerprint.hash(ip);
     refuseIfAbusive(referrer, owner.tooNew() && minAgeSeconds > 0, ipHash);
     try {
       jdbc.sql(
@@ -124,6 +123,10 @@ public class ReferralService {
     }
   }
 
+  private boolean ipCheckOn() {
+    return properties.getReferral().getIpLookback().toSeconds() > 0;
+  }
+
   private record CodeOwner(UUID userId, boolean tooNew) {}
 
   /** Abuse checks, in order: code age, then network match. A throw rolls the claim back. */
@@ -133,7 +136,7 @@ public class ReferralService {
           ErrorCode.REFERRAL_CODE_TOO_NEW, "This referral code cannot be used yet");
     }
     long lookback = properties.getReferral().getIpLookback().toSeconds();
-    if (lookback > 0 && ipHash != null) {
+    if (ipCheckOn() && ipHash != null) {
       boolean sameNetwork =
           jdbc.sql(
                   "SELECT EXISTS (SELECT 1 FROM users.referral_ip_activity WHERE user_id = :p AND"

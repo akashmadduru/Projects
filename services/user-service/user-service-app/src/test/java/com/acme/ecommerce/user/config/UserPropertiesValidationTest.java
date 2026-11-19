@@ -72,9 +72,9 @@ class UserPropertiesValidationTest {
     appender.start();
     logger.addAppender(appender);
     try {
-      assertThatCode(() -> with(d(1), d(1), Duration.ZERO).validateReferral())
+      assertThatCode(() -> with(d(1), Duration.ZERO, Duration.ZERO).validateReferral())
           .doesNotThrowAnyException();
-      with(d(1), d(1), Duration.ofSeconds(-5)).validateReferral();
+      with(d(1), Duration.ZERO, Duration.ofSeconds(-5)).validateReferral();
       assertThat(appender.list)
           .hasSize(2)
           .allSatisfy(
@@ -83,7 +83,29 @@ class UserPropertiesValidationTest {
                 assertThat(e.getFormattedMessage()).contains("purge is DISABLED");
               });
       appender.list.clear();
+      with(d(1), Duration.ZERO, d(30)).validateReferral();
+      assertThat(appender.list).isEmpty();
+    } finally {
+      logger.detachAppender(appender);
+    }
+  }
+
+  @Test
+  @DisplayName("enabling the ip check warns once that it needs a trustworthy client IP")
+  void enabledIpCheckWarns() {
+    Logger logger = (Logger) LoggerFactory.getLogger(UserProperties.class);
+    ListAppender<ILoggingEvent> appender = new ListAppender<>();
+    appender.start();
+    logger.addAppender(appender);
+    try {
       with(d(1), d(1), d(30)).validateReferral();
+      assertThat(appender.list).hasSize(1);
+      assertThat(appender.list.get(0).getLevel()).isEqualTo(Level.WARN);
+      assertThat(appender.list.get(0).getFormattedMessage())
+          .contains("trustworthy client IP")
+          .contains("F-20261119-03");
+      appender.list.clear();
+      with(d(1), Duration.ZERO, d(30)).validateReferral();
       assertThat(appender.list).isEmpty();
     } finally {
       logger.detachAppender(appender);
