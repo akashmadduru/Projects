@@ -200,4 +200,23 @@ class ReferralAbuseConfigIntegrationTest extends AbstractUserIntegrationTest {
           });
     }
   }
+
+  @Test
+  @DisplayName("retention 0 or negative skips the purge, so nothing is deleted")
+  void nonPositiveRetentionSkipsPurge() throws Exception {
+    UserProperties.Referral r = properties.getReferral();
+    Duration retention = r.getIpRetention();
+    try {
+      for (Duration off : new Duration[] {Duration.ZERO, Duration.ofSeconds(-5)}) {
+        r.setIpRetention(off);
+        UUID user = UUID.randomUUID();
+        referrals.view(user, ip("203.0.113.9"));
+        activityAge(user, "2 days");
+        referrals.purgeExpiredIps();
+        assertThat(activityRows(user)).isEqualTo(1);
+      }
+    } finally {
+      r.setIpRetention(retention);
+    }
+  }
 }

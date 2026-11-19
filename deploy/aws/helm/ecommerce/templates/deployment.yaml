@@ -122,6 +122,8 @@ spec:
             - { name: GATEWAY_RATE_LIMIT_WRITES, value: {{ $g.gateway.rateLimitWritesPerMinute | quote }} }
             - { name: GATEWAY_RATE_LIMIT_READS, value: {{ $g.gateway.rateLimitReadsPerMinute | quote }} }
             - { name: GATEWAY_RATE_LIMIT_TRUSTED_PROXY_HOPS, value: {{ $g.gateway.trustedProxyHops | quote }} }
+            {{- /* Boot defaults to NATIVE on Kubernetes, which makes Netty trust the forgeable leftmost X-Forwarded-For entry; the rate limiter counts from the right itself. */}}
+            - { name: SERVER_FORWARD_HEADERS_STRATEGY, value: "none" }
             {{- end }}
             {{- if eq $name "user-service" }}
             {{- /* Referral abuse checks read the client from X-Forwarded-For: the gateway's trusted hops plus the gateway's own append. */}}

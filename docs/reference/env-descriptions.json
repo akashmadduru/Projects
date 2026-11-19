@@ -32,8 +32,13 @@
     },
     "SERVER_FORWARD_HEADERS_STRATEGY": {
       "group": "Platform",
-      "usedBy": "auth (Helm)",
-      "text": "Makes auth-service honour `X-Forwarded-Host/Proto`, so the Google sign-in callback URL uses the public host instead of the internal one."
+      "usedBy": "auth, gateway (Helm)",
+      "text": "auth-service: `framework`, so the Google sign-in callback URL uses the public host instead of the internal one. gateway: `none`, because Spring Boot defaults to `native` on Kubernetes, which would make the gateway trust the forgeable leftmost `X-Forwarded-For` entry; the rate limiter and the referral checks count from the right themselves."
+    },
+    "USER_FORWARD_HEADERS_STRATEGY": {
+      "group": "Platform",
+      "usedBy": "user",
+      "text": "Maps to `server.forward-headers-strategy` for user-service. Keep the default `none`: the referral IP checks read the raw `X-Forwarded-For` chain, and Spring Boot's Kubernetes default (`native`) would make Tomcat rewrite it first."
     },
     "RATING_MEDIA_DIR": {
       "group": "Platform",
@@ -356,7 +361,7 @@
     },
     "USER_REFERRAL_IP_RETENTION": {
       "group": "Business rules",
-      "text": "How long hashed IPs are kept before the daily cleanup deletes them. Keep it at least as long as the lookback; if shorter, retention is the effective lookback."
+      "text": "How long hashed IPs are kept before the daily cleanup deletes them. Keep it at least as long as the lookback; if shorter, retention is the effective lookback. 0 or negative disables the cleanup (hashed IPs are then kept indefinitely; a WARN is logged at startup). Blank is a startup error."
     },
     "USER_REFERRAL_MIN_CODE_AGE": {
       "group": "Business rules",

@@ -27,14 +27,32 @@ public class UserProperties {
   @Builder.Default private Referral referral = new Referral();
 
   @PostConstruct
-  void warnOnShortRetention() {
+  void validateReferral() {
     Referral r = referral;
-    if (r != null && r.ipRetention.compareTo(r.ipLookback) < 0) {
+    if (r == null) {
+      throw new IllegalStateException("user.referral must not be null");
+    }
+    requireDuration("user.referral.min-code-age", r.minCodeAge);
+    requireDuration("user.referral.ip-lookback", r.ipLookback);
+    requireDuration("user.referral.ip-retention", r.ipRetention);
+    if (r.ipRetention.compareTo(Duration.ofSeconds(1)) < 0) {
+      log.warn(
+          "user.referral.ip-retention ({}) is zero or negative: the nightly purge is DISABLED and"
+              + " hashed IPs are kept indefinitely",
+          r.ipRetention);
+    } else if (r.ipRetention.compareTo(r.ipLookback) < 0) {
       log.warn(
           "user.referral.ip-retention ({}) is shorter than ip-lookback ({}): the effective"
               + " lookback is the retention",
           r.ipRetention,
           r.ipLookback);
+    }
+  }
+
+  private static void requireDuration(String name, Duration value) {
+    if (value == null) {
+      throw new IllegalStateException(
+          name + " must be a duration such as 10m or 30d (it is blank); use 0 to disable");
     }
   }
 

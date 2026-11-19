@@ -187,7 +187,10 @@ public class ReferralService {
         .update();
   }
 
-  /** Daily: drops hashed IPs past the retention window; the claims themselves stay. */
+  /**
+   * Daily: drops hashed IPs past the retention window; the claims themselves stay. A retention of
+   * zero or less disables the purge.
+   */
   @Scheduled(cron = "${user.referral.ip-cleanup-cron:0 40 3 * * *}")
   public void purgeExpiredIps() {
     jobLock.runExclusive("user-referral-ip-retention", this::purgeExpiredIpsLocked);
@@ -195,6 +198,10 @@ public class ReferralService {
 
   private void purgeExpiredIpsLocked() {
     long seconds = properties.getReferral().getIpRetention().toSeconds();
+    if (seconds <= 0) {
+      log.debug("Referral IP purge skipped: user.referral.ip-retention is zero or negative");
+      return;
+    }
     int activity =
         jdbc.sql(
                 "DELETE FROM users.referral_ip_activity WHERE last_seen_at < now() - (:s *"
