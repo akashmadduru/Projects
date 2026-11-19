@@ -40,7 +40,7 @@ authorize and never settle.
 | `REFUND FAILED` | Razorpay reported the refund failed. The balance is released, no wallet credit, the customer was NOT refunded | Refund the customer another way, or retry with a new idempotency key |
 | `REFUND FAILED AFTER SUCCEEDED` | `refund.failed` for a refund we hold as SUCCEEDED (older refunds default to SUCCEEDED). State unchanged | Reconcile in the Razorpay dashboard by hand. A historic SUCCEEDED refund that really failed also needs this |
 | `REFUND PENDING TOO LONG` | A refund has been PENDING for over 10 days (webhooks probably not subscribed) | Check it in the dashboard, subscribe the events, settle the row by hand |
-| `LEDGER MISMATCH` | Releasing a failed refund would make `refunded_amount` negative. Nothing was changed, the webhook returns 500 and Razorpay retries | Fix the data by hand before the retry; do not ignore |
+| `LEDGER MISMATCH` | Releasing a failed refund would make `refunded_amount` negative. Nothing was changed, the webhook returns 500 and Razorpay retries | Fix the data by hand within Razorpay's retry window (about 24 hours), or reconcile that refund by hand; do not ignore |
 | `REFUND ID DUPLICATED` | Two refund rows share a Razorpay refund id; nothing applied | Reconcile by hand |
 | `PARKED EVENT DROPPED` | An early refund event did not match the refund created later; it will not be redelivered | Reconcile that refund by hand |
 
@@ -49,9 +49,9 @@ done); the `REFUND FAILED` alert is the only signal (backlog B-3).
 
 **Migration V7 lock profile.** The CHECK on `payment.refunds.status` scans the table under an ACCESS EXCLUSIVE lock,
 and `ix_payments_provider_payment` is built without `CONCURRENTLY`, so writes to `payment.payments` wait while it
-builds. Both are quick at current sizes (seconds for tens of thousands of rows). For a much larger table, deploy in a
-quiet window or pre-create the index with `CREATE INDEX CONCURRENTLY` before the release (then Flyway's statement
-is skipped only if you also edit it, so prefer the quiet window). V8 only adds nullable columns and is instant.
+builds. Both are quick at current sizes (seconds for tens of thousands of rows); for a much larger table deploy in a quiet
+window. V8 adds nullable columns: no table rewrite, only a brief exclusive lock (it sets `lock_timeout = 5s`, so it
+fails fast rather than queueing behind a long transaction; just redeploy).
 
 ## Double charge
 

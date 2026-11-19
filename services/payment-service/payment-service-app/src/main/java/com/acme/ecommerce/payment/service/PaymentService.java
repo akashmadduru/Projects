@@ -201,9 +201,16 @@ public class PaymentService {
   }
 
   private Payment publishRazorpayOrder(Payment p) {
-    String orderId =
-        provision(
-            PaymentProviders.RAZORPAY, p.orderId().toString(), p.amount(), p.currency(), null)[1];
+    String orderId;
+    try {
+      orderId =
+          provision(
+              PaymentProviders.RAZORPAY, p.orderId().toString(), p.amount(), p.currency(), null)[1];
+    } catch (RuntimeException e) {
+      // No order id was obtained: hand the lease back so a retry does not wait for it to expire.
+      payments.releaseProvision(p.id());
+      throw e;
+    }
     if (payments.publishProviderOrder(p.id(), orderId) == 0) {
       log.warn(
           "Razorpay order {} for payment {} was not published (another caller's order won); it is"

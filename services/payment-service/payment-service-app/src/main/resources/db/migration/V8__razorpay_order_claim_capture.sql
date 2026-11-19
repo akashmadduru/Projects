@@ -1,3 +1,5 @@
+-- Brief exclusive lock only: fail fast instead of queueing behind a long transaction.
+SET LOCAL lock_timeout = '5s';
 -- One Razorpay order per payment and the capture-mode watch (F-20261119-04, slice 2). Additive:
 -- nullable columns, no default, no rewrite, no index. Old pods ignore them.
 --   provision_claimed_at  lease taken by the caller creating the Razorpay order

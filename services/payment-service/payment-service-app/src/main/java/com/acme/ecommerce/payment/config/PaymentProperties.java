@@ -1,5 +1,6 @@
 package com.acme.ecommerce.payment.config;
 
+import jakarta.annotation.PostConstruct;
 import java.time.Duration;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -26,6 +27,28 @@ public class PaymentProperties {
 
   /** Shared secret for /internal/** (header X-Internal-Token). */
   @Builder.Default private String internalToken = "";
+
+  /** Fails startup on settings that would silently break the Razorpay claim or watch. */
+  @PostConstruct
+  void validate() {
+    Razorpay r = razorpay;
+    Duration timeouts = r.getConnectTimeout().plus(r.getReadTimeout());
+    if (r.getProvisionLease().compareTo(timeouts) <= 0) {
+      throw new IllegalStateException(
+          "payment.razorpay.provision-lease must exceed connect-timeout + read-timeout ("
+              + timeouts
+              + ")");
+    }
+    if (r.getWatchIntervalMs() <= 0
+        || r.getCaptureAlertAfter().isNegative()
+        || r.getCaptureAlertAfter().isZero()
+        || r.getRefundPendingAlertAfter().isNegative()
+        || r.getRefundPendingAlertAfter().isZero()) {
+      throw new IllegalStateException(
+          "payment.razorpay.watch-interval-ms, capture-alert-after and refund-pending-alert-after"
+              + " must be positive");
+    }
+  }
 
   /** Stripe keys. A blank secret key means SIMULATED mode. */
   @Data

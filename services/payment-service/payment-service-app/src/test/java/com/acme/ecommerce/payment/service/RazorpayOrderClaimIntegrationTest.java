@@ -38,6 +38,8 @@ import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
     properties = {
       "payment.razorpay.key-id=rzp_test_id",
       "payment.razorpay.key-secret=rzp_secret",
+      "payment.razorpay.connect-timeout=500ms",
+      "payment.razorpay.read-timeout=500ms",
       "payment.razorpay.provision-lease=2s"
     })
 class RazorpayOrderClaimIntegrationTest extends AbstractPaymentIntegrationTest {
@@ -153,11 +155,13 @@ class RazorpayOrderClaimIntegrationTest extends AbstractPaymentIntegrationTest {
     service.getForOwner(subject, user);
     verify(razorpay, never()).capturedPayment(anyString());
 
-    // The retry waits out the lease (2 s), takes it over and provisions.
+    // The failed caller released the lease, so an immediate retry provisions without waiting.
     doAnswer(i -> order("order_retry"))
         .when(razorpay)
         .createOrder(anyString(), anyLong(), anyString());
+    long start = System.nanoTime();
     var res = service.create(request(subject, "CARD"));
+    assertThat((System.nanoTime() - start) / 1_000_000).isLessThan(1500);
 
     assertThat(res.providerOrderId()).isEqualTo("order_retry");
     assertThat(paymentRows(subject)).isEqualTo(1);
@@ -201,6 +205,26 @@ class RazorpayOrderClaimIntegrationTest extends AbstractPaymentIntegrationTest {
                 .query(Long.class)
                 .single())
         .isZero();
+  }
+
+  @Test
+  @DisplayName("publish is guarded: a payment no longer awaiting Razorpay gets no order id")
+  void publishIsGuarded() {
+    UUID subject = UUID.randomUUID();
+    doAnswer(
+            i -> {
+              jdbc.sql("UPDATE payment.payments SET status = 'FAILED' WHERE order_id = :o")
+                  .param("o", subject)
+                  .update();
+              return order("order_unpublishable");
+            })
+        .when(razorpay)
+        .createOrder(anyString(), anyLong(), anyString());
+
+    var res = service.create(request(subject, "CARD"));
+
+    assertThat(res.providerOrderId()).isNull();
+    assertThat(storedOrder(subject)).isNull();
   }
 
   @Test

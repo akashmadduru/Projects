@@ -152,11 +152,16 @@ class RazorpayCaptureWatchIntegrationTest extends AbstractPaymentIntegrationTest
     assertThat(status(orderId)).isEqualTo("SUCCEEDED");
 
     webhook("payment.authorized", rzpOrder, false);
-    jdbc.sql("UPDATE payment.payments SET authorized_at = now() - interval '1 hour'")
-        .update(); // even if a stamp existed, the alert-time status guard holds
+    // Force a stamp (the webhook skipped it, as the payment is SUCCEEDED) to prove that the
+    // alert-time status guard alone also prevents the alert.
+    jdbc.sql(
+            "UPDATE payment.payments SET authorized_at = now() - interval '1 hour' "
+                + "WHERE order_id = :o")
+        .param("o", orderId)
+        .update();
     watch.runOnce();
 
-    assertThat(authorizedStamped(orderId)).isTrue(); // forced above; the stamp itself was skipped
+    assertThat(authorizedStamped(orderId)).isTrue(); // forced above
     assertThat(alerts("RAZORPAY NOT CAPTURED")).isZero();
   }
 

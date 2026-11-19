@@ -398,8 +398,18 @@ public class PaymentRepository {
   public int publishProviderOrder(UUID id, String providerOrderId) {
     return jdbc.sql(
             "UPDATE payment.payments SET provider_order_id = :po, updated_at = now() "
-                + "WHERE id = :i AND provider_order_id IS NULL")
+                + "WHERE id = :i AND provider_order_id IS NULL AND mode = 'RAZORPAY' "
+                + "AND status = 'REQUIRES_PAYMENT' AND method = 'CARD'")
         .param("po", providerOrderId)
+        .param("i", id)
+        .update();
+  }
+
+  /** Gives the lease back after createOrder failed, so a retry need not wait for it to expire. */
+  public int releaseProvision(UUID id) {
+    return jdbc.sql(
+            "UPDATE payment.payments SET provision_claimed_at = NULL "
+                + "WHERE id = :i AND provider_order_id IS NULL")
         .param("i", id)
         .update();
   }
