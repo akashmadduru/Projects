@@ -216,7 +216,11 @@ substitute would pass while the real behaviour was broken.
   A social-only account (no `user_credentials` row) is indistinguishable from a missing one.
 - Per-account lockout (5 failures, exponential backoff capped at 15m). **This is the real
   brute-force control** — it lives in the shared database and works with any replica count. The
-  Bucket4j per-IP throttle is in-memory, per-instance, and a soft control only.
+  per-IP throttle is a soft control only (see "Shared limiter and OTP caps" below).
+- OTP login failures count toward the same lockout: a wrong code for a known verified phone calls
+  `LoginAttemptService.recordFailure(userId)`. A wrong code for an unknown or unverified phone
+  records nothing and returns the same `AUTH_OTP_INVALID`. `AUTH_ACCOUNT_LOCKED` is returned only
+  after a correct code, so it is never an oracle for wrong codes.
 - Google linking gated strictly on the IdP's `email_verified=true`; matching is on the OIDC `sub`,
   never on the email address.
 - Cookie-based (HMAC-signed) `AuthorizationRequestRepository`, so the OAuth2 flow survives a
@@ -235,8 +239,10 @@ substitute would pass while the real behaviour was broken.
 3. **`AUTH_ACCOUNT_LOCKED` reveals that an account exists.** Deliberate: it is only reachable
    after several failures against a real address, and the alternative is a user who cannot log in
    with a password they know is correct.
-4. **Rate limiting is per-instance.** Redis is now in the stack (Phase 2 slice, user-snapshot cache),
-   but distributed rate limiting on top of it has not been built — this gap is unchanged.
+4. **The limiter is a fixed window and soft.** Counters are shared through Redis, so up to 2x the
+   capacity can pass across a window boundary. If Redis is unreachable the limiter fails open to a
+   per-instance limit (N replicas give N x capacity) and logs a throttled WARN.
+   See "Shared limiter and OTP caps" below.
 5. **Housekeeping runs on every replica.** Harmless (idempotent DELETE) but wasteful; move behind
    a lock if the table ever grows enough for the sweep to be expensive.
 6. **`user-snapshot:{userId}` has no invalidation on role change or account disable.** It relies
@@ -256,3 +262,31 @@ a keystore alias or an RFC 7638 thumbprint).
 4. After the longest access-token TTL, remove A.
 
 Skipping step 1 or 3 is what produces the classic "everyone got logged out during the rotation".
+
+## Shared limiter and OTP caps
+
+- **Per-IP limiter.** `SharedWindowCounter` keeps one fixed-window counter per `auth:rl:{path}:{ip}`
+  in Redis (atomic INCR plus PEXPIRE in one Lua call, TTL window + 30 s). Every replica shares the
+  allowance. The 429 response is unchanged (`AUTH_RATE_LIMITED`, no `Retry-After`).
+- **Fail-open.** On any Redis error or a 250 ms timeout (`spring.data.redis.timeout` and
+  `connect-timeout`) the counter falls back to a per-instance map bounded by
+  `auth.rate-limit.max-tracked-clients`. The request is never failed. A WARN is logged at most every
+  30 s and Redis is skipped for 5 s after a failure.
+- **OTP send caps.** Checked in `OtpLoginService.request` before the user lookup, for every valid
+  E.164 number, so known and unknown numbers behave the same (202, empty body, no SMS when capped).
+  Defaults: `AUTH_OTP_PER_PHONE_CAPACITY=3` per `auth.rate-limit.otp-per-phone-window` (15 m) and
+  `AUTH_OTP_PER_PHONE_DAILY=10` per UTC day. **A value of 0 disables that cap.** Keys are
+  `auth:otp:phone:{E164}` and `auth:otp:day:{E164}`; the number is plaintext in the key and the
+  TTL bounds how long it is kept.
+- **Residual timing risk.** The known-phone verify path does more database work than the unknown
+  one (it spends a code attempt and may write a lockout counter). Tests compare status, body and
+  headers, not latency.
+- **Cross-channel risk.** Wrong OTPs sent to phone P, followed by a password attempt on email E that
+  returns `AUTH_ACCOUNT_LOCKED`, reveal that P and E belong to one account. The attacker needs both
+  candidates. Accepted, like gap 3.
+- **OTP-only users.** Accounts with no `user_credentials` row (OTP-only or social-only) cannot hold
+  lock state, so they are never locked. Their exposure is bounded by 5 attempts per code and the
+  daily cap: at most 50 guesses a day against 10^6 codes. A lock for them is deferred to backlog
+  B-9 (it needs a migration or a second lock store).
+- **Victim DoS.** An attacker can use up a victim's OTP caps (at most one window or one UTC day) and
+  lock a victim's password login through wrong OTPs; the lock is capped at 15 m, never permanent.

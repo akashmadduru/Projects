@@ -2,9 +2,11 @@ package com.acme.ecommerce.auth.service;
 
 import com.acme.ecommerce.auth.api.AuthErrorCode;
 import com.acme.ecommerce.auth.api.dto.AuthMethod;
+import com.acme.ecommerce.auth.config.AuthProperties;
 import com.acme.ecommerce.auth.domain.UserAccount;
 import com.acme.ecommerce.auth.error.AuthException;
 import com.acme.ecommerce.auth.metrics.AuthMetrics;
+import com.acme.ecommerce.auth.ratelimit.SharedWindowCounter;
 import com.acme.ecommerce.auth.repository.UserAccountRepository;
 import com.acme.ecommerce.auth.service.OneTimeTokenService.Purpose;
 import com.acme.ecommerce.auth.token.AuthenticatedPrincipal;
@@ -38,6 +40,9 @@ public class OtpLoginService {
   private final UserPrincipalService principals;
   private final TwoFactorService twoFactor;
   private final AuthMetrics metrics;
+  private final LoginAttemptService loginAttempts;
+  private final SharedWindowCounter counter;
+  private final AuthProperties.RateLimit caps;
 
   /** Tokens are issued (or a second factor demanded) by {@link TwoFactorService}. */
   public OtpLoginService(
@@ -46,7 +51,13 @@ public class OtpLoginService {
       NotificationGateway notifications,
       UserPrincipalService principals,
       AuthMetrics metrics,
-      TwoFactorService twoFactor) {
+      TwoFactorService twoFactor,
+      LoginAttemptService loginAttempts,
+      SharedWindowCounter counter,
+      AuthProperties properties) {
+    this.loginAttempts = loginAttempts;
+    this.counter = counter;
+    this.caps = properties.rateLimit();
     this.users = users;
     this.tokens = tokens;
     this.notifications = notifications;
@@ -60,6 +71,11 @@ public class OtpLoginService {
     try {
       Optional<String> phone = PhoneNumbers.normalise(rawPhone);
       if (phone.isEmpty()) {
+        return;
+      }
+      // Before the user lookup, so known and unknown numbers take the same path.
+      if (overCap(phone.get())) {
+        metrics.loginAttempt(AuthMethod.OTP, "capped");
         return;
       }
       users
@@ -84,14 +100,31 @@ public class OtpLoginService {
     }
   }
 
+  /** Per-phone window cap, then per-day cap. A cap of 0 disables that cap. */
+  private boolean overCap(String phone) {
+    if (caps.otpPerPhoneCapacity() > 0
+        && counter.increment("auth:otp:phone:" + phone, caps.otpPerPhoneWindow())
+            > caps.otpPerPhoneCapacity()) {
+      return true;
+    }
+    return caps.otpPerPhoneDaily() > 0
+        && counter.increment("auth:otp:day:" + phone, Duration.ofHours(24))
+            > caps.otpPerPhoneDaily();
+  }
+
   /** Verifies the code and issues a fresh token family (same as password login). */
   public LoginResult verify(String rawPhone, String code, DeviceContext device) {
     String phone = PhoneNumbers.normalise(rawPhone).orElse(null);
     UserAccount user =
         phone == null ? null : users.findWithRolesByPhoneAndPhoneVerifiedTrue(phone).orElse(null);
-    if (user == null
-        || !tokens.verifyCode(
-            user.getId(), Purpose.OTP_LOGIN, phone, code, PhoneVerificationService.MAX_ATTEMPTS)) {
+    if (user == null) {
+      // Nothing to lock and nothing to record: recording would build an enumeration table.
+      metrics.loginAttempt(AuthMethod.OTP, "bad_code");
+      throw new AuthException(AuthErrorCode.AUTH_OTP_INVALID, "OTP rejected");
+    }
+    if (!tokens.verifyCode(
+        user.getId(), Purpose.OTP_LOGIN, phone, code, PhoneVerificationService.MAX_ATTEMPTS)) {
+      loginAttempts.recordFailure(user.getId());
       metrics.loginAttempt(AuthMethod.OTP, "bad_code");
       throw new AuthException(AuthErrorCode.AUTH_OTP_INVALID, "OTP rejected");
     }
@@ -99,6 +132,13 @@ public class OtpLoginService {
       metrics.loginAttempt(AuthMethod.OTP, "disabled");
       throw new AuthException(AuthErrorCode.AUTH_ACCOUNT_DISABLED, "OTP login refused: disabled");
     }
+    // Only a holder of a valid code sees the lock, so it is not an oracle for wrong codes.
+    if (loginAttempts.isLocked(user.getId())) {
+      metrics.loginAttempt(AuthMethod.OTP, "locked");
+      throw new AuthException(
+          AuthErrorCode.AUTH_ACCOUNT_LOCKED, "OTP login refused: account temporarily locked");
+    }
+    loginAttempts.recordSuccess(user.getId());
     metrics.loginAttempt(AuthMethod.OTP, "success");
     AuthenticatedPrincipal principal = principals.principalFor(user, AuthMethod.OTP);
     // THE CONVERGENCE POINT. familyId == null starts a new family.

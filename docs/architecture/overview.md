@@ -403,7 +403,7 @@ All asynchronous, service-to-service updates flow through Kafka.
 | Only order-service has a transactional outbox; other services can still lose an event between commit and send | [TD-P6-33](../techdebt/phase6.md#td-p6-33) |
 | Single Kafka broker, replication factor 1, PLAINTEXT | [technical audit](../audit/technical-audit.md#8-security-audit) |
 | One shared `INTERNAL_API_TOKEN` for every `/internal/**` call | TD-P6-12 |
-| No gateway rate limiting; auth's Bucket4j limits are per instance | [api.md](../reference/api.md#rate-limits) |
+| No gateway rate limiting; auth's limits are shared through Redis but fail open to per instance | [api.md](../reference/api.md#rate-limits) |
 | Duplicated event classes, no schema registry | [decision log](decision-log.md), Decision 1 |
 | The product + inventory aggregate read blocks on inventory-service (falls back to no stock when it is down) | [ADR 0003](adr/0003-choreographed-catalog-saga-and-narrow-read-only-cross-service-call.md) |
 

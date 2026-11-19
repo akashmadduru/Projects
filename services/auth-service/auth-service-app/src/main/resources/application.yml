@@ -80,6 +80,9 @@ spring:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
+      # Fail fast: the rate limiter and session cache both fail open.
+      timeout: 250ms
+      connect-timeout: 250ms
 
   # Phase 10: audit.events producer only (fail-open; short block so an outage never stalls a request).
   kafka:
@@ -160,6 +163,10 @@ auth:
     refresh-capacity: ${AUTH_RATE_LIMIT_REFRESH_CAPACITY:60}
     window: 1m
     max-tracked-clients: 50000
+    # OTP SMS caps per phone (0 disables a cap).
+    otp-per-phone-capacity: ${AUTH_OTP_PER_PHONE_CAPACITY:3}
+    otp-per-phone-window: 15m
+    otp-per-phone-daily: ${AUTH_OTP_PER_PHONE_DAILY:10}
 
   oauth2:
     # REQUIRED for /oauth2/authorization/google to exist. Both blank (the

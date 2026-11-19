@@ -80,7 +80,8 @@ class RedirectTargetPolicyTest {
         new AuthProperties.Cookie("refresh_token", "/api/auth", true, "Lax", ""),
         new AuthProperties.Registration(false),
         new AuthProperties.Lockout(5, Duration.ofMinutes(1), Duration.ofMinutes(15)),
-        new AuthProperties.RateLimit(true, 10, 60, Duration.ofMinutes(1), 1000),
+        new AuthProperties.RateLimit(
+            true, 10, 60, Duration.ofMinutes(1), 1000, 3, Duration.ofMinutes(15), 10),
         new AuthProperties.Oauth2("", "", allowed, defaultTarget, ""),
         new AuthProperties.Housekeeping(false, Duration.ofDays(30), Duration.ofHours(1)),
         new AuthProperties.Storefront("http://localhost:3000"));

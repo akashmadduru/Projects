@@ -43,14 +43,6 @@ bouncycastle = "1.85"
 springdoc = "3.0.3"
 mapstruct = "1.6.3"
 lombok = "1.18.46"
-# WHY 8.10.1 AND NOT NEWER: the `com.bucket4j:bucket4j-core` coordinate stops at
-# 8.10.1 on Maven Central; from 8.11 the project split into JDK-specific
-# artifacts (`bucket4j_jdk17-core`). 8.10.1 is the last release of the plain
-# coordinate and exposes the same `io.github.bucket4j` API. Used ONLY for the
-# per-instance, in-memory login/refresh throttle in auth-service - the real
-# brute-force control is the per-account lockout in the database, which works
-# regardless of replica count.
-bucket4j = "8.10.1"
 # Stripe Java SDK (payment-service). Not managed by the Boot BOM.
 stripeJava = "34.1.0"
 # OpenPDF (order-service invoice PDFs). Not managed by the Boot BOM.
@@ -136,7 +128,6 @@ bouncycastle-bcprov = { module = "org.bouncycastle:bcprov-jdk18on", version.ref 
 bouncycastle-bcpkix = { module = "org.bouncycastle:bcpkix-jdk18on", version.ref = "bouncycastle" }
 
 # --- rate limiting ----------------------------------------------------------
-bucket4j-core = { module = "com.bucket4j:bucket4j-core", version.ref = "bucket4j" }
 
 # --- AI providers -----------------------------------------------------------
 aws-bedrockruntime = { module = "software.amazon.awssdk:bedrockruntime", version.ref = "awsSdk" }

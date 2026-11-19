@@ -132,23 +132,30 @@ public record AuthProperties(
       @DefaultValue("15m") Duration maxDuration) {}
 
   /**
-   * Per-IP soft throttle. In-memory and therefore PER REPLICA - deliberately a nuisance control,
-   * not a security boundary. Redis-backed distributed limiting is deferred.
+   * Per-IP soft throttle plus per-phone OTP send caps. Counters live in Redis (shared by every
+   * replica) and fall back to per-instance counters when Redis is unreachable. A soft control, not
+   * a security boundary.
    *
    * @param enabled master switch
    * @param loginCapacity requests per window for {@code /login} and {@code /register}
    * @param refreshCapacity requests per window for {@code /refresh}; higher, because a legitimate
    *     multi-tab SPA refreshes more often than it logs in
    * @param window refill period
-   * @param maxTrackedClients bound on the IP -> bucket map, so a spoofed-source flood cannot grow
-   *     it without limit
+   * @param maxTrackedClients bound on the per-instance fallback counter map, so a spoofed-source
+   *     flood cannot grow it without limit
+   * @param otpPerPhoneCapacity OTP sends per phone per {@code otpPerPhoneWindow}; 0 disables
+   * @param otpPerPhoneWindow window for {@code otpPerPhoneCapacity}
+   * @param otpPerPhoneDaily OTP sends per phone per UTC day; 0 disables
    */
   public record RateLimit(
       @DefaultValue("true") boolean enabled,
       @DefaultValue("10") int loginCapacity,
       @DefaultValue("60") int refreshCapacity,
       @DefaultValue("1m") Duration window,
-      @DefaultValue("50000") int maxTrackedClients) {}
+      @DefaultValue("50000") int maxTrackedClients,
+      @DefaultValue("3") int otpPerPhoneCapacity,
+      @DefaultValue("15m") Duration otpPerPhoneWindow,
+      @DefaultValue("10") int otpPerPhoneDaily) {}
 
   /**
    * Google OIDC login.

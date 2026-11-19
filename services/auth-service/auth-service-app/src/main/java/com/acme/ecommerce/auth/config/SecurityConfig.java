@@ -289,7 +289,8 @@ public class SecurityConfig {
       AuthProperties properties,
       com.acme.ecommerce.auth.web.RequestDeviceContext deviceContexts,
       ProblemResponseWriter problems,
-      com.acme.ecommerce.auth.metrics.AuthMetrics metrics) {
-    return new RateLimitFilter(properties, deviceContexts, problems, metrics);
+      com.acme.ecommerce.auth.metrics.AuthMetrics metrics,
+      com.acme.ecommerce.auth.ratelimit.SharedWindowCounter counter) {
+    return new RateLimitFilter(properties, deviceContexts, problems, metrics, counter);
   }
 }

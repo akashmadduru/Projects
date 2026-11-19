@@ -45,6 +45,7 @@ public abstract class AbstractAuthIntegrationTest {
 
   static {
     POSTGRES.start();
+    RedisTestContainer.REDIS.getHost();
   }
 
   @DynamicPropertySource
@@ -52,5 +53,7 @@ public abstract class AbstractAuthIntegrationTest {
     registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
     registry.add("spring.datasource.username", POSTGRES::getUsername);
     registry.add("spring.datasource.password", POSTGRES::getPassword);
+    registry.add("spring.data.redis.host", RedisTestContainer::host);
+    registry.add("spring.data.redis.port", RedisTestContainer::port);
   }
 }

@@ -5,16 +5,11 @@ import com.acme.ecommerce.auth.config.AuthProperties;
 import com.acme.ecommerce.auth.error.ProblemResponseWriter;
 import com.acme.ecommerce.auth.metrics.AuthMetrics;
 import com.acme.ecommerce.auth.web.RequestDeviceContext;
-import io.github.bucket4j.Bandwidth;
-import io.github.bucket4j.Bucket;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.time.Duration;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -24,19 +19,14 @@ import org.springframework.web.filter.OncePerRequestFilter;
  *
  * <p>WHAT THIS IS AND IS NOT. It is a nuisance filter: it stops a single source hammering {@code
  * /login} from one machine, and it keeps a broken client from melting the database with refresh
- * retries. It is NOT the brute-force control - it is in-memory, so it is per-replica (three
- * replicas means three times the configured allowance) and it is per-source-address (a botnet or a
- * rotating proxy pool ignores it entirely). The real control is the per-account lockout in {@code
+ * retries. It is NOT the brute-force control - it is per-source-address (a botnet or a rotating
+ * proxy pool ignores it entirely). The real control is the per-account lockout in {@code
  * user_credentials}, which lives in the shared database and is attached to the account under attack
- * rather than to something the attacker chooses. A distributed (Redis-backed) limiter is a deferred
- * decision, not a forgotten one.
+ * rather than to something the attacker chooses.
  *
- * <p>BOUNDED MAP. The IP -> bucket map is cleared when it exceeds {@code
- * auth.rate-limit.max-tracked-clients}. Without that bound, an attacker sending requests from
- * spoofed or rotating addresses grows it until the heap is gone - turning a rate limiter into a
- * denial-of-service amplifier. Clearing wholesale rather than evicting by age is a deliberate
- * simplification: it costs one free window to whoever was mid-limit, which is far cheaper than
- * carrying an eviction policy (and a scheduler) for a soft control.
+ * <p>SHARED COUNTER. The count is a fixed-window Redis counter ({@link SharedWindowCounter}), so
+ * every replica shares one allowance. If Redis is unreachable the counter falls back to a
+ * per-instance, size-bounded map and never fails the request.
  *
  * <p>Runs BEFORE the security filter chain, so a flood is rejected before it costs a database
  * lookup or an Argon2 verification.
@@ -76,18 +66,19 @@ public class RateLimitFilter extends OncePerRequestFilter {
           "/api/auth/me/phone",
           "/api/auth/me/phone/verify");
 
-  private final Map<String, Bucket> buckets = new ConcurrentHashMap<>();
-
   private final AuthProperties.RateLimit config;
   private final RequestDeviceContext deviceContexts;
   private final ProblemResponseWriter problems;
   private final AuthMetrics metrics;
+  private final SharedWindowCounter counter;
 
   public RateLimitFilter(
       AuthProperties properties,
       RequestDeviceContext deviceContexts,
       ProblemResponseWriter problems,
-      AuthMetrics metrics) {
+      AuthMetrics metrics,
+      SharedWindowCounter counter) {
+    this.counter = counter;
     this.config = properties.rateLimit();
     this.deviceContexts = deviceContexts;
     this.problems = problems;
@@ -109,24 +100,15 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
     String path = request.getRequestURI();
     int capacity = capacityFor(path);
-    String key = path + "|" + deviceContexts.clientIp(request);
+    String key = "auth:rl:" + path + ":" + deviceContexts.clientIp(request);
 
-    if (buckets.size() > config.maxTrackedClients()) {
-      log.warn(
-          "Rate-limit bucket map exceeded {} entries; clearing. "
-              + "This usually means a source-address flood.",
-          config.maxTrackedClients());
-      buckets.clear();
-    }
-
-    Bucket bucket = buckets.computeIfAbsent(key, ignored -> newBucket(capacity, config.window()));
-    if (bucket.tryConsume(1)) {
+    if (counter.increment(key, config.window()) <= capacity) {
       chain.doFilter(request, response);
       return;
     }
 
     metrics.rateLimited(path);
-    log.info("Rate limit exceeded for {} (per-instance, soft control)", path);
+    log.info("Rate limit exceeded for {} (soft control)", path);
     problems.write(request, response, AuthErrorCode.AUTH_RATE_LIMITED);
   }
 
@@ -139,16 +121,5 @@ public class RateLimitFilter extends OncePerRequestFilter {
       return config.refreshCapacity();
     }
     return 0;
-  }
-
-  private static Bucket newBucket(int capacity, Duration window) {
-    return Bucket.builder()
-        .addLimit(
-            // Greedy refill: tokens trickle back continuously rather than all at
-            // once at the end of the window. Interval refill produces a stampede
-            // the instant the window rolls over, which is exactly the traffic
-            // shape a limiter is supposed to prevent.
-            Bandwidth.builder().capacity(capacity).refillGreedy(capacity, window).build())
-        .build();
   }
 }

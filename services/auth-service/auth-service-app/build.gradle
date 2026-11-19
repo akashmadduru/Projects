@@ -58,9 +58,6 @@ dependencies {
     implementation libs.spring.security.crypto
     implementation libs.bouncycastle.bcprov
 
-    // Per-instance, in-memory throttle on the unauthenticated endpoints.
-    implementation libs.bucket4j.core
-
     implementation libs.micrometer.registry.prometheus
     implementation libs.bundles.tracing
 

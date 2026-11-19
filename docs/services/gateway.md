@@ -236,7 +236,7 @@ nothing in either service's log pointing at the cause.
 
 | Item | Status on 2026-11-14 |
 |---|---|
-| Per-client rate limiting at the edge (`RequestRateLimiter` + Redis) | Not implemented. The only throttle is auth-service's per-instance Bucket4j limit, which weakens with each replica. |
+| Per-client rate limiting at the edge (`RequestRateLimiter` + Redis) | Not implemented. The only throttle is auth-service's per-IP limit (shared through Redis, per instance if Redis is down). |
 | TLS termination, WAF | Not in the gateway. On AWS the ALB terminates TLS and the Terraform `waf` module provides the WAF ([deploy-aws](../guides/deploy-aws.md)); locally there is no TLS. |
 | Distributed tracing | **Implemented in Phase 10**: Micrometer Tracing with OpenTelemetry export to Jaeger. |
 | Removing auth-service's own CORS configuration | Not done. It is kept because auth-service is reachable directly in dev and in its tests; the gateway's `DedupeResponseHeader` makes the overlap harmless. |

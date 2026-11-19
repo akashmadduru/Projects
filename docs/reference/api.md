@@ -131,8 +131,9 @@ value is clamped. Responses use Spring's `PagedModel` shape:
 
 ### Rate limits
 
-auth-service only (Bucket4j). Limits are **per instance and per client IP per path**, so running
-more replicas multiplies them. There is no gateway-level rate limit yet.
+auth-service only. Limits are **per client IP per path**, counted in Redis so every replica shares
+them (if Redis is down they fall back to per instance). OTP requests also have per-phone caps
+(3 per 15 minutes, 10 per day). There is no gateway-level rate limit yet.
 
 | Paths | Requests per minute |
 |---|---|

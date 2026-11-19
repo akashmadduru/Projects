@@ -57,11 +57,18 @@ public class LoginAttemptService {
    */
   @Transactional(propagation = Propagation.REQUIRES_NEW)
   public void recordFailure(String email) {
-    Optional<UserAccount> user = users.findByEmail(UserAccount.normaliseEmail(email));
-    if (user.isEmpty()) {
-      return;
-    }
-    Optional<UserCredential> credential = credentials.findById(user.get().getId());
+    users
+        .findByEmail(UserAccount.normaliseEmail(email))
+        .ifPresent(user -> recordFailure(user.getId()));
+  }
+
+  /**
+   * Records a failed attempt (password or OTP) against a known user. A user with no {@code
+   * user_credentials} row (OTP-only or social-only) cannot hold lock state, so this does nothing.
+   */
+  @Transactional(propagation = Propagation.REQUIRES_NEW)
+  public void recordFailure(UUID userId) {
+    Optional<UserCredential> credential = credentials.findById(userId);
     if (credential.isEmpty()) {
       return;
     }
@@ -84,6 +91,15 @@ public class LoginAttemptService {
           entity.getUserId(),
           entity.getLockedUntil());
     }
+  }
+
+  /** True while the user's credential row holds a lock; false when there is no row. */
+  @Transactional(readOnly = true)
+  public boolean isLocked(UUID userId) {
+    return credentials
+        .findById(userId)
+        .map(credential -> credential.isLockedAt(timeProvider.now()))
+        .orElse(false);
   }
 
   /**
