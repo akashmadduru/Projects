@@ -100,8 +100,8 @@ spring:
 server:
   port: ${SERVER_PORT:8085}
   shutdown: graceful
-  # Read the raw X-Forwarded-For chain on every platform. Spring Boot's default on Kubernetes is NATIVE
-  # (Tomcat RemoteIpValve), which rewrites that header before the referral checks count hops from its right.
+  # none: the referral checks read the gateway-set X-Internal-Client-Ip and fall back to the socket peer. Boot's
+  # Kubernetes default (NATIVE, Tomcat RemoteIpValve) would rewrite the peer from a client X-Forwarded-For.
   forward-headers-strategy: ${USER_FORWARD_HEADERS_STRATEGY:none}
 
 # -----------------------------------------------------------------------------

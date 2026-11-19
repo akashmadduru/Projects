@@ -32,13 +32,13 @@
     },
     "SERVER_FORWARD_HEADERS_STRATEGY": {
       "group": "Platform",
-      "usedBy": "auth, gateway (Helm)",
-      "text": "auth-service: `framework`, so the Google sign-in callback URL uses the public host instead of the internal one. gateway: `none`, because Spring Boot defaults to `native` on Kubernetes, which would make the gateway trust the forgeable leftmost `X-Forwarded-For` entry; the rate limiter and the referral checks count from the right themselves."
+      "usedBy": "auth, gateway, payment (Helm)",
+      "text": "auth-service: `framework`, so the Google sign-in callback URL uses the public host instead of the internal one (a filter drops `X-Forwarded-For` first, so the remote address is always the socket peer). gateway and payment-service: `none`, because Spring Boot defaults to `native` on Kubernetes, which would trust a forgeable `X-Forwarded-For`; the gateway counts from the right itself and services read the gateway-set `X-Internal-Client-Ip`."
     },
     "USER_FORWARD_HEADERS_STRATEGY": {
       "group": "Platform",
       "usedBy": "user",
-      "text": "Maps to `server.forward-headers-strategy` for user-service. Keep the default `none`: the referral IP checks read the raw `X-Forwarded-For` chain, and Spring Boot's Kubernetes default (`native`) would make Tomcat rewrite it first."
+      "text": "Maps to `server.forward-headers-strategy` for user-service. Keep the default `none`: the referral IP checks read the gateway-set `X-Internal-Client-Ip` and fall back to the socket peer, which must not be rewritten from a client `X-Forwarded-For` (Spring Boot's Kubernetes default, `native`, would do that)."
     },
     "RATING_MEDIA_DIR": {
       "group": "Platform",

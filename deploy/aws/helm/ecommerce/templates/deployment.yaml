@@ -125,6 +125,10 @@ spec:
             {{- /* Boot defaults to NATIVE on Kubernetes, which makes Netty trust the forgeable leftmost X-Forwarded-For entry; the rate limiter counts from the right itself. */}}
             - { name: SERVER_FORWARD_HEADERS_STRATEGY, value: "none" }
             {{- end }}
+            {{- if eq $name "payment-service" }}
+            {{- /* No forwarded headers needed; pin none so Boot's Kubernetes default (native) cannot rewrite the peer from a client X-Forwarded-For. */}}
+            - { name: SERVER_FORWARD_HEADERS_STRATEGY, value: "none" }
+            {{- end }}
             {{- if eq $name "auth-service" }}
             - { name: AUTH_ALLOWED_REDIRECT_URIS, value: "{{ $g.shopUrl }}/auth/callback,{{ $g.adminUrl }}/auth/callback" }
             - { name: AUTH_DEFAULT_REDIRECT_URI, value: "{{ $g.shopUrl }}/auth/callback" }
