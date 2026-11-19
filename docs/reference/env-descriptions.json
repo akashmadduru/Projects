@@ -113,9 +113,17 @@
       "group": "Identity and tokens",
       "text": "Redirect used when the caller does not name one."
     },
+    "AUTH_OTP_PER_PHONE_CAPACITY": {
+      "group": "Identity and tokens",
+      "text": "OTP sends per phone per 15 minutes (shared through Redis). 0 disables the cap."
+    },
+    "AUTH_OTP_PER_PHONE_DAILY": {
+      "group": "Identity and tokens",
+      "text": "OTP sends per phone per UTC day (shared through Redis). 0 disables the cap."
+    },
     "AUTH_RATE_LIMIT_LOGIN_CAPACITY": {
       "group": "Identity and tokens",
-      "text": "Login attempts per window per client (in-memory, per instance)."
+      "text": "Login attempts per window per client (shared through Redis; per instance if Redis is down)."
     },
     "AUTH_RATE_LIMIT_REFRESH_CAPACITY": {
       "group": "Identity and tokens",
