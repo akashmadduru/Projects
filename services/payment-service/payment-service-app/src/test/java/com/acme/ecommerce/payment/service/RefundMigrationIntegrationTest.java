@@ -65,8 +65,8 @@ class RefundMigrationIntegrationTest extends AbstractPaymentIntegrationTest {
   @DisplayName("the conditional settle changes a PENDING row once, then returns 0")
   void settleIsOnce() {
     UUID p = payment();
-    repo.insertRefund(p, new BigDecimal("10.00"), null, null, "rfnd_m1", "k-" + p, "PENDING");
-    UUID id = repo.findRefundByProviderRefundId("rfnd_m1").orElseThrow().id();
+    UUID id =
+        repo.insertRefund(p, new BigDecimal("10.00"), null, null, "rfnd_m1", "k-" + p, "PENDING");
 
     assertThat(repo.settleRefundRow(id, "FAILED")).isEqualTo(1);
     assertThat(repo.settleRefundRow(id, "SUCCEEDED")).isZero();

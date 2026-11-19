@@ -1,6 +1,11 @@
 package com.acme.ecommerce.payment.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.verify;
 
 import com.acme.ecommerce.payment.api.dto.RefundRequest;
 import com.acme.ecommerce.payment.support.AbstractPaymentIntegrationTest;
@@ -10,6 +15,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
 /** AC-12: COD and wallet-destination refunds stay immediately final (SUCCEEDED), as before. */
 class RefundNonRazorpayRegressionTest extends AbstractPaymentIntegrationTest {
@@ -17,6 +23,7 @@ class RefundNonRazorpayRegressionTest extends AbstractPaymentIntegrationTest {
   @Autowired private PaymentService service;
   @Autowired private JdbcClient jdbc;
   @Autowired private WalletService wallet;
+  @MockitoSpyBean private StripeGateway stripe;
 
   private UUID payment(String method, String mode) {
     UUID order = UUID.randomUUID();
@@ -82,5 +89,30 @@ class RefundNonRazorpayRegressionTest extends AbstractPaymentIntegrationTest {
 
     assertThat(res.status()).isEqualTo("REFUNDED");
     assertThat(refundStatus(order, "k-str")).isEqualTo("SUCCEEDED");
+  }
+
+  @Test
+  @DisplayName(
+      "a real Stripe refund (intent set, provider called) is SUCCEEDED with the same reply")
+  void stripeRefundWithIntent() {
+    UUID order = payment("CARD", "STRIPE");
+    jdbc.sql("UPDATE payment.payments SET stripe_payment_intent_id = 'pi_1' WHERE order_id = :o")
+        .param("o", order)
+        .update();
+    doReturn("re_1").when(stripe).refund(eq("pi_1"), anyLong(), anyString());
+
+    var res =
+        service.refund(order, new RefundRequest(new BigDecimal("100.00"), "r", "k-str2", "SOURCE"));
+
+    assertThat(res.status()).isEqualTo("PARTIALLY_REFUNDED");
+    assertThat(res.refundedAmount()).isEqualByComparingTo("100.00");
+    verify(stripe).refund(eq("pi_1"), eq(10000L), eq("k-str2"));
+    assertThat(refundStatus(order, "k-str2")).isEqualTo("SUCCEEDED");
+    assertThat(
+            jdbc.sql(
+                    "SELECT stripe_refund_id FROM payment.refunds WHERE idempotency_key = 'k-str2'")
+                .query(String.class)
+                .single())
+        .isEqualTo("re_1");
   }
 }

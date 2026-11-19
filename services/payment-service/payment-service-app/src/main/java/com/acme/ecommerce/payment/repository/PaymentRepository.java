@@ -255,7 +255,8 @@ public class PaymentRepository {
         rs.getString("provider_refund_id"));
   }
 
-  public void insertRefund(
+  /** Returns the new refund row id. */
+  public UUID insertRefund(
       UUID paymentId,
       BigDecimal amount,
       String reason,
@@ -263,10 +264,10 @@ public class PaymentRepository {
       String providerRefundId,
       String key,
       String status) {
-    jdbc.sql(
+    return jdbc.sql(
             "INSERT INTO payment.refunds (payment_id, amount, reason, stripe_refund_id, "
                 + "provider_refund_id, idempotency_key, status) "
-                + "VALUES (:p, :a, :r, :s, :pr, :k, :st)")
+                + "VALUES (:p, :a, :r, :s, :pr, :k, :st) RETURNING id")
         .param("p", paymentId)
         .param("a", amount)
         .param("r", reason)
@@ -274,17 +275,31 @@ public class PaymentRepository {
         .param("pr", providerRefundId)
         .param("k", key)
         .param("st", status)
-        .update();
+        .query(UUID.class)
+        .single();
   }
 
-  /** Row lock on the refund; call after the payment lock (same order as refund()). */
-  public Optional<Refund> findRefundByProviderRefundId(String providerRefundId) {
+  /** Locks a refund row by id (after the payment lock). */
+  public Optional<Refund> findRefundByIdForUpdate(UUID id) {
     return jdbc.sql(
             "SELECT id, payment_id, amount, status, provider_refund_id FROM payment.refunds "
-                + "WHERE provider_refund_id = :r ORDER BY created_at LIMIT 1 FOR UPDATE")
-        .param("r", providerRefundId)
+                + "WHERE id = :i FOR UPDATE")
+        .param("i", id)
         .query(PaymentRepository::mapRefund)
         .optional();
+  }
+
+  /**
+   * Row locks on the refunds with this provider id, at most 2 (the index is not unique): the caller
+   * treats more than one as corrupt data and applies nothing. Call after the payment lock.
+   */
+  public List<Refund> findRefundsByProviderRefundId(String providerRefundId) {
+    return jdbc.sql(
+            "SELECT id, payment_id, amount, status, provider_refund_id FROM payment.refunds "
+                + "WHERE provider_refund_id = :r ORDER BY created_at LIMIT 2 FOR UPDATE")
+        .param("r", providerRefundId)
+        .query(PaymentRepository::mapRefund)
+        .list();
   }
 
   public Optional<Payment> findByProviderPaymentIdForUpdate(String providerPaymentId) {
@@ -346,6 +361,119 @@ public class PaymentRepository {
                     rs.getString("status"),
                     rs.getString("provider_payment_id"),
                     rs.getLong("amount_minor"),
+                    rs.getString("currency")))
+        .list();
+  }
+
+  // ---- one Razorpay order per payment (F-20261119-04 slice 2) ----------------------------------
+
+  /**
+   * Insert-first claim: a CARD payment awaiting payment with no provider order yet and the lease
+   * taken now. Returns 1 for exactly one caller (the unique order_id index serialises racers).
+   */
+  public int insertClaimed(
+      UUID orderId,
+      UUID userId,
+      String method,
+      String mode,
+      BigDecimal amount,
+      String currency,
+      String purpose) {
+    return jdbc.sql(
+            "INSERT INTO payment.payments (order_id, user_id, method, mode, amount, currency, "
+                + "status, purpose, reference_id, provision_claimed_at) "
+                + "VALUES (:o, :u, :m, :mode, :a, :c, 'REQUIRES_PAYMENT', :p, :o, now()) "
+                + "ON CONFLICT (order_id) DO NOTHING")
+        .param("o", orderId)
+        .param("u", userId)
+        .param("m", method)
+        .param("mode", mode)
+        .param("a", amount)
+        .param("c", currency)
+        .param("p", purpose)
+        .update();
+  }
+
+  /** Publishes the created Razorpay order, once. 0 means someone else already published. */
+  public int publishProviderOrder(UUID id, String providerOrderId) {
+    return jdbc.sql(
+            "UPDATE payment.payments SET provider_order_id = :po, updated_at = now() "
+                + "WHERE id = :i AND provider_order_id IS NULL")
+        .param("po", providerOrderId)
+        .param("i", id)
+        .update();
+  }
+
+  /** Takes over the lease when the previous holder's has run out. 1 means we may provision. */
+  public int reclaimProvision(UUID id, double leaseSeconds) {
+    return jdbc.sql(
+            "UPDATE payment.payments SET provision_claimed_at = now() "
+                + "WHERE id = :i AND provider_order_id IS NULL AND status = 'REQUIRES_PAYMENT' "
+                + "AND (provision_claimed_at IS NULL "
+                + "OR provision_claimed_at < now() - make_interval(secs => :s))")
+        .param("i", id)
+        .param("s", leaseSeconds)
+        .update();
+  }
+
+  // ---- capture-mode watch ----------------------------------------------------------------------
+
+  /** Records that payment.authorized was seen for a still-unpaid Razorpay payment. Idempotent. */
+  public int stampAuthorized(String providerOrderId) {
+    return jdbc.sql(
+            "UPDATE payment.payments SET authorized_at = COALESCE(authorized_at, now()) "
+                + "WHERE provider_order_id = :o AND mode = 'RAZORPAY' "
+                + "AND status IN ('REQUIRES_PAYMENT', 'PROCESSING')")
+        .param("o", providerOrderId)
+        .update();
+  }
+
+  /** A payment the watch alerts on. */
+  public record Alert(UUID orderId, String providerId, BigDecimal amount, String currency) {}
+
+  /**
+   * Claims (once) and returns payments authorized more than {@code graceSeconds} ago that are still
+   * unpaid. The status guard is applied here too: a payment captured meanwhile is not alerted.
+   */
+  public List<Alert> claimUncaptured(double graceSeconds, int limit) {
+    return jdbc.sql(
+            "UPDATE payment.payments SET capture_alerted_at = now() WHERE id IN ("
+                + "SELECT id FROM payment.payments WHERE mode = 'RAZORPAY' "
+                + "AND authorized_at < now() - make_interval(secs => :g) "
+                + "AND capture_alerted_at IS NULL AND status IN ('REQUIRES_PAYMENT', 'PROCESSING') "
+                + "ORDER BY authorized_at LIMIT :l FOR UPDATE SKIP LOCKED) "
+                + "RETURNING order_id, provider_order_id, amount, currency")
+        .param("g", graceSeconds)
+        .param("l", limit)
+        .query(
+            (rs, n) ->
+                new Alert(
+                    rs.getObject("order_id", UUID.class),
+                    rs.getString("provider_order_id"),
+                    rs.getBigDecimal("amount"),
+                    rs.getString("currency")))
+        .list();
+  }
+
+  /** Claims (once) and returns refunds PENDING for longer than {@code afterSeconds}. */
+  public List<Alert> claimStuckRefunds(double afterSeconds, int limit) {
+    return jdbc.sql(
+            "WITH u AS (UPDATE payment.refunds SET pending_alerted_at = now() WHERE id IN ("
+                + "SELECT id FROM payment.refunds WHERE status = 'PENDING' "
+                + "AND pending_alerted_at IS NULL "
+                + "AND created_at < now() - make_interval(secs => :a) "
+                + "ORDER BY created_at LIMIT :l FOR UPDATE SKIP LOCKED) "
+                + "RETURNING payment_id, provider_refund_id, amount) "
+                + "SELECT p.order_id, u.provider_refund_id, u.amount, p.currency "
+                + "FROM u JOIN payment.payments p ON p.id = u.payment_id")
+        .param("a", afterSeconds)
+        .param("l", limit)
+        .query(
+            (rs, n) ->
+                new Alert(
+                    rs.getObject("order_id", UUID.class),
+                    rs.getString("provider_refund_id"),
+                    rs.getBigDecimal("amount"),
                     rs.getString("currency")))
         .list();
   }

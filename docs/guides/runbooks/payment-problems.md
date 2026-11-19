@@ -27,6 +27,32 @@ from payment.payments where order_id = '<order id>';
 | Webhook accepted but order not paid, log "amount mismatch" | Amount or currency differs from what we asked | Investigate in the Razorpay dashboard before refunding; never mark it paid by hand |
 | Refund failed with a 503 "Payment provider request failed" | Provider outage or bad request | Retry from admin; check the `Razorpay call failed` log line for the cause |
 
+## Razorpay setup and alerts
+
+**Webhook subscriptions.** The Razorpay webhook must subscribe to `payment.captured`, `order.paid`, `payment.authorized`,
+`refund.processed` and `refund.failed`. Without the refund events every Razorpay refund stays PENDING.
+**Auto-capture.** Dashboard -> Settings -> Configuration -> Payment capture: automatic. With manual capture, payments
+authorize and never settle.
+
+| Log line (ERROR) | Meaning | Action |
+|---|---|---|
+| `RAZORPAY NOT CAPTURED` | A `payment.authorized` event was seen and the payment is still unpaid 15 min later (the event alone never alerts: Razorpay may send it after, or with, the capture). Status is not changed | Enable auto-capture, then capture or refund that payment in the dashboard |
+| `REFUND FAILED` | Razorpay reported the refund failed. The balance is released, no wallet credit, the customer was NOT refunded | Refund the customer another way, or retry with a new idempotency key |
+| `REFUND FAILED AFTER SUCCEEDED` | `refund.failed` for a refund we hold as SUCCEEDED (older refunds default to SUCCEEDED). State unchanged | Reconcile in the Razorpay dashboard by hand. A historic SUCCEEDED refund that really failed also needs this |
+| `REFUND PENDING TOO LONG` | A refund has been PENDING for over 10 days (webhooks probably not subscribed) | Check it in the dashboard, subscribe the events, settle the row by hand |
+| `LEDGER MISMATCH` | Releasing a failed refund would make `refunded_amount` negative. Nothing was changed, the webhook returns 500 and Razorpay retries | Fix the data by hand before the retry; do not ignore |
+| `REFUND ID DUPLICATED` | Two refund rows share a Razorpay refund id; nothing applied | Reconcile by hand |
+| `PARKED EVENT DROPPED` | An early refund event did not match the refund created later; it will not be redelivered | Reconcile that refund by hand |
+
+A parked `refund.failed` that is applied inside `refund()` still returns 200 to order-service (it shows the refund as
+done); the `REFUND FAILED` alert is the only signal (backlog B-3).
+
+**Migration V7 lock profile.** The CHECK on `payment.refunds.status` scans the table under an ACCESS EXCLUSIVE lock,
+and `ix_payments_provider_payment` is built without `CONCURRENTLY`, so writes to `payment.payments` wait while it
+builds. Both are quick at current sizes (seconds for tens of thousands of rows). For a much larger table, deploy in a
+quiet window or pre-create the index with `CREATE INDEX CONCURRENTLY` before the release (then Flyway's statement
+is skipped only if you also edit it, so prefer the quiet window). V8 only adds nullable columns and is instant.
+
 ## Double charge
 
 Log line `DOUBLE CHARGE` at ERROR carries both provider payment ids. It means the customer switched provider, paid

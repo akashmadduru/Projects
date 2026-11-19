@@ -66,9 +66,7 @@ Shortcuts taken while building customer accounts (login, Google SSO, user/cart/o
 | TD-P6-25 | Test data left in dev DB (admin user, p6e2e users, test product) | phase6 | Low | S | [phase6.md](phase6.md#td-p6-25) |
 | TD-P6-26 | Notification infra dev-only (Mailpit unpinned, deprecated deserializer) | phase6 | Low | S | [phase6.md](phase6.md#td-p6-26) |
 | TD-P6-28 | Saved-for-later price snapshots go stale | phase6 | Low | S | [phase6.md](phase6.md#td-p6-28) |
-| TD-P6-30 | Razorpay order creation has no idempotency key | phase6 | Low | S | [phase6.md](phase6.md#td-p6-30) |
-| TD-P6-31 | Razorpay refunds recorded as done once accepted | phase6 | Med | M | [phase6.md](phase6.md#td-p6-31) |
-| TD-P6-32 | Razorpay INR only; manual capture not detected | phase6 | Low | M | [phase6.md](phase6.md#td-p6-32) |
+| TD-P6-32 | Razorpay INR only; manual capture alerted, not prevented | phase6 | Low | M | [phase6.md](phase6.md#td-p6-32) |
 | TD-P6-33 | Only order-service has an outbox (other services publish best effort) | phase6 | Med | M | [phase6.md](phase6.md#td-p6-33) |
 | TD-ADM-01 | Admin routes: no 403 tests per route, no SQL tests for admin queries (privilege rules covered) | admin | Med | M | [admin.md](admin.md#td-adm-01) |
 | TD-ADM-02 | Disable/demote leaves issued access tokens valid until TTL | admin | Med | M | [admin.md](admin.md#td-adm-02) |
@@ -141,6 +139,7 @@ Shortcuts taken while building customer accounts (login, Google SSO, user/cart/o
 - TD-BE-01 oversell: order-service reserves stock via inventory-service (`OrderRemote.reserve`/`release`) and releases on cancel/failure. Residual gaps closed 2026-11-17 (TD-P6-01 outbox, TD-P6-04 stock rows).
 - TD-BE-02 no payment/shipping/tax: payment-service (Stripe + SIMULATED + COD), shipping and GST in order-service now exist. Residual: Stripe untested (TD-P6-02), no real carrier, rules hard-wired (TD-P6-17).
 - TD-BE-04 no `order.events` publisher: `OrderEventPublisher` exists and notification-service consumes it. Residual: notification gaps (TD-P6-07); order events go through the outbox since 2026-11-17.
+- TD-P6-30 / TD-P6-31 (Razorpay): one order per payment (insert-first claim with a lease, conditional publish) and refunds PENDING until `refund.processed` / `refund.failed`, fixed 2026-11-19 (F-20261119-04). TD-P6-32 narrowed: manual capture is alerted.
 - TD-BE-05 cancel does not release stock or refund: cancel releases stock and calls `OrderRemote.refund`. Residual: TD-P6-14 (TD-P6-03 fixed 2026-11-17).
 - TD-SEC-04 (email verification half) and TD-FE-05: email verification, password reset and phone OTP exist in auth-service and the storefront. Residual: unverified users can still log in, no captcha (TD-P6-10); open registration default remains in TD-SEC-04.
 - Feign timeouts were never applied (legacy `feign.client.config` prefix, keys by service name instead of `@FeignClient` contextId). Fixed in order, rating, product and auth `application.yml` (prefix `spring.cloud.openfeign.client.config`); payment-service already used the right one. Timeouts now bite (1 s connect / 3 s read; product inventory 1.5 s), so previously masked slow calls may surface as failures. This also covers the earlier cart/user/product timeout-key note.

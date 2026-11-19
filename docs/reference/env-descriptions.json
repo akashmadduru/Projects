@@ -514,11 +514,27 @@
     },
     "RAZORPAY_WEBHOOK_SECRET": {
       "group": "Payments",
-      "text": "Secret of the Razorpay webhook (`<site>/api/payments/webhook/razorpay`, events `payment.captured` and `order.paid`). Without it the webhook is rejected and payments settle only through the browser callback and the order-page re-check."
+      "text": "Secret of the Razorpay webhook (`<site>/api/payments/webhook/razorpay`, events `payment.captured`, `order.paid`, `payment.authorized`, `refund.processed` and `refund.failed`). Without it the webhook is rejected and payments settle only through the browser callback and the order-page re-check."
     },
     "RAZORPAY_BASE_URL": {
       "group": "Payments",
       "text": "Razorpay API base URL. Change only to point at a mock server in tests."
+    },
+    "RAZORPAY_PROVISION_LEASE": {
+      "group": "Payments",
+      "text": "How long the caller creating a Razorpay order owns that right (default 18s, must exceed the connect plus read timeout). Other callers wait for it, then take over."
+    },
+    "RAZORPAY_WATCH_INTERVAL_MS": {
+      "group": "Payments",
+      "text": "Period in ms of the job that logs `RAZORPAY NOT CAPTURED` and `REFUND PENDING TOO LONG` (default 300000)."
+    },
+    "RAZORPAY_CAPTURE_ALERT_AFTER": {
+      "group": "Payments",
+      "text": "How long a Razorpay payment may stay authorized-but-unpaid before `RAZORPAY NOT CAPTURED` is logged (ISO-8601, default PT15M)."
+    },
+    "RAZORPAY_REFUND_PENDING_ALERT_AFTER": {
+      "group": "Payments",
+      "text": "How long a Razorpay refund may stay PENDING before `REFUND PENDING TOO LONG` is logged (ISO-8601, default P10D)."
     },
     "PAYMENT_DEFAULT_PROVIDER": {
       "group": "Payments",

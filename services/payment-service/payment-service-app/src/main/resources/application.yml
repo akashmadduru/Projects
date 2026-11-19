@@ -142,6 +142,12 @@ payment:
     key-secret: ${RAZORPAY_KEY_SECRET:}
     webhook-secret: ${RAZORPAY_WEBHOOK_SECRET:}
     base-url: ${RAZORPAY_BASE_URL:https://api.razorpay.com}
+    # Lease for the caller creating the Razorpay order (> connect + read timeout).
+    provision-lease: ${RAZORPAY_PROVISION_LEASE:18s}
+    # Capture-mode / stuck-refund watch: tick period, and the delays before each alert.
+    watch-interval-ms: ${RAZORPAY_WATCH_INTERVAL_MS:300000}
+    capture-alert-after: ${RAZORPAY_CAPTURE_ALERT_AFTER:PT15M}
+    refund-pending-alert-after: ${RAZORPAY_REFUND_PENDING_ALERT_AFTER:P10D}
   # STRIPE or RAZORPAY: preselected at checkout when both are configured. Blank = first configured.
   default-provider: ${PAYMENT_DEFAULT_PROVIDER:}
   reporter:

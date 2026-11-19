@@ -82,6 +82,26 @@ class PaymentServiceRazorpayTest {
         null);
   }
 
+  private Payment payment(String mode, String status, String currency, String providerOrderId) {
+    var p = payment(mode, status, currency);
+    return new Payment(
+        p.id(),
+        p.orderId(),
+        p.userId(),
+        p.method(),
+        p.mode(),
+        p.amount(),
+        p.currency(),
+        p.status(),
+        p.intentId(),
+        p.refundedAmount(),
+        p.reported(),
+        p.purpose(),
+        p.referenceId(),
+        providerOrderId,
+        p.providerPaymentId());
+  }
+
   private void stubFind(Payment p) {
     when(repo.findById(paymentId)).thenReturn(Optional.of(p));
     when(repo.findByOrderId(subject)).thenReturn(Optional.of(p));
@@ -111,6 +131,10 @@ class PaymentServiceRazorpayTest {
         .createOrder(anyString(), eq(49900L), eq("INR"));
     when(repo.findByOrderId(subject))
         .thenReturn(Optional.empty())
+        .thenReturn(Optional.of(payment("RAZORPAY", "REQUIRES_PAYMENT", "INR", null)));
+    when(repo.insertClaimed(any(), any(), any(), any(), any(), any(), any())).thenReturn(1);
+    when(repo.publishProviderOrder(paymentId, "order_9")).thenReturn(1);
+    when(repo.findById(paymentId))
         .thenReturn(Optional.of(payment("RAZORPAY", "REQUIRES_PAYMENT", "INR")));
 
     var res =
@@ -119,17 +143,8 @@ class PaymentServiceRazorpayTest {
                 subject, user, new BigDecimal("499"), "inr", "CARD", null, null, null));
 
     verify(repo)
-        .insert(
-            eq(subject),
-            eq(user),
-            eq("CARD"),
-            eq("RAZORPAY"),
-            any(),
-            eq("INR"),
-            eq("REQUIRES_PAYMENT"),
-            eq(null),
-            eq("order_9"),
-            eq("ORDER"));
+        .insertClaimed(
+            eq(subject), eq(user), eq("CARD"), eq("RAZORPAY"), any(), eq("INR"), eq("ORDER"));
     assertThat(res.mode()).isEqualTo("RAZORPAY");
     assertThat(res.providerOrderId()).isEqualTo("order_9");
     assertThat(res.publishableKey()).isEqualTo("rzp_test_id");
@@ -356,11 +371,16 @@ class PaymentServiceRazorpayTest {
         .createOrder(anyString(), eq(49900L), eq("INR"));
     when(repo.findByOrderId(subject))
         .thenReturn(Optional.empty())
+        .thenReturn(Optional.of(payment("RAZORPAY", "REQUIRES_PAYMENT", "INR", null)));
+    when(repo.insertClaimed(any(), any(), any(), any(), any(), any(), any())).thenReturn(1);
+    when(repo.publishProviderOrder(paymentId, "order_9")).thenReturn(1);
+    when(repo.findById(paymentId))
         .thenReturn(Optional.of(payment("RAZORPAY", "REQUIRES_PAYMENT", "INR")));
     service.create(
         new CreatePaymentRequest(
             subject, user, new BigDecimal("499"), "INR", "CARD", null, null, null));
 
+    stubFind(payment("RAZORPAY", "REQUIRES_PAYMENT", "INR"));
     service.getForOwner(subject, user);
 
     verify(razorpay, never()).capturedPayment(anyString());

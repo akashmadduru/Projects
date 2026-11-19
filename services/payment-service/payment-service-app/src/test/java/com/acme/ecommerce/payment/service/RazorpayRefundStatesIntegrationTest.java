@@ -7,7 +7,6 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
@@ -315,8 +314,9 @@ class RazorpayRefundStatesIntegrationTest extends AbstractPaymentIntegrationTest
     assertThat(refundStatus("rfnd_o1")).isEqualTo("FAILED");
     assertThat(refundStatus("rfnd_o2")).isEqualTo("SUCCEEDED");
     assertThat(paymentState()).isEqualTo("PARTIALLY_REFUNDED 150.00");
-    assertThat(count(Level.WARN, "conflicting")).isEqualTo(2);
-    assertThat(count(Level.ERROR, "REFUND FAILED")).isEqualTo(1);
+    assertThat(count(Level.WARN, "conflicting")).isEqualTo(1);
+    assertThat(count(Level.ERROR, "REFUND FAILED:")).isEqualTo(1);
+    assertThat(count(Level.ERROR, "REFUND FAILED AFTER SUCCEEDED")).isEqualTo(1);
   }
 
   // ---- AC-7 -------------------------------------------------------------------------------
@@ -425,6 +425,7 @@ class RazorpayRefundStatesIntegrationTest extends AbstractPaymentIntegrationTest
     providerAccepts("rfnd_race3");
     refund("200.00", "k-race3");
 
+    assertThat(count(Level.ERROR, "PARKED EVENT DROPPED")).isEqualTo(1);
     assertThat(refundStatus("rfnd_race3")).isEqualTo("PENDING");
     assertThat(paymentState()).isEqualTo("PARTIALLY_REFUNDED 200.00");
     assertThat(parkedCount("rfnd_race3")).isZero();
@@ -439,13 +440,88 @@ class RazorpayRefundStatesIntegrationTest extends AbstractPaymentIntegrationTest
   }
 
   @Test
-  @DisplayName("the signature gate is first: nothing is read for a bad signature")
-  void gateIsFirst() {
+  @DisplayName("a bad signature records no event and parks nothing, even for an unknown refund")
+  void badSignatureLeavesNoTrace() {
+    long events = rows("payment.processed_events");
+    long parked = rows("payment.razorpay_refund_parked");
+
     assertThatThrownBy(
             () ->
                 service.handleRazorpayWebhook(
-                    refundBody("refund.failed", "r", rzpPayment, 1, "INR"), "bad", "e"))
+                    refundBody("refund.failed", "rfnd_unknown", rzpPayment, 1, "INR"),
+                    "bad",
+                    "evt-gate"))
         .isInstanceOf(CodedException.class);
-    verify(razorpay, never()).refund(anyString(), anyLong(), anyString(), any());
+
+    assertThat(rows("payment.processed_events")).isEqualTo(events);
+    assertThat(rows("payment.razorpay_refund_parked")).isEqualTo(parked);
+  }
+
+  private long rows(String table) {
+    return jdbc.sql("SELECT count(*) FROM " + table).query(Long.class).single();
+  }
+
+  @Test
+  @DisplayName("two rows with one provider refund id: ERROR, nothing applied")
+  void duplicateProviderRefundId() {
+    providerAccepts("rfnd_dup");
+    refund("100.00", "k-dup1");
+    jdbc.sql(
+            "INSERT INTO payment.refunds (payment_id, amount, provider_refund_id, "
+                + "idempotency_key, status) VALUES (:p, 100.00, 'rfnd_dup', 'k-dup2', 'PENDING')")
+        .param("p", paymentId)
+        .update();
+
+    send(refundBody("refund.failed", "rfnd_dup", rzpPayment, 10000, "INR"), "evt-dup");
+
+    assertThat(count(Level.ERROR, "REFUND ID DUPLICATED")).isEqualTo(1);
+    assertThat(
+            jdbc.sql(
+                    "SELECT count(*) FROM payment.refunds WHERE provider_refund_id = 'rfnd_dup' "
+                        + "AND status = 'PENDING'")
+                .query(Long.class)
+                .single())
+        .isEqualTo(2);
+    assertThat(paymentState()).isEqualTo("PARTIALLY_REFUNDED 100.00");
+    assertThat(count(Level.ERROR, "REFUND FAILED:")).isZero();
+  }
+
+  @Test
+  @DisplayName("releasing more than refunded_amount is a LEDGER MISMATCH: ERROR, rolled back")
+  void ledgerMismatchRollsBack() {
+    providerAccepts("rfnd_led");
+    refund("200.00", "k-led");
+    jdbc.sql("UPDATE payment.payments SET refunded_amount = 50 WHERE id = :i")
+        .param("i", paymentId)
+        .update();
+    String body = refundBody("refund.failed", "rfnd_led", rzpPayment, 20000, "INR");
+
+    assertThatThrownBy(() -> send(body, "evt-led")).isInstanceOf(IllegalStateException.class);
+
+    assertThat(count(Level.ERROR, "LEDGER MISMATCH")).isEqualTo(1);
+    assertThat(refundStatus("rfnd_led")).isEqualTo("PENDING");
+    assertThat(paymentState()).isEqualTo("PARTIALLY_REFUNDED 50.00");
+    assertThat(eventsNamed("rzp:evt-led")).isZero();
+  }
+
+  private long eventsNamed(String id) {
+    return jdbc.sql("SELECT count(*) FROM payment.processed_events WHERE event_id = :e")
+        .param("e", id)
+        .query(Long.class)
+        .single();
+  }
+
+  @Test
+  @DisplayName("refund.failed for a refund already SUCCEEDED: ERROR alert, state unchanged")
+  void failedAfterSucceeded() {
+    providerAccepts("rfnd_fas");
+    refund("100.00", "k-fas");
+    send(refundBody("refund.processed", "rfnd_fas", rzpPayment, 10000, "INR"), "evt-fas1");
+
+    send(refundBody("refund.failed", "rfnd_fas", rzpPayment, 10000, "INR"), "evt-fas2");
+
+    assertThat(count(Level.ERROR, "REFUND FAILED AFTER SUCCEEDED")).isEqualTo(1);
+    assertThat(refundStatus("rfnd_fas")).isEqualTo("SUCCEEDED");
+    assertThat(paymentState()).isEqualTo("PARTIALLY_REFUNDED 100.00");
   }
 }

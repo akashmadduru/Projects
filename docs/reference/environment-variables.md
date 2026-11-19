@@ -91,9 +91,13 @@ service-level setting (add it under that service's `env:` in `values.yaml`). Rel
 |---|---|---|---|---|---|
 | `PAYMENT_DEFAULT_PROVIDER` | payment | `""` |  | .env | `STRIPE` or `RAZORPAY`: the provider preselected at checkout when both are configured. Blank means the first configured one (Stripe, then Razorpay). Customers can switch before paying. |
 | `RAZORPAY_BASE_URL` | payment | `https://api.razorpay.com` |  | - | Razorpay API base URL. Change only to point at a mock server in tests. |
+| `RAZORPAY_CAPTURE_ALERT_AFTER` | payment | `PT15M` |  | - | How long a Razorpay payment may stay authorized-but-unpaid before `RAZORPAY NOT CAPTURED` is logged (ISO-8601, default PT15M). |
 | `RAZORPAY_KEY_ID` | payment | `""` |  | .env + helm | Razorpay key id (`rzp_test_...` / `rzp_live_...`), handed to the browser. Razorpay is on only when this and `RAZORPAY_KEY_SECRET` are both set. INR payments only. |
 | `RAZORPAY_KEY_SECRET` 🔒 | payment | `""` |  | .env + helm | Razorpay key secret. Used server side for the API and to verify the checkout signature. Never sent to the browser. |
-| `RAZORPAY_WEBHOOK_SECRET` 🔒 | payment | `""` |  | .env + helm | Secret of the Razorpay webhook (`<site>/api/payments/webhook/razorpay`, events `payment.captured` and `order.paid`). Without it the webhook is rejected and payments settle only through the browser callback and the order-page re-check. |
+| `RAZORPAY_PROVISION_LEASE` | payment | `18s` |  | - | How long the caller creating a Razorpay order owns that right (default 18s, must exceed the connect plus read timeout). Other callers wait for it, then take over. |
+| `RAZORPAY_REFUND_PENDING_ALERT_AFTER` | payment | `P10D` |  | - | How long a Razorpay refund may stay PENDING before `REFUND PENDING TOO LONG` is logged (ISO-8601, default P10D). |
+| `RAZORPAY_WATCH_INTERVAL_MS` | payment | `300000` |  | - | Period in ms of the job that logs `RAZORPAY NOT CAPTURED` and `REFUND PENDING TOO LONG` (default 300000). |
+| `RAZORPAY_WEBHOOK_SECRET` 🔒 | payment | `""` |  | .env + helm | Secret of the Razorpay webhook (`<site>/api/payments/webhook/razorpay`, events `payment.captured`, `order.paid`, `payment.authorized`, `refund.processed` and `refund.failed`). Without it the webhook is rejected and payments settle only through the browser callback and the order-page re-check. |
 | `STRIPE_PUBLISHABLE_KEY` | payment | `""` |  | .env + helm | Stripe publishable key, handed to the browser. |
 | `STRIPE_SECRET_KEY` 🔒 | payment | `""` |  | .env + helm | Stripe secret key. Stripe is on when this is set. At least one of Stripe or Razorpay must be configured under the `prod` profile or payment-service refuses to start; with neither it runs SIMULATED locally. |
 | `STRIPE_WEBHOOK_SECRET` 🔒 | payment | `""` |  | .env + helm | Signing secret of the Stripe webhook endpoint. |

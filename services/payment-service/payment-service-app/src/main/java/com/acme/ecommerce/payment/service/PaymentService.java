@@ -122,7 +122,8 @@ public class PaymentService {
     }
     var existing = payments.findByOrderId(subject);
     if (existing.isPresent()) {
-      return view(existing.get());
+      Payment e = existing.get();
+      return view(awaitsRazorpayOrder(e) ? awaitRazorpayOrder(e) : e);
     }
     String currency = req.currency().toUpperCase(Locale.ROOT);
     BigDecimal amount = req.amount().setScale(2, RoundingMode.HALF_UP);
@@ -136,6 +137,9 @@ public class PaymentService {
     } else {
       status = "REQUIRES_PAYMENT";
       mode = pickProvider(req.provider(), currency);
+      if (PaymentProviders.RAZORPAY.equals(mode)) {
+        return view(createRazorpay(req, amount, currency, purpose));
+      }
       String[] ids = provision(mode, subject.toString(), amount, currency, null);
       intentId = ids[0];
       providerOrderId = ids[1];
@@ -155,6 +159,86 @@ public class PaymentService {
         payments
             .findByOrderId(subject)
             .orElseThrow(() -> new CodedException(ErrorCode.INTERNAL_ERROR, "Payment not saved")));
+  }
+
+  // ---- one Razorpay order per payment ------------------------------------------------------
+  // Razorpay has no idempotency key for orders, so the row is inserted first (the unique order_id
+  // index lets exactly one caller win), that caller creates the order outside any transaction and
+  // publishes it with a conditional UPDATE. Other callers wait for the id. If the winner dies, its
+  // lease runs out and a waiter takes over; the late original's publish then matches no row, so its
+  // order is never handed to anyone (an orphan on Razorpay's side, never a second payable order).
+
+  private static final long POLL_MS = 100;
+
+  private boolean awaitsRazorpayOrder(Payment p) {
+    return PaymentProviders.RAZORPAY.equals(p.mode())
+        && "CARD".equals(p.method())
+        && "REQUIRES_PAYMENT".equals(p.status())
+        && p.providerOrderId() == null
+        && razorpay.enabled();
+  }
+
+  private Payment createRazorpay(
+      CreatePaymentRequest req, BigDecimal amount, String currency, String purpose) {
+    UUID subject = req.subjectId();
+    int claimed =
+        payments.insertClaimed(
+            subject,
+            req.userId(),
+            req.method(),
+            PaymentProviders.RAZORPAY,
+            amount,
+            currency,
+            purpose);
+    Payment row =
+        payments
+            .findByOrderId(subject)
+            .orElseThrow(() -> new CodedException(ErrorCode.INTERNAL_ERROR, "Payment not saved"));
+    if (claimed == 1) {
+      return publishRazorpayOrder(row);
+    }
+    return awaitsRazorpayOrder(row) ? awaitRazorpayOrder(row) : row;
+  }
+
+  private Payment publishRazorpayOrder(Payment p) {
+    String orderId =
+        provision(
+            PaymentProviders.RAZORPAY, p.orderId().toString(), p.amount(), p.currency(), null)[1];
+    if (payments.publishProviderOrder(p.id(), orderId) == 0) {
+      log.warn(
+          "Razorpay order {} for payment {} was not published (another caller's order won); it is"
+              + " left unused",
+          orderId,
+          p.id());
+    }
+    return payments.findById(p.id()).orElse(p);
+  }
+
+  /** Polls for the winner's order id; takes over when its lease runs out; 503 if neither. */
+  private Payment awaitRazorpayOrder(Payment first) {
+    var lease = properties.getRazorpay().getProvisionLease();
+    double leaseSeconds = lease.toMillis() / 1000.0;
+    long deadline = System.nanoTime() + lease.toNanos() + 500_000_000L;
+    Payment cur = first;
+    while (true) {
+      cur = payments.findById(first.id()).orElse(cur);
+      if (cur.providerOrderId() != null || !"REQUIRES_PAYMENT".equals(cur.status())) {
+        return cur;
+      }
+      if (payments.reclaimProvision(cur.id(), leaseSeconds) == 1) {
+        return publishRazorpayOrder(cur);
+      }
+      if (System.nanoTime() > deadline) {
+        throw new CodedException(
+            ErrorCode.UPSTREAM_UNAVAILABLE, "Payment provider is busy, please retry");
+      }
+      try {
+        Thread.sleep(POLL_MS);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        throw new CodedException(ErrorCode.UPSTREAM_UNAVAILABLE, "Interrupted", e);
+      }
+    }
   }
 
   /**
@@ -523,6 +607,10 @@ public class PaymentService {
       handleRazorpayRefund(root, type, eventId);
       return;
     }
+    if ("payment.authorized".equals(type)) {
+      handleRazorpayAuthorized(root);
+      return;
+    }
     if (!"payment.captured".equals(type) && !"order.paid".equals(type)) {
       return;
     }
@@ -563,6 +651,26 @@ public class PaymentService {
     }
     applyOutcome(p, "SUCCEEDED");
     payments.recordEvent(dedupeKey);
+  }
+
+  /**
+   * payment.authorized only marks a candidate: {@code authorized_at} is stamped (idempotently, only
+   * while the payment is unpaid, and not at all when the entity already says captured). It never
+   * alerts: Razorpay documents that the payment "can be in the captured state when the
+   * payment.authorized webhook is fired" and that the webhook order is not fixed, so the event
+   * alone proves nothing. {@link RazorpayWatch} alerts if the payment is still unpaid after a
+   * delay. Source (Q1): https://razorpay.com/docs/webhooks/payloads/payments/ - event {@code
+   * payment.authorized}, entity at {@code payload.payment.entity} ({@code order_id}, {@code
+   * captured}).
+   */
+  private void handleRazorpayAuthorized(JsonNode root) {
+    JsonNode e = root.path("payload").path("payment").path("entity");
+    String orderId = e.path("order_id").asText(null);
+    if (orderId == null) {
+      log.warn("Razorpay payment.authorized carries no order id; ignored");
+    } else if (!e.path("captured").asBoolean(false)) {
+      payments.stampAuthorized(orderId);
+    }
   }
 
   /** Idempotent by idempotencyKey. */
@@ -608,14 +716,15 @@ public class PaymentService {
                 ErrorCode.DOMAIN_RULE_VIOLATION, "Refund amount exceeds the refundable balance");
           }
           // A Razorpay refund is only accepted, not done: PENDING until a webhook confirms it.
-          payments.insertRefund(
-              locked.id(),
-              amount,
-              req.reason(),
-              stripeRefund,
-              providerRefund,
-              req.idempotencyKey(),
-              providerRefund != null ? "PENDING" : "SUCCEEDED");
+          UUID refundRowId =
+              payments.insertRefund(
+                  locked.id(),
+                  amount,
+                  req.reason(),
+                  stripeRefund,
+                  providerRefund,
+                  req.idempotencyKey(),
+                  providerRefund != null ? "PENDING" : "SUCCEEDED");
           if (toWallet) {
             wallet.credit(
                 locked.userId(),
@@ -628,7 +737,8 @@ public class PaymentService {
           String newStatus =
               total.compareTo(locked.amount()) == 0 ? "REFUNDED" : "PARTIALLY_REFUNDED";
           payments.applyRefund(locked.id(), total, newStatus);
-          if (providerRefund != null && applyParkedRefundEvents(locked.id(), providerRefund)) {
+          if (providerRefund != null
+              && applyParkedRefundEvents(locked.id(), refundRowId, providerRefund)) {
             return refundView(payments.findById(locked.id()).orElseThrow());
           }
           return new RefundResponse(newStatus, total);
@@ -668,27 +778,43 @@ public class PaymentService {
             log.warn("Razorpay {} for refund {} of unknown payment {}", type, refundId, paymentId);
             return;
           }
-          var r = payments.findRefundByProviderRefundId(refundId).orElse(null);
-          if (r == null) {
+          var rows = payments.findRefundsByProviderRefundId(refundId);
+          if (rows.size() > 1) {
+            log.error(
+                "REFUND ID DUPLICATED: {} refund rows share Razorpay refund {} (payment {}); {} not"
+                    + " applied, reconcile by hand",
+                rows.size(),
+                refundId,
+                p.id(),
+                type);
+            return;
+          }
+          if (rows.isEmpty()) {
             log.warn(
                 "Razorpay {} for unknown refund {}; parked until it is recorded", type, refundId);
             payments.parkRefundEvent(refundId, target, paymentId, minor, currency);
             return;
           }
-          applyRefundEvent(p, r, target, paymentId, minor, currency);
+          applyRefundEvent(p, rows.get(0), target, paymentId, minor, currency, false);
         });
   }
 
-  /** Applies events parked before the refund row existed. Returns true if any were found. */
-  private boolean applyParkedRefundEvents(UUID paymentId, String providerRefundId) {
+  /**
+   * Applies events parked before the refund row existed, to the row just inserted. Returns true if
+   * any were found. A parked event is gone from the table and its event id is recorded, so one that
+   * cannot be applied is logged at ERROR: nothing will redeliver it.
+   */
+  private boolean applyParkedRefundEvents(
+      UUID paymentId, UUID refundRowId, String providerRefundId) {
     var parked = payments.takeParkedRefundEvents(providerRefundId);
     if (parked.isEmpty()) {
       return false;
     }
     Payment p = payments.lockById(paymentId).orElseThrow();
-    var r = payments.findRefundByProviderRefundId(providerRefundId).orElseThrow();
+    var r = payments.findRefundByIdForUpdate(refundRowId).orElseThrow();
     for (var e : parked) {
-      applyRefundEvent(p, r, e.status(), e.providerPaymentId(), e.amountMinor(), e.currency());
+      applyRefundEvent(
+          p, r, e.status(), e.providerPaymentId(), e.amountMinor(), e.currency(), true);
     }
     return true;
   }
@@ -699,18 +825,26 @@ public class PaymentService {
       String target,
       String providerPaymentId,
       long minor,
-      String currency) {
+      String currency,
+      boolean wasParked) {
     if (!r.paymentId().equals(p.id())
         || !providerPaymentId.equals(p.providerPaymentId())
         || minor != toMinor(r.amount())
         || !p.currency().equalsIgnoreCase(currency)) {
-      log.warn(
-          "Razorpay refund {} ({} {}) does not match refund row {} of payment {}; not applying",
-          r.providerRefundId(),
-          minor,
-          currency,
-          r.id(),
-          p.id());
+      String msg =
+          "Razorpay refund {} ({} {}) does not match refund row {} of payment {}; not applying";
+      if (wasParked) {
+        // Dropped for good (its event id is recorded): the refund stays PENDING until reconciled.
+        log.error(
+            msg + " (PARKED EVENT DROPPED, reconcile by hand)",
+            r.providerRefundId(),
+            minor,
+            currency,
+            r.id(),
+            p.id());
+      } else {
+        log.warn(msg, r.providerRefundId(), minor, currency, r.id(), p.id());
+      }
       return;
     }
     settleRefund(p, r, target);
@@ -726,6 +860,18 @@ public class PaymentService {
       String current = payments.refundStatus(r.id());
       if (target.equals(current)) {
         log.info("Refund {} is already {}; duplicate ignored", r.providerRefundId(), current);
+      } else if ("SUCCEEDED".equals(current) && "FAILED".equals(target)) {
+        // The customer was probably not refunded although we show it as done (for example a refund
+        // recorded by an older pod). State is left alone; an operator must reconcile.
+        log.error(
+            "REFUND FAILED AFTER SUCCEEDED: Razorpay refund {} of {} {} for order {} (refund row"
+                + " {}) is recorded SUCCEEDED but Razorpay says it failed; state unchanged,"
+                + " reconcile in the Razorpay dashboard",
+            r.providerRefundId(),
+            r.amount(),
+            p.currency(),
+            p.orderId(),
+            r.id());
       } else {
         log.warn(
             "Refund {} is already {}; conflicting {} ignored",
@@ -736,7 +882,19 @@ public class PaymentService {
       return;
     }
     if ("FAILED".equals(target)) {
-      BigDecimal left = p.refundedAmount().subtract(r.amount()).max(BigDecimal.ZERO);
+      BigDecimal left = p.refundedAmount().subtract(r.amount());
+      if (left.signum() < 0) {
+        log.error(
+            "LEDGER MISMATCH: releasing refund {} of {} {} for order {} would take refunded_amount"
+                + " {} below zero; nothing changed",
+            r.providerRefundId(),
+            r.amount(),
+            p.currency(),
+            p.orderId(),
+            p.refundedAmount());
+        throw new IllegalStateException(
+            "Refund release exceeds refunded amount for " + p.orderId());
+      }
       payments.applyRefund(p.id(), left, left.signum() == 0 ? "SUCCEEDED" : "PARTIALLY_REFUNDED");
       log.error(
           "REFUND FAILED: Razorpay refund {} of {} {} for order {} (refund row {}) failed; "

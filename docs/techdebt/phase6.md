@@ -145,20 +145,6 @@ Phase 6 was built under "no tests, no HLD/LLD, record shortcuts as debt". The in
 - **Risk:** `saved_items` keep a price snapshot, stale on move-to-cart (order-service re-prices at checkout, so no financial error). Capped at 50 lines.
 - **Fix:** Re-fetch price on move-to-cart. Same family as TD-BE-09.
 
-<a id="td-p6-30"></a>
-## TD-P6-30 Razorpay order creation has no idempotency key
-- **Severity / Effort:** Low / S
-- **Where:** `RazorpayGateway.createOrder`, `PaymentService.provision`.
-- **Risk:** Razorpay's Orders API takes no idempotency key. Two concurrent first requests for one order can each create a Razorpay order; the loser is an orphan that is never paid (harmless, but clutters the dashboard). The paid-elsewhere check logs "DOUBLE CHARGE" if money ever arrives on an order we no longer track.
-- **Fix:** Take a row lock (`SELECT ... FOR UPDATE` on the payment) before calling Razorpay, or look the order up by `receipt` first.
-
-<a id="td-p6-31"></a>
-## TD-P6-31 Razorpay refunds are recorded as done once accepted
-- **Severity / Effort:** Med / M
-- **Where:** `PaymentService.refundRazorpay`, `refunds.provider_refund_id`.
-- **Risk:** Razorpay refunds can be `pending` for days and can fail later. We mark the refund succeeded when the API accepts it and do not consume `refund.processed` / `refund.failed` webhooks.
-- **Fix:** Store the refund as PENDING, subscribe the webhook to `refund.*`, and settle or alert on the result.
-
 <a id="td-p6-32"></a>
 ## TD-P6-32 Razorpay is INR only, with no seller-side or recurring support
 - **Severity / Effort:** Low / M

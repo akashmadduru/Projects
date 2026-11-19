@@ -56,6 +56,16 @@ column here is the progress log.
 
 **Effort and risk.** About a day. It touches every order state transition, so it lands behind the existing order-service integration tests plus new ones: a crash between commit and call is recovered, events stay in order per order, `DEAD` after the retry limit.
 
+## Razorpay hardening (F-20261119-04)
+
+| Item | What changed | Status |
+|---|---|---|
+| TD-P6-30 | One Razorpay order per payment: insert first, create the order outside a transaction, publish with `WHERE provider_order_id IS NULL`, lease takeover (`payment.razorpay.provision-lease`) | ✅ Fixed 2026-11-19 |
+| TD-P6-31 | Razorpay refunds are PENDING until `refund.processed` / `refund.failed`; a failure releases the balance and logs `REFUND FAILED`; `REFUND PENDING TOO LONG` after 10 days | ✅ Fixed 2026-11-19 |
+| TD-P6-32 (part) | `payment.authorized` plus still unpaid after 15 min logs `RAZORPAY NOT CAPTURED` | 🟡 Narrowed 2026-11-19 |
+
+Backlog from this work: (1) `payment.razorpay_refund_parked` has no retention; rows for refunds made in the Razorpay dashboard stay for good, so add a sweep. (2) `switchProvider` can still create two Razorpay orders concurrently; add `AND mode <> :m` to its UPDATE and use the claim. (3) order-service still shows REFUNDED for a refund that failed at Razorpay, and a parked `refund.failed` applied inside `refund()` returns 200 to order-service; make order-service react to a failed refund (B-3).
+
 ## Waves 4 and 5: Med (71) and Low (69)
 
 Worked through autonomously from 2026-11-17 (the owner was away and asked for decisions to be made and

@@ -64,7 +64,15 @@ See [diagram 18](../architecture/diagrams/18-razorpay-payment-sequence.md).
    payment (one call) and settles it under the same amount and currency rule as the webhook. Re-checks are throttled
    to one per provider object every 10 s per pod, and skipped for a provider object created in the last 10 s, because
    these are synchronous calls on the customer's page load. Stripe re-checks follow the same throttle.
-6. Refunds call `POST /v1/payments/{id}/refund` with an `X-Refund-Idempotency` header.
+6. Refunds call `POST /v1/payments/{id}/refund` with an `X-Refund-Idempotency` header. A Razorpay refund is stored
+   `PENDING` (balance reserved, reply unchanged) and settled by the `refund.processed` / `refund.failed` webhooks:
+   `failed` releases the amount and logs `REFUND FAILED` (no wallet credit); a terminal state is never overwritten;
+   an event that beats the refund row is parked in `razorpay_refund_parked` and applied by `refund()`. Stripe, COD and
+   wallet refunds are `SUCCEEDED` at once.
+7. **One order per payment.** Razorpay create inserts the row first (lease in `provision_claimed_at`), creates the order
+   outside a transaction and publishes it with a conditional update; other callers wait for the id (503 after the
+   lease). `RazorpayWatch` logs `RAZORPAY NOT CAPTURED` (authorized, still unpaid after 15 min) and
+   `REFUND PENDING TOO LONG`; it never changes a status.
 
 ## Safety rules to preserve
 
@@ -114,6 +122,4 @@ Storefront: `components/__tests__/PaymentPanel.test.tsx` (5), `services/paymentA
 
 ## Known gaps
 
-[TD-P6-02](../techdebt/phase6.md#td-p6-02) (never run live), [TD-P6-30](../techdebt/phase6.md#td-p6-30) (no order idempotency key),
-[TD-P6-31](../techdebt/phase6.md#td-p6-31) (refund recorded once accepted),
-[TD-P6-32](../techdebt/phase6.md#td-p6-32) (INR only, manual capture undetected).
+[TD-P6-02](../techdebt/phase6.md#td-p6-02) (never run live), [TD-P6-32](../techdebt/phase6.md#td-p6-32) (INR only; manual capture is alerted, not prevented).

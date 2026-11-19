@@ -58,6 +58,21 @@ public class PaymentProperties {
     @Builder.Default private Duration connectTimeout = Duration.ofSeconds(3);
     @Builder.Default private Duration readTimeout = Duration.ofSeconds(10);
 
+    /**
+     * How long a caller that is creating the Razorpay order owns the right to do so. Must exceed
+     * connect + read timeout; after it another caller may take over.
+     */
+    @Builder.Default private Duration provisionLease = Duration.ofSeconds(18);
+
+    /** Period of the capture-mode and stuck-refund watch. */
+    @Builder.Default private long watchIntervalMs = 300_000;
+
+    /** A payment authorized but still unpaid this long after payment.authorized is alerted. */
+    @Builder.Default private Duration captureAlertAfter = Duration.ofMinutes(15);
+
+    /** A refund still PENDING this long after it was accepted is alerted. */
+    @Builder.Default private Duration refundPendingAlertAfter = Duration.ofDays(10);
+
     public boolean enabled() {
       return keyId != null && !keyId.isBlank() && keySecret != null && !keySecret.isBlank();
     }
