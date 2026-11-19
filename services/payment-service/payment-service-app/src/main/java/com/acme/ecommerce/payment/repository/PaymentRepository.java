@@ -3,6 +3,7 @@ package com.acme.ecommerce.payment.repository;
 import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -369,9 +370,10 @@ public class PaymentRepository {
 
   /**
    * Insert-first claim: a CARD payment awaiting payment with no provider order yet and the lease
-   * taken now. Returns 1 for exactly one caller (the unique order_id index serialises racers).
+   * taken now. Returns the lease stamp for exactly one caller (the unique order_id index serialises
+   * racers); the holder keeps it to release only its own lease.
    */
-  public int insertClaimed(
+  public Optional<OffsetDateTime> insertClaimed(
       UUID orderId,
       UUID userId,
       String method,
@@ -383,7 +385,7 @@ public class PaymentRepository {
             "INSERT INTO payment.payments (order_id, user_id, method, mode, amount, currency, "
                 + "status, purpose, reference_id, provision_claimed_at) "
                 + "VALUES (:o, :u, :m, :mode, :a, :c, 'REQUIRES_PAYMENT', :p, :o, now()) "
-                + "ON CONFLICT (order_id) DO NOTHING")
+                + "ON CONFLICT (order_id) DO NOTHING RETURNING provision_claimed_at")
         .param("o", orderId)
         .param("u", userId)
         .param("m", method)
@@ -391,7 +393,8 @@ public class PaymentRepository {
         .param("a", amount)
         .param("c", currency)
         .param("p", purpose)
-        .update();
+        .query((rs, n) -> rs.getObject(1, OffsetDateTime.class))
+        .optional();
   }
 
   /** Publishes the created Razorpay order, once. 0 means someone else already published. */
@@ -405,25 +408,34 @@ public class PaymentRepository {
         .update();
   }
 
-  /** Gives the lease back after createOrder failed, so a retry need not wait for it to expire. */
-  public int releaseProvision(UUID id) {
+  /**
+   * Gives the lease back after createOrder failed, so a retry need not wait for it to expire. Only
+   * the holder's own lease ({@code mine}): one already taken over by another caller stays intact.
+   */
+  public int releaseProvision(UUID id, OffsetDateTime mine) {
     return jdbc.sql(
             "UPDATE payment.payments SET provision_claimed_at = NULL "
-                + "WHERE id = :i AND provider_order_id IS NULL")
+                + "WHERE id = :i AND provider_order_id IS NULL AND provision_claimed_at = :m")
         .param("i", id)
+        .param("m", mine)
         .update();
   }
 
-  /** Takes over the lease when the previous holder's has run out. 1 means we may provision. */
-  public int reclaimProvision(UUID id, double leaseSeconds) {
+  /**
+   * Takes over the lease when the previous holder's has run out. the new lease stamp if we may
+   * provision.
+   */
+  public Optional<OffsetDateTime> reclaimProvision(UUID id, double leaseSeconds) {
     return jdbc.sql(
             "UPDATE payment.payments SET provision_claimed_at = now() "
                 + "WHERE id = :i AND provider_order_id IS NULL AND status = 'REQUIRES_PAYMENT' "
                 + "AND (provision_claimed_at IS NULL "
-                + "OR provision_claimed_at < now() - make_interval(secs => :s))")
+                + "OR provision_claimed_at < now() - make_interval(secs => :s)) "
+                + "RETURNING provision_claimed_at")
         .param("i", id)
         .param("s", leaseSeconds)
-        .update();
+        .query((rs, n) -> rs.getObject(1, OffsetDateTime.class))
+        .optional();
   }
 
   // ---- capture-mode watch ----------------------------------------------------------------------

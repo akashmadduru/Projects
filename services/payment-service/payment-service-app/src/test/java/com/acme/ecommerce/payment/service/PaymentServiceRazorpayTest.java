@@ -132,7 +132,8 @@ class PaymentServiceRazorpayTest {
     when(repo.findByOrderId(subject))
         .thenReturn(Optional.empty())
         .thenReturn(Optional.of(payment("RAZORPAY", "REQUIRES_PAYMENT", "INR", null)));
-    when(repo.insertClaimed(any(), any(), any(), any(), any(), any(), any())).thenReturn(1);
+    when(repo.insertClaimed(any(), any(), any(), any(), any(), any(), any()))
+        .thenReturn(Optional.of(java.time.OffsetDateTime.now()));
     when(repo.publishProviderOrder(paymentId, "order_9")).thenReturn(1);
     when(repo.findById(paymentId))
         .thenReturn(Optional.of(payment("RAZORPAY", "REQUIRES_PAYMENT", "INR")));
@@ -372,7 +373,8 @@ class PaymentServiceRazorpayTest {
     when(repo.findByOrderId(subject))
         .thenReturn(Optional.empty())
         .thenReturn(Optional.of(payment("RAZORPAY", "REQUIRES_PAYMENT", "INR", null)));
-    when(repo.insertClaimed(any(), any(), any(), any(), any(), any(), any())).thenReturn(1);
+    when(repo.insertClaimed(any(), any(), any(), any(), any(), any(), any()))
+        .thenReturn(Optional.of(java.time.OffsetDateTime.now()));
     when(repo.publishProviderOrder(paymentId, "order_9")).thenReturn(1);
     when(repo.findById(paymentId))
         .thenReturn(Optional.of(payment("RAZORPAY", "REQUIRES_PAYMENT", "INR")));

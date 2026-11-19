@@ -181,7 +181,7 @@ public class PaymentService {
   private Payment createRazorpay(
       CreatePaymentRequest req, BigDecimal amount, String currency, String purpose) {
     UUID subject = req.subjectId();
-    int claimed =
+    var claimed =
         payments.insertClaimed(
             subject,
             req.userId(),
@@ -194,13 +194,13 @@ public class PaymentService {
         payments
             .findByOrderId(subject)
             .orElseThrow(() -> new CodedException(ErrorCode.INTERNAL_ERROR, "Payment not saved"));
-    if (claimed == 1) {
-      return publishRazorpayOrder(row);
+    if (claimed.isPresent()) {
+      return publishRazorpayOrder(row, claimed.get());
     }
     return awaitsRazorpayOrder(row) ? awaitRazorpayOrder(row) : row;
   }
 
-  private Payment publishRazorpayOrder(Payment p) {
+  private Payment publishRazorpayOrder(Payment p, java.time.OffsetDateTime lease) {
     String orderId;
     try {
       orderId =
@@ -208,7 +208,13 @@ public class PaymentService {
               PaymentProviders.RAZORPAY, p.orderId().toString(), p.amount(), p.currency(), null)[1];
     } catch (RuntimeException e) {
       // No order id was obtained: hand the lease back so a retry does not wait for it to expire.
-      payments.releaseProvision(p.id());
+      // A timeout counts as a failure too: the order may exist at Razorpay, and an orphan order
+      // that nobody can reach is the accepted worst case (the publish is conditional).
+      try {
+        payments.releaseProvision(p.id(), lease);
+      } catch (RuntimeException releaseFailure) {
+        e.addSuppressed(releaseFailure);
+      }
       throw e;
     }
     if (payments.publishProviderOrder(p.id(), orderId) == 0) {
@@ -232,8 +238,9 @@ public class PaymentService {
       if (cur.providerOrderId() != null || !"REQUIRES_PAYMENT".equals(cur.status())) {
         return cur;
       }
-      if (payments.reclaimProvision(cur.id(), leaseSeconds) == 1) {
-        return publishRazorpayOrder(cur);
+      var mine = payments.reclaimProvision(cur.id(), leaseSeconds);
+      if (mine.isPresent()) {
+        return publishRazorpayOrder(cur, mine.get());
       }
       if (System.nanoTime() > deadline) {
         throw new CodedException(

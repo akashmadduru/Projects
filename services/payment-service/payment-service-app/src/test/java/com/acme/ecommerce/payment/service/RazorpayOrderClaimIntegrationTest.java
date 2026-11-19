@@ -228,6 +228,71 @@ class RazorpayOrderClaimIntegrationTest extends AbstractPaymentIntegrationTest {
   }
 
   @Test
+  @DisplayName("publish is guarded: a payment switched to another mode gets no order id")
+  void publishIsGuardedAgainstModeSwitch() {
+    UUID subject = UUID.randomUUID();
+    doAnswer(
+            i -> {
+              jdbc.sql("UPDATE payment.payments SET mode = 'STRIPE' WHERE order_id = :o")
+                  .param("o", subject)
+                  .update();
+              return order("order_switched");
+            })
+        .when(razorpay)
+        .createOrder(anyString(), anyLong(), anyString());
+
+    service.create(request(subject, "CARD"));
+
+    assertThat(storedOrder(subject)).isNull();
+  }
+
+  @Test
+  @DisplayName("a holder that overran its lease cannot release the lease of the one that took over")
+  void staleReleaseLeavesTakeoverLeaseIntact() throws Exception {
+    UUID subject = UUID.randomUUID();
+    CountDownLatch aInside = new CountDownLatch(1);
+    CountDownLatch bInside = new CountDownLatch(1);
+    CountDownLatch releaseA = new CountDownLatch(1);
+    CountDownLatch releaseB = new CountDownLatch(1);
+    AtomicInteger calls = new AtomicInteger();
+    doAnswer(
+            i -> {
+              if (calls.incrementAndGet() == 1) {
+                aInside.countDown();
+                releaseA.await();
+                throw new CodedException(ErrorCode.UPSTREAM_UNAVAILABLE, "A failed late");
+              }
+              bInside.countDown();
+              releaseB.await();
+              return order("order_b");
+            })
+        .when(razorpay)
+        .createOrder(anyString(), anyLong(), anyString());
+    ExecutorService pool = Executors.newFixedThreadPool(2);
+    Future<PaymentResponse> a = pool.submit(() -> service.create(request(subject, "CARD")));
+    assertThat(aInside.await(10, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+    Future<PaymentResponse> b = pool.submit(() -> service.create(request(subject, "CARD")));
+    assertThat(bInside.await(10, java.util.concurrent.TimeUnit.SECONDS)).isTrue(); // took over
+    var bLease = leaseStamp(subject);
+
+    releaseA.countDown();
+    assertThatThrownBy(a::get).hasCauseInstanceOf(CodedException.class);
+
+    assertThat(leaseStamp(subject)).isEqualTo(bLease).isNotNull();
+    releaseB.countDown();
+    assertThat(b.get().providerOrderId()).isEqualTo("order_b");
+    pool.shutdown();
+  }
+
+  private Object leaseStamp(UUID subject) {
+    return jdbc.sql("SELECT provision_claimed_at FROM payment.payments WHERE order_id = :o")
+        .param("o", subject)
+        .query(java.sql.Timestamp.class)
+        .optional()
+        .orElse(null);
+  }
+
+  @Test
   @DisplayName("COD create is unchanged: no Razorpay call, no lease")
   void codUnchanged() {
     UUID subject = UUID.randomUUID();
