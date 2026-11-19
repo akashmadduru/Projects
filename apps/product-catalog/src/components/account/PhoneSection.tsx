@@ -89,7 +89,7 @@ export function PhoneSection() {
           )}
         </Field>
         {codeSent && (
-          <Field label="6-digit code">
+          <Field label="6-digit code" hint="If the code does not arrive, check the number.">
             {(id) => (
               <input
                 id={id}
