@@ -519,6 +519,10 @@ public class PaymentService {
       throw new CodedException(ErrorCode.VALIDATION_FAILED, "Unreadable webhook payload");
     }
     String type = root.path("event").asText("");
+    if (type.startsWith("refund.")) {
+      handleRazorpayRefund(root, type, eventId);
+      return;
+    }
     if (!"payment.captured".equals(type) && !"order.paid".equals(type)) {
       return;
     }
@@ -603,13 +607,15 @@ public class PaymentService {
             throw new CodedException(
                 ErrorCode.DOMAIN_RULE_VIOLATION, "Refund amount exceeds the refundable balance");
           }
+          // A Razorpay refund is only accepted, not done: PENDING until a webhook confirms it.
           payments.insertRefund(
               locked.id(),
               amount,
               req.reason(),
               stripeRefund,
               providerRefund,
-              req.idempotencyKey());
+              req.idempotencyKey(),
+              providerRefund != null ? "PENDING" : "SUCCEEDED");
           if (toWallet) {
             wallet.credit(
                 locked.userId(),
@@ -622,8 +628,125 @@ public class PaymentService {
           String newStatus =
               total.compareTo(locked.amount()) == 0 ? "REFUNDED" : "PARTIALLY_REFUNDED";
           payments.applyRefund(locked.id(), total, newStatus);
+          if (providerRefund != null && applyParkedRefundEvents(locked.id(), providerRefund)) {
+            return refundView(payments.findById(locked.id()).orElseThrow());
+          }
           return new RefundResponse(newStatus, total);
         });
+  }
+
+  /**
+   * Razorpay refund webhook (processed / failed); other refund.* events are a 200 no-op. One tx:
+   * the event id is recorded, then the payment row and the refund row are locked (payment first, as
+   * refund() does). An event whose refund row is not committed yet is parked and applied by
+   * refund(); both sides lock the payment row, so one of them always sees the other's row.
+   */
+  private void handleRazorpayRefund(JsonNode root, String type, String eventId) {
+    if (!"refund.processed".equals(type) && !"refund.failed".equals(type)) {
+      return;
+    }
+    JsonNode e = root.path("payload").path("refund").path("entity");
+    String refundId = e.path("id").asText(null);
+    String paymentId = e.path("payment_id").asText(null);
+    String currency = e.path("currency").asText("").toUpperCase(Locale.ROOT);
+    if (refundId == null || paymentId == null || !e.has("amount") || currency.length() != 3) {
+      log.warn("Razorpay {} event has no usable payload.refund.entity; ignored", type);
+      return;
+    }
+    String target = "refund.processed".equals(type) ? "SUCCEEDED" : "FAILED";
+    long minor = e.path("amount").asLong();
+    String dedupeKey =
+        "rzp:" + (eventId != null && !eventId.isBlank() ? eventId : type + ":" + refundId);
+    tx.executeWithoutResult(
+        status -> {
+          if (!payments.recordEvent(dedupeKey)) {
+            log.info("Duplicate Razorpay event {} ignored", dedupeKey);
+            return;
+          }
+          Payment p = payments.findByProviderPaymentIdForUpdate(paymentId).orElse(null);
+          if (p == null) {
+            log.warn("Razorpay {} for refund {} of unknown payment {}", type, refundId, paymentId);
+            return;
+          }
+          var r = payments.findRefundByProviderRefundId(refundId).orElse(null);
+          if (r == null) {
+            log.warn(
+                "Razorpay {} for unknown refund {}; parked until it is recorded", type, refundId);
+            payments.parkRefundEvent(refundId, target, paymentId, minor, currency);
+            return;
+          }
+          applyRefundEvent(p, r, target, paymentId, minor, currency);
+        });
+  }
+
+  /** Applies events parked before the refund row existed. Returns true if any were found. */
+  private boolean applyParkedRefundEvents(UUID paymentId, String providerRefundId) {
+    var parked = payments.takeParkedRefundEvents(providerRefundId);
+    if (parked.isEmpty()) {
+      return false;
+    }
+    Payment p = payments.lockById(paymentId).orElseThrow();
+    var r = payments.findRefundByProviderRefundId(providerRefundId).orElseThrow();
+    for (var e : parked) {
+      applyRefundEvent(p, r, e.status(), e.providerPaymentId(), e.amountMinor(), e.currency());
+    }
+    return true;
+  }
+
+  private void applyRefundEvent(
+      Payment p,
+      PaymentRepository.Refund r,
+      String target,
+      String providerPaymentId,
+      long minor,
+      String currency) {
+    if (!r.paymentId().equals(p.id())
+        || !providerPaymentId.equals(p.providerPaymentId())
+        || minor != toMinor(r.amount())
+        || !p.currency().equalsIgnoreCase(currency)) {
+      log.warn(
+          "Razorpay refund {} ({} {}) does not match refund row {} of payment {}; not applying",
+          r.providerRefundId(),
+          minor,
+          currency,
+          r.id(),
+          p.id());
+      return;
+    }
+    settleRefund(p, r, target);
+  }
+
+  /**
+   * PENDING to SUCCEEDED or FAILED, once. SUCCEEDED leaves the payment as it is (the amount was
+   * reserved at acceptance). FAILED releases the reserved amount and does not credit the wallet.
+   * Caller holds the payment row lock. A terminal state is never overwritten.
+   */
+  private void settleRefund(Payment p, PaymentRepository.Refund r, String target) {
+    if (payments.settleRefundRow(r.id(), target) == 0) {
+      String current = payments.refundStatus(r.id());
+      if (target.equals(current)) {
+        log.info("Refund {} is already {}; duplicate ignored", r.providerRefundId(), current);
+      } else {
+        log.warn(
+            "Refund {} is already {}; conflicting {} ignored",
+            r.providerRefundId(),
+            current,
+            target);
+      }
+      return;
+    }
+    if ("FAILED".equals(target)) {
+      BigDecimal left = p.refundedAmount().subtract(r.amount()).max(BigDecimal.ZERO);
+      payments.applyRefund(p.id(), left, left.signum() == 0 ? "SUCCEEDED" : "PARTIALLY_REFUNDED");
+      log.error(
+          "REFUND FAILED: Razorpay refund {} of {} {} for order {} (refund row {}) failed; "
+              + "balance released, customer NOT refunded",
+          r.providerRefundId(),
+          r.amount(),
+          p.currency(),
+          p.orderId(),
+          r.id());
+    }
   }
 
   private String refundRazorpay(Payment p, BigDecimal amount, RefundRequest req) {

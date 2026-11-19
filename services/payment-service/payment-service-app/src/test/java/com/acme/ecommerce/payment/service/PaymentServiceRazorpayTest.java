@@ -309,7 +309,14 @@ class PaymentServiceRazorpayTest {
     assertThat(res.status()).isEqualTo("PARTIALLY_REFUNDED");
     ArgumentCaptor<String> providerRefund = ArgumentCaptor.forClass(String.class);
     verify(repo)
-        .insertRefund(eq(paymentId), any(), any(), eq(null), providerRefund.capture(), eq("k1"));
+        .insertRefund(
+            eq(paymentId),
+            any(),
+            any(),
+            eq(null),
+            providerRefund.capture(),
+            eq("k1"),
+            eq("PENDING"));
     assertThat(providerRefund.getValue()).isEqualTo("rfnd_1");
   }
 

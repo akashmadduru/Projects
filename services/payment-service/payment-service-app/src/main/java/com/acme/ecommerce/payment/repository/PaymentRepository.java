@@ -238,23 +238,116 @@ public class PaymentRepository {
         .single();
   }
 
+  /** A refund row. Status is PENDING until Razorpay confirms, then SUCCEEDED or FAILED. */
+  public record Refund(
+      UUID id, UUID paymentId, BigDecimal amount, String status, String providerRefundId) {}
+
+  /** A refund event that arrived before its refund row existed. */
+  public record ParkedRefundEvent(
+      String status, String providerPaymentId, long amountMinor, String currency) {}
+
+  private static Refund mapRefund(ResultSet rs, int n) throws SQLException {
+    return new Refund(
+        rs.getObject("id", UUID.class),
+        rs.getObject("payment_id", UUID.class),
+        rs.getBigDecimal("amount"),
+        rs.getString("status"),
+        rs.getString("provider_refund_id"));
+  }
+
   public void insertRefund(
       UUID paymentId,
       BigDecimal amount,
       String reason,
       String stripeRefundId,
       String providerRefundId,
-      String key) {
+      String key,
+      String status) {
     jdbc.sql(
             "INSERT INTO payment.refunds (payment_id, amount, reason, stripe_refund_id, "
-                + "provider_refund_id, idempotency_key) VALUES (:p, :a, :r, :s, :pr, :k)")
+                + "provider_refund_id, idempotency_key, status) "
+                + "VALUES (:p, :a, :r, :s, :pr, :k, :st)")
         .param("p", paymentId)
         .param("a", amount)
         .param("r", reason)
         .param("s", stripeRefundId)
         .param("pr", providerRefundId)
         .param("k", key)
+        .param("st", status)
         .update();
+  }
+
+  /** Row lock on the refund; call after the payment lock (same order as refund()). */
+  public Optional<Refund> findRefundByProviderRefundId(String providerRefundId) {
+    return jdbc.sql(
+            "SELECT id, payment_id, amount, status, provider_refund_id FROM payment.refunds "
+                + "WHERE provider_refund_id = :r ORDER BY created_at LIMIT 1 FOR UPDATE")
+        .param("r", providerRefundId)
+        .query(PaymentRepository::mapRefund)
+        .optional();
+  }
+
+  public Optional<Payment> findByProviderPaymentIdForUpdate(String providerPaymentId) {
+    return jdbc.sql(
+            "SELECT "
+                + COLS
+                + " FROM payment.payments WHERE provider_payment_id = :p LIMIT 1 FOR UPDATE")
+        .param("p", providerPaymentId)
+        .query(PaymentRepository::map)
+        .optional();
+  }
+
+  /** PENDING to a terminal status, once. Returns rows changed (0: already settled). */
+  public int settleRefundRow(UUID id, String status) {
+    return jdbc.sql(
+            "UPDATE payment.refunds SET status = :s, settled_at = now() "
+                + "WHERE id = :i AND status = 'PENDING'")
+        .param("s", status)
+        .param("i", id)
+        .update();
+  }
+
+  public String refundStatus(UUID id) {
+    return jdbc.sql("SELECT status FROM payment.refunds WHERE id = :i")
+        .param("i", id)
+        .query(String.class)
+        .single();
+  }
+
+  public void parkRefundEvent(
+      String providerRefundId,
+      String status,
+      String providerPaymentId,
+      long amountMinor,
+      String currency) {
+    jdbc.sql(
+            "INSERT INTO payment.razorpay_refund_parked (provider_refund_id, status, "
+                + "provider_payment_id, amount_minor, currency) VALUES (:r, :s, :p, :a, :c) "
+                + "ON CONFLICT DO NOTHING")
+        .param("r", providerRefundId)
+        .param("s", status)
+        .param("p", providerPaymentId)
+        .param("a", amountMinor)
+        .param("c", currency)
+        .update();
+  }
+
+  /** Removes and returns the parked events of a refund, oldest first. */
+  public List<ParkedRefundEvent> takeParkedRefundEvents(String providerRefundId) {
+    return jdbc.sql(
+            "WITH d AS (DELETE FROM payment.razorpay_refund_parked WHERE provider_refund_id = :r "
+                + "RETURNING status, provider_payment_id, amount_minor, currency, received_at) "
+                + "SELECT status, provider_payment_id, amount_minor, currency FROM d "
+                + "ORDER BY received_at")
+        .param("r", providerRefundId)
+        .query(
+            (rs, n) ->
+                new ParkedRefundEvent(
+                    rs.getString("status"),
+                    rs.getString("provider_payment_id"),
+                    rs.getLong("amount_minor"),
+                    rs.getString("currency")))
+        .list();
   }
 
   public boolean eventProcessed(String eventId) {

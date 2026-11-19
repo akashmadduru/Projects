@@ -54,7 +54,12 @@ public class AdminPaymentQueries {
       String purpose) {}
 
   public record RefundRow(
-      UUID id, BigDecimal amount, String reason, Instant createdAt, String providerRefundId) {}
+      UUID id,
+      BigDecimal amount,
+      String reason,
+      Instant createdAt,
+      String providerRefundId,
+      String status) {}
 
   private static final String COLS =
       "id, order_id, user_id, method, mode, amount, currency, status, refunded_amount,"
@@ -100,7 +105,7 @@ public class AdminPaymentQueries {
 
   public List<RefundRow> refunds(UUID paymentId) {
     return jdbc.sql(
-            "SELECT id, amount, reason, created_at, provider_refund_id FROM payment.refunds"
+            "SELECT id, amount, reason, created_at, provider_refund_id, status FROM payment.refunds"
                 + " WHERE payment_id = :p ORDER BY created_at")
         .param("p", paymentId)
         .query(
@@ -110,7 +115,8 @@ public class AdminPaymentQueries {
                     rs.getBigDecimal("amount"),
                     rs.getString("reason"),
                     instant(rs, "created_at"),
-                    rs.getString("provider_refund_id")))
+                    rs.getString("provider_refund_id"),
+                    rs.getString("status")))
         .list();
   }
 
