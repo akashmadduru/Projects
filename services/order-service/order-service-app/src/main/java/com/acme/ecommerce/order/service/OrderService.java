@@ -306,7 +306,8 @@ public class OrderService {
                           a.warehouseId(),
                           a.warehouseCode(),
                           a.warehousePincode(),
-                          a.quantity()))
+                          a.quantity(),
+                          a.sellerId()))
               .toList();
     } catch (RuntimeException e) {
       abandon(saved.id(), "Could not reserve stock", false);
@@ -603,8 +604,8 @@ public class OrderService {
         if (offer.sellerId() != null) {
           sellerId = offer.sellerId();
         } else if (offerId != null) {
-          // Unknown owner: keep it null so inventory (which only falls back to platform stock for
-          // PLATFORM) fails closed instead of treating the offer as platform-owned.
+          // Unknown owner: send no sellerId so inventory resolves the owner itself (and rejects
+          // the line if it cannot); the order item takes the owner from the allocation.
           sellerId = null;
         }
         if (offer.sellerName() != null && sellerId != null) {

@@ -224,7 +224,8 @@ public class Order {
       UUID warehouseId,
       String warehouseCode,
       String warehousePincode,
-      int quantity) {}
+      int quantity,
+      UUID sellerId) {}
 
   /** Shipping address snapshot supplied at placement. */
   public record ShipTo(
@@ -773,7 +774,11 @@ public class Order {
       Map<UUID, String> sellerNames,
       Function<String, LocalDate> etaFor,
       Instant now) {
-    UUID seller = item.getSellerId() == null ? PLATFORM_SELLER : item.getSellerId();
+    // An item with no recorded owner takes the one inventory reports; platform only if neither.
+    UUID seller =
+        item.getSellerId() != null
+            ? item.getSellerId()
+            : al != null && al.sellerId() != null ? al.sellerId() : PLATFORM_SELLER;
     UUID whId = al == null ? null : al.warehouseId();
     String code =
         al == null || al.warehouseCode() == null || al.warehouseCode().isBlank()

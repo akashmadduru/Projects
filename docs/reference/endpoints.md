@@ -237,15 +237,16 @@ Contract note (TD-P9-05): each item of `POST /internal/inventory/reservations` t
 | POST | `/api/seller/products` | SellerController |
 | POST | `/api/seller/products/bulk` | SellerController |
 | GET | `/api/seller/products/bulk/template.csv` | SellerController |
+| GET | `/internal/offers/{id}` | InternalCatalogController |
+| POST | `/internal/products/{id}/sync-prices` | InternalCatalogController |
+| GET | `/internal/products/views/by-seller/{sellerId}` | InternalCatalogController |
 
 Contract notes (TD-P9-04, TD-P9-05):
 - `POST /api/seller/offers` and `POST /api/seller/products` write stock after the offer or product is saved. If the stock write is rejected (unknown warehouse) the response is 400; if inventory is unavailable (5xx, timeout, open circuit) it is 503. In both cases the new offer (or product) is removed again and nothing is listed, so the call can be retried. A retry after a timeout that actually committed stock recreates the offer; a duplicate is rejected with 409.
 - `PUT /api/seller/offers/{id}` saves the offer first and then writes stock: a stock failure returns 503 (or 400) while the offer changes stay saved. Repeat the call to set the stock.
 - A create without `quantity` makes an offer that shows 0 available and cannot be ordered until stock is set.
 - `POST /api/seller/products/bulk` reports a later row that repeats an earlier SKU (trimmed, case-insensitive) in `errors` as "duplicate sku in file" with its row number. A row whose stock write fails is reported in `errors` and leaves no stockless offer.
-| GET | `/internal/offers/{id}` | InternalCatalogController |
-| POST | `/internal/products/{id}/sync-prices` | InternalCatalogController |
-| GET | `/internal/products/views/by-seller/{sellerId}` | InternalCatalogController |
+- Known gaps after a failed create: (a) if inventory committed stock before a timeout, the orphan stock rows stay listed in `GET /api/seller/stock` until a retry of the create re-points them; (b) a late stock write can land after the best-effort zeroing, which leaves such a row; reservations cannot reach it; (c) a retry made while the compensation is still running can get 409, and succeeds once it has finished.
 
 ## promotion-service (30)
 

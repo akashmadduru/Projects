@@ -146,12 +146,13 @@ public class WarehouseService {
     } else if (quantity != previous) {
       // Same after-commit publisher as platform writes; qty = what this seller's offers can sell.
       // A publishing problem never fails the write.
+      int total = stock.offerTotal(productId, variantId, sellerId);
       try {
         events.publishAfterCommit(
             InventoryEventType.INVENTORY_QUANTITY_CHANGED,
             productId,
             variantId,
-            stock.offerTotal(productId, variantId, sellerId),
+            total,
             sellerId,
             offerId);
       } catch (RuntimeException e) {

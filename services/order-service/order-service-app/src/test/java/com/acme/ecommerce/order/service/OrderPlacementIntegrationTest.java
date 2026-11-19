@@ -115,7 +115,8 @@ class OrderPlacementIntegrationTest extends AbstractOrderIntegrationTest {
                         UUID.fromString("eeeeeeee-0000-0000-0000-0000000000b1"),
                         "WH-BLR",
                         "560001",
-                        2)));
+                        2,
+                        null)));
     when(remote.createPayment(any(), eq(user), any(), eq("INR"), eq("CARD")))
         .thenReturn(
             new PaymentResult("pay-1", null, "REQUIRES_PAYMENT", "RAZORPAY", null, "rzp_test"));
@@ -161,18 +162,26 @@ class OrderPlacementIntegrationTest extends AbstractOrderIntegrationTest {
                 List.of(offer),
                 null));
 
-    orders.place(
-        user,
-        "c@example.com",
-        "key-" + UUID.randomUUID(),
-        new PlaceOrderRequest(
-            addressId,
-            PaymentMethodRequest.CARD,
-            null,
-            List.of(new OrderLineRequest(shirt, 1, null, offerId)),
-            null,
-            null,
-            null));
+    UUID owner = UUID.randomUUID();
+    when(remote.reserveStock(any(), any(), anyString()))
+        .thenReturn(
+            List.of(
+                new InventoryFeignClient.Allocation(
+                    shirt, null, offerId, UUID.randomUUID(), "WH-X", "560001", 1, owner)));
+
+    OrderService.Placement placed =
+        orders.place(
+            user,
+            "c@example.com",
+            "key-" + UUID.randomUUID(),
+            new PlaceOrderRequest(
+                addressId,
+                PaymentMethodRequest.CARD,
+                null,
+                List.of(new OrderLineRequest(shirt, 1, null, offerId)),
+                null,
+                null,
+                null));
 
     @SuppressWarnings("unchecked")
     ArgumentCaptor<List<OrderRemote.StockLine>> lines = ArgumentCaptor.forClass(List.class);

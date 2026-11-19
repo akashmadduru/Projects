@@ -143,13 +143,16 @@ class ReservationServiceStockRulesTest {
   }
 
   @Test
-  @DisplayName("a stale or orphan offerId (rows nobody can reach) yields a shortfall, not a sale")
+  @DisplayName("a stale offerId whose rows are tagged with another offer is a shortfall")
   void staleOfferIdIsShortfall() {
-    // an orphan row exists, tagged with a different (deleted) offer id
-    when(stock.lockForLine(product, null, UUID.randomUUID()))
-        .thenReturn(List.of(row(SELLER, UUID.randomUUID(), 20)));
+    UUID stale = UUID.randomUUID();
+    // lockForLine(.., OFFER) returns nothing: the orphan rows carry some other offer id
+    when(stock.lockForLine(product, null, stale)).thenReturn(List.of());
+    when(stock.lockForLine(product, null, OFFER)).thenReturn(List.of());
 
     assertShortfall(SELLER, 1);
+
+    verify(stock, never()).add(any(), anyInt());
   }
 
   @Test

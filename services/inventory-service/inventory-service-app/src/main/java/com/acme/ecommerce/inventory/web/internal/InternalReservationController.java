@@ -78,13 +78,17 @@ public class InternalReservationController {
    * before any lock or stock change.
    */
   private List<Line> reserveLines(List<ItemDto> items) {
+    java.util.Map<UUID, UUID> owners = new java.util.HashMap<>(); // one lookup per offer
     return items.stream()
         .map(
             i -> {
               UUID owner = i.sellerId();
               if (owner == null && i.offerId() != null) {
-                SellerDirectory.OfferRef ref = sellers.offer(i.offerId());
-                owner = ref == null ? null : ref.sellerId();
+                if (!owners.containsKey(i.offerId())) {
+                  SellerDirectory.OfferRef ref = sellers.offer(i.offerId());
+                  owners.put(i.offerId(), ref == null ? null : ref.sellerId());
+                }
+                owner = owners.get(i.offerId());
               }
               return new Line(i.productId(), i.variantId(), i.offerId(), i.quantity(), owner);
             })

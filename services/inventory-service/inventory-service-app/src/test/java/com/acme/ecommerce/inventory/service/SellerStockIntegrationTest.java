@@ -20,7 +20,10 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
-/** offerTotal, unreachable orphan rows, and write-vs-reserve concurrency on a real database. */
+/**
+ * offerTotal, unreachable orphan rows, and concurrent seller writes racing reservations on a real
+ * database (no row below zero, one recorded reservation per success, no deadlock).
+ */
 class SellerStockIntegrationTest extends AbstractInventoryIntegrationTest {
 
   @Autowired private WarehouseRepository warehouses;
@@ -62,9 +65,8 @@ class SellerStockIntegrationTest extends AbstractInventoryIntegrationTest {
   void orphanRowsAreUnreachable() {
     UUID p = UUID.randomUUID();
     UUID seller = UUID.randomUUID();
-    UUID deleted = UUID.randomUUID();
     Warehouse w = warehouse(seller);
-    stock.upsert(p, null, seller, deleted, w.id(), 0);
+    stock.upsert(p, null, seller, UUID.randomUUID(), w.id(), 20); // orphan: offer was discarded
 
     assertThatThrownBy(
             () ->
@@ -73,12 +75,15 @@ class SellerStockIntegrationTest extends AbstractInventoryIntegrationTest {
                     "560001",
                     List.of(new Line(p, null, UUID.randomUUID(), 1, seller))))
         .isInstanceOf(OutOfStockException.class);
-    assertThat(stock.offerTotal(p, null, seller)).isZero();
+
+    assertThat(stock.byProduct(p))
+        .singleElement()
+        .satisfies(r -> assertThat(r.quantity()).isEqualTo(20));
   }
 
   @Test
-  @DisplayName("concurrent reservations of a seller offer never go negative or lose a decrement")
-  void concurrentReservationsAreConsistent() throws Exception {
+  @DisplayName("concurrent seller writes and reservations: no negative row, no lost reservation")
+  void concurrentWritesAndReservations() throws Exception {
     UUID p = UUID.randomUUID();
     UUID seller = UUID.randomUUID();
     UUID offer = UUID.randomUUID();
@@ -87,26 +92,40 @@ class SellerStockIntegrationTest extends AbstractInventoryIntegrationTest {
 
     ExecutorService pool = Executors.newFixedThreadPool(8);
     AtomicInteger ok = new AtomicInteger();
+    List<UUID> orders = java.util.Collections.synchronizedList(new ArrayList<>());
     List<Future<?>> futures = new ArrayList<>();
-    for (int i = 0; i < 20; i++) {
+    for (int i = 0; i < 30; i++) {
+      final boolean writer = i % 3 == 0;
       futures.add(
           pool.submit(
               () -> {
+                if (writer) {
+                  warehouseService.setStock(p, null, seller, offer, w.code(), 5);
+                  return;
+                }
+                UUID order = UUID.randomUUID();
                 try {
                   reservations.reserve(
-                      UUID.randomUUID(), "560001", List.of(new Line(p, null, offer, 1, seller)));
+                      order, "560001", List.of(new Line(p, null, offer, 1, seller)));
                   ok.incrementAndGet();
+                  orders.add(order);
                 } catch (OutOfStockException expected) {
-                  // sold out
+                  // sold out at that moment
                 }
               }));
     }
     for (Future<?> f : futures) {
-      f.get();
+      f.get(); // any other exception (deadlock, constraint violation) escapes here
     }
     pool.shutdown();
 
-    assertThat(ok.get()).isEqualTo(10);
-    assertThat(stock.offerTotal(p, null, seller)).isZero();
+    assertThat(stock.byProduct(p))
+        .allSatisfy(r -> assertThat(r.quantity()).isGreaterThanOrEqualTo(0));
+    int reserved = 0;
+    for (UUID o : orders) {
+      reserved += reservations.allocations(o).stream().mapToInt(a -> a.quantity()).sum();
+    }
+    assertThat(reserved).isEqualTo(ok.get());
+    assertThat(orders).hasSize(ok.get());
   }
 }

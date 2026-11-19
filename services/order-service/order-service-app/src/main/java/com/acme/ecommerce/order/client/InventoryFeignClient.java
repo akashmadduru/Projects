@@ -41,7 +41,8 @@ public interface InventoryFeignClient {
       UUID warehouseId,
       String warehouseCode,
       @JsonAlias({"pincode", "warehousePostalCode"}) String warehousePincode,
-      int quantity) {}
+      int quantity,
+      UUID sellerId) {}
 
   @JsonIgnoreProperties(ignoreUnknown = true)
   record ReserveResult(List<Allocation> allocations) {}
