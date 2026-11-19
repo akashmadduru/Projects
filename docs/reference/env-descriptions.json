@@ -32,8 +32,8 @@
     },
     "SERVER_FORWARD_HEADERS_STRATEGY": {
       "group": "Platform",
-      "usedBy": "auth, gateway, payment (Helm)",
-      "text": "auth-service: `framework`, so the Google sign-in callback URL uses the public host instead of the internal one (a filter drops `X-Forwarded-For` first, so the remote address is always the socket peer). gateway and payment-service: `none`, because Spring Boot defaults to `native` on Kubernetes, which would trust a forgeable `X-Forwarded-For`; the gateway counts from the right itself and services read the gateway-set `X-Internal-Client-Ip`."
+      "usedBy": "all services (Helm)",
+      "text": "auth-service: `framework`, so the Google sign-in callback URL uses the public host instead of the internal one (a filter pins the remote address to the socket peer, so neither `X-Forwarded-For` nor `Forwarded: for=` can change it). Every other service, including the gateway: `none`, because Spring Boot defaults to `native` on Kubernetes, which would trust a forgeable `X-Forwarded-For`; the gateway counts from the right itself and services read the gateway-set `X-Internal-Client-Ip`."
     },
     "USER_FORWARD_HEADERS_STRATEGY": {
       "group": "Platform",

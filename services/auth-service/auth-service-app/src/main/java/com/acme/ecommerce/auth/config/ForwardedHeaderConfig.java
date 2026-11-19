@@ -1,14 +1,15 @@
 package com.acme.ecommerce.auth.config;
 
+import jakarta.servlet.DispatcherType;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletRequestWrapper;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.util.Collections;
-import java.util.Enumeration;
-import java.util.List;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.web.server.autoconfigure.servlet.ForwardedHeaderFilterCustomizer;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -17,56 +18,71 @@ import org.springframework.web.filter.ForwardedHeaderFilter;
 
 /**
  * Keeps {@code server.forward-headers-strategy=framework} for {@code X-Forwarded-Host/Proto} (the
- * OIDC callback URL) but stops the framework filter from turning a client-supplied {@code
- * X-Forwarded-For} into {@code getRemoteAddr()}. Without this, the socket-peer fallback of {@code
- * ClientIp} (header absent) would be attacker-chosen. Replaces Boot's own registration, which backs
- * off when a {@code FilterRegistrationBean<ForwardedHeaderFilter>} exists.
+ * OIDC callback URL), but makes {@code getRemoteAddr()}, {@code getRemoteHost()} and {@code
+ * getRemotePort()} always return the socket peer, so no forwarded header ({@code X-Forwarded-For}
+ * or RFC 7239 {@code Forwarded: for=}) can choose the address {@code ClientIp} falls back to.
+ * Registered like Boot's own filter (same condition, order and dispatcher types), which backs off
+ * when a {@code FilterRegistrationBean<ForwardedHeaderFilter>} exists.
  */
 @Configuration(proxyBeanMethods = false)
 public class ForwardedHeaderConfig {
 
-  private static final String XFF = "X-Forwarded-For";
-
   @Bean
-  FilterRegistrationBean<ForwardedHeaderFilter> forwardedHeaderFilter() {
+  @ConditionalOnProperty(name = "server.forward-headers-strategy", havingValue = "framework")
+  FilterRegistrationBean<ForwardedHeaderFilter> forwardedHeaderFilter(
+      ObjectProvider<ForwardedHeaderFilterCustomizer> customizers) {
+    ForwardedHeaderFilter filter = new PeerRemoteAddressForwardedHeaderFilter();
+    customizers.orderedStream().forEach(customizer -> customizer.customize(filter));
     FilterRegistrationBean<ForwardedHeaderFilter> registration =
-        new FilterRegistrationBean<>(new HostAndProtoOnlyForwardedHeaderFilter());
+        new FilterRegistrationBean<>(filter);
+    registration.setDispatcherTypes(
+        DispatcherType.REQUEST, DispatcherType.ASYNC, DispatcherType.ERROR);
     registration.setOrder(Ordered.HIGHEST_PRECEDENCE);
     return registration;
   }
 
-  /** The framework filter, minus X-Forwarded-For. */
-  static final class HostAndProtoOnlyForwardedHeaderFilter extends ForwardedHeaderFilter {
+  /** The framework filter, with the remote address pinned to the original socket peer. */
+  static final class PeerRemoteAddressForwardedHeaderFilter extends ForwardedHeaderFilter {
     @Override
     protected void doFilterInternal(
         HttpServletRequest request, HttpServletResponse response, FilterChain chain)
         throws ServletException, IOException {
-      super.doFilterInternal(new WithoutXff(request), response, chain);
+      String addr = request.getRemoteAddr();
+      String host = request.getRemoteHost();
+      int port = request.getRemotePort();
+      super.doFilterInternal(
+          request,
+          response,
+          (req, res) ->
+              chain.doFilter(new PeerRemote((HttpServletRequest) req, addr, host, port), res));
     }
   }
 
-  private static final class WithoutXff extends HttpServletRequestWrapper {
-    WithoutXff(HttpServletRequest request) {
+  private static final class PeerRemote extends HttpServletRequestWrapper {
+    private final String addr;
+    private final String host;
+    private final int port;
+
+    PeerRemote(HttpServletRequest request, String addr, String host, int port) {
       super(request);
+      this.addr = addr;
+      this.host = host;
+      this.port = port;
     }
 
     @Override
-    public String getHeader(String name) {
-      return XFF.equalsIgnoreCase(name) ? null : super.getHeader(name);
+    public String getRemoteAddr() {
+      return addr;
     }
 
     @Override
-    public Enumeration<String> getHeaders(String name) {
-      return XFF.equalsIgnoreCase(name) ? Collections.emptyEnumeration() : super.getHeaders(name);
+    public String getRemoteHost() {
+      return host;
     }
 
     @Override
-    public Enumeration<String> getHeaderNames() {
-      List<String> names =
-          Collections.list(super.getHeaderNames()).stream()
-              .filter(n -> !XFF.equalsIgnoreCase(n))
-              .toList();
-      return Collections.enumeration(names);
+    public int getRemotePort() {
+      return port;
     }
   }
 }

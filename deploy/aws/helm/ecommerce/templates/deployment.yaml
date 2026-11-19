@@ -85,6 +85,10 @@ spec:
             # No Eureka in the cluster: discovery is the ConfigMap mounted at /config plus
             # Kubernetes Services / CoreDNS (see discovery.yaml).
             - { name: EUREKA_CLIENT_ENABLED, value: "false" }
+            {{- /* Boot defaults to NATIVE on Kubernetes, which would trust a forgeable X-Forwarded-For (gateway: Netty; servlet services: the remote address). Only auth needs forwarded host/proto (OIDC callback) and sets "framework" in values.yaml env. */}}
+            {{- if ne $name "auth-service" }}
+            - { name: SERVER_FORWARD_HEADERS_STRATEGY, value: "none" }
+            {{- end }}
             - { name: SPRING_CONFIG_ADDITIONAL_LOCATION, value: "optional:file:/config/" }
             - { name: SPRING_LIFECYCLE_TIMEOUT_PER_SHUTDOWN_PHASE, value: {{ $g.shutdown.springTimeout | quote }} }
             - { name: AUTH_JWT_ISSUER, value: {{ required "global.jwt.issuer" $g.jwt.issuer | quote }} }
@@ -122,12 +126,6 @@ spec:
             - { name: GATEWAY_RATE_LIMIT_WRITES, value: {{ $g.gateway.rateLimitWritesPerMinute | quote }} }
             - { name: GATEWAY_RATE_LIMIT_READS, value: {{ $g.gateway.rateLimitReadsPerMinute | quote }} }
             - { name: GATEWAY_RATE_LIMIT_TRUSTED_PROXY_HOPS, value: {{ $g.gateway.trustedProxyHops | quote }} }
-            {{- /* Boot defaults to NATIVE on Kubernetes, which makes Netty trust the forgeable leftmost X-Forwarded-For entry; the rate limiter counts from the right itself. */}}
-            - { name: SERVER_FORWARD_HEADERS_STRATEGY, value: "none" }
-            {{- end }}
-            {{- if eq $name "payment-service" }}
-            {{- /* No forwarded headers needed; pin none so Boot's Kubernetes default (native) cannot rewrite the peer from a client X-Forwarded-For. */}}
-            - { name: SERVER_FORWARD_HEADERS_STRATEGY, value: "none" }
             {{- end }}
             {{- if eq $name "auth-service" }}
             - { name: AUTH_ALLOWED_REDIRECT_URIS, value: "{{ $g.shopUrl }}/auth/callback,{{ $g.adminUrl }}/auth/callback" }
