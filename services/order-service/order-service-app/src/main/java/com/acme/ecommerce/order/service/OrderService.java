@@ -602,8 +602,12 @@ public class OrderService {
         offerId = offer.offerId();
         if (offer.sellerId() != null) {
           sellerId = offer.sellerId();
+        } else if (offerId != null) {
+          // Unknown owner: keep it null so inventory (which only falls back to platform stock for
+          // PLATFORM) fails closed instead of treating the offer as platform-owned.
+          sellerId = null;
         }
-        if (offer.sellerName() != null) {
+        if (offer.sellerName() != null && sellerId != null) {
           sellerNames.putIfAbsent(sellerId, offer.sellerName());
         }
         if (line.offerId() != null) {

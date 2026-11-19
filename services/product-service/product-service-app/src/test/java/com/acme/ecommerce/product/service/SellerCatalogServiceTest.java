@@ -2,12 +2,17 @@ package com.acme.ecommerce.product.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -15,7 +20,7 @@ import static org.mockito.Mockito.when;
 import com.acme.ecommerce.common.core.error.ResourceConflictException;
 import com.acme.ecommerce.common.core.error.UpstreamUnavailableException;
 import com.acme.ecommerce.common.core.error.ValidationException;
-import com.acme.ecommerce.product.api.dto.OfferResponse;
+import com.acme.ecommerce.common.core.time.TimeProvider;
 import com.acme.ecommerce.product.api.dto.ProductResponse;
 import com.acme.ecommerce.product.client.InventoryDto;
 import com.acme.ecommerce.product.client.InventoryServiceClient;
@@ -24,6 +29,7 @@ import com.acme.ecommerce.product.domain.Product;
 import com.acme.ecommerce.product.repository.CategoryRepository;
 import com.acme.ecommerce.product.repository.OfferRepository;
 import com.acme.ecommerce.product.repository.ProductRepository;
+import com.acme.ecommerce.product.repository.ProductVariantRepository;
 import com.acme.ecommerce.product.service.OfferService.OfferInput;
 import com.acme.ecommerce.product.service.SellerCatalogService.BulkResult;
 import com.acme.ecommerce.product.service.SellerCatalogService.OfferRequest;
@@ -34,14 +40,18 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import feign.FeignException;
 import feign.Request;
 import java.math.BigDecimal;
+import java.net.SocketTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -89,6 +99,15 @@ class SellerCatalogServiceTest {
     return Offer.builder().id(UUID.randomUUID()).productId(productId).sellerId(sellerId).build();
   }
 
+  private Offer variantOffer(UUID productId, UUID variantId) {
+    return Offer.builder()
+        .id(UUID.randomUUID())
+        .productId(productId)
+        .variantId(variantId)
+        .sellerId(sellerId)
+        .build();
+  }
+
   private Offer stubCreate(UUID productId) {
     Offer o = offer(productId);
     when(offerService.create(eq(sellerId), any(OfferInput.class))).thenReturn(o);
@@ -122,12 +141,65 @@ class SellerCatalogServiceTest {
     assertThatThrownBy(() -> service.createOffer(ctx, request(productId, 5)))
         .isInstanceOf(UpstreamUnavailableException.class);
 
-    var calls = org.mockito.ArgumentCaptor.forClass(InventoryDto.StockWrite.class);
-    verify(inventory, times(2)).putStock(calls.capture(), any());
+    InOrder order = inOrder(inventory, offerService);
+    var calls = ArgumentCaptor.forClass(InventoryDto.StockWrite.class);
+    order.verify(inventory, times(2)).putStock(calls.capture(), any());
+    order.verify(offerService).discard(o.getId());
     assertThat(calls.getAllValues().get(0).getQuantity()).isEqualTo(5);
     assertThat(calls.getAllValues().get(1).getQuantity()).isZero();
-    assertThat(calls.getAllValues().get(1).getOfferId()).isEqualTo(o.getId());
-    verify(offerService).discard(o.getId());
+  }
+
+  @Test
+  @DisplayName("the zeroing write mirrors the real write field for field, variant included")
+  void zeroingWriteMirrorsRealWrite() {
+    UUID productId = UUID.randomUUID();
+    UUID variantId = UUID.randomUUID();
+    Offer o = variantOffer(productId, variantId);
+    when(offerService.create(eq(sellerId), any(OfferInput.class))).thenReturn(o);
+    doThrow(serverError()).doNothing().when(inventory).putStock(any(), any());
+
+    var req =
+        new OfferRequest(productId, variantId, BigDecimal.TEN, null, "USD", 1, true, 5, " WH-1 ");
+    assertThatThrownBy(() -> service.createOffer(ctx, req))
+        .isInstanceOf(UpstreamUnavailableException.class);
+
+    var calls = ArgumentCaptor.forClass(InventoryDto.StockWrite.class);
+    verify(inventory, times(2)).putStock(calls.capture(), any());
+    InventoryDto.StockWrite real = calls.getAllValues().get(0);
+    InventoryDto.StockWrite zero = calls.getAllValues().get(1);
+    assertThat(zero.getProductId()).isEqualTo(productId).isEqualTo(real.getProductId());
+    assertThat(zero.getVariantId()).isEqualTo(variantId).isEqualTo(real.getVariantId());
+    assertThat(zero.getSellerId()).isEqualTo(sellerId).isEqualTo(real.getSellerId());
+    assertThat(zero.getOfferId()).isEqualTo(o.getId()).isEqualTo(real.getOfferId());
+    assertThat(zero.getWarehouseCode()).isEqualTo("WH-1").isEqualTo(real.getWarehouseCode());
+    assertThat(zero.getQuantity()).isZero();
+    assertThat(real.getQuantity()).isEqualTo(5);
+  }
+
+  @Test
+  @DisplayName("a price-sync failure after a good stock write does not undo the create")
+  void syncPricesFailureDoesNotCompensate() {
+    UUID productId = UUID.randomUUID();
+    stubCreate(productId);
+    doThrow(new IllegalStateException("sync failed")).when(offerService).syncPrices(productId);
+
+    assertThatThrownBy(() -> service.createOffer(ctx, request(productId, 5)))
+        .isInstanceOf(IllegalStateException.class);
+
+    verify(inventory, times(1)).putStock(any(), any());
+    verify(offerService, never()).discard(any());
+  }
+
+  @Test
+  @DisplayName("a negative quantity is rejected before any offer is created")
+  void negativeQuantityRejectedBeforeCreate() {
+    UUID productId = UUID.randomUUID();
+
+    assertThatThrownBy(() -> service.createOffer(ctx, request(productId, -1)))
+        .isInstanceOf(ValidationException.class);
+
+    verify(offerService, never()).create(any(), any());
+    verify(inventory, never()).putStock(any(), any());
   }
 
   @Test
@@ -140,7 +212,7 @@ class SellerCatalogServiceTest {
         .isInstanceOf(UpstreamUnavailableException.class);
     verify(offerService).discard(o.getId());
 
-    doThrow(new RuntimeException(new java.net.SocketTimeoutException("Read timed out")))
+    doThrow(new RuntimeException(new SocketTimeoutException("Read timed out")))
         .when(inventory)
         .putStock(any(), any());
     assertThatThrownBy(() -> service.createOffer(ctx, request(productId, 5)))
@@ -175,7 +247,7 @@ class SellerCatalogServiceTest {
   }
 
   @Test
-  @DisplayName("an inventory 400 stays a 400 validation error and still discards the offer")
+  @DisplayName("an inventory 400 stays a 400: the offer is discarded and no zeroing call is made")
   void badRequestStays400() {
     UUID productId = UUID.randomUUID();
     Offer o = stubCreate(productId);
@@ -183,24 +255,46 @@ class SellerCatalogServiceTest {
 
     assertThatThrownBy(() -> service.createOffer(ctx, request(productId, 5)))
         .isInstanceOf(ValidationException.class);
+    verify(inventory, times(1)).putStock(any(), any());
     verify(offerService).discard(o.getId());
   }
 
   @Test
-  @DisplayName("no quantity: the offer is created, no stock call is made and nothing is discarded")
-  void nullQuantityCreatesOfferWithoutStock() {
+  @DisplayName("no quantity: offer created, no stock call, and the real OfferService reports 0")
+  void nullQuantityCreatesOfferReportedAsZero() {
     UUID productId = UUID.randomUUID();
-    Offer o = stubCreate(productId);
-    OfferResponse view = mock(OfferResponse.class);
-    when(view.getAvailableQuantity()).thenReturn(0);
-    when(offerService.views(eq(productId), any())).thenReturn(List.of(view));
+    SellerDirectory dir = mock(SellerDirectory.class);
+    when(dir.info(any())).thenReturn(Map.of());
+    when(inventory.stockRows(eq(productId), any())).thenReturn(List.of());
+    OfferService real =
+        spy(
+            new OfferService(
+                offers,
+                products,
+                mock(ProductVariantRepository.class),
+                dir,
+                inventory,
+                mock(TimeProvider.class),
+                catalog));
+    Offer o = offer(productId);
+    doReturn(o).when(real).create(eq(sellerId), any(OfferInput.class));
+    SellerCatalogService svc =
+        new SellerCatalogService(
+            sellers,
+            real,
+            offers,
+            products,
+            mock(CategoryRepository.class),
+            catalog,
+            inventory,
+            new ObjectMapper(),
+            new TransactionTemplate(mock(PlatformTransactionManager.class)));
 
-    var result = service.createOffer(ctx, request(productId, null));
+    var result = svc.createOffer(ctx, request(productId, null));
 
     assertThat(result.offer().getAvailableQuantity()).isZero();
     verify(inventory, never()).putStock(any(), any());
-    verify(offerService, never()).discard(any());
-    assertThat(o.getId()).isNotNull();
+    verify(real, never()).discard(any());
   }
 
   @Test
@@ -238,7 +332,9 @@ class SellerCatalogServiceTest {
     assertThatThrownBy(() -> service.createProduct(ctx, req))
         .isInstanceOf(UpstreamUnavailableException.class);
 
-    verify(catalog).delete(productId);
+    InOrder order = inOrder(inventory, catalog);
+    order.verify(inventory, times(2)).putStock(any(), any());
+    order.verify(catalog).delete(productId);
   }
 
   // --------------------------------------------------------------------- bulk
@@ -250,7 +346,7 @@ class SellerCatalogServiceTest {
 
   /** New SKUs create a product (id = fresh, remembered by sku) and, with no offer yet, an offer. */
   private Map<String, UUID> stubNewProducts() {
-    Map<String, UUID> ids = new java.util.concurrent.ConcurrentHashMap<>();
+    Map<String, UUID> ids = new ConcurrentHashMap<>();
     when(catalog.createFor(any(CreateProductRequest.class), eq(sellerId), anyString()))
         .thenAnswer(
             inv -> {
@@ -279,9 +375,9 @@ class SellerCatalogServiceTest {
     assertThat(result.errors())
         .extracting(SellerCatalogService.RowError::row, SellerCatalogService.RowError::message)
         .containsExactly(
-            org.assertj.core.groups.Tuple.tuple(4, "duplicate sku in file"),
-            org.assertj.core.groups.Tuple.tuple(5, "duplicate sku in file"),
-            org.assertj.core.groups.Tuple.tuple(6, "duplicate sku in file"));
+            tuple(4, "duplicate sku in file"),
+            tuple(5, "duplicate sku in file"),
+            tuple(6, "duplicate sku in file"));
     verify(catalog, times(2)).createFor(any(CreateProductRequest.class), any(), anyString());
   }
 
@@ -292,7 +388,7 @@ class SellerCatalogServiceTest {
     doThrow(serverError())
         .when(inventory)
         .putStock(
-            org.mockito.ArgumentMatchers.argThat(
+            argThat(
                 w ->
                     w != null && ids.get("BAD") != null && ids.get("BAD").equals(w.getProductId())),
             any());

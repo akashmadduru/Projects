@@ -176,6 +176,9 @@ public class SellerCatalogService {
     if (r.productId() == null) {
       throw ValidationException.forField("productId", "is required");
     }
+    if (r.quantity() != null && r.quantity() < 0) {
+      throw ValidationException.forField("quantity", "must be >= 0");
+    }
     Offer o =
         offerService.create(
             ctx.sellerId(),
@@ -229,39 +232,57 @@ public class SellerCatalogService {
     if (quantity == null) {
       return;
     }
+    putStockChecked(o, quantity, warehouseCode);
+    offerService.syncPrices(o.getProductId());
+  }
+
+  /** The stock write alone: 400/403 become validation errors, anything else a 503. */
+  private void putStockChecked(Offer o, int quantity, String warehouseCode) {
     if (quantity < 0) {
       throw ValidationException.forField("quantity", "must be >= 0");
     }
     try {
-      inventory.putStock(
-          new InventoryDto.StockWrite(
-              o.getProductId(),
-              o.getVariantId(),
-              o.getSellerId(),
-              o.getId(),
-              blankToNull(warehouseCode),
-              quantity),
-          token);
+      stockWrite(o, warehouseCode, quantity);
     } catch (feign.FeignException.BadRequest | feign.FeignException.Forbidden e) {
       throw ValidationException.forField("warehouseCode", "unknown warehouse or seller has none");
     } catch (RuntimeException e) {
       // 5xx, timeout, or the open-circuit fallback: the stock state is unknown.
       throw new UpstreamUnavailableException("inventory-service", e);
     }
-    offerService.syncPrices(o.getProductId());
+  }
+
+  /** The one place a StockWrite is built, shared by the real write and the zeroing. */
+  private void stockWrite(Offer o, String warehouseCode, int quantity) {
+    inventory.putStock(
+        new InventoryDto.StockWrite(
+            o.getProductId(),
+            o.getVariantId(),
+            o.getSellerId(),
+            o.getId(),
+            blankToNull(warehouseCode),
+            quantity),
+        token);
   }
 
   /**
-   * Writes stock for an offer this call just created; on any failure zeroes the stock best-effort
-   * (the write may have committed before a timeout), runs {@code undo}, and rethrows. A failed undo
-   * is logged as OFFER_STOCKLESS: the offer then shows 0 available and cannot be reserved.
+   * Writes stock for an offer this call just created. A validation error means inventory rejected
+   * or never saw the write, so only {@code undo} runs. Any other failure leaves the stock state
+   * unknown (the write may have committed before a timeout): zero it best-effort, then {@code
+   * undo}. A failed undo is logged as OFFER_STOCKLESS: the offer then shows 0 available and cannot
+   * be reserved. The original error is rethrown. A price-sync failure after a good write is not
+   * compensated.
    */
   private void writeStockOrCompensate(
       Offer o, Integer quantity, String warehouseCode, Runnable undo) {
+    if (quantity == null) {
+      return;
+    }
     try {
-      writeStock(o, quantity, warehouseCode);
+      putStockChecked(o, quantity, warehouseCode);
     } catch (RuntimeException e) {
-      zeroStock(o, warehouseCode);
+      if (!(e instanceof ValidationException)) {
+        zeroStock(o, warehouseCode);
+      }
       try {
         undo.run();
       } catch (RuntimeException u) {
@@ -269,19 +290,12 @@ public class SellerCatalogService {
       }
       throw e;
     }
+    offerService.syncPrices(o.getProductId());
   }
 
   private void zeroStock(Offer o, String warehouseCode) {
     try {
-      inventory.putStock(
-          new InventoryDto.StockWrite(
-              o.getProductId(),
-              o.getVariantId(),
-              o.getSellerId(),
-              o.getId(),
-              blankToNull(warehouseCode),
-              0),
-          token);
+      stockWrite(o, warehouseCode, 0);
     } catch (RuntimeException z) {
       log.warn("Best-effort stock zeroing failed offerId={}: {}", o.getId(), z.toString());
     }

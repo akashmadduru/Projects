@@ -25,6 +25,7 @@ import com.acme.ecommerce.order.client.ProductViewFeignClient;
 import com.acme.ecommerce.order.client.ProductViewFeignClient.ProductView;
 import com.acme.ecommerce.order.client.PromotionFeignClient;
 import com.acme.ecommerce.order.client.UserFeignClient;
+import com.acme.ecommerce.order.domain.Order;
 import com.acme.ecommerce.order.event.OrderEventPublisher;
 import com.acme.ecommerce.order.support.AbstractOrderIntegrationTest;
 import com.acme.ecommerce.user.api.dto.AddressResponse;
@@ -35,6 +36,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -136,6 +138,55 @@ class OrderPlacementIntegrationTest extends AbstractOrderIntegrationTest {
   }
 
   @Test
+  @DisplayName(
+      "an offer line whose seller is unknown sends a null sellerId so inventory fails closed")
+  void offerWithUnknownSellerSendsNullSellerId() {
+    UUID offerId = UUID.randomUUID();
+    ProductView base = product(shirt, "Shirt", "499.00", "INR", true);
+    ProductViewFeignClient.Offer offer =
+        new ProductViewFeignClient.Offer(
+            offerId, null, null, null, new BigDecimal("499.00"), null, "INR", 1, 5);
+    when(products.findById(shirt))
+        .thenReturn(
+            new ProductView(
+                base.id(),
+                base.sku(),
+                base.name(),
+                base.priceAmount(),
+                base.priceCurrency(),
+                base.active(),
+                null,
+                null,
+                List.of(),
+                List.of(offer),
+                null));
+
+    orders.place(
+        user,
+        "c@example.com",
+        "key-" + UUID.randomUUID(),
+        new PlaceOrderRequest(
+            addressId,
+            PaymentMethodRequest.CARD,
+            null,
+            List.of(new OrderLineRequest(shirt, 1, null, offerId)),
+            null,
+            null,
+            null));
+
+    @SuppressWarnings("unchecked")
+    ArgumentCaptor<List<OrderRemote.StockLine>> lines = ArgumentCaptor.forClass(List.class);
+    verify(remote).reserveStock(any(), lines.capture(), anyString());
+    assertThat(lines.getValue())
+        .singleElement()
+        .satisfies(
+            l -> {
+              assertThat(l.offerId()).isEqualTo(offerId);
+              assertThat(l.sellerId()).isNull();
+            });
+  }
+
+  @Test
   @DisplayName("a card order is saved awaiting payment, with stock reserved and a payment started")
   void cardOrderAwaitsPayment() {
     OrderService.Placement p =
@@ -148,15 +199,11 @@ class OrderPlacementIntegrationTest extends AbstractOrderIntegrationTest {
     assertThat(p.order().payment()).isNotNull();
     assertThat(p.order().payment().paymentId()).isEqualTo("pay-1");
     @SuppressWarnings("unchecked")
-    org.mockito.ArgumentCaptor<List<OrderRemote.StockLine>> lines =
-        org.mockito.ArgumentCaptor.forClass(List.class);
+    ArgumentCaptor<List<OrderRemote.StockLine>> lines = ArgumentCaptor.forClass(List.class);
     verify(remote).reserveStock(eq(p.order().id()), lines.capture(), eq("560001"));
     assertThat(lines.getValue())
         .isNotEmpty()
-        .allSatisfy(
-            l ->
-                assertThat(l.sellerId())
-                    .isEqualTo(com.acme.ecommerce.order.domain.Order.PLATFORM_SELLER));
+        .allSatisfy(l -> assertThat(l.sellerId()).isEqualTo(Order.PLATFORM_SELLER));
     assertThat(status(p.order().id())).isEqualTo("PENDING_PAYMENT");
   }
 

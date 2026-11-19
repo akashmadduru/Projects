@@ -1,6 +1,7 @@
 package com.acme.ecommerce.order.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
@@ -37,9 +38,7 @@ class OrderRemoteReserveMappingTest {
     verify(inventory).reserve(req.capture());
     assertThat(req.getValue().items())
         .extracting(InventoryFeignClient.Item::productId, InventoryFeignClient.Item::sellerId)
-        .containsExactly(
-            org.assertj.core.groups.Tuple.tuple(p1, Order.PLATFORM_SELLER),
-            org.assertj.core.groups.Tuple.tuple(p2, seller));
+        .containsExactly(tuple(p1, Order.PLATFORM_SELLER), tuple(p2, seller));
     assertThat(req.getValue().items().get(1).offerId()).isEqualTo(offer);
   }
 }
