@@ -35,6 +35,8 @@ public final class StubHttpServer implements AutoCloseable {
 
   private final HttpServer server;
   private final AtomicBoolean available = new AtomicBoolean(true);
+  private final java.util.concurrent.atomic.AtomicInteger echoed =
+      new java.util.concurrent.atomic.AtomicInteger();
 
   private StubHttpServer(HttpServer server) {
     this.server = server;
@@ -71,6 +73,11 @@ public final class StubHttpServer implements AutoCloseable {
     return server.getAddress().getPort();
   }
 
+  /** How many requests the catch-all echo handler has answered (JWKS fetches excluded). */
+  public int echoedRequests() {
+    return echoed.get();
+  }
+
   /** Base URL of the stub. */
   public String baseUrl() {
     return "http://127.0.0.1:" + port();
@@ -93,6 +100,7 @@ public final class StubHttpServer implements AutoCloseable {
   }
 
   private void echo(HttpExchange exchange) throws IOException {
+    echoed.incrementAndGet();
     if (!available.get()) {
       respond(exchange, 503, "text/plain", "downstream is intentionally unavailable");
       return;

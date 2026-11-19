@@ -1,6 +1,7 @@
 package com.acme.ecommerce.gateway.filter;
 
 import com.acme.ecommerce.common.core.correlation.CorrelationIdHolder;
+import com.acme.ecommerce.common.core.net.ClientAddress;
 import java.util.List;
 import java.util.Locale;
 
@@ -39,6 +40,9 @@ public final class GatewayHeaders {
 
   /** Shared with every other service in the platform via common-core. */
   public static final String CORRELATION_ID = CorrelationIdHolder.HEADER_NAME;
+
+  /** Client IP decided by the gateway ({@link GatewayClientIp}); set on proxied requests only. */
+  public static final String CLIENT_IP = ClientAddress.HEADER;
 
   /**
    * Inbound header prefixes that are always stripped.

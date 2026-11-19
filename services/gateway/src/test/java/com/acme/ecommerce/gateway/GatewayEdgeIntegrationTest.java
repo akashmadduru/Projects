@@ -340,6 +340,56 @@ class GatewayEdgeIntegrationTest {
   }
 
   // ---------------------------------------------------------------------------
+  // Client IP with trusted-proxy-hops = 0 (the default): the socket peer.
+  // ---------------------------------------------------------------------------
+
+  @Nested
+  @DisplayName("client ip, N=0")
+  class ClientIpPeer {
+
+    @Test
+    @DisplayName("the downstream sees the client's source address, not the gateway's own socket")
+    void downstreamSeesTheRealPeer() throws Exception {
+      // The client binds its source to 127.0.0.2 (Linux loopback is a /8); the gateway's own
+      // connection to the stub comes from 127.0.0.1. If the bind is impossible on this host the
+      // test is skipped with this message, and the equivalent non-skipping assertion lives in
+      // ClientIpPropagationGatewayFilterTest#headerIsTheRequestPeer.
+      try (java.net.ServerSocket probe = new java.net.ServerSocket()) {
+        probe.bind(new java.net.InetSocketAddress("127.0.0.2", 0));
+      } catch (java.io.IOException e) {
+        org.junit.jupiter.api.Assumptions.assumeTrue(
+            false, "SKIPPED AC-10(c): cannot bind 127.0.0.2 on this host: " + e);
+      }
+      reactor.netty.http.client.HttpClient http =
+          reactor.netty.http.client.HttpClient.create()
+              .bindAddress(() -> new java.net.InetSocketAddress("127.0.0.2", 0));
+      WebTestClient bound =
+          WebTestClient.bindToServer(
+                  new org.springframework.http.client.reactive.ReactorClientHttpConnector(http))
+              .baseUrl("http://127.0.0.1:" + port)
+              .responseTimeout(java.time.Duration.ofSeconds(20))
+              .build();
+
+      String body =
+          bound
+              .post()
+              .uri("/api/auth/login")
+              .contentType(MediaType.APPLICATION_JSON)
+              .bodyValue("{}")
+              .header("X-Forwarded-For", "9.9.9.9")
+              .header(GatewayHeaders.CLIENT_IP, "6.6.6.6")
+              .exchange()
+              .expectStatus()
+              .isOk()
+              .expectBody(String.class)
+              .returnResult()
+              .getResponseBody();
+
+      assertThat(body).contains("\"x-internal-client-ip\":\"127.0.0.2\"");
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // CORS - configured in exactly one place.
   // ---------------------------------------------------------------------------
 
