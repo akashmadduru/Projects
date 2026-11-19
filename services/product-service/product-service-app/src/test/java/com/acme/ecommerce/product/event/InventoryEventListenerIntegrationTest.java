@@ -101,7 +101,8 @@ class InventoryEventListenerIntegrationTest extends AbstractProductIntegrationTe
             Instant.now(),
             null,
             25,
-            "connection reset");
+            "connection reset",
+            null);
     String json = OBJECT_MAPPER.writeValueAsString(event);
     producer.send(new ProducerRecord<>("inventory.events", productId.toString(), json)).get();
 
@@ -112,7 +113,7 @@ class InventoryEventListenerIntegrationTest extends AbstractProductIntegrationTe
       throws Exception {
     InventoryEvent event =
         new InventoryEvent(
-            UUID.randomUUID(), type, productId, Instant.now(), newQuantity, null, null);
+            UUID.randomUUID(), type, productId, Instant.now(), newQuantity, null, null, null);
     String json = OBJECT_MAPPER.writeValueAsString(event);
     producer.send(new ProducerRecord<>("inventory.events", productId.toString(), json)).get();
   }

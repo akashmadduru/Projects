@@ -147,7 +147,16 @@ class OrderPlacementIntegrationTest extends AbstractOrderIntegrationTest {
     assertThat(p.order().totalAmount()).isPositive();
     assertThat(p.order().payment()).isNotNull();
     assertThat(p.order().payment().paymentId()).isEqualTo("pay-1");
-    verify(remote).reserveStock(eq(p.order().id()), any(), eq("560001"));
+    @SuppressWarnings("unchecked")
+    org.mockito.ArgumentCaptor<List<OrderRemote.StockLine>> lines =
+        org.mockito.ArgumentCaptor.forClass(List.class);
+    verify(remote).reserveStock(eq(p.order().id()), lines.capture(), eq("560001"));
+    assertThat(lines.getValue())
+        .isNotEmpty()
+        .allSatisfy(
+            l ->
+                assertThat(l.sellerId())
+                    .isEqualTo(com.acme.ecommerce.order.domain.Order.PLATFORM_SELLER));
     assertThat(status(p.order().id())).isEqualTo("PENDING_PAYMENT");
   }
 
@@ -517,7 +526,17 @@ class OrderPlacementIntegrationTest extends AbstractOrderIntegrationTest {
   private static com.acme.ecommerce.cart.api.dto.CartItemResponse item(
       UUID productId, int qty, Instant addedAt) {
     return new com.acme.ecommerce.cart.api.dto.CartItemResponse(
-        productId, qty, "x", BigDecimal.ONE, "INR", null, BigDecimal.ONE, addedAt, null, null, null,
+        productId,
+        qty,
+        "x",
+        BigDecimal.ONE,
+        "INR",
+        null,
+        BigDecimal.ONE,
+        addedAt,
+        null,
+        null,
+        null,
         null);
   }
 }

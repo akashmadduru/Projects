@@ -43,6 +43,13 @@ public class InventoryEventListener {
     try {
       switch (event.getEventType()) {
         case INVENTORY_QUANTITY_CHANGED -> {
+          if (event.getOfferId() != null) {
+            log.debug(
+                "Skipping seller-scoped quantity event productId={} offerId={}",
+                productId,
+                event.getOfferId());
+            return;
+          }
           log.info(
               "Received INVENTORY_QUANTITY_CHANGED event productId={} quantity={}",
               productId,

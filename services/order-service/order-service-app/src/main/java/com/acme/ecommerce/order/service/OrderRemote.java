@@ -111,7 +111,8 @@ public class OrderRemote {
   // ---- inventory ---------------------------------------------------------------------------
 
   /** One stock line to reserve; {@code offerId} null = the platform/default stock. */
-  public record StockLine(UUID productId, UUID variantId, UUID offerId, int quantity) {}
+  public record StockLine(
+      UUID productId, UUID variantId, UUID offerId, int quantity, UUID sellerId) {}
 
   /**
    * Reserves stock and returns where it was reserved (empty with an inventory-service that still
@@ -125,7 +126,14 @@ public class OrderRemote {
               new InventoryFeignClient.ReserveRequest(
                   orderId,
                   lines.stream()
-                      .map(l -> new Item(l.productId(), l.variantId(), l.quantity(), l.offerId()))
+                      .map(
+                          l ->
+                              new Item(
+                                  l.productId(),
+                                  l.variantId(),
+                                  l.quantity(),
+                                  l.offerId(),
+                                  l.sellerId()))
                       .toList(),
                   pincode));
       return result == null || result.allocations() == null ? List.of() : result.allocations();

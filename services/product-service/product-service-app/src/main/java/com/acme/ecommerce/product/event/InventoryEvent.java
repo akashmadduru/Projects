@@ -23,4 +23,7 @@ public class InventoryEvent {
   private Integer quantity;
   private Integer requestedQuantity;
   private String reason;
+
+  /** Set on seller-scoped events (additive); such events do not drive the product snapshot. */
+  private UUID offerId;
 }

@@ -1,6 +1,7 @@
 package com.acme.ecommerce.product.service;
 
 import com.acme.ecommerce.common.core.error.ForbiddenException;
+import com.acme.ecommerce.common.core.error.UpstreamUnavailableException;
 import com.acme.ecommerce.common.core.error.ValidationException;
 import com.acme.ecommerce.product.api.dto.OfferResponse;
 import com.acme.ecommerce.product.api.dto.ProductResponse;
@@ -22,10 +23,15 @@ import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -34,6 +40,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Service
 public class SellerCatalogService {
 
+  private static final Logger log = LoggerFactory.getLogger(SellerCatalogService.class);
   public static final int MAX_ROWS = 1000;
   public static final String TEMPLATE_HEADER =
       "sku,name,description,categoryId,brand,price,salePrice,currency,quantity,warehouseCode,imageUrl,attributes";
@@ -180,7 +187,8 @@ public class SellerCatalogService {
                 r.currency(),
                 r.dispatchDays(),
                 r.active()));
-    writeStock(o, r.quantity(), r.warehouseCode());
+    writeStockOrCompensate(
+        o, r.quantity(), r.warehouseCode(), () -> offerService.discard(o.getId()));
     return viewOf(o);
   }
 
@@ -236,8 +244,47 @@ public class SellerCatalogService {
           token);
     } catch (feign.FeignException.BadRequest | feign.FeignException.Forbidden e) {
       throw ValidationException.forField("warehouseCode", "unknown warehouse or seller has none");
+    } catch (RuntimeException e) {
+      // 5xx, timeout, or the open-circuit fallback: the stock state is unknown.
+      throw new UpstreamUnavailableException("inventory-service", e);
     }
     offerService.syncPrices(o.getProductId());
+  }
+
+  /**
+   * Writes stock for an offer this call just created; on any failure zeroes the stock best-effort
+   * (the write may have committed before a timeout), runs {@code undo}, and rethrows. A failed undo
+   * is logged as OFFER_STOCKLESS: the offer then shows 0 available and cannot be reserved.
+   */
+  private void writeStockOrCompensate(
+      Offer o, Integer quantity, String warehouseCode, Runnable undo) {
+    try {
+      writeStock(o, quantity, warehouseCode);
+    } catch (RuntimeException e) {
+      zeroStock(o, warehouseCode);
+      try {
+        undo.run();
+      } catch (RuntimeException u) {
+        log.error("OFFER_STOCKLESS offerId={}", o.getId(), u);
+      }
+      throw e;
+    }
+  }
+
+  private void zeroStock(Offer o, String warehouseCode) {
+    try {
+      inventory.putStock(
+          new InventoryDto.StockWrite(
+              o.getProductId(),
+              o.getVariantId(),
+              o.getSellerId(),
+              o.getId(),
+              blankToNull(warehouseCode),
+              0),
+          token);
+    } catch (RuntimeException z) {
+      log.warn("Best-effort stock zeroing failed offerId={}: {}", o.getId(), z.toString());
+    }
   }
 
   // ------------------------------------------------------------- products
@@ -300,7 +347,11 @@ public class SellerCatalogService {
         offers
             .findByProductIdAndVariantIdIsNullAndSellerId(created.getId(), ctx.sellerId())
             .orElseThrow();
-    writeStock(offer, r.quantity() == null ? 0 : r.quantity(), r.warehouseCode());
+    writeStockOrCompensate(
+        offer,
+        r.quantity() == null ? 0 : r.quantity(),
+        r.warehouseCode(),
+        () -> catalog.delete(created.getId()));
     return catalog.findById(created.getId());
   }
 
@@ -333,6 +384,7 @@ public class SellerCatalogService {
     int created = 0;
     int updated = 0;
     List<RowError> errors = new ArrayList<>();
+    Set<String> seen = new HashSet<>();
     for (int i = 1; i < rows.size(); i++) {
       List<String> cells = rows.get(i);
       if (cells.stream().allMatch(String::isBlank)) {
@@ -343,6 +395,11 @@ public class SellerCatalogService {
         row.put(header.get(c), c < cells.size() ? cells.get(c).trim() : "");
       }
       final int rowNo = i + 1;
+      String skuKey = row.getOrDefault("sku", "").trim().toUpperCase(Locale.ROOT);
+      if (!skuKey.isEmpty() && !seen.add(skuKey)) {
+        errors.add(new RowError(rowNo, "duplicate sku in file"));
+        continue;
+      }
       try {
         Boolean wasCreated = processRow(ctx, row);
         if (wasCreated) {
@@ -494,6 +551,7 @@ public class SellerCatalogService {
     }
     Offer offer =
         offers.findByProductIdAndVariantIdIsNullAndSellerId(productId, ctx.sellerId()).orElse(null);
+    boolean offerCreated = offer == null;
     if (offer == null) {
       offer =
           offerService.create(
@@ -508,7 +566,15 @@ public class SellerCatalogService {
               true);
     }
     if (!q.isBlank() || wasCreated) {
-      writeStock(offer, quantity, warehouse);
+      final Offer written = offer;
+      if (wasCreated) {
+        writeStockOrCompensate(offer, quantity, warehouse, () -> catalog.delete(productId));
+      } else if (offerCreated) {
+        writeStockOrCompensate(
+            offer, quantity, warehouse, () -> offerService.discard(written.getId()));
+      } else {
+        writeStock(offer, quantity, warehouse);
+      }
     }
     return wasCreated;
   }

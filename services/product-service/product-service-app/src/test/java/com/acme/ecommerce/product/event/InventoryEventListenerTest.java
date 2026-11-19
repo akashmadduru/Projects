@@ -95,7 +95,8 @@ class InventoryEventListenerTest {
         Instant.parse("2026-01-01T00:00:00Z"),
         null,
         25,
-        "connection reset");
+        "connection reset",
+        null);
   }
 
   private static InventoryEvent event(
@@ -106,6 +107,7 @@ class InventoryEventListenerTest {
         productId,
         Instant.parse("2026-01-01T00:00:00Z"),
         newQuantity,
+        null,
         null,
         null);
   }
@@ -123,5 +125,38 @@ class InventoryEventListenerTest {
                 listener.onInventoryEvent(
                     event(InventoryEventType.INVENTORY_QUANTITY_CHANGED, productId, 7)))
         .hasMessage("db down");
+  }
+
+  @Test
+  @DisplayName(
+      "a quantity event carrying an offerId is skipped, so last_known_quantity is untouched")
+  void sellerScopedEventIsSkipped() {
+    InventoryEventListener listener = new InventoryEventListener(catalog);
+    InventoryEvent event =
+        event(InventoryEventType.INVENTORY_QUANTITY_CHANGED, UUID.randomUUID(), 5);
+    event.setOfferId(UUID.randomUUID());
+
+    listener.onInventoryEvent(event);
+
+    verifyNoInteractions(catalog);
+  }
+
+  @Test
+  @DisplayName(
+      "unknown JSON fields (inventory's variantId, sellerId) are tolerated and offerId read")
+  void unknownFieldsTolerated() throws Exception {
+    UUID offerId = UUID.randomUUID();
+    String json =
+        "{\"eventType\":\"INVENTORY_QUANTITY_CHANGED\",\"quantity\":3,"
+            + "\"variantId\":\"x\",\"sellerId\":\""
+            + UUID.randomUUID()
+            + "\",\"offerId\":\""
+            + offerId
+            + "\",\"futureField\":1}";
+    var deserializer =
+        new org.springframework.kafka.support.serializer.JsonDeserializer<>(InventoryEvent.class);
+    deserializer.addTrustedPackages("*");
+    InventoryEvent e = deserializer.deserialize("inventory.events", json.getBytes());
+    org.assertj.core.api.Assertions.assertThat(e.getOfferId()).isEqualTo(offerId);
   }
 }

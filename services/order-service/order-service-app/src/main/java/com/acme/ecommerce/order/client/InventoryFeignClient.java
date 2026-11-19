@@ -18,9 +18,14 @@ import org.springframework.web.bind.annotation.RequestBody;
     configuration = InternalFeignConfig.class)
 public interface InventoryFeignClient {
 
-  record Item(UUID productId, UUID variantId, int quantity, UUID offerId) {
+  /** {@code sellerId} = the offer's owner; inventory falls back to platform stock only for it. */
+  record Item(UUID productId, UUID variantId, int quantity, UUID offerId, UUID sellerId) {
     public Item(UUID productId, UUID variantId, int quantity) {
-      this(productId, variantId, quantity, null);
+      this(productId, variantId, quantity, null, null);
+    }
+
+    public Item(UUID productId, UUID variantId, int quantity, UUID offerId) {
+      this(productId, variantId, quantity, offerId, null);
     }
   }
 

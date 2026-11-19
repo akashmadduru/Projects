@@ -238,6 +238,15 @@ public class OfferService {
     return o;
   }
 
+  /** Compensation for a create whose stock write failed: removes the offer and re-syncs prices. */
+  @Transactional
+  public void discard(UUID offerId) {
+    Offer o = get(offerId);
+    offers.delete(o);
+    offers.flush();
+    syncPrices(o.getProductId());
+  }
+
   @Transactional
   public Offer update(UUID sellerId, UUID offerId, OfferInput in, boolean admin) {
     Offer o = get(offerId);
