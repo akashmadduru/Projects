@@ -55,7 +55,7 @@ class UserPropertiesValidationTest {
             ctx -> {
               assertThat(ctx).hasNotFailed();
               UserProperties.Referral r = ctx.getBean(UserProperties.class).getReferral();
-              assertThat(r.getIpLookback()).isEqualTo(Duration.ofDays(30));
+              assertThat(r.getIpLookback()).isEqualTo(Duration.ZERO);
               assertThat(r.getMinCodeAge()).isEqualTo(Duration.ofMinutes(10));
               assertThat(r.getIpRetention()).isEqualTo(Duration.ofDays(30));
             });

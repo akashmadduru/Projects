@@ -43,7 +43,8 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
     properties = {
       "spring.main.cloud-platform=kubernetes",
       "user.referral.trusted-proxy-hops=3",
-      "user.referral.min-code-age=0"
+      "user.referral.min-code-age=0",
+      "user.referral.ip-lookback=30d"
     })
 class ReferralForwardedForTomcatTest extends AbstractUserIntegrationTest {
 

@@ -357,11 +357,11 @@
     },
     "USER_REFERRAL_IP_LOOKBACK": {
       "group": "Business rules",
-      "text": "How far back a referrer's recorded network counts when a referee claims. A claim from a network the referrer used within this window is refused. 0 turns the IP check off."
+      "text": "How far back a referrer's recorded network counts when a referee claims. A claim from a network the referrer used within this window is refused. Default 0: the IP check is OFF and no IP activity is recorded, until the gateway forwards a trustworthy client IP (backlog B-1); do not enable it behind the current gateway. A blank value keeps the default."
     },
     "USER_REFERRAL_IP_RETENTION": {
       "group": "Business rules",
-      "text": "How long hashed IPs are kept before the daily cleanup deletes them. Keep it at least as long as the lookback; if shorter, retention is the effective lookback. 0 or negative disables the cleanup (hashed IPs are then kept indefinitely; a WARN is logged at startup). Blank is a startup error."
+      "text": "How long hashed IPs are kept before the daily cleanup deletes them. Keep it at least as long as the lookback; if shorter, retention is the effective lookback. 0 or negative disables the cleanup (hashed IPs are then kept indefinitely; a WARN is logged at startup). A blank value keeps the default."
     },
     "USER_REFERRAL_MIN_CODE_AGE": {
       "group": "Business rules",

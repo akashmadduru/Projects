@@ -17,9 +17,11 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 /** TD-P8-13: hashed IPs are part of account deletion. */
+@TestPropertySource(properties = "user.referral.ip-lookback=30d")
 class ReferralAccountDeletionIntegrationTest extends AbstractUserIntegrationTest {
 
   @MockitoBean private PrivacyHttp privacyHttp;

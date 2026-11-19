@@ -43,3 +43,10 @@ Index: [README](README.md)
 - **Where:** `db-snapshots/*_20261112-011622.sql`, added in commit `5943ec7` (2026-11-12) to the public repository. Deleted from the branch and pushed in `38a92a3`/`97cd7e2` (2026-11-14): the branch tip no longer serves them (HTTP 404), but `5943ec7` still does.
 - **Risk:** Anyone with a clone can read SCRAM verifiers for 4 Postgres roles (including the `postgres` superuser), an Argon2id password hash, and refresh-token hashes with IP and user agent.
 - **Fix:** Follow the [runbook](../guides/runbooks/leaked-database-dump.md): change the exposed account password, optionally rotate the local role passwords, purge history with `git filter-branch` (rehearsed on a clone: 13 commits rewritten, tip tree otherwise identical) and force-push, then ask GitHub to drop cached views. Prevention (Gitleaks rules, pre-commit hook, `db-snapshot.sh`) is already in place.
+
+<a id="td-sec-15"></a>
+## TD-SEC-15 Google OIDC callback relies on X-Forwarded-* headers the gateway strips
+- **Severity / Effort:** Med / S
+- **Where:** auth-service Google login callback (redirect URI built from `X-Forwarded-Host`/`-Proto`/`-Port`); Spring Cloud Gateway 5.0.2 forwarding config.
+- **Risk:** Gateway 5.0.2 strips `X-Forwarded-*` unless `spring.cloud.gateway.server.webflux.trusted-proxies` is set, so the callback URL may be built from the gateway's internal host and Google sign-in could fail (or use a wrong origin) after deploy. Found by the F-20261119-01 round 3 security review; pre-existing. The same root cause stops user-service seeing the real client IP, which is why `USER_REFERRAL_IP_LOOKBACK` defaults to 0 (backlog B-1).
+- **Fix:** Post-deploy check of the Google login on the real domain; then set `trusted-proxies` on the gateway (shared with B-1) or pin the redirect URI explicitly.

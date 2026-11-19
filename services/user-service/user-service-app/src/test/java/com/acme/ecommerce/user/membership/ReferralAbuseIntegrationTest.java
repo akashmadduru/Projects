@@ -20,8 +20,10 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.test.context.TestPropertySource;
 
 /** TD-P8-13: referral abuse checks, against a real Postgres. */
+@TestPropertySource(properties = "user.referral.ip-lookback=30d")
 class ReferralAbuseIntegrationTest extends AbstractUserIntegrationTest {
 
   private static final String HEX64 = "^[0-9a-f]{64}$";

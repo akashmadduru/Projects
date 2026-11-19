@@ -60,7 +60,7 @@ public class ReferralService {
   @Transactional
   public ReferralView view(UUID userId, InetAddress ip) {
     String code = codeFor(userId);
-    if (ip != null) {
+    if (ip != null && properties.getReferral().getIpLookback().toSeconds() > 0) {
       recordActivity(userId, fingerprint.hash(ip));
     }
     long invited =
@@ -106,7 +106,8 @@ public class ReferralService {
       throw new CodedException(
           ErrorCode.RESOURCE_CONFLICT, "A referral code was already applied to this account");
     }
-    String ipHash = ip == null ? null : fingerprint.hash(ip);
+    boolean ipCheckOn = properties.getReferral().getIpLookback().toSeconds() > 0;
+    String ipHash = ip == null || !ipCheckOn ? null : fingerprint.hash(ip);
     refuseIfAbusive(referrer, owner.tooNew() && minAgeSeconds > 0, ipHash);
     try {
       jdbc.sql(

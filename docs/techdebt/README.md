@@ -110,6 +110,7 @@ Shortcuts taken while building customer accounts (login, Google SSO, user/cart/o
 | TD-P8-20 | notification_db setup script, throwaway password, offline builds | phase8 | Low | S | [phase8.md](phase8.md#td-p8-20) |
 | TD-P8-22 | Wallet product gaps: one currency, no top-up or admin adjustment | phase8 | Low | M | [phase8.md](phase8.md#td-p8-22) |
 | TD-P8-24 | Referral IP hash salt not wired through Helm; prod does not fail closed | phase8 | Med | S | [phase8.md](phase8.md#td-p8-24) |
+| TD-SEC-15 | Google OIDC callback relies on X-Forwarded-Host/Proto/Port that Gateway 5.0.2 strips | infra-security | Med | S | [infra-security.md](infra-security.md#td-sec-15) |
 | TD-P9-01 | No tests for Phase 9; admin/storefront specs likely stale | phase9 | High | L | [phase9.md](phase9.md#td-p9-01) |
 | TD-P9-02 | Legacy stock totals still exist beside warehouse stock (reconciled hourly) | phase9 | Med | M | [phase9.md](phase9.md#td-p9-02) |
 | TD-P9-09 | KYC format-only; bank data under one static key (role revoke and masking fixed) | phase9 | High | M | [phase9.md](phase9.md#td-p9-09) |

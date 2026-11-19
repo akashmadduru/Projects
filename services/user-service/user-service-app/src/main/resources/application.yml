@@ -114,7 +114,8 @@ user:
   referral:
     reward-coins: ${USER_REFERRAL_REWARD_COINS:100}
     min-code-age: ${USER_REFERRAL_MIN_CODE_AGE:10m}
-    ip-lookback: ${USER_REFERRAL_IP_LOOKBACK:30d}
+    # 0 = IP check off (no IP activity recorded) until the gateway forwards a trustworthy client IP (B-1).
+    ip-lookback: ${USER_REFERRAL_IP_LOOKBACK:0}
     ip-retention: ${USER_REFERRAL_IP_RETENTION:30d}
     ip-hash-salt: ${USER_REFERRAL_IP_HASH_SALT:}
     # Local compose: the gateway appends the socket peer, so 1. AWS: gateway hops + 1 (Helm sets 3).

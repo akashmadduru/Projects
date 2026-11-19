@@ -25,10 +25,12 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 @AutoConfigureMockMvc
+@TestPropertySource(properties = "user.referral.ip-lookback=30d")
 class ReferralEndpointsMvcTest extends AbstractUserIntegrationTest {
 
   private static final String SALT = "test-only-referral-salt";

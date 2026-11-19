@@ -52,7 +52,7 @@ public class UserProperties {
   private static void requireDuration(String name, Duration value) {
     if (value == null) {
       throw new IllegalStateException(
-          name + " must be a duration such as 10m or 30d (it is blank); use 0 to disable");
+          name + " must not be null (use a duration such as 10m or 30d, or 0 to disable)");
     }
   }
 
@@ -65,8 +65,12 @@ public class UserProperties {
     /** A referral code must be at least this old before it can be claimed. */
     @Builder.Default private Duration minCodeAge = Duration.ofMinutes(10);
 
-    /** A claim is refused when the referrer was seen from the claimant's IP within this window. */
-    @Builder.Default private Duration ipLookback = Duration.ofDays(30);
+    /**
+     * A claim is refused when the referrer was seen from the claimant's IP within this window. Zero
+     * (the default) disables the check and no IP activity is recorded: enable only once the gateway
+     * forwards a trustworthy client IP (backlog B-1).
+     */
+    @Builder.Default private Duration ipLookback = Duration.ZERO;
 
     /** Hashed IPs older than this are deleted by the nightly job. */
     @Builder.Default private Duration ipRetention = Duration.ofDays(30);
