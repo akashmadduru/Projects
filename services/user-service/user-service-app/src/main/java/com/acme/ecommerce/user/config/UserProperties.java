@@ -84,13 +84,6 @@ public class UserProperties {
 
     /** HMAC key for IP hashing; blank means a random per-process key (matches only in-process). */
     @ToString.Exclude @Builder.Default private String ipHashSalt = "";
-
-    /**
-     * Trusted proxies that append to X-Forwarded-For before this service (gateway hops plus the
-     * gateway's own append): the client is that entry counted from the right. 0 uses the socket
-     * peer.
-     */
-    @Builder.Default private int trustedProxyHops = 1;
   }
 
   /** Token validation contract with custom helper methods. */

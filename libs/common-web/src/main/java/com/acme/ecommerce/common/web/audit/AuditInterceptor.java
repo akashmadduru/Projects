@@ -1,5 +1,6 @@
 package com.acme.ecommerce.common.web.audit;
 
+import com.acme.ecommerce.common.web.net.ClientIp;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.List;
@@ -88,10 +89,6 @@ public class AuditInterceptor implements HandlerInterceptor {
   }
 
   private static String ip(HttpServletRequest request) {
-    String xff = request.getHeader("X-Forwarded-For");
-    if (xff != null && !xff.isBlank()) {
-      return xff.split(",")[0].trim();
-    }
-    return request.getRemoteAddr();
+    return ClientIp.resolveAsString(request);
   }
 }

@@ -140,9 +140,6 @@ public record AuthProperties(
    * @param refreshCapacity requests per window for {@code /refresh}; higher, because a legitimate
    *     multi-tab SPA refreshes more often than it logs in
    * @param window refill period
-   * @param trustForwardedFor read the client IP from {@code X-Forwarded-For}. ONLY safe when this
-   *     service is unreachable except through a proxy that overwrites the header - otherwise any
-   *     client can spoof it and the throttle becomes decorative.
    * @param maxTrackedClients bound on the IP -> bucket map, so a spoofed-source flood cannot grow
    *     it without limit
    */
@@ -151,7 +148,6 @@ public record AuthProperties(
       @DefaultValue("10") int loginCapacity,
       @DefaultValue("60") int refreshCapacity,
       @DefaultValue("1m") Duration window,
-      @DefaultValue("false") boolean trustForwardedFor,
       @DefaultValue("50000") int maxTrackedClients) {}
 
   /**

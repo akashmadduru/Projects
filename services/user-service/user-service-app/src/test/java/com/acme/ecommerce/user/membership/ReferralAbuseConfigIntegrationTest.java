@@ -65,7 +65,6 @@ class ReferralAbuseConfigIntegrationTest extends AbstractUserIntegrationTest {
     assertThat(r.getMinCodeAge()).isEqualTo(Duration.ofHours(2));
     assertThat(r.getIpLookback()).isEqualTo(Duration.ofDays(1));
     assertThat(r.getIpRetention()).isEqualTo(Duration.ofDays(1));
-    assertThat(r.getTrustedProxyHops()).isEqualTo(1);
     assertThat(r.getIpHashSalt()).isEqualTo("test-only-referral-salt");
     assertThat(r.toString()).doesNotContain("test-only-referral-salt");
   }

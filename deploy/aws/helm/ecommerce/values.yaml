@@ -46,7 +46,16 @@ global:
     samplingProbability: "0.1"
 
   gateway:
-    # How many trusted proxies (CloudFront, ALB) append to X-Forwarded-For. See RateLimitWebFilter.
+    # How many trusted proxies (CloudFront, ALB) append to X-Forwarded-For. The gateway turns this into
+    # one client IP (GatewayClientIp) and forwards it as X-Internal-Client-Ip to every service: audit,
+    # the wallet per-IP redeem limit, auth login throttling and the referral IP check all read it.
+    # Confirm it against the real proxy count (CloudFront + ALB = 2) before relying on any of them:
+    # too low and every user shares one IP (referrals are refused, one throttle bucket); too high
+    # trusts a forgeable entry. Release gate: backlog B-4 (ALB must be reachable only via CloudFront).
+    # Referral IP check stays OFF by default. To enable: set USER_REFERRAL_IP_LOOKBACK (e.g. 30d) and
+    # USER_REFERRAL_IP_HASH_SALT on user-service, only after the checks above. Any in-cluster caller
+    # can set the header (same ClusterIP trust as X-User-*). The gateway keeps
+    # SERVER_FORWARD_HEADERS_STRATEGY=none so the socket peer (N=0) cannot become a forwarded entry.
     trustedProxyHops: 2
     rateLimitWritesPerMinute: 30
     rateLimitReadsPerMinute: 300

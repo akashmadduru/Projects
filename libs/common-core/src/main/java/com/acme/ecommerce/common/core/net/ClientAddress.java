@@ -43,7 +43,7 @@ public final class ClientAddress {
       s = s.substring(1, close);
     }
     int zone = s.indexOf('%');
-    if (zone >= 0 && s.indexOf(':') >= 0) {
+    if (zone >= 0 && s.lastIndexOf(':', zone) >= 0) {
       s = s.substring(0, zone);
     }
     int firstColon = s.indexOf(':');

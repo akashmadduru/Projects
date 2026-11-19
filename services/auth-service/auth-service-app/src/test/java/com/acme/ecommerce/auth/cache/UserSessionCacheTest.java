@@ -58,7 +58,7 @@ class UserSessionCacheTest {
             new AuthProperties.Cookie("refresh_token", "/api/auth", true, "Lax", ""),
             new AuthProperties.Registration(false),
             new AuthProperties.Lockout(5, Duration.ofMinutes(1), Duration.ofMinutes(15)),
-            new AuthProperties.RateLimit(true, 10, 60, Duration.ofMinutes(1), false, 50000),
+            new AuthProperties.RateLimit(true, 10, 60, Duration.ofMinutes(1), 50000),
             new AuthProperties.Oauth2("", "", java.util.List.of(), "", ""),
             new AuthProperties.Housekeeping(true, Duration.ofDays(30), Duration.ofHours(1)),
             new AuthProperties.Storefront("http://localhost:3000"));

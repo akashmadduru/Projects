@@ -7,6 +7,7 @@ import com.acme.ecommerce.auth.admin.AdminUserDtos.StatusChangeRequest;
 import com.acme.ecommerce.auth.admin.AdminUserDtos.TargetStatus;
 import com.acme.ecommerce.auth.audit.AuthAuditPublisher;
 import com.acme.ecommerce.auth.domain.UserStatus;
+import com.acme.ecommerce.common.web.net.ClientIp;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.util.UUID;
@@ -94,7 +95,7 @@ public class AdminUserController {
     AdminUserResponse after = service.changeStatus(actor(jwt), id, target);
     audit.publish(
         jwt,
-        http.getRemoteAddr(),
+        ClientIp.resolveAsString(http),
         target == TargetStatus.DISABLED ? "USER_DISABLE" : "USER_ENABLE",
         "USER",
         id.toString(),
@@ -113,7 +114,7 @@ public class AdminUserController {
     AdminUserResponse after = service.changeRoles(actor(jwt), id, request.roles());
     audit.publish(
         jwt,
-        http.getRemoteAddr(),
+        ClientIp.resolveAsString(http),
         "USER_ROLES_CHANGE",
         "USER",
         id.toString(),

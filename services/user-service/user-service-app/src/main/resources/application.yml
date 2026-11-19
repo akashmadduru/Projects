@@ -118,8 +118,6 @@ user:
     ip-lookback: ${USER_REFERRAL_IP_LOOKBACK:0}
     ip-retention: ${USER_REFERRAL_IP_RETENTION:30d}
     ip-hash-salt: ${USER_REFERRAL_IP_HASH_SALT:}
-    # Local compose: the gateway appends the socket peer, so 1. AWS: gateway hops + 1 (Helm sets 3).
-    trusted-proxy-hops: ${USER_REFERRAL_TRUSTED_PROXY_HOPS:1}
   jwt:
     # SAME ENV VARS AND SAME DEFAULTS AS auth-service's `auth.jwt.*`, the
     # gateway's `gateway.jwt.*` and product-service's `product.jwt.*`. Any of

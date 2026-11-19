@@ -159,10 +159,6 @@ auth:
     login-capacity: ${AUTH_RATE_LIMIT_LOGIN_CAPACITY:10}
     refresh-capacity: ${AUTH_RATE_LIMIT_REFRESH_CAPACITY:60}
     window: 1m
-    # FALSE unless this service is unreachable except through a proxy that
-    # OVERWRITES X-Forwarded-For. Trusting it on a directly-reachable service
-    # lets any client choose its own apparent source address.
-    trust-forwarded-for: ${AUTH_TRUST_FORWARDED_FOR:false}
     max-tracked-clients: 50000
 
   oauth2:
@@ -308,11 +304,6 @@ auth:
     secure: true
   registration:
     enabled: false
-  rate-limit:
-    # Only correct because in production this service sits behind the gateway,
-    # which overwrites X-Forwarded-For. If that ever stops being true, this must
-    # go back to false or the throttle becomes decorative.
-    trust-forwarded-for: true
 
 logging:
   level:

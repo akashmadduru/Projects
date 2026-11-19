@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
+import com.acme.ecommerce.common.core.net.ClientAddress;
 import com.acme.ecommerce.user.membership.IpFingerprint;
 import com.acme.ecommerce.user.membership.ReferralService;
 import com.acme.ecommerce.user.support.AbstractUserIntegrationTest;
@@ -30,19 +31,14 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 /**
  * Runs the real embedded Tomcat as on Kubernetes ({@code spring.main.cloud-platform=kubernetes}),
  * where Spring Boot would default {@code server.forward-headers-strategy} to NATIVE and Tomcat's
- * RemoteIpValve would rewrite X-Forwarded-For before {@link ClientIp} reads it. MockMvc never runs
- * that valve, so only a real server proves the chain arrives raw (review round 3).
- *
- * <p>The chain is "spoofed, real-client, edge, alb" with 3 trusted hops (edge, alb, and the
- * gateway's own append would normally be last; here the loopback peer stands in for it), so
- * real-client is the selected entry. The edge and alb entries are public addresses, as CloudFront
- * and ALB-facing addresses are, so the valve stops at them.
+ * RemoteIpValve would rewrite X-Forwarded-For. The controller must ignore it and read only the
+ * gateway header {@link ClientAddress#HEADER}; MockMvc never runs that valve, so only a real server
+ * proves it.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestPropertySource(
     properties = {
       "spring.main.cloud-platform=kubernetes",
-      "user.referral.trusted-proxy-hops=3",
       "user.referral.min-code-age=0",
       "user.referral.ip-lookback=30d"
     })
@@ -50,7 +46,7 @@ class ReferralForwardedForTomcatTest extends AbstractUserIntegrationTest {
 
   private static final String SPOOFED = "198.51.100.66";
   private static final String REAL = "203.0.113.7";
-  private static final String CHAIN = SPOOFED + ", " + REAL + ", 192.0.2.10, 192.0.2.20";
+  private static final String CHAIN = SPOOFED + ", 192.0.2.10, 192.0.2.20";
 
   @LocalServerPort private int port;
   @Autowired private JdbcClient jdbc;
@@ -76,6 +72,7 @@ class ReferralForwardedForTomcatTest extends AbstractUserIntegrationTest {
     HttpRequest.Builder b =
         HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + path))
             .header("Authorization", "Bearer " + user)
+            .header(ClientAddress.HEADER, REAL)
             .header("X-Forwarded-For", CHAIN);
     if (body == null) {
       b.method(method, HttpRequest.BodyPublishers.noBody());
@@ -94,7 +91,7 @@ class ReferralForwardedForTomcatTest extends AbstractUserIntegrationTest {
   }
 
   @Test
-  @DisplayName("on Kubernetes the hop-selected entry, not the spoofed one, is recorded")
+  @DisplayName("on Kubernetes the gateway header address, not the X-Forwarded-For one, is recorded")
   void recordsTheSelectedEntry() throws Exception {
     UUID user = UUID.randomUUID();
     assertThat(call("GET", "/api/referrals", user, null).statusCode()).isEqualTo(200);

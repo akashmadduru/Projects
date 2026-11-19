@@ -183,9 +183,16 @@ wrong environment. The KMS key is scheduled for deletion in 7 days (the minimum 
 - **WAF at CloudFront**, not the ALB: only there does it see the real client address. The ALB accepts
   connections only from CloudFront's address range (`RESTRICT_ALB_TO_CLOUDFRONT`), so the WAF cannot be
   bypassed by calling the API host directly.
-- **Gateway rate limiting** behind CloudFront and the ALB keys on the client address taken from the
-  right-hand end of `X-Forwarded-For` (`trusted-proxy-hops`). Without this every anonymous user would
-  share the load balancer's address and one bucket.
+- **One client IP.** The gateway takes the client address from the right-hand end of
+  `X-Forwarded-For` (`trusted-proxy-hops`, CloudFront + ALB = 2) and forwards it as `X-Internal-Client-Ip`.
+  Four consumers use it: audit events, the wallet per-IP redeem limit, auth login throttling and the
+  referral IP check (off by default; enable with `USER_REFERRAL_IP_LOOKBACK` and `USER_REFERRAL_IP_HASH_SALT`).
+  Without a correct hop count every user shares the load balancer's address and one bucket.
+  **Release gate (backlog B-4):** the ALB is internet-facing and the CloudFront restriction is optional and
+  fails open, so a client reaching the ALB directly can forge the header. Before these four consumers
+  go to production, make the prefix list mandatory and fail closed or verify a CloudFront secret origin
+  header, or have the Owner accept the risk. Any in-cluster caller can also set the header (same trust as
+  `X-User-*`). The gateway keeps `SERVER_FORWARD_HEADERS_STRATEGY=none`.
 - **Scheduled jobs** are guarded by a Postgres advisory lock ([JobLock](../../libs/common-web/src/main/java/com/acme/ecommerce/common/web/job/JobLock.java)),
   so running many replicas does not run a job many times.
 - **Payments fail closed.** Under the `prod` profile `payment-service` refuses to start without a

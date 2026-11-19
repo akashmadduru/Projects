@@ -1,5 +1,7 @@
 package com.acme.ecommerce.payment.web;
 
+import com.acme.ecommerce.common.core.net.ClientAddress;
+import com.acme.ecommerce.common.web.net.ClientIp;
 import com.acme.ecommerce.payment.api.dto.CreatePaymentRequest;
 import com.acme.ecommerce.payment.api.dto.PaymentResponse;
 import com.acme.ecommerce.payment.service.GiftCardService;
@@ -98,9 +100,9 @@ public class WalletController {
       @Valid @RequestBody RedeemRequest req,
       jakarta.servlet.http.HttpServletRequest http) {
     UUID userId = UUID.fromString(jwt.getSubject());
-    // The gateway sets X-Forwarded-For; its first entry is the client (TD-P8-21 per-IP limit).
-    String xff = http.getHeader("X-Forwarded-For");
-    String ip = xff != null && !xff.isBlank() ? xff.split(",")[0].trim() : http.getRemoteAddr();
+    // The gateway sets X-Internal-Client-Ip (TD-P8-21 per-IP limit); null = unknown, so unknown
+    // callers are not lumped into one shared bucket.
+    String ip = ClientIp.resolve(http).map(ClientAddress::format).orElse(null);
     giftCards.redeem(userId, req.code(), ip);
     return wallet.view(userId);
   }

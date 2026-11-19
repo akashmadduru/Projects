@@ -113,10 +113,6 @@
       "group": "Identity and tokens",
       "text": "Redirect used when the caller does not name one."
     },
-    "AUTH_TRUST_FORWARDED_FOR": {
-      "group": "Identity and tokens",
-      "text": "Read the client IP from `X-Forwarded-For` for login throttling and device alerts. Only safe behind the gateway, which overwrites it."
-    },
     "AUTH_RATE_LIMIT_LOGIN_CAPACITY": {
       "group": "Identity and tokens",
       "text": "Login attempts per window per client (in-memory, per instance)."
@@ -319,7 +315,7 @@
     "GATEWAY_RATE_LIMIT_TRUSTED_PROXY_HOPS": {
       "group": "Edge, CORS and rate limits",
       "usedBy": "gateway (Helm)",
-      "text": "Number of trusted proxies in front of the gateway (CloudFront + ALB = 2). The client IP is read that many entries from the right of `X-Forwarded-For`. 0 = use the socket address."
+      "text": "Number of trusted proxies in front of the gateway (CloudFront + ALB = 2). The gateway reads the client IP that many entries from the right of `X-Forwarded-For` and forwards it as `X-Internal-Client-Ip` to audit, the wallet per-IP limit, auth login throttling and the referral IP check. 0 = use the socket address. Deployment precondition (backlog B-4, a RELEASE GATE for all four consumers: audit events, the wallet per-IP redeem limit, auth login throttling and the referral IP check): the client IP is only trustworthy if the ALB cannot be reached except through CloudFront. Before production, make the CloudFront prefix list mandatory and fail closed, or verify a CloudFront secret origin header, or have the Owner explicitly accept the risk."
     },
     "EUREKA_CLIENT_ENABLED": {
       "group": "Service discovery",
@@ -357,7 +353,7 @@
     },
     "USER_REFERRAL_IP_LOOKBACK": {
       "group": "Business rules",
-      "text": "How far back a referrer's recorded network counts when a referee claims. A claim from a network the referrer used within this window is refused. Default 0: the IP check is OFF and no IP activity is recorded, until the gateway forwards a trustworthy client IP (backlog B-1); do not enable it behind the current gateway. A blank value keeps the default."
+      "text": "How far back a referrer's recorded network counts when a referee claims. A claim from a network the referrer used within this window is refused. Default 0: the IP check is OFF and no IP activity is recorded. To enable it set this (e.g. `30d`) and `USER_REFERRAL_IP_HASH_SALT`, only after `gateway.trustedProxyHops` is confirmed against the real proxy count (CloudFront + ALB = 2; otherwise all users share one IP and referrals are refused) and backlog B-4 is closed or accepted by the Owner. The client IP is the gateway-set `X-Internal-Client-Ip`; any in-cluster caller could forge it. A blank value keeps the default."
     },
     "USER_REFERRAL_IP_RETENTION": {
       "group": "Business rules",
@@ -366,10 +362,6 @@
     "USER_REFERRAL_MIN_CODE_AGE": {
       "group": "Business rules",
       "text": "Minimum age of a referral code before it can be claimed. A newer code is refused. 0 turns the check off."
-    },
-    "USER_REFERRAL_TRUSTED_PROXY_HOPS": {
-      "group": "Business rules",
-      "text": "Which `X-Forwarded-For` entry, counted from the right, is the caller's IP for the referral checks. Each proxy appends, so only entries on the left can be forged. 1 for Compose (the gateway appends the caller); 3 on AWS (CloudFront, ALB, gateway). 0 ignores the header and uses the socket peer."
     },
     "USER_REFERRAL_REWARD_COINS": {
       "group": "Business rules",

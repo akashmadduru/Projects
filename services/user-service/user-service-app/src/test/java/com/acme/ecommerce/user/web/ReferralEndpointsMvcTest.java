@@ -9,6 +9,7 @@ import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
+import com.acme.ecommerce.common.core.net.ClientAddress;
 import com.acme.ecommerce.user.membership.IpFingerprint;
 import com.acme.ecommerce.user.support.AbstractUserIntegrationTest;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -44,21 +45,29 @@ class ReferralEndpointsMvcTest extends AbstractUserIntegrationTest {
     return jwt().jwt(j -> j.subject(user.toString()));
   }
 
-  private JsonNode view(UUID user, String xff) throws Exception {
+  private JsonNode view(UUID user, String ip) throws Exception {
     var req = get("/api/referrals").with(as(user));
-    if (xff != null) {
-      req = req.header("X-Forwarded-For", xff);
+    if (ip != null) {
+      req = req.header(ClientAddress.HEADER, ip);
     }
     return objectMapper.readTree(
         mockMvc.perform(req).andReturn().getResponse().getContentAsString());
   }
 
-  private MockHttpServletResponse claim(UUID user, String code, String xff) throws Exception {
+  private MockHttpServletResponse claim(UUID user, String code, String ip) throws Exception {
+    return claim(user, code, ip, null);
+  }
+
+  private MockHttpServletResponse claim(UUID user, String code, String ip, String xff)
+      throws Exception {
     var req =
         post("/api/referrals/claim")
             .with(as(user))
             .contentType(MediaType.APPLICATION_JSON)
             .content("{\"code\":\"" + code + "\"}");
+    if (ip != null) {
+      req = req.header(ClientAddress.HEADER, ip);
+    }
     if (xff != null) {
       req = req.header("X-Forwarded-For", xff);
     }
@@ -86,7 +95,7 @@ class ReferralEndpointsMvcTest extends AbstractUserIntegrationTest {
         mockMvc
             .perform(
                 get("/api/referrals")
-                    .header("X-Forwarded-For", "203.0.113.50, 10.0.0.1")
+                    .header(ClientAddress.HEADER, "203.0.113.50")
                     .with(as(UUID.randomUUID())))
             .andReturn()
             .getResponse()
@@ -116,10 +125,14 @@ class ReferralEndpointsMvcTest extends AbstractUserIntegrationTest {
   }
 
   @Test
-  @DisplayName("AC-6 and AC-13: only the trusted (rightmost, hops=1) entry is recorded, as a hash")
+  @DisplayName("AC-6 and AC-13: only the gateway header address is recorded, as a hash")
   void recordsTrustedForwardedEntry() throws Exception {
     UUID user = UUID.randomUUID();
-    view(user, "10.0.0.1, 10.0.0.2, 203.0.113.50");
+    mockMvc.perform(
+        get("/api/referrals")
+            .with(as(user))
+            .header(ClientAddress.HEADER, "203.0.113.50")
+            .header("X-Forwarded-For", "6.6.6.6, 10.0.0.2"));
     assertThat(hashes(user))
         .containsExactly(fingerprint.hash(InetAddress.getByName("203.0.113.50")));
   }
@@ -163,7 +176,7 @@ class ReferralEndpointsMvcTest extends AbstractUserIntegrationTest {
   }
 
   @Test
-  @DisplayName("AC-14: malformed, blank and oversized X-Forwarded-For never cause a 5xx")
+  @DisplayName("AC-14: malformed, blank and oversized client-IP header never cause a 5xx")
   void badForwardedHeadersAreNot5xx() throws Exception {
     String code = view(UUID.randomUUID(), null).get("code").asText();
     ageCode(code);
@@ -180,12 +193,11 @@ class ReferralEndpointsMvcTest extends AbstractUserIntegrationTest {
   void claimComparesTrustedForwardedEntry() throws Exception {
     String code = view(UUID.randomUUID(), "203.0.113.50").get("code").asText();
     ageCode(code);
-    MockHttpServletResponse hit = claim(UUID.randomUUID(), code, "198.51.100.77, 203.0.113.50");
+    MockHttpServletResponse hit = claim(UUID.randomUUID(), code, "203.0.113.50");
     assertThat(hit.getStatus()).isEqualTo(422);
     assertThat(objectMapper.readTree(hit.getContentAsString()).get("code").asText())
         .isEqualTo("REFERRAL_IP_MATCH");
-    assertThat(claim(UUID.randomUUID(), code, "203.0.113.50, 198.51.100.77").getStatus())
-        .isEqualTo(204);
+    assertThat(claim(UUID.randomUUID(), code, "198.51.100.77").getStatus()).isEqualTo(204);
   }
 
   @Test
@@ -193,19 +205,22 @@ class ReferralEndpointsMvcTest extends AbstractUserIntegrationTest {
   void forgedLeftEntryHasNoEffect() throws Exception {
     // the referrer was seen from 203.0.113.50 (the entry the gateway appended)
     UUID referrer = UUID.randomUUID();
-    String code = view(referrer, "6.6.6.6, 203.0.113.50").get("code").asText();
+    String code = view(referrer, "203.0.113.50").get("code").asText();
     assertThat(hashes(referrer))
         .containsExactly(fingerprint.hash(InetAddress.getByName("203.0.113.50")));
     ageCode(code);
 
     // avoid: the claimant really is on the referrer's network but forges a different left entry
-    MockHttpServletResponse avoid = claim(UUID.randomUUID(), code, "198.51.100.77, 203.0.113.50");
+    MockHttpServletResponse avoid =
+        claim(UUID.randomUUID(), code, "203.0.113.50", "198.51.100.77, 10.0.0.1");
     assertThat(avoid.getStatus()).isEqualTo(422);
     assertThat(objectMapper.readTree(avoid.getContentAsString()).get("code").asText())
         .isEqualTo("REFERRAL_IP_MATCH");
 
     // cause: the claimant is elsewhere but forges the referrer's IP in the left entry
-    assertThat(claim(UUID.randomUUID(), code, "203.0.113.50, 198.51.100.77").getStatus())
+    assertThat(
+            claim(UUID.randomUUID(), code, "198.51.100.77", "203.0.113.50, 198.51.100.77")
+                .getStatus())
         .isEqualTo(204);
   }
 
