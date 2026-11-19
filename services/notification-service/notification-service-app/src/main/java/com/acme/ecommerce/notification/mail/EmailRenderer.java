@@ -214,6 +214,24 @@ public class EmailRenderer {
                   + ". Changed your mind? Sign in and cancel the deletion before then.",
               "Cancel deletion",
               d.get("link"));
+      case PHONE_CLAIM_ATTEMPT ->
+          layout(
+              "Someone tried to use your phone number",
+              "Hi " + name + ",",
+              "Someone tried to add your number ending "
+                  + d.getOrDefault("phoneTail", "")
+                  + " to another account. It is still only on yours; no action needed unless this"
+                  + " keeps happening.",
+              "Review account security",
+              d.get("link"));
+      case PASSWORD_SET ->
+          layout(
+              "A password was set on your account",
+              "Hi " + name + ",",
+              "A password was just set on your account using a reset link sent to this email."
+                  + " If this was you, nothing to do. If not, secure your account now.",
+              "Review account security",
+              d.get("link"));
     };
   }
 

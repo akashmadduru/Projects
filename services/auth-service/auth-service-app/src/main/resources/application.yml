@@ -192,6 +192,10 @@ auth:
   storefront:
     base-url: ${STOREFRONT_BASE_URL:http://localhost:3000}
 
+  # F-20261119-07: at most one "someone tried to add your number" email per owner per window.
+  phone:
+    claim-notice-window: ${AUTH_PHONE_CLAIM_NOTICE_WINDOW:24h}
+
 # Phase 6: outbound call to notification-service (X-Internal-Token on /internal/**).
 notification:
   internal-token: ${INTERNAL_API_TOKEN:}

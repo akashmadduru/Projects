@@ -119,6 +119,12 @@ Rate limits are in [api.md](../reference/api.md#rate-limits).
 application default is **false**; `deploy/local/docker-compose.yml` sets it to **true** for local use.
 New accounts get `ROLE_VIEWER` only.
 
+**Add phone is generic.** Taken and free numbers get the same 202 and the same 30 s resend cooldown; a taken
+number gets no SMS and its owner gets one `PHONE_CLAIM_ATTEMPT` email per 24 h (`PhoneClaimNotifier`, Redis
+`SET NX`; skipped if Redis is down). A lost verify race returns 401 `AUTH_OTP_INVALID`. **Password reset**
+on an account with no credential creates one and sends `PASSWORD_SET`. Deploy notification-service before
+auth-service. See [ADR 0007](../architecture/adr/0007-generic-add-phone.md).
+
 Refresh cookie: `HttpOnly; Secure; SameSite=Lax; Path=/api/auth`.
 
 The refresh token is **never** in a response body and **never** in a redirect URL. After a Google

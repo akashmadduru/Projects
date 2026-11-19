@@ -97,7 +97,11 @@ public enum AuthErrorCode {
   /** The phone number is not valid E.164. */
   AUTH_PHONE_INVALID(400, "Phone number invalid"),
 
-  /** The phone number is already verified on another account. */
+  /**
+   * No longer emitted since F-20261119-07: add-phone and verify answer the same for taken and free
+   * numbers (ADR 0007). Kept so auth-service-api consumers still compile.
+   */
+  @Deprecated(forRemoval = true)
   AUTH_PHONE_TAKEN(409, "Phone number already in use"),
 
   /** Phase 10: second-factor code or recovery code rejected. */

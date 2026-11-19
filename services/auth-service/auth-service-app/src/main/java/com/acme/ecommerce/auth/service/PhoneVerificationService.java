@@ -32,16 +32,19 @@ public class PhoneVerificationService {
   private final UserAccountRepository users;
   private final OneTimeTokenService tokens;
   private final NotificationGateway notifications;
+  private final PhoneClaimNotifier claimNotifier;
   private final TransactionTemplate tx;
 
   public PhoneVerificationService(
       UserAccountRepository users,
       OneTimeTokenService tokens,
       NotificationGateway notifications,
+      PhoneClaimNotifier claimNotifier,
       TransactionTemplate tx) {
     this.users = users;
     this.tokens = tokens;
     this.notifications = notifications;
+    this.claimNotifier = claimNotifier;
     this.tx = tx;
   }
 
@@ -53,9 +56,8 @@ public class PhoneVerificationService {
                 () ->
                     new AuthException(
                         AuthErrorCode.AUTH_PHONE_INVALID, "Not a valid E.164 number"));
-    if (users.existsByPhoneAndPhoneVerifiedTrueAndIdNot(phone, userId)) {
-      throw new AuthException(AuthErrorCode.AUTH_PHONE_TAKEN, "Phone already verified elsewhere");
-    }
+    // Taken and free numbers run the same steps and answer the same (no enumeration oracle).
+    boolean taken = users.existsByPhoneAndPhoneVerifiedTrueAndIdNot(phone, userId);
     Boolean alreadyVerified =
         tx.execute(
             status -> {
@@ -71,8 +73,13 @@ public class PhoneVerificationService {
     if (code.isEmpty()) {
       throw new AuthException(AuthErrorCode.AUTH_RATE_LIMITED, "Phone code resend cooldown active");
     }
-    notifications.sendSms(
-        phone, "Your verification code is " + code.get() + ". It expires in 10 minutes.");
+    if (taken) {
+      // No SMS: the code goes nowhere, and the verified owner is told (at most once a day).
+      claimNotifier.attempted(phone);
+    } else {
+      notifications.sendSms(
+          phone, "Your verification code is " + code.get() + ". It expires in 10 minutes.");
+    }
   }
 
   /** Checks the code and marks the number verified. */
@@ -87,14 +94,19 @@ public class PhoneVerificationService {
       tx.executeWithoutResult(
           status -> {
             if (users.existsByPhoneAndPhoneVerifiedTrueAndIdNot(phone, userId)) {
-              throw new AuthException(
-                  AuthErrorCode.AUTH_PHONE_TAKEN, "Phone verified elsewhere meanwhile");
+              throw refusedElsewhere(userId);
             }
             users.findById(userId).orElseThrow().markPhoneVerified();
           });
     } catch (DataIntegrityViolationException e) {
-      throw new AuthException(AuthErrorCode.AUTH_PHONE_TAKEN, "Concurrent phone verification");
+      throw refusedElsewhere(userId);
     }
     log.info("Phone verified for userId={}", userId);
+  }
+
+  /** Same exception as a wrong code, so a lost race or guessed decoy code reveals nothing. */
+  private static AuthException refusedElsewhere(UUID userId) {
+    log.info("phone verify refused: verified elsewhere userId={}", userId);
+    return new AuthException(AuthErrorCode.AUTH_OTP_INVALID, "Phone verification code rejected");
   }
 }

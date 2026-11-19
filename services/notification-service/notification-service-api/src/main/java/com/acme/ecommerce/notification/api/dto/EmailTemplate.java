@@ -39,5 +39,9 @@ public enum EmailTemplate {
   /** data: name, link, expiresAt. */
   PRIVACY_EXPORT_READY,
   /** data: name, scheduledFor, link. */
-  PRIVACY_DELETE_SCHEDULED
+  PRIVACY_DELETE_SCHEDULED,
+  /** data: name, phoneTail (last 4 digits), link. */
+  PHONE_CLAIM_ATTEMPT,
+  /** data: name, link. */
+  PASSWORD_SET
 }

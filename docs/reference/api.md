@@ -141,6 +141,18 @@ more replicas multiplies them. There is no gateway-level rate limit yet.
 
 Exceeding a limit returns 429 `RATE_LIMITED`.
 
+### Add phone and password reset (auth-service)
+
+- `POST /api/auth/me/phone` answers **202 with an empty body** whether or not the number is already
+  verified on another account; a taken number gets no SMS. A second call within 30 s is 429
+  `AUTH_RATE_LIMITED` in both cases. The owner of a taken number gets at most one notice email per
+  `AUTH_PHONE_CLAIM_NOTICE_WINDOW`.
+- `POST /api/auth/me/phone/verify` answers 204, or 401 `AUTH_OTP_INVALID` for a wrong code, a lost race
+  or a code that was never delivered. `AUTH_PHONE_TAKEN` is deprecated and no longer emitted.
+- `POST /api/auth/password/reset` answers 204. For an account with no password (for example Google-only)
+  it creates the credential row and sends a `PASSWORD_SET` email to the account address. See
+  [ADR 0007](../architecture/adr/0007-generic-add-phone.md).
+
 ### Idempotency
 
 `POST /api/orders` requires an `Idempotency-Key` header. The same key with the same body returns the

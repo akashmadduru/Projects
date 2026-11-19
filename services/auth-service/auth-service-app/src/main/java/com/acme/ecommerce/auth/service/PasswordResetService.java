@@ -16,6 +16,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -103,6 +104,7 @@ public class PasswordResetService {
                         AuthErrorCode.AUTH_RESET_TOKEN_INVALID,
                         "Password reset token unknown, expired or used"));
     String encoded = passwordEncoder.encode(newPassword);
+    AtomicBoolean created = new AtomicBoolean();
     tx.executeWithoutResult(
         status -> {
           Instant now = timeProvider.now();
@@ -110,10 +112,33 @@ public class PasswordResetService {
               .findById(userId)
               .ifPresentOrElse(
                   credential -> credential.changePassword(encoded, now),
-                  () -> credentials.save(UserCredential.create(userId, encoded, now)));
+                  () -> {
+                    credentials.save(UserCredential.create(userId, encoded, now));
+                    created.set(true);
+                  });
           users.findById(userId).ifPresent(UserAccount::markEmailVerified);
         });
     tokenService.revokeAllSessions(userId, RevokeReason.PASSWORD_CHANGE);
+    if (created.get()) {
+      // A reset on a passwordless (e.g. Google-only) account sets its first password: tell the
+      // owner. After commit and fail-open (the gateway is async and swallows errors).
+      try {
+        users
+            .findById(userId)
+            .ifPresent(
+                user ->
+                    notifications.sendEmail(
+                        user.getEmail(),
+                        EmailTemplate.PASSWORD_SET,
+                        Map.of(
+                            "name",
+                            user.getDisplayName(),
+                            "link",
+                            storefrontBaseUrl + "/account/security")));
+      } catch (RuntimeException e) {
+        log.warn("Password-set notice failed: {}", e.getClass().getSimpleName());
+      }
+    }
     log.info("Password reset for userId={}", userId);
   }
 }
