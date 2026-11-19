@@ -126,6 +126,19 @@ class GatewayClientIpIntegrationTest {
   }
 
   @Test
+  @DisplayName("AC-10(a): with two XFF field lines the real entry is the last of the joined list")
+  void twoXffLines() {
+    assertThat(
+            echoedIpHeader(
+                client
+                    .get()
+                    .uri("/api/products")
+                    .header("X-Forwarded-For", "6.6.6.6")
+                    .header("X-Forwarded-For", "9.9.9.9, 203.0.113.11")))
+        .isEqualTo("203.0.113.11");
+  }
+
+  @Test
   @DisplayName("AC-4/AC-10(b): a spoofed X-Internal-Client-Ip never reaches the downstream")
   void spoofedHeaderOnPublicAuthenticatedAndRateLimitedRoutes() {
     String subject = UUID.randomUUID().toString();

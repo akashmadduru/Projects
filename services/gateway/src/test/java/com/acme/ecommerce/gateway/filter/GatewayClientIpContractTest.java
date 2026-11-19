@@ -74,6 +74,14 @@ class GatewayClientIpContractTest {
     c.add(
         new Case("over-long entry", 1, "1.1.1.1, " + "1".repeat(65), peer("10.0.0.1"), "10.0.0.1"));
     c.add(new Case("hostname entry", 1, "1.1.1.1, example.com", peer("10.0.0.1"), "10.0.0.1"));
+    c.add(
+        new Case(
+            "two XFF lines, client line first",
+            1,
+            "6.6.6.6|10.9.9.9, 203.0.113.7",
+            peer("10.0.0.1"),
+            "203.0.113.7"));
+    c.add(new Case("trailing comma falls back", 1, "1.1.1.1,", peer("10.0.0.1"), "10.0.0.1"));
     c.add(new Case("null peer, no XFF", 1, null, null, null));
     c.add(new Case("null peer, N=0", 0, "1.1.1.1", null, null));
     c.add(
@@ -92,7 +100,7 @@ class GatewayClientIpContractTest {
   private static MockServerHttpRequest request(Case c) {
     MockServerHttpRequest.BaseBuilder<?> b = MockServerHttpRequest.get("/api/products");
     if (c.xff() != null) {
-      b.header("X-Forwarded-For", c.xff());
+      b.header("X-Forwarded-For", c.xff().split("[|]")); // '|' separates field lines
     }
     if (c.peer() != null) {
       b.remoteAddress(c.peer());

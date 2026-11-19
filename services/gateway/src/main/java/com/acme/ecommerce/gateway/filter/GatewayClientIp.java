@@ -3,6 +3,7 @@ package com.acme.ecommerce.gateway.filter;
 import com.acme.ecommerce.common.core.net.ClientAddress;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.server.reactive.ServerHttpRequest;
@@ -30,9 +31,10 @@ public class GatewayClientIp {
 
   public Optional<InetAddress> resolve(ServerHttpRequest request) {
     if (trustedProxyHops > 0) {
-      String forwarded = request.getHeaders().getFirst("X-Forwarded-For");
-      if (forwarded != null) {
-        String[] parts = forwarded.split(",");
+      // RFC 9110 5.3: several field lines are one comma-joined list.
+      List<String> lines = request.getHeaders().getOrEmpty("X-Forwarded-For");
+      if (!lines.isEmpty()) {
+        String[] parts = String.join(",", lines).split(",", -1);
         if (parts.length >= trustedProxyHops) {
           Optional<InetAddress> client =
               ClientAddress.parse(parts[parts.length - trustedProxyHops]);

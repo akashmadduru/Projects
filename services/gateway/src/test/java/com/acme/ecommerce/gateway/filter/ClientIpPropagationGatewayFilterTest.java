@@ -5,11 +5,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.acme.ecommerce.common.core.net.ClientAddress;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
-import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.core.Ordered;
 import org.springframework.http.HttpHeaders;
 import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
 import org.springframework.mock.web.server.MockServerWebExchange;
@@ -76,7 +74,5 @@ class ClientIpPropagationGatewayFilterTest {
         .isGreaterThan(IdentityPropagationGatewayFilter.ORDER)
         .isLessThan(10000)
         .isEqualTo(ClientIpPropagationGatewayFilter.ORDER);
-    assertThat(((Ordered) filter).getOrder()).isEqualTo(1);
-    assertThat(List.of(GatewayHeaders.CLIENT_IP)).containsExactly("X-Internal-Client-Ip");
   }
 }

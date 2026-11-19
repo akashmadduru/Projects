@@ -6,9 +6,13 @@ import com.acme.ecommerce.gateway.filter.GatewayHeaders;
 import com.acme.ecommerce.gateway.support.StubHttpServer;
 import com.acme.ecommerce.gateway.support.StubServiceInstances;
 import com.acme.ecommerce.gateway.support.TestKeys;
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.ServerSocket;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -25,10 +29,12 @@ import org.springframework.core.env.Environment;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.reactive.server.EntityExchangeResult;
 import org.springframework.test.web.reactive.server.WebTestClient;
+import reactor.netty.http.client.HttpClient;
 
 /**
  * End-to-end behaviour of the edge, with a real Netty server, the real security chain, the real
@@ -352,20 +358,21 @@ class GatewayEdgeIntegrationTest {
     void downstreamSeesTheRealPeer() throws Exception {
       // The client binds its source to 127.0.0.2 (Linux loopback is a /8); the gateway's own
       // connection to the stub comes from 127.0.0.1. If the bind is impossible on this host the
-      // test is skipped with this message, and the equivalent non-skipping assertion lives in
-      // ClientIpPropagationGatewayFilterTest#headerIsTheRequestPeer.
-      try (java.net.ServerSocket probe = new java.net.ServerSocket()) {
-        probe.bind(new java.net.InetSocketAddress("127.0.0.2", 0));
-      } catch (java.io.IOException e) {
-        org.junit.jupiter.api.Assumptions.assumeTrue(
-            false, "SKIPPED AC-10(c): cannot bind 127.0.0.2 on this host: " + e);
+      // test is skipped locally (it fails when env CI is set). The unit test
+      // ClientIpPropagationGatewayFilterTest#headerIsTheRequestPeer covers only the filter, not
+      // the real socket path, so it is not a substitute for this test.
+      try (ServerSocket probe = new ServerSocket()) {
+        probe.bind(new InetSocketAddress("127.0.0.2", 0));
+      } catch (IOException e) {
+        if (System.getenv("CI") != null) {
+          throw new AssertionError("AC-10(c): cannot bind 127.0.0.2 on a CI host", e);
+        }
+        Assumptions.assumeTrue(false, "SKIPPED AC-10(c): cannot bind 127.0.0.2: " + e);
       }
-      reactor.netty.http.client.HttpClient http =
-          reactor.netty.http.client.HttpClient.create()
-              .bindAddress(() -> new java.net.InetSocketAddress("127.0.0.2", 0));
+      HttpClient http =
+          HttpClient.create().bindAddress(() -> new InetSocketAddress("127.0.0.2", 0));
       WebTestClient bound =
-          WebTestClient.bindToServer(
-                  new org.springframework.http.client.reactive.ReactorClientHttpConnector(http))
+          WebTestClient.bindToServer(new ReactorClientHttpConnector(http))
               .baseUrl("http://127.0.0.1:" + port)
               .responseTimeout(java.time.Duration.ofSeconds(20))
               .build();

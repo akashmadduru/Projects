@@ -36,14 +36,21 @@ public final class ClientAddress {
       if (close < 0) {
         return Optional.empty();
       }
+      String rest = s.substring(close + 1);
+      if (!rest.isEmpty() && !(rest.startsWith(":") && isPort(rest.substring(1)))) {
+        return Optional.empty();
+      }
       s = s.substring(1, close);
     }
     int zone = s.indexOf('%');
-    if (zone >= 0) {
+    if (zone >= 0 && s.indexOf(':') >= 0) {
       s = s.substring(0, zone);
     }
     int firstColon = s.indexOf(':');
     if (firstColon >= 0 && firstColon == s.lastIndexOf(':') && s.indexOf('.') >= 0) {
+      if (!isPort(s.substring(firstColon + 1))) {
+        return Optional.empty();
+      }
       s = s.substring(0, firstColon); // IPv4:port
     }
     if (s.isEmpty() || (s.indexOf(':') < 0 && s.chars().filter(c -> c == '.').count() != 3)) {
@@ -54,6 +61,10 @@ public final class ClientAddress {
     } catch (IllegalArgumentException e) {
       return Optional.empty();
     }
+  }
+
+  private static boolean isPort(String p) {
+    return p.length() >= 1 && p.length() <= 5 && p.chars().allMatch(ch -> ch >= '0' && ch <= '9');
   }
 
   /** Canonical, scope-free text form of an address (never a DNS lookup). */
