@@ -308,6 +308,32 @@ class ReturnRefundIntegrationTest extends AbstractOrderIntegrationTest {
   }
 
   @Test
+  @DisplayName("AC-16: the completing return's event carries REFUNDED with the coin feed")
+  void completingReturnEvent() {
+    UUID first = pickedUpReturn("0");
+    UUID second = siblingOf(first);
+    UUID third = siblingOf(first);
+    paymentReplies("SUCCEEDED");
+
+    returns.refund(first);
+    returns.refund(second);
+    returns.refund(third);
+
+    String last = payloadOf(third);
+    assertThat(last).contains("\"paymentStatus\":\"REFUNDED\"");
+    assertThat(last).containsPattern("\"returnItemsValue\":100([.]0+)?[,}]");
+    assertThat(payloadOf(second)).doesNotContain("\"paymentStatus\":\"REFUNDED\"");
+  }
+
+  private String payloadOf(UUID returnId) {
+    return jdbc.queryForObject(
+        "select replace(payload::text, ' ', '') from orders.outbox"
+            + " where kind = 'ORDER_EVENT' and payload::jsonb->>'returnId' = ?",
+        String.class,
+        returnId.toString());
+  }
+
+  @Test
   @DisplayName("AC-9: calling refund again on a REFUNDED return adds no call, ledger or outbox row")
   void refundedIsNoOp() {
     UUID id = pickedUpReturn("30");
