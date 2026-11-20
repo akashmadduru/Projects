@@ -360,8 +360,10 @@ Each refunded return gives back its pro-rata share of the order's redeemed coins
 - **Deploy order:** deploy promotion-service BEFORE order-service. Old order-service events still work (legacy path); the new event fields are ignored by an old promotion-service.
 - **Rollback:** an old promotion-service runs `onFullyRefunded` on a completing return even when per-return reversals exist. That is an over-reversal, clamped to the balance. Roll back only before any completing return is refunded, or accept the clamped over-reversal.
 - **Shortfall:** when the user already spent the coins, the reversal is clamped to the balance and the log carries `COIN REVERSAL SHORTFALL order=... return=... earnDue=... taken=...`. `promotion.coin_return_reversals` records `earn_due` and `earn_taken` for every return, also when `earn_taken` is 0 (a ledger row cannot hold 0). Shortfall is `earn_due - earn_taken`; it is not recovered later.
-- **Replaying a DLT:** safe. Each return is applied once (primary key `return_id`, checked under the per-user lock). `RETURN_REFUNDED` events with a `returnId` are not dropped by the 2-day age gate, so a late replay still applies.
-- **Privacy:** `coin_return_reversals` is retained on USER_DELETED like the coin ledger and is not part of `PrivacyExportController`. Backlog: add it to the export.
+- **Replaying a DLT:** safe. Each return is applied once (primary key `return_id`, checked under the per-user lock). `RETURN_REFUNDED` events with a `returnId` with both `returnId` and `returnItemsValue` are not dropped by the 2-day age gate, so a late replay still applies.
+- **Give-back does not expire:** redeemed coins given back on a return carry no expiry, the same as the existing cancel give-back (`releaseRedeem`). Accepted.
+- **Legacy paths:** after per-return reversals exist, the legacy full-refund path (`onFullyRefunded`) and `releaseRedeem` subtract what the returns were already due, so an order never reverses or gives back more than N or E.
+- **Privacy:** `coin_return_reversals` is retained on USER_DELETED like the coin ledger and is not part of `PrivacyExportController`. Follow-up: add it to the export (kept here, not in the tech-debt register).
 
 ---
 

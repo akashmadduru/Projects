@@ -36,7 +36,7 @@ Each topic `X` also has a dead-letter topic `X.DLT` (see [failure handling](#fai
 | `inventory.events` | `cart-alerts-inventory` | cart-service `AlertEventConsumers` (back-in-stock alerts) | **latest** |
 | `rating.events` | `product-service-rating-listener` | product-service `RatingEventListener` | earliest |
 | `order.events` | `notification-service-order-listener` | notification-service `OrderEventListener` | earliest |
-| `order.events` | `promotion-service-order-listener` | promotion-service `OrderEventListener` (coins on `DELIVERED`; per-return coin reversal on `RETURN_REFUNDED`, which skips the 2-day age gate when it carries `returnId`) | earliest |
+| `order.events` | `promotion-service-order-listener` | promotion-service `OrderEventListener` (coins on `DELIVERED`; per-return coin reversal on `RETURN_REFUNDED`, which skips the 2-day age gate only when it carries `returnId` AND `returnItemsValue`) | earliest |
 | `order.events` | `seller-service-ledger` | seller-service `OrderEventConsumer` (settlement ledger) | **earliest** (since 2026-11-17; the ledger is idempotent, so a replay books nothing twice) |
 | `user.events` | `<service>-privacy` | `UserDeletedListener` in auth, cart, notification, order, payment, promotion, rating, seller, support | earliest |
 | `audit.events` | `support-service-audit` | support-service `AuditConsumer` | earliest |
