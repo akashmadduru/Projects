@@ -58,6 +58,7 @@ class OrderPlacementIntegrationTest extends AbstractOrderIntegrationTest {
   @Autowired private OrderService orders;
   @Autowired private JdbcTemplate jdbc;
   @Autowired private OrderStore store;
+  @Autowired private com.fasterxml.jackson.databind.ObjectMapper mapper;
 
   @Autowired private com.acme.ecommerce.order.web.InternalOrderLookupController lookup;
 
@@ -163,11 +164,7 @@ class OrderPlacementIntegrationTest extends AbstractOrderIntegrationTest {
                 null));
 
     UUID owner = UUID.randomUUID();
-    when(remote.reserveStock(any(), any(), anyString()))
-        .thenReturn(
-            List.of(
-                new InventoryFeignClient.Allocation(
-                    shirt, null, offerId, UUID.randomUUID(), "WH-X", "560001", 1, owner)));
+    stubOfferAllocation(offerId, owner);
 
     OrderService.Placement placed =
         orders.place(
@@ -193,6 +190,80 @@ class OrderPlacementIntegrationTest extends AbstractOrderIntegrationTest {
               assertThat(l.offerId()).isEqualTo(offerId);
               assertThat(l.sellerId()).isNull();
             });
+    assertThat(sellerIds("order_shipments", placed.order().id())).containsExactly(owner);
+    // DEFECT (reported, not asserted): order_items.seller_id is updatable=false, so Order.attach's
+    // item.tagOffer(...) on the reloaded order is never persisted; the column stays null.
+  }
+
+  @Test
+  @DisplayName(
+      "an offer line with no owner and an allocation with no sellerId falls back to PLATFORM")
+  void offerWithUnknownSellerAndNullAllocationSellerIsPlatform() {
+    UUID offerId = UUID.randomUUID();
+    ProductView base = product(shirt, "Shirt", "499.00", "INR", true);
+    ProductViewFeignClient.Offer offer =
+        new ProductViewFeignClient.Offer(
+            offerId, null, null, null, new BigDecimal("499.00"), null, "INR", 1, 5);
+    when(products.findById(shirt))
+        .thenReturn(
+            new ProductView(
+                base.id(),
+                base.sku(),
+                base.name(),
+                base.priceAmount(),
+                base.priceCurrency(),
+                base.active(),
+                null,
+                null,
+                List.of(),
+                List.of(offer),
+                null));
+    stubOfferAllocation(offerId, null);
+
+    OrderService.Placement placed =
+        orders.place(
+            user,
+            "c@example.com",
+            "key-" + UUID.randomUUID(),
+            new PlaceOrderRequest(
+                addressId,
+                PaymentMethodRequest.CARD,
+                null,
+                List.of(new OrderLineRequest(shirt, 1, null, offerId)),
+                null,
+                null,
+                null));
+
+    assertThat(sellerIds("order_shipments", placed.order().id()))
+        .containsExactly(Order.PLATFORM_SELLER);
+  }
+
+  @Test
+  @DisplayName("an old-shape allocation payload without sellerId deserialises with a null sellerId")
+  void oldAllocationShapeHasNullSellerId() throws Exception {
+    String json =
+        "{\"allocations\":[{\"productId\":\""
+            + shirt
+            + "\",\"warehouseId\":\""
+            + UUID.randomUUID()
+            + "\",\"warehouseCode\":\"WH-X\",\"warehousePincode\":\"560001\",\"quantity\":1,"
+            + "\"someFutureField\":true}]}";
+    InventoryFeignClient.ReserveResult r =
+        mapper.readValue(json, InventoryFeignClient.ReserveResult.class);
+    assertThat(r.allocations()).singleElement().satisfies(a -> assertThat(a.sellerId()).isNull());
+  }
+
+  private void stubOfferAllocation(UUID offerId, UUID allocSeller) {
+    when(remote.reserveStock(any(), any(), anyString()))
+        .thenReturn(
+            List.of(
+                new InventoryFeignClient.Allocation(
+                    shirt, null, offerId, UUID.randomUUID(), "WH-X", "560001", 1, allocSeller)));
+  }
+
+  private List<UUID> sellerIds(String table, UUID orderId) {
+    return jdbc.queryForList(
+        "select seller_id from orders." + table + " where order_id = ?", UUID.class, orderId);
   }
 
   @Test

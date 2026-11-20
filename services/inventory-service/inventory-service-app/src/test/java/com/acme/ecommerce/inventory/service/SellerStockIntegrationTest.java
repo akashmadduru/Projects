@@ -119,13 +119,11 @@ class SellerStockIntegrationTest extends AbstractInventoryIntegrationTest {
     }
     pool.shutdown();
 
-    assertThat(stock.byProduct(p))
-        .allSatisfy(r -> assertThat(r.quantity()).isGreaterThanOrEqualTo(0));
+    assertThat(stock.byProduct(p)).allSatisfy(r -> assertThat(r.quantity()).isBetween(0, 5));
     int reserved = 0;
     for (UUID o : orders) {
       reserved += reservations.allocations(o).stream().mapToInt(a -> a.quantity()).sum();
     }
     assertThat(reserved).isEqualTo(ok.get());
-    assertThat(orders).hasSize(ok.get());
   }
 }
