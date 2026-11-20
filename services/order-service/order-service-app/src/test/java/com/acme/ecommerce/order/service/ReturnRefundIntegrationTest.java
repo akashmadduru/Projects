@@ -412,14 +412,16 @@ class ReturnRefundIntegrationTest extends AbstractOrderIntegrationTest {
   @Test
   @DisplayName("two sibling returns refunded at once freeze legs that stay inside the order totals")
   void concurrentSiblings() throws Exception {
-    UUID first = pickedUpReturn("100");
+    // 3 x 100, wallet 200: each unlocked share is 66.67, three of them (200.01) break the cap.
+    UUID first = pickedUpReturn("200");
     UUID second = siblingOf(first);
+    UUID third = siblingOf(first);
     paymentReplies("SUCCEEDED");
     CountDownLatch start = new CountDownLatch(1);
-    ExecutorService pool = Executors.newFixedThreadPool(2);
+    ExecutorService pool = Executors.newFixedThreadPool(3);
     try {
       List<Future<ReturnResponse>> done =
-          List.of(first, second).stream()
+          List.of(first, second, third).stream()
               .map(
                   id ->
                       pool.submit(
@@ -436,7 +438,7 @@ class ReturnRefundIntegrationTest extends AbstractOrderIntegrationTest {
       pool.shutdownNow();
     }
 
-    for (UUID id : List.of(first, second)) {
+    for (UUID id : List.of(first, second, third)) {
       assertThat(
               jdbc.queryForObject(
                   "select wallet_leg_amount + rest_leg_amount - refund_amount from"
@@ -445,9 +447,16 @@ class ReturnRefundIntegrationTest extends AbstractOrderIntegrationTest {
                   id))
           .isEqualByComparingTo("0");
     }
+    // Wallet W = 200 and card T - W = 100 are never exceeded by the summed legs.
     assertThat(
             jdbc.queryForObject(
                 "select sum(wallet_leg_amount) from orders.order_returns where order_id = ?",
+                BigDecimal.class,
+                orderOf(first)))
+        .isLessThanOrEqualTo(new BigDecimal("200.00"));
+    assertThat(
+            jdbc.queryForObject(
+                "select sum(rest_leg_amount) from orders.order_returns where order_id = ?",
                 BigDecimal.class,
                 orderOf(first)))
         .isLessThanOrEqualTo(new BigDecimal("100.00"));

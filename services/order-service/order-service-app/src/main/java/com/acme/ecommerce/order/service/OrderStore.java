@@ -598,8 +598,7 @@ public class OrderStore {
 
   /** The 2-minute refund lease stamp (release with it), or null if held or not PICKED_UP. */
   public Instant claimRefundLease(UUID returnId) {
-    Instant until = Instant.now().plus(2, ChronoUnit.MINUTES).truncatedTo(ChronoUnit.MICROS);
-    return returns.claimRefundLease(returnId, until) == 1 ? until : null;
+    return returns.claimRefundLease(returnId).orElse(null);
   }
 
   /** Holder-scoped: a caller whose lease expired and was taken over frees nothing. */

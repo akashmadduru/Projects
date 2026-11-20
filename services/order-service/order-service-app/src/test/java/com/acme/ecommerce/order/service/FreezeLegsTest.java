@@ -189,7 +189,9 @@ class FreezeLegsTest {
   @DisplayName(
       "the shipping-carrying return refunded first does not close the order or the other return")
   void completingReturnRefundedFirst() {
-    Order o = order(PaymentMethod.CARD, 3, "100.00", "0", "0", "40.00", "0");
+    // Shipping (40) exceeds the unrefunded items (10): refunded amounts alone reach the items
+    // value.
+    Order o = order(PaymentMethod.CARD, 3, "10.00", "0", "0", "40.00", "0");
     OrderReturn partial = pickedUp(o, 1, "SOURCE");
     OrderReturn completing = pickedUp(o, 2, "SOURCE");
     assertThat(completing.getShippingRefund()).isEqualByComparingTo("40.00");
@@ -201,11 +203,24 @@ class FreezeLegsTest {
     assertThat(o.getPaymentStatus()).isEqualTo(PaymentStatus.PARTIALLY_REFUNDED);
     ReturnRefundPlan plan = freeze(partial);
     assertThat(plan.route()).isEqualTo("PAYMENT_SOURCE");
-    assertThat(plan.rest()).isEqualByComparingTo("100.00");
+    assertThat(plan.rest()).isEqualByComparingTo("10.00");
 
     when(returnsRepo.findById(any())).thenReturn(Optional.of(partial));
     store.completeRefund(UUID.randomUUID());
     assertThat(o.getPaymentStatus()).isEqualTo(PaymentStatus.REFUNDED);
+  }
+
+  @Test
+  @DisplayName("an order already marked REFUNDED still routes the remaining return's card leg")
+  void refundedOrderStillRoutes() {
+    Order o = order(PaymentMethod.CARD, 3, "100.00", "0", "0", "0", "0");
+    o.recordRefund(BigDecimal.TEN, true);
+    assertThat(o.getPaymentStatus()).isEqualTo(PaymentStatus.REFUNDED);
+
+    ReturnRefundPlan plan = freeze(pickedUp(o, 1, "SOURCE"));
+
+    assertThat(plan.route()).isEqualTo("PAYMENT_SOURCE");
+    assertThat(plan.rest()).isEqualByComparingTo("100.00");
   }
 
   @Test

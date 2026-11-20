@@ -4,6 +4,7 @@ import com.acme.ecommerce.order.domain.OrderReturn;
 import com.acme.ecommerce.order.domain.ReturnStatus;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -22,16 +23,19 @@ public interface OrderReturnRepository extends JpaRepository<OrderReturn, UUID> 
   @Query("select count(distinct r.order.id) from OrderReturn r where r.userId = :userId")
   long countDistinctOrders(@Param("userId") UUID userId);
 
-  /** Takes the 2-minute refund lease; 0 rows when the return is not PICKED_UP or leased. */
+  /**
+   * Takes the 2-minute refund lease, stamped by the database clock; the stamp, or empty when the
+   * return is not PICKED_UP or already leased.
+   */
   @Transactional
-  @Modifying(clearAutomatically = true, flushAutomatically = true)
   @Query(
       value =
-          "UPDATE orders.order_returns SET refund_lease_until = :until"
+          "UPDATE orders.order_returns SET refund_lease_until = now() + interval '2 minutes'"
               + " WHERE id = :id AND status = 'PICKED_UP'"
-              + " AND (refund_lease_until IS NULL OR refund_lease_until < now())",
+              + " AND (refund_lease_until IS NULL OR refund_lease_until < now())"
+              + " RETURNING refund_lease_until",
       nativeQuery = true)
-  int claimRefundLease(@Param("id") UUID id, @Param("until") Instant until);
+  Optional<Instant> claimRefundLease(@Param("id") UUID id);
 
   /** Frees the lease only if it is still the one this caller took (it may have expired). */
   @Transactional

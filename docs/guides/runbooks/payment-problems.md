@@ -81,7 +81,9 @@ SELECT idempotency_key, amount, created_at FROM payment.wallet_txns
 WHERE idempotency_key ~ '^(return-wallet-|return-rest-|refund-return-)';
 SELECT idempotency_key, status, amount FROM payment.refunds WHERE idempotency_key LIKE 'return-%';
 ```
-A listed return with a wallet or refund row is partly paid. The new code replays the same keys, so the wallet and card
+A listed return that has a `return-rest-<id>` wallet row has already been paid its COD (or wallet-method) remainder: do
+not retry it on the new build (the legs would be recomputed and sent again). Mark it REFUNDED, or settle it by hand. A listed
+return with only a `return-wallet-<id>` or refund row is partly paid. The new code replays the same keys, so the wallet and card
 calls return the existing rows and nothing is paid twice, but the amounts are recomputed: check they match the rows
 found, and if not, settle by hand before retrying.
 

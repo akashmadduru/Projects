@@ -167,8 +167,9 @@ public class ReturnService {
 
   /**
    * Settles a PENDING card leg: replays the same key (payment-service answers from its own table,
-   * no second refund). SUCCEEDED finalizes; FAILED is recorded and the return stays PICKED_UP for
-   * an admin retry; PENDING does nothing.
+   * no second refund). The outcome is recorded. SUCCEEDED finalizes; FAILED leaves the return
+   * PICKED_UP for an admin retry; a leg still PENDING is only touched (updated_at), so the oldest-
+   * first window of the watch rotates.
    */
   public void resumePending(UUID returnId) {
     Instant lease = store.claimRefundLease(returnId);
