@@ -493,8 +493,8 @@ public class OrderService {
 
   /**
    * SHA-256 over every line's product, variant, offer, quantity and added-at instant, in a stable
-   * order. The added-at instant is what tells "the same cart read twice" from "the same items added
-   * again after the last order cleared the cart", so without it there is no fingerprint.
+   * order. The added-at instant is what tells "the same cart read twice" from "the same items
+   * added again after the last order cleared the cart", so without it there is no fingerprint.
    */
   static String cartFingerprint(List<CartItemResponse> items) {
     List<String> parts = new ArrayList<>();
@@ -503,14 +503,7 @@ public class OrderService {
         return null;
       }
       parts.add(
-          i.productId()
-              + "|"
-              + i.variantId()
-              + "|"
-              + i.offerId()
-              + "|"
-              + i.quantity()
-              + "|"
+          i.productId() + "|" + i.variantId() + "|" + i.offerId() + "|" + i.quantity() + "|"
               + i.addedAt().toEpochMilli());
     }
     java.util.Collections.sort(parts);

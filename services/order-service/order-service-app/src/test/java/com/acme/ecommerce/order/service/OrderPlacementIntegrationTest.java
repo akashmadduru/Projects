@@ -517,17 +517,7 @@ class OrderPlacementIntegrationTest extends AbstractOrderIntegrationTest {
   private static com.acme.ecommerce.cart.api.dto.CartItemResponse item(
       UUID productId, int qty, Instant addedAt) {
     return new com.acme.ecommerce.cart.api.dto.CartItemResponse(
-        productId,
-        qty,
-        "x",
-        BigDecimal.ONE,
-        "INR",
-        null,
-        BigDecimal.ONE,
-        addedAt,
-        null,
-        null,
-        null,
+        productId, qty, "x", BigDecimal.ONE, "INR", null, BigDecimal.ONE, addedAt, null, null, null,
         null);
   }
 }

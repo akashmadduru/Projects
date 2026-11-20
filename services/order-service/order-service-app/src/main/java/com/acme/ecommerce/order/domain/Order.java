@@ -21,6 +21,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -493,12 +494,10 @@ public class Order {
 
   /** Every line is returned and every live return is refunded (shipping does not matter). */
   public boolean fullyRefunded() {
-    return remainingReturnable(null).values().stream().allMatch(q -> q == 0)
+    return completesOrder(Map.of())
         && returns.stream()
-            .allMatch(
-                r ->
-                    r.getStatus() == ReturnStatus.REJECTED
-                        || r.getStatus() == ReturnStatus.REFUNDED);
+            .map(OrderReturn::getStatus)
+            .allMatch(EnumSet.of(ReturnStatus.REJECTED, ReturnStatus.REFUNDED)::contains);
   }
 
   /** Records a refund against this order and updates the payment status accordingly. */

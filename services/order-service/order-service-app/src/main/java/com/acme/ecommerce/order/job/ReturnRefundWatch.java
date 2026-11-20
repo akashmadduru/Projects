@@ -10,9 +10,9 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 /**
- * Settles return refunds whose card leg was accepted but not yet confirmed (PENDING, F-04). Polls
- * by replaying the refund key: payment-service answers from its own table without calling the
- * provider, so a poll never creates a second refund. One replica at a time (JobLock).
+ * Settles return refunds whose card leg is still PENDING (F-04) by replaying the refund key:
+ * payment-service answers from its own table, so a poll never creates a second refund. One replica
+ * at a time (JobLock).
  */
 @Component
 public class ReturnRefundWatch {
@@ -33,16 +33,15 @@ public class ReturnRefundWatch {
       fixedDelayString = "${order.returns.refund-poll-interval-ms:300000}",
       initialDelay = 60_000)
   public void poll() {
-    jobLock.runExclusive("order-return-refund-watch", this::pollLocked);
+    jobLock.runExclusive(
+        "order-return-refund-watch", () -> store.pendingRestLegIds().forEach(this::check));
   }
 
-  void pollLocked() {
-    for (UUID id : store.pendingRestLegIds()) {
-      try {
-        returns.resumePending(id);
-      } catch (RuntimeException e) {
-        log.warn("Return refund {} could not be checked, will retry: {}", id, e.toString());
-      }
+  private void check(UUID id) {
+    try {
+      returns.resumePending(id);
+    } catch (RuntimeException e) {
+      log.warn("Return refund {} could not be checked, will retry: {}", id, e.toString());
     }
   }
 }

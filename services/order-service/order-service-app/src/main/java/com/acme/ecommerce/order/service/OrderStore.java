@@ -86,13 +86,7 @@ public class OrderStore {
       boolean walletDone,
       String restState,
       int attempt,
-      String key) {
-
-    /** Destination sent to payment-service for the card leg (null = back to the card). */
-    public String destination() {
-      return "PAYMENT_WALLET".equals(route) ? "WALLET" : null;
-    }
-  }
+      String key) {}
 
   private final OrderRepository orders;
   private final OrderReturnRepository returns;
@@ -602,10 +596,7 @@ public class OrderStore {
         r.refundKey());
   }
 
-  /**
-   * The 2-minute refund lease: returns its stamp, or null when another caller holds it or the
-   * return is not PICKED_UP. Release it with the same stamp.
-   */
+  /** The 2-minute refund lease stamp (release with it), or null if held or not PICKED_UP. */
   public Instant claimRefundLease(UUID returnId) {
     Instant until = Instant.now().plus(2, ChronoUnit.MINUTES).truncatedTo(ChronoUnit.MICROS);
     return returns.claimRefundLease(returnId, until) == 1 ? until : null;
@@ -651,7 +642,7 @@ public class OrderStore {
       // A REFUNDED row from before V13 has no frozen legs: it was split by the legacy formula.
       BigDecimal sw = s.isFrozen() ? s.getWalletLegAmount() : walletShare(sr, walletPaid, total);
       siblingWallet = siblingWallet.add(sw);
-      siblingRest = siblingRest.add(s.isFrozen() ? s.getRestLegAmount() : sr.subtract(sw));
+      siblingRest = siblingRest.add(sr.subtract(sw)); // w + rest = R holds for frozen rows too
     }
     BigDecimal wallet =
         walletShare(refund, walletPaid, total)
@@ -668,12 +659,11 @@ public class OrderStore {
     return plan(r);
   }
 
-  private static BigDecimal walletShare(
-      BigDecimal refund, BigDecimal walletPaid, BigDecimal total) {
-    if (walletPaid.signum() <= 0 || total.signum() <= 0) {
+  private static BigDecimal walletShare(BigDecimal refund, BigDecimal wallet, BigDecimal total) {
+    if (wallet.signum() <= 0 || total.signum() <= 0) {
       return BigDecimal.ZERO;
     }
-    return refund.multiply(walletPaid).divide(total, 2, RoundingMode.HALF_UP).min(refund);
+    return refund.multiply(wallet).divide(total, 2, RoundingMode.HALF_UP).min(refund);
   }
 
   /** Where the non-wallet remainder goes. COD and refundTo=WALLET go through payment-service. */
@@ -684,13 +674,9 @@ public class OrderStore {
     if (o.getPaymentMethod() == PaymentMethod.WALLET) {
       return "DIRECT_WALLET";
     }
-    boolean paid =
-        o.getPaymentStatus() == PaymentStatus.PAID
-            || o.getPaymentStatus() == PaymentStatus.COD_COLLECTED
-            || o.getPaymentStatus() == PaymentStatus.PARTIALLY_REFUNDED
-            || o.getPaymentStatus() == PaymentStatus.REFUNDED;
-    if (!paid) {
-      return "NONE";
+    if (List.of(PaymentStatus.PENDING, PaymentStatus.FAILED, PaymentStatus.COD_PENDING)
+        .contains(o.getPaymentStatus())) {
+      return "NONE"; // never paid: nothing to give back
     }
     boolean card = o.getPaymentMethod() == PaymentMethod.CARD && o.getPaymentId() != null;
     return card && !"WALLET".equals(r.getRefundTo()) ? "PAYMENT_SOURCE" : "PAYMENT_WALLET";

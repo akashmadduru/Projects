@@ -117,25 +117,12 @@ public class ReturnService {
     return finalizeRefund(plan);
   }
 
-  /**
-   * Runs the rest leg and records its state; an exception records FAILED and never bumps the key.
-   */
+  /** Runs the rest leg; an exception records FAILED and never bumps the attempt. */
   private String restLeg(ReturnRefundPlan plan) {
     UUID id = plan.returnId();
     String state;
     if ("DIRECT_WALLET".equals(plan.route())) {
-      state =
-          guarded(
-              id,
-              () -> {
-                remote.creditWallet(
-                    plan.userId(),
-                    plan.rest(),
-                    plan.currency(),
-                    plan.orderId(),
-                    "return-rest-" + id);
-                return "SUCCEEDED";
-              });
+      state = guarded(id, () -> creditRest(plan));
     } else {
       state = guarded(id, () -> callRefund(plan, plan.key()));
       if ("FAILED".equals(state)) {
@@ -150,6 +137,16 @@ public class ReturnService {
     return state;
   }
 
+  private String creditRest(ReturnRefundPlan plan) {
+    remote.creditWallet(
+        plan.userId(),
+        plan.rest(),
+        plan.currency(),
+        plan.orderId(),
+        "return-rest-" + plan.returnId());
+    return "SUCCEEDED";
+  }
+
   private String guarded(UUID id, Supplier<String> call) {
     try {
       return call.get();
@@ -160,7 +157,8 @@ public class ReturnService {
   }
 
   private String callRefund(ReturnRefundPlan plan, String key) {
-    return remote.refund(plan.orderId(), plan.rest(), "Return refunded", key, plan.destination());
+    String destination = "PAYMENT_WALLET".equals(plan.route()) ? "WALLET" : null;
+    return remote.refund(plan.orderId(), plan.rest(), "Return refunded", key, destination);
   }
 
   private ReturnResponse finalizeRefund(ReturnRefundPlan plan) {
@@ -189,19 +187,16 @@ public class ReturnService {
         return;
       }
       String state = callRefund(plan, plan.key());
+      // Always recorded: while still PENDING it touches updated_at so the 50-row window rotates.
+      store.setRestLegState(returnId, state);
       if ("SUCCEEDED".equals(state)) {
-        store.setRestLegState(returnId, state);
         finalizeRefund(plan);
       } else if ("FAILED".equals(state)) {
-        store.setRestLegState(returnId, state);
         log.error(
             "RETURN REFUND FAILED: return {} of order {} was rejected by the card network;"
                 + " retry it from the admin",
             returnId,
             plan.orderId());
-      } else {
-        // Still PENDING: touch updated_at so the oldest-first 50-row window rotates to others.
-        store.setRestLegState(returnId, "PENDING");
       }
     } finally {
       store.releaseRefundLease(returnId, lease);

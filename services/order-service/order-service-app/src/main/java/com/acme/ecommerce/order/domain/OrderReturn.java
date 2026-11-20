@@ -61,30 +61,25 @@ public class OrderReturn {
   @Column(name = "shipping_refund", nullable = false, updatable = false)
   private BigDecimal shippingRefund = BigDecimal.ZERO;
 
-  // Refund progress (V13). Legs are frozen on the first attempt; null on rows made before V13.
+  // Refund progress (V13; value sets in V13__return_refund_legs.sql). Null before the first try.
   @Column(name = "wallet_leg_amount")
   private BigDecimal walletLegAmount;
 
   @Column(name = "rest_leg_amount")
   private BigDecimal restLegAmount;
 
-  /** NONE | PAYMENT_SOURCE | PAYMENT_WALLET | DIRECT_WALLET. */
   @Column(name = "rest_route", length = 16)
   private String restRoute;
 
   @Column(name = "wallet_leg_done_at")
   private Instant walletLegDoneAt;
 
-  /** null = not started, then PENDING | SUCCEEDED | FAILED. */
   @Column(name = "rest_leg_state", length = 12)
   private String restLegState;
 
-  // Lease and attempt are changed only by the conditional updates in OrderReturnRepository.
+  // The attempt (and the refund_lease_until column) change only through OrderReturnRepository.
   @Column(name = "rest_leg_attempt", nullable = false, insertable = false, updatable = false)
   private int restLegAttempt;
-
-  @Column(name = "refund_lease_until", insertable = false, updatable = false)
-  private Instant refundLeaseUntil;
 
   @Column(name = "refund_to", nullable = false, updatable = false, length = 10)
   private String refundTo = "SOURCE";
@@ -175,9 +170,7 @@ public class OrderReturn {
     updatedAt = now;
   }
 
-  /**
-   * Idempotency key of the card leg: attempt 0 keeps the original key, later ones add -r&lt;n&gt;.
-   */
+  /** Card-leg key: attempt 0 keeps the original, later ones add -r&lt;n&gt;. */
   public String refundKey() {
     return "return-" + id + (restLegAttempt == 0 ? "" : "-r" + restLegAttempt);
   }

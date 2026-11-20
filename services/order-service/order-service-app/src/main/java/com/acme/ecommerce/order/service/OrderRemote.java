@@ -308,10 +308,7 @@ public class OrderRemote {
       if (result != null && result.refundStatus() != null) {
         return result.refundStatus();
       }
-      // An older payment-service. A wallet destination is final in that version; a refund to the
-      // card may still be PENDING there, so it is never read as done (the watch replays it).
-      log.warn(
-          "payment-service sent no refundStatus for order {} (key {})", orderId, idempotencyKey);
+      log.warn("payment-service sent no refundStatus for order {}", orderId);
       return "WALLET".equals(destination) ? "SUCCEEDED" : "PENDING";
     } catch (FeignException e) {
       throw RemoteCalls.translate("payment-service", e);
