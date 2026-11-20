@@ -5,17 +5,20 @@ import com.acme.ecommerce.common.core.time.TimeProvider;
 import com.acme.ecommerce.common.security.PlatformJwtAuthenticationConverter;
 import com.acme.ecommerce.gateway.error.ProblemAccessDeniedHandler;
 import com.acme.ecommerce.gateway.error.ProblemAuthenticationEntryPoint;
+import com.acme.ecommerce.gateway.security.DenyListReactiveJwtDecoder;
 import com.acme.ecommerce.gateway.security.DiscoveryJwkSetUriResolver;
 import com.acme.ecommerce.gateway.security.HttpJwkSetSource;
 import com.acme.ecommerce.gateway.security.JwkSetUriResolver;
 import com.acme.ecommerce.gateway.security.JwksReactiveJwtDecoderFactory;
 import com.nimbusds.jose.proc.SecurityContext;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.net.URI;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.cloud.client.ServiceInstance;
 import org.springframework.cloud.client.loadbalancer.reactive.ReactiveLoadBalancer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
@@ -258,8 +261,12 @@ public class SecurityConfig {
    */
   @Bean
   public ReactiveJwtDecoder reactiveJwtDecoder(
-      GatewayProperties properties, HttpJwkSetSource<SecurityContext> jwkSetSource) {
-    return JwksReactiveJwtDecoderFactory.create(jwkSetSource, properties);
+      GatewayProperties properties,
+      HttpJwkSetSource<SecurityContext> jwkSetSource,
+      ReactiveStringRedisTemplate redis,
+      MeterRegistry meters) {
+    return new DenyListReactiveJwtDecoder(
+        JwksReactiveJwtDecoderFactory.create(jwkSetSource, properties), redis, meters);
   }
 
   /**

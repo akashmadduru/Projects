@@ -3,6 +3,7 @@ package com.acme.ecommerce.auth.admin;
 import com.acme.ecommerce.auth.admin.AdminUserDtos.AdminUserResponse;
 import com.acme.ecommerce.auth.admin.AdminUserDtos.AdminUserStats;
 import com.acme.ecommerce.auth.admin.AdminUserDtos.TargetStatus;
+import com.acme.ecommerce.auth.cache.AccessTokenDenyStore;
 import com.acme.ecommerce.auth.domain.RoleEntity;
 import com.acme.ecommerce.auth.domain.UserAccount;
 import com.acme.ecommerce.auth.domain.UserStatus;
@@ -32,6 +33,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
  * Back-office user management: search, enable/disable, role assignment.
@@ -63,11 +66,17 @@ public class AdminUserService {
   private final UserAccountRepository users;
   private final RoleRepository roles;
   private final TokenService tokens;
+  private final AccessTokenDenyStore denyStore;
 
-  public AdminUserService(UserAccountRepository users, RoleRepository roles, TokenService tokens) {
+  public AdminUserService(
+      UserAccountRepository users,
+      RoleRepository roles,
+      TokenService tokens,
+      AccessTokenDenyStore denyStore) {
     this.users = users;
     this.roles = roles;
     this.tokens = tokens;
+    this.denyStore = denyStore;
   }
 
   @Transactional(readOnly = true)
@@ -131,6 +140,7 @@ public class AdminUserService {
       }
       user.disable();
       tokens.revokeAllSessions(user.getId(), RevokeReason.ADMIN);
+      afterCommit(() -> denyStore.revokeIssuedUpTo(id));
     } else {
       user.enable();
     }
@@ -169,12 +179,28 @@ public class AdminUserService {
     }
     if (removedAny) {
       tokens.revokeAllSessions(user.getId(), RevokeReason.ADMIN);
+      afterCommit(() -> denyStore.revokeIssuedUpTo(id));
     }
     log.info("Admin {} set roles of user {} to {}", actorId, id, wanted);
     return toResponse(user);
   }
 
   // ---- helpers -------------------------------------------------------------------------------
+
+  /** Runs after the surrounding transaction commits; nothing runs on rollback (ADR 0005). */
+  private static void afterCommit(Runnable action) {
+    if (TransactionSynchronizationManager.isSynchronizationActive()) {
+      TransactionSynchronizationManager.registerSynchronization(
+          new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+              action.run();
+            }
+          });
+    } else {
+      action.run();
+    }
+  }
 
   private UserAccount load(UUID id) {
     return users.findWithRolesById(id).orElseThrow(() -> new ResourceNotFoundException("User", id));

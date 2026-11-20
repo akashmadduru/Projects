@@ -80,6 +80,19 @@ public final class TestKeys {
         Instant.now().plusSeconds(600));
   }
 
+  /** A valid access token with an explicit {@code iat}, for deny-list cutoff tests. */
+  public String accessTokenIssuedAt(String subject, Instant issuedAt) {
+    return token(
+        subject,
+        "user@example.com",
+        "google",
+        List.of("VIEWER"),
+        ISSUER,
+        AUDIENCE,
+        issuedAt,
+        issuedAt.plusSeconds(600));
+  }
+
   /** A token that is structurally perfect but expired. */
   public String expiredToken(String subject) {
     return token(

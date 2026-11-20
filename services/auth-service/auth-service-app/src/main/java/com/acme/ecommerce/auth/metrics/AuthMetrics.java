@@ -90,6 +90,21 @@ public class AuthMetrics {
     counter("auth.rate_limit.rejected", "endpoint", endpoint);
   }
 
+  /** Writing the access-token deny entry failed; the revoked token stays valid until it expires. */
+  public void accessDenyWriteFailed() {
+    counter("auth.access_deny.write.failed");
+  }
+
+  /** The deny-list could not be read, so the token was accepted (fail-open). */
+  public void accessDenyCheckUnavailable() {
+    counter("auth.access_deny.check.unavailable");
+  }
+
+  /** A token was rejected because its subject is on the deny-list. */
+  public void accessDenyRejected() {
+    counter("auth.access_deny.rejected");
+  }
+
   private void counter(String name, String... tags) {
     Counter.builder(name).tags(tags).register(registry).increment();
   }

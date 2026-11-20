@@ -80,6 +80,8 @@ spring:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
+      # Fail fast: a stalled Redis must not stall the deny-list check (fail-open) on every request.
+      timeout: 500ms
 
   # Phase 10: audit.events producer only (fail-open; short block so an outage never stalls a request).
   kafka:

@@ -27,6 +27,17 @@ someone adds a second issuance path, that test goes red.
 
 ---
 
+## Access-token deny-list (ADR 0005)
+
+Disabling a user, or removing any of their roles, also writes `access-deny:{userId}` to the shared
+Redis after the admin transaction commits. The value is a cutoff in epoch seconds that only moves
+forward (an atomic Lua max); the TTL is the access-token TTL plus 60 s. Enabling a user never deletes
+it. The gateway and auth-service's own resource server reject any token for that user with
+`iat <=` cutoff (401), so a revoked access token stops working at the next request instead of at
+expiry. If Redis cannot be read the check fails open (WARN plus
+`*.access_deny.check.unavailable`); if the write fails, `auth.access_deny.write.failed` counts it.
+Downstream services do not check the deny-list (accepted residual risk, backlog B-8).
+
 ## User-snapshot cache (Phase 2 slice)
 
 Every successful call to `TokenService.issueTokenPair()` — password login, refresh rotation, Google

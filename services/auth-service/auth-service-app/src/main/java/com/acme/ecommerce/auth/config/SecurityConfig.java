@@ -1,6 +1,7 @@
 package com.acme.ecommerce.auth.config;
 
 import com.acme.ecommerce.auth.api.AuthErrorCode;
+import com.acme.ecommerce.auth.cache.AccessTokenDenyValidator;
 import com.acme.ecommerce.auth.error.ProblemResponseWriter;
 import com.acme.ecommerce.auth.oauth2.CookieOAuth2AuthorizationRequestRepository;
 import com.acme.ecommerce.auth.oauth2.OidcLoginFailureHandler;
@@ -216,7 +217,10 @@ public class SecurityConfig {
    * this issuer ever minted for any service would be accepted here.
    */
   @Bean
-  public JwtDecoder jwtDecoder(JwtKeyProvider keyProvider, AuthProperties properties) {
+  public JwtDecoder jwtDecoder(
+      JwtKeyProvider keyProvider,
+      AuthProperties properties,
+      AccessTokenDenyValidator denyValidator) {
     JWKSource<SecurityContext> keySource = new ImmutableJWKSet<>(keyProvider.publicJwkSet());
     ConfigurableJWTProcessor<SecurityContext> processor = new DefaultJWTProcessor<>();
     processor.setJWSKeySelector(new JWSVerificationKeySelector<>(JWSAlgorithm.RS256, keySource));
@@ -236,6 +240,7 @@ public class SecurityConfig {
         .map(AudienceValidator::new)
         .ifPresent(validators::add);
     validators.add(new UuidSubjectValidator());
+    validators.add(denyValidator);
     decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(validators));
     return decoder;
   }
