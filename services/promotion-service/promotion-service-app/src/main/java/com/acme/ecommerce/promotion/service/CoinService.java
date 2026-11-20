@@ -178,6 +178,106 @@ public class CoinService {
     }
   }
 
+  /**
+   * One refunded return: gives back its pro-rata share of the redeemed coins and reverses its share
+   * of the earned coins (floor, clamped to the balance). The completing return settles the exact
+   * remainder; every return is capped at N/E minus what earlier returns were due. Idempotent per
+   * return through {@code coin_return_reversals}.
+   */
+  @Transactional
+  public void onReturnRefunded(
+      UUID orderId,
+      UUID userId,
+      UUID returnId,
+      BigDecimal value,
+      BigDecimal orderValue,
+      boolean completes) {
+    lock(userId);
+    if (jdbc.sql(
+            "SELECT EXISTS (SELECT 1 FROM promotion.coin_return_reversals WHERE return_id = :r)")
+        .param("r", returnId)
+        .query(Boolean.class)
+        .single()) {
+      return;
+    }
+    String order = orderId.toString();
+    int redeemDue = dueFor(userId, orderId, value, orderValue, completes, true);
+    int earnDue = dueFor(userId, orderId, value, orderValue, completes, false);
+    if (redeemDue > 0) {
+      insert(userId, redeemDue, "REVERSE_ORDER", "return-redeem-" + returnId, null);
+    }
+    int taken = Math.min(earnDue, Math.max(0, balance(userId)));
+    if (taken > 0) {
+      insert(userId, -taken, "REVERSE_ORDER", "return-earn-" + returnId, null);
+    }
+    jdbc.sql(
+            "INSERT INTO promotion.coin_return_reversals (return_id, order_id, user_id, redeem_due,"
+                + " earn_due, earn_taken, completes) VALUES (:r, :o, :u, :rd, :ed, :et, :c)")
+        .param("r", returnId)
+        .param("o", orderId)
+        .param("u", userId)
+        .param("rd", redeemDue)
+        .param("ed", earnDue)
+        .param("et", taken)
+        .param("c", completes)
+        .update();
+    if (taken < earnDue) {
+      log.warn(
+          "COIN REVERSAL SHORTFALL order={} return={} user={} earnDue={} taken={}",
+          order,
+          returnId,
+          userId,
+          earnDue,
+          taken);
+    }
+  }
+
+  /** Coins due for this return: the order's total (N or E) less prior dues, floored share. */
+  private int dueFor(
+      UUID userId,
+      UUID orderId,
+      BigDecimal value,
+      BigDecimal orderValue,
+      boolean completes,
+      boolean redeem) {
+    String order = orderId.toString();
+    int total =
+        Math.abs(
+            jdbc.sql(
+                    "SELECT COALESCE(SUM(delta), 0) FROM promotion.coin_ledger WHERE reason = :re"
+                        + " AND reference_id = :r AND user_id = :u")
+                .param("re", redeem ? "REDEEM_ORDER" : "EARN_ORDER")
+                .param("r", order)
+                .param("u", userId)
+                .query(Integer.class)
+                .single());
+    int prior =
+        jdbc.sql(
+                "SELECT COALESCE(SUM("
+                    + (redeem ? "redeem_due" : "earn_due")
+                    + "), 0)"
+                    + " FROM promotion.coin_return_reversals WHERE order_id = :o")
+            .param("o", orderId)
+            .query(Integer.class)
+            .single();
+    if (exists("REVERSE_ORDER", (redeem ? "redeem-" : "earn-") + order, userId)) {
+      prior += total;
+    }
+    int remaining = Math.max(0, total - prior);
+    if (completes) {
+      return remaining;
+    }
+    if (orderValue == null || value == null || orderValue.signum() <= 0) {
+      return 0;
+    }
+    int share =
+        BigDecimal.valueOf(total)
+            .multiply(value)
+            .divide(orderValue, 0, RoundingMode.DOWN)
+            .intValue();
+    return Math.min(share, remaining);
+  }
+
   private void referralReward(UUID refereeId) {
     if (exists("REFERRAL", "referee-" + refereeId, refereeId)) {
       return;

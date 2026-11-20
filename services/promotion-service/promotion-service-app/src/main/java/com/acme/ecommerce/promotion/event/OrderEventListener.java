@@ -36,7 +36,11 @@ public class OrderEventListener {
     if (e == null || e.type() == null || e.orderId() == null || e.userId() == null) {
       return;
     }
-    if (e.occurredAt() != null
+    boolean perReturn =
+        "RETURN_REFUNDED".equals(e.type()) && e.returnId() != null && e.returnItemsValue() != null;
+    // Per-return reversals are idempotent per return, so a late replay is safe: no age gate.
+    if (!perReturn
+        && e.occurredAt() != null
         && Instant.parse(e.occurredAt())
             .isBefore(
                 Instant.now().minus(Duration.ofDays(props.getCoins().getMaxEventAgeDays())))) {
@@ -46,6 +50,14 @@ public class OrderEventListener {
     UUID userId = UUID.fromString(e.userId());
     if ("ORDER_STATUS_CHANGED".equals(e.type()) && "DELIVERED".equals(e.status())) {
       coins.onDelivered(orderId, userId, e.totalAmount(), e.currency());
+    } else if (perReturn) {
+      coins.onReturnRefunded(
+          orderId,
+          userId,
+          UUID.fromString(e.returnId()),
+          e.returnItemsValue(),
+          e.orderItemsValue(),
+          "REFUNDED".equals(e.paymentStatus()));
     } else if ("RETURN_REFUNDED".equals(e.type()) && "REFUNDED".equals(e.paymentStatus())) {
       coins.onFullyRefunded(orderId, userId);
     }

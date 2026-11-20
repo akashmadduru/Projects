@@ -14,4 +14,7 @@ public record OrderEvent(
     String paymentStatus,
     BigDecimal totalAmount,
     String currency,
-    String occurredAt) {}
+    String occurredAt,
+    String returnId,
+    BigDecimal returnItemsValue,
+    BigDecimal orderItemsValue) {}
