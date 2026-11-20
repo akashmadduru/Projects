@@ -45,6 +45,7 @@ class ReturnServiceRefundTest {
   private final TransactionTemplate tx = mock(TransactionTemplate.class);
   private final ReturnService service = new ReturnService(store, remote, events, tx);
 
+  private static final java.time.Instant LEASE = java.time.Instant.parse("2026-11-21T10:00:00Z");
   private final UUID id = UUID.randomUUID();
   private final UUID orderId = UUID.randomUUID();
   private final UUID userId = UUID.randomUUID();
@@ -72,7 +73,7 @@ class ReturnServiceRefundTest {
   void setUp() {
     when(tx.execute(any()))
         .thenAnswer(i -> ((TransactionCallback<Object>) i.getArgument(0)).doInTransaction(null));
-    when(store.claimRefundLease(id)).thenReturn(true);
+    when(store.claimRefundLease(id)).thenReturn(LEASE);
     when(store.completeRefund(id)).thenReturn(new ReturnOutcome(response(), null));
   }
 
@@ -139,7 +140,7 @@ class ReturnServiceRefundTest {
         .refund(orderId, new BigDecimal("70.00"), "Return refunded", "return-" + id, null);
     order.verify(store).setRestLegState(id, "SUCCEEDED");
     verifyFinalizedOnce();
-    verify(store).releaseRefundLease(id);
+    verify(store).releaseRefundLease(id, LEASE);
   }
 
   @Test
@@ -157,7 +158,7 @@ class ReturnServiceRefundTest {
     verify(store, never()).bumpRestLegAttempt(any(), anyInt());
     verify(remote, never()).refund(any(), any(), any(), eq("return-" + id + "-r1"), any());
     verifyNotFinalized();
-    verify(store).releaseRefundLease(id);
+    verify(store).releaseRefundLease(id, LEASE);
   }
 
   @Test
@@ -328,7 +329,7 @@ class ReturnServiceRefundTest {
   @DisplayName("a second caller while the lease is held gets 409 and touches nothing")
   void refundInProgress() {
     when(store.refundPlan(id)).thenReturn(split());
-    when(store.claimRefundLease(id)).thenReturn(false);
+    when(store.claimRefundLease(id)).thenReturn(null);
 
     assertThatThrownBy(() -> service.refund(id))
         .isInstanceOfSatisfying(
@@ -336,7 +337,7 @@ class ReturnServiceRefundTest {
             e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.RESOURCE_CONFLICT));
 
     verifyNoInteractions(remote, events);
-    verify(store, never()).releaseRefundLease(any());
+    verify(store, never()).releaseRefundLease(any(), any());
   }
 
   // ---- resumePending (watch) ------------------------------------------------------------
@@ -357,7 +358,7 @@ class ReturnServiceRefundTest {
         .refund(orderId, new BigDecimal("70.00"), "Return refunded", "return-" + id, null);
     verify(store).setRestLegState(id, "SUCCEEDED");
     verifyFinalizedOnce();
-    verify(store).releaseRefundLease(id);
+    verify(store).releaseRefundLease(id, LEASE);
   }
 
   @Test
@@ -388,12 +389,12 @@ class ReturnServiceRefundTest {
   @Test
   @DisplayName("resumePending does nothing without the lease")
   void resumeWithoutLease() {
-    when(store.claimRefundLease(id)).thenReturn(false);
+    when(store.claimRefundLease(id)).thenReturn(null);
 
     service.resumePending(id);
 
     verifyNoInteractions(remote, events);
-    verify(store, never()).releaseRefundLease(any());
+    verify(store, never()).releaseRefundLease(any(), any());
   }
 
   @Test

@@ -25,18 +25,25 @@ public interface OrderReturnRepository extends JpaRepository<OrderReturn, UUID> 
   @Modifying(clearAutomatically = true, flushAutomatically = true)
   @Query(
       value =
-          "UPDATE orders.order_returns SET refund_lease_until = now() + interval '2 minutes'"
+          "UPDATE orders.order_returns SET refund_lease_until = :until"
               + " WHERE id = :id AND status = 'PICKED_UP'"
               + " AND (refund_lease_until IS NULL OR refund_lease_until < now())",
       nativeQuery = true)
-  int claimRefundLease(@org.springframework.data.repository.query.Param("id") UUID id);
+  int claimRefundLease(
+      @org.springframework.data.repository.query.Param("id") UUID id,
+      @org.springframework.data.repository.query.Param("until") java.time.Instant until);
 
+  /** Frees the lease only if it is still the one this caller took (it may have expired). */
   @Transactional
   @Modifying(clearAutomatically = true, flushAutomatically = true)
   @Query(
-      value = "UPDATE orders.order_returns SET refund_lease_until = NULL WHERE id = :id",
+      value =
+          "UPDATE orders.order_returns SET refund_lease_until = NULL"
+              + " WHERE id = :id AND refund_lease_until = :mine",
       nativeQuery = true)
-  int releaseRefundLease(@org.springframework.data.repository.query.Param("id") UUID id);
+  int releaseRefundLease(
+      @org.springframework.data.repository.query.Param("id") UUID id,
+      @org.springframework.data.repository.query.Param("mine") java.time.Instant mine);
 
   /** Starts the next card-leg key; 0 rows when another caller already did (the loser gets 409). */
   @Transactional

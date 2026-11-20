@@ -603,14 +603,17 @@ public class OrderStore {
   }
 
   /**
-   * The 2-minute refund lease; false when another caller holds it or the return is not PICKED_UP.
+   * The 2-minute refund lease: returns its stamp, or null when another caller holds it or the
+   * return is not PICKED_UP. Release it with the same stamp.
    */
-  public boolean claimRefundLease(UUID returnId) {
-    return returns.claimRefundLease(returnId) == 1;
+  public Instant claimRefundLease(UUID returnId) {
+    Instant until = Instant.now().plus(2, ChronoUnit.MINUTES).truncatedTo(ChronoUnit.MICROS);
+    return returns.claimRefundLease(returnId, until) == 1 ? until : null;
   }
 
-  public void releaseRefundLease(UUID returnId) {
-    returns.releaseRefundLease(returnId);
+  /** Holder-scoped: a caller whose lease expired and was taken over frees nothing. */
+  public void releaseRefundLease(UUID returnId, Instant stamp) {
+    returns.releaseRefundLease(returnId, stamp);
   }
 
   /** Starts the next card-leg key; false when another caller already moved the attempt on. */

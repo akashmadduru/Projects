@@ -11,6 +11,7 @@ import com.acme.ecommerce.order.event.OrderEventPublisher;
 import com.acme.ecommerce.order.event.OrderEventType;
 import com.acme.ecommerce.order.service.OrderStore.ReturnOutcome;
 import com.acme.ecommerce.order.service.OrderStore.ReturnRefundPlan;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import java.util.function.Supplier;
@@ -85,7 +86,8 @@ public class ReturnService {
     if (store.refundPlan(returnId).status() == ReturnStatus.REFUNDED) {
       return store.view(returnId);
     }
-    if (!store.claimRefundLease(returnId)) {
+    Instant lease = store.claimRefundLease(returnId);
+    if (lease == null) {
       if (store.refundPlan(returnId).status() == ReturnStatus.REFUNDED) {
         return store.view(returnId);
       }
@@ -94,7 +96,7 @@ public class ReturnService {
     try {
       return runLegs(store.freezeLegs(returnId));
     } finally {
-      store.releaseRefundLease(returnId);
+      store.releaseRefundLease(returnId, lease);
     }
   }
 
@@ -177,7 +179,8 @@ public class ReturnService {
    * an admin retry; PENDING does nothing.
    */
   public void resumePending(UUID returnId) {
-    if (!store.claimRefundLease(returnId)) {
+    Instant lease = store.claimRefundLease(returnId);
+    if (lease == null) {
       return;
     }
     try {
@@ -198,7 +201,7 @@ public class ReturnService {
             plan.orderId());
       }
     } finally {
-      store.releaseRefundLease(returnId);
+      store.releaseRefundLease(returnId, lease);
     }
   }
 }

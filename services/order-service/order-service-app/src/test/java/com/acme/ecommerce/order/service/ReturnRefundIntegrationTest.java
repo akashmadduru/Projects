@@ -212,10 +212,30 @@ class ReturnRefundIntegrationTest extends AbstractOrderIntegrationTest {
   void leaseWinsOnce() {
     UUID id = pickedUpReturn("0");
 
-    assertThat(store.claimRefundLease(id)).isTrue();
-    assertThat(store.claimRefundLease(id)).isFalse();
-    store.releaseRefundLease(id);
-    assertThat(store.claimRefundLease(id)).isTrue();
+    java.time.Instant mine = store.claimRefundLease(id);
+    assertThat(mine).isNotNull();
+    assertThat(store.claimRefundLease(id)).isNull();
+    store.releaseRefundLease(id, mine);
+    assertThat(store.claimRefundLease(id)).isNotNull();
+  }
+
+  @Test
+  @DisplayName("a holder whose lease expired cannot free the lease the next caller took")
+  void releaseIsHolderScoped() {
+    UUID id = pickedUpReturn("0");
+    java.time.Instant stale = store.claimRefundLease(id);
+    jdbc.update(
+        "update orders.order_returns set refund_lease_until = now() - interval '1 second'"
+            + " where id = ?",
+        id);
+    java.time.Instant next = store.claimRefundLease(id);
+    assertThat(next).isNotNull();
+
+    store.releaseRefundLease(id, stale);
+
+    assertThat(store.claimRefundLease(id)).isNull();
+    store.releaseRefundLease(id, next);
+    assertThat(store.claimRefundLease(id)).isNotNull();
   }
 
   @Test
@@ -224,7 +244,7 @@ class ReturnRefundIntegrationTest extends AbstractOrderIntegrationTest {
     UUID id = pickedUpReturn("0");
     jdbc.update("update orders.order_returns set status = 'REFUNDED' where id = ?", id);
 
-    assertThat(store.claimRefundLease(id)).isFalse();
+    assertThat(store.claimRefundLease(id)).isNull();
   }
 
   @Test
