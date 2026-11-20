@@ -296,15 +296,22 @@ public class OrderRemote {
 
   /**
    * Strict refund; destination SOURCE (default) or WALLET. Returns the status of the refund row for
-   * this key: PENDING, SUCCEEDED or FAILED. A null from payment-service is read as SUCCEEDED, which
-   * is only safe once payment-service runs the version that sends it: deploy payment-service first.
+   * this key: PENDING, SUCCEEDED or FAILED. A null from an older payment-service is read as
+   * SUCCEEDED for a wallet destination and as PENDING for a refund to the card (deploy
+   * payment-service first).
    */
   public String refund(
       UUID orderId, BigDecimal amount, String reason, String idempotencyKey, String destination) {
     try {
       var result =
           payments.refund(orderId, new RefundRequest(amount, reason, idempotencyKey, destination));
-      return result == null || result.refundStatus() == null ? "SUCCEEDED" : result.refundStatus();
+      if (result != null && result.refundStatus() != null) {
+        return result.refundStatus();
+      }
+      // An older payment-service. A wallet destination is final in that version; a refund to the
+      // card may still be PENDING there, so it is never read as done (the watch replays it).
+      log.warn("payment-service sent no refundStatus for order {} (key {})", orderId, idempotencyKey);
+      return "WALLET".equals(destination) ? "SUCCEEDED" : "PENDING";
     } catch (FeignException e) {
       throw RemoteCalls.translate("payment-service", e);
     }

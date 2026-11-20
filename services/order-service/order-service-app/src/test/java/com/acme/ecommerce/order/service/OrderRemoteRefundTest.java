@@ -45,12 +45,13 @@ class OrderRemoteRefundTest {
   }
 
   @Test
-  @DisplayName("a null refundStatus (older payment-service) is read as SUCCEEDED")
-  void nullIsSucceeded() {
+  @DisplayName("a null refundStatus for a card refund is PENDING, for a wallet destination SUCCEEDED")
+  void nullStatus() {
     when(payments.refund(any(), any()))
         .thenReturn(new RefundResult("REFUNDED", BigDecimal.TEN, null));
 
-    assertThat(refund()).isEqualTo("SUCCEEDED");
+    assertThat(refund()).isEqualTo("PENDING");
+    assertThat(remote.refund(order, BigDecimal.TEN, "r", "k", "WALLET")).isEqualTo("SUCCEEDED");
   }
 
   private static FeignException failure(int status, String body) {
