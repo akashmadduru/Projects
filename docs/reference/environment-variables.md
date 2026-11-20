@@ -53,7 +53,7 @@ service-level setting (add it under that service's `env:` in `values.yaml`). Rel
 | `AUTH_DEFAULT_REDIRECT_URI` | auth | `http://localhost:5173/auth/callback` |  | .env + helm | Redirect used when the caller does not name one. |
 | `AUTH_JWT_AUDIENCES` | all services | `ecommerce-platform` |  | .env + helm | Token audience (`aud`). Same rule as the issuer. |
 | `AUTH_JWT_ISSUER` | all services | `https://auth.acme-ecommerce.internal` |  | .env + helm | Token issuer (`iss`). Must be identical in auth-service, the gateway and every resource server, or every request fails with `invalid_token`. |
-| `AUTH_PHONE_CLAIM_NOTICE_WINDOW` | auth | `24h` |  | - | Minimum gap between "someone tried to add your number" emails to the same owner (Redis `SET NX` TTL). A Redis outage skips the notice. |
+| `AUTH_PHONE_CLAIM_NOTICE_WINDOW` | auth | `24h` |  | - | Minimum gap between "someone tried to add your number" emails to the same owner (Redis SET NX TTL). A Redis outage skips the notice. |
 | `AUTH_RATE_LIMIT_LOGIN_CAPACITY` | auth | `10` |  | compose | Login attempts per window per client (in-memory, per instance). |
 | `AUTH_RATE_LIMIT_REFRESH_CAPACITY` | auth | `60` |  | compose | Token refreshes per window per client (in-memory, per instance). |
 | `AUTH_REGISTRATION_ENABLED` | auth | `false` |  | .env + helm | Allows self-service sign-up. Default `false`; the local template and the AWS chart turn it on so you can register the first admin. Turn it off again once your accounts exist. |

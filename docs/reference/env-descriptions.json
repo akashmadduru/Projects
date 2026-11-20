@@ -113,6 +113,10 @@
       "group": "Identity and tokens",
       "text": "Redirect used when the caller does not name one."
     },
+    "AUTH_PHONE_CLAIM_NOTICE_WINDOW": {
+      "group": "Identity and tokens",
+      "text": "Minimum gap between \"someone tried to add your number\" emails to the same owner (Redis SET NX TTL). A Redis outage skips the notice."
+    },
     "AUTH_RATE_LIMIT_LOGIN_CAPACITY": {
       "group": "Identity and tokens",
       "text": "Login attempts per window per client (in-memory, per instance)."
