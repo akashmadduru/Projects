@@ -199,6 +199,9 @@ public class ReturnService {
                 + " retry it from the admin",
             returnId,
             plan.orderId());
+      } else {
+        // Still PENDING: touch updated_at so the oldest-first 50-row window rotates to others.
+        store.setRestLegState(returnId, "PENDING");
       }
     } finally {
       store.releaseRefundLease(returnId, lease);

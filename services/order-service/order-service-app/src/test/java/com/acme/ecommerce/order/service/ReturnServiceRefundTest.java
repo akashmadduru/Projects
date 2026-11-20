@@ -375,14 +375,14 @@ class ReturnServiceRefundTest {
   }
 
   @Test
-  @DisplayName("a leg still PENDING is left alone")
+  @DisplayName("a leg still PENDING is left PENDING and touched so the watch rotates")
   void resumeStillPending() {
     when(store.refundPlan(id)).thenReturn(pending());
     when(remote.refund(any(), any(), anyString(), anyString(), any())).thenReturn("PENDING");
 
     service.resumePending(id);
 
-    verify(store, never()).setRestLegState(any(), anyString());
+    verify(store).setRestLegState(id, "PENDING");
     verifyNotFinalized();
   }
 

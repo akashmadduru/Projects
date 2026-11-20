@@ -332,12 +332,13 @@ class ReturnRefundIntegrationTest extends AbstractOrderIntegrationTest {
   }
 
   @Test
-  @DisplayName("a pre-V13 row (no leg progress, wallet already credited) retries on the same key")
+  @DisplayName("a row with no recorded leg progress retries on the same keys (wallet replayed once)")
   void preMigrationRowRetries() {
     UUID id = pickedUpReturn("30");
     paymentReplies("SUCCEEDED");
 
-    // Same state an old build leaves behind: legs not frozen, nothing recorded.
+    // Run the refund once (the wallet credit and card refund happen), then erase the progress
+    // columns so the row looks like one an old build left PICKED_UP: money moved, nothing recorded.
     returns.refund(id);
     jdbc.update(
         "update orders.order_returns set status = 'PICKED_UP', wallet_leg_amount = null,"
