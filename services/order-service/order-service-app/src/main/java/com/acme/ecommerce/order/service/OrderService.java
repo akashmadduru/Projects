@@ -44,6 +44,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -138,6 +139,7 @@ public class OrderService {
         addressOverride != null ? addressOverride : fetchAddress(req.addressId());
     List<DealClaimItem> dealClaims = new ArrayList<>();
     Map<UUID, String> sellerNames = new LinkedHashMap<>();
+    Set<UUID> ownerlessOffers = new java.util.HashSet<>();
     Order order =
         draft(
             userId,
@@ -148,6 +150,7 @@ public class OrderService {
             method,
             dealClaims,
             sellerNames,
+            ownerlessOffers,
             lineDiscountPercent);
     String currency = order.getCurrency();
 
@@ -290,7 +293,11 @@ public class OrderService {
             .map(
                 i ->
                     new OrderRemote.StockLine(
-                        i.productId(), i.variantId(), i.offerId(), i.quantity(), i.sellerId()))
+                        i.productId(),
+                        i.variantId(),
+                        i.offerId(),
+                        i.quantity(),
+                        ownerlessOffers.contains(i.offerId()) ? null : i.sellerId()))
             .toList();
 
     List<Allocation> allocations;
@@ -560,6 +567,7 @@ public class OrderService {
       PaymentMethod method,
       List<DealClaimItem> dealClaims,
       Map<UUID, String> sellerNames,
+      Set<UUID> ownerlessOffers,
       int lineDiscountPercent) {
     List<ProductView> views = new ArrayList<>();
     for (Line line : lines) {
@@ -604,11 +612,12 @@ public class OrderService {
         if (offer.sellerId() != null) {
           sellerId = offer.sellerId();
         } else if (offerId != null) {
-          // Unknown owner: send no sellerId so inventory resolves the owner itself (and rejects
-          // the line if it cannot); the order item takes the owner from the allocation.
-          sellerId = null;
+          // Unknown owner: the stored item stays PLATFORM (the column is never null and cannot be
+          // updated later), but the reserve line carries no sellerId, so inventory resolves the
+          // owner itself and rejects the line if it cannot.
+          ownerlessOffers.add(offerId);
         }
-        if (offer.sellerName() != null && sellerId != null) {
+        if (offer.sellerName() != null) {
           sellerNames.putIfAbsent(sellerId, offer.sellerName());
         }
         if (line.offerId() != null) {

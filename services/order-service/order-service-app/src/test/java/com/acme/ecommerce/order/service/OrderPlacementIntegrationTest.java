@@ -190,9 +190,12 @@ class OrderPlacementIntegrationTest extends AbstractOrderIntegrationTest {
               assertThat(l.offerId()).isEqualTo(offerId);
               assertThat(l.sellerId()).isNull();
             });
-    assertThat(sellerIds("order_shipments", placed.order().id())).containsExactly(owner);
-    // DEFECT (reported, not asserted): order_items.seller_id is updatable=false, so Order.attach's
-    // item.tagOffer(...) on the reloaded order is never persisted; the column stays null.
+    // The reserve line carried no owner, but the stored item and its shipment are never NULL:
+    // both stay PLATFORM (item and shipment agree).
+    assertThat(sellerIds("order_items", placed.order().id()))
+        .containsExactly(Order.PLATFORM_SELLER);
+    assertThat(sellerIds("order_shipments", placed.order().id()))
+        .containsExactly(Order.PLATFORM_SELLER);
   }
 
   @Test
@@ -234,6 +237,8 @@ class OrderPlacementIntegrationTest extends AbstractOrderIntegrationTest {
                 null,
                 null));
 
+    assertThat(sellerIds("order_items", placed.order().id()))
+        .containsExactly(Order.PLATFORM_SELLER);
     assertThat(sellerIds("order_shipments", placed.order().id()))
         .containsExactly(Order.PLATFORM_SELLER);
   }
