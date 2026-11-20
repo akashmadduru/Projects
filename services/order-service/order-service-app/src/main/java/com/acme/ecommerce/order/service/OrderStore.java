@@ -717,8 +717,9 @@ public class OrderStore {
   @Transactional
   public ReturnOutcome completeRefund(UUID returnId) {
     OrderReturn r = findReturn(returnId);
+    // Lock first: sibling finalizes then run one at a time and each sees the other's status.
+    Order o = orders.lockById(r.getOrder().getId()).orElseThrow();
     r.markRefunded(Instant.now());
-    Order o = r.getOrder();
     // Not by amount: a shipping-carrying return refunded first must not close the order early.
     o.recordRefund(r.getRefundAmount(), o.fullyRefunded());
     orders.flush();

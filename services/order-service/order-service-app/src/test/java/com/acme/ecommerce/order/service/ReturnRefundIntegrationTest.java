@@ -332,7 +332,8 @@ class ReturnRefundIntegrationTest extends AbstractOrderIntegrationTest {
   }
 
   @Test
-  @DisplayName("a row with no recorded leg progress retries on the same keys (wallet replayed once)")
+  @DisplayName(
+      "a row with no recorded leg progress retries on the same keys (wallet replayed once)")
   void preMigrationRowRetries() {
     UUID id = pickedUpReturn("30");
     paymentReplies("SUCCEEDED");

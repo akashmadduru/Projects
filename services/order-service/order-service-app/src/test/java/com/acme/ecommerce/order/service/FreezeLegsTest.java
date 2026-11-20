@@ -186,7 +186,8 @@ class FreezeLegsTest {
   }
 
   @Test
-  @DisplayName("the shipping-carrying return refunded first does not close the order or the other return")
+  @DisplayName(
+      "the shipping-carrying return refunded first does not close the order or the other return")
   void completingReturnRefundedFirst() {
     Order o = order(PaymentMethod.CARD, 3, "100.00", "0", "0", "40.00", "0");
     OrderReturn partial = pickedUp(o, 1, "SOURCE");

@@ -495,7 +495,10 @@ public class Order {
   public boolean fullyRefunded() {
     return remainingReturnable(null).values().stream().allMatch(q -> q == 0)
         && returns.stream()
-            .allMatch(r -> r.getStatus() == ReturnStatus.REJECTED || r.getStatus() == ReturnStatus.REFUNDED);
+            .allMatch(
+                r ->
+                    r.getStatus() == ReturnStatus.REJECTED
+                        || r.getStatus() == ReturnStatus.REFUNDED);
   }
 
   /** Records a refund against this order and updates the payment status accordingly. */

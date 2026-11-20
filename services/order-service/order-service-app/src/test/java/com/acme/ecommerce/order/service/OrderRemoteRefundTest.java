@@ -45,7 +45,8 @@ class OrderRemoteRefundTest {
   }
 
   @Test
-  @DisplayName("a null refundStatus for a card refund is PENDING, for a wallet destination SUCCEEDED")
+  @DisplayName(
+      "a null refundStatus for a card refund is PENDING, for a wallet destination SUCCEEDED")
   void nullStatus() {
     when(payments.refund(any(), any()))
         .thenReturn(new RefundResult("REFUNDED", BigDecimal.TEN, null));
