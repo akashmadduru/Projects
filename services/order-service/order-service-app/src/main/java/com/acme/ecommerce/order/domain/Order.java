@@ -491,6 +491,13 @@ public class Order {
     record(target, note, HistoryActor.ADMIN, now);
   }
 
+  /** Every line is returned and every live return is refunded (shipping does not matter). */
+  public boolean fullyRefunded() {
+    return remainingReturnable(null).values().stream().allMatch(q -> q == 0)
+        && returns.stream()
+            .allMatch(r -> r.getStatus() == ReturnStatus.REJECTED || r.getStatus() == ReturnStatus.REFUNDED);
+  }
+
   /** Records a refund against this order and updates the payment status accordingly. */
   public void recordRefund(BigDecimal amount, boolean full) {
     refundedAmount = refundedAmount.add(amount);

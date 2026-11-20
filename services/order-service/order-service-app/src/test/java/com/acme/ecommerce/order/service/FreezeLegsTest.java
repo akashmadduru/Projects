@@ -12,6 +12,7 @@ import com.acme.ecommerce.order.domain.Order.ShipTo;
 import com.acme.ecommerce.order.domain.OrderReturn;
 import com.acme.ecommerce.order.domain.OrderStatus;
 import com.acme.ecommerce.order.domain.PaymentMethod;
+import com.acme.ecommerce.order.domain.PaymentStatus;
 import com.acme.ecommerce.order.domain.Pricing;
 import com.acme.ecommerce.order.domain.ReturnReason;
 import com.acme.ecommerce.order.repository.OrderRepository;
@@ -180,6 +181,28 @@ class FreezeLegsTest {
 
     assertThat(plan.wallet()).isEqualByComparingTo("33.33");
     assertThat(plan.rest()).isEqualByComparingTo("66.67");
+  }
+
+  @Test
+  @DisplayName("the shipping-carrying return refunded first does not close the order or the other return")
+  void completingReturnRefundedFirst() {
+    Order o = order(PaymentMethod.CARD, 3, "100.00", "0", "0", "40.00", "0");
+    OrderReturn partial = pickedUp(o, 1, "SOURCE");
+    OrderReturn completing = pickedUp(o, 2, "SOURCE");
+    assertThat(completing.getShippingRefund()).isEqualByComparingTo("40.00");
+
+    freeze(completing);
+    when(returnsRepo.findById(any())).thenReturn(Optional.of(completing));
+    store.completeRefund(UUID.randomUUID());
+
+    assertThat(o.getPaymentStatus()).isEqualTo(PaymentStatus.PARTIALLY_REFUNDED);
+    ReturnRefundPlan plan = freeze(partial);
+    assertThat(plan.route()).isEqualTo("PAYMENT_SOURCE");
+    assertThat(plan.rest()).isEqualByComparingTo("100.00");
+
+    when(returnsRepo.findById(any())).thenReturn(Optional.of(partial));
+    store.completeRefund(UUID.randomUUID());
+    assertThat(o.getPaymentStatus()).isEqualTo(PaymentStatus.REFUNDED);
   }
 
   @Test

@@ -683,7 +683,8 @@ public class OrderStore {
     boolean paid =
         o.getPaymentStatus() == PaymentStatus.PAID
             || o.getPaymentStatus() == PaymentStatus.COD_COLLECTED
-            || o.getPaymentStatus() == PaymentStatus.PARTIALLY_REFUNDED;
+            || o.getPaymentStatus() == PaymentStatus.PARTIALLY_REFUNDED
+            || o.getPaymentStatus() == PaymentStatus.REFUNDED;
     if (!paid) {
       return "NONE";
     }
@@ -714,9 +715,8 @@ public class OrderStore {
     OrderReturn r = findReturn(returnId);
     r.markRefunded(Instant.now());
     Order o = r.getOrder();
-    BigDecimal itemsValue = o.paidItemsValue();
-    boolean full = o.getRefundedAmount().add(r.getRefundAmount()).compareTo(itemsValue) >= 0;
-    o.recordRefund(r.getRefundAmount(), full);
+    // Not by amount: a shipping-carrying return refunded first must not close the order early.
+    o.recordRefund(r.getRefundAmount(), o.fullyRefunded());
     orders.flush();
     return new ReturnOutcome(mapper.toResponse(r), mapper.toResponse(o));
   }
