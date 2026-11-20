@@ -353,6 +353,18 @@ org.postgresql.util.PSQLException: duplicate key value violates unique constrain
 
 ---
 
+## Return coin reversals
+
+Each refunded return gives back its pro-rata share of the order's redeemed coins and reverses its share of the earned coins in promotion-service (`CoinService.onReturnRefunded`). Coins never block the money refund: the event rides the order-service outbox.
+
+- **Deploy order:** deploy promotion-service BEFORE order-service. Old order-service events still work (legacy path); the new event fields are ignored by an old promotion-service.
+- **Rollback:** an old promotion-service runs `onFullyRefunded` on a completing return even when per-return reversals exist. That is an over-reversal, clamped to the balance. Roll back only before any completing return is refunded, or accept the clamped over-reversal.
+- **Shortfall:** when the user already spent the coins, the reversal is clamped to the balance and the log carries `COIN REVERSAL SHORTFALL order=... return=... earnDue=... taken=...`. `promotion.coin_return_reversals` records `earn_due` and `earn_taken` for every return, also when `earn_taken` is 0 (a ledger row cannot hold 0). Shortfall is `earn_due - earn_taken`; it is not recovered later.
+- **Replaying a DLT:** safe. Each return is applied once (primary key `return_id`, checked under the per-user lock). `RETURN_REFUNDED` events with a `returnId` are not dropped by the 2-day age gate, so a late replay still applies.
+- **Privacy:** `coin_return_reversals` is retained on USER_DELETED like the coin ledger and is not part of `PrivacyExportController`. Backlog: add it to the export.
+
+---
+
 ## Deployment
 
 Production deployment is not done from this page:

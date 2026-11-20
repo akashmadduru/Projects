@@ -168,6 +168,8 @@ class OutboxIntegrationTest extends AbstractOrderIntegrationTest {
             null,
             null,
             null,
+            null,
+            null,
             null);
     outbox.enqueue(Kind.ORDER_EVENT, order, event, "event:" + eventId);
 

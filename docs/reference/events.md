@@ -36,7 +36,7 @@ Each topic `X` also has a dead-letter topic `X.DLT` (see [failure handling](#fai
 | `inventory.events` | `cart-alerts-inventory` | cart-service `AlertEventConsumers` (back-in-stock alerts) | **latest** |
 | `rating.events` | `product-service-rating-listener` | product-service `RatingEventListener` | earliest |
 | `order.events` | `notification-service-order-listener` | notification-service `OrderEventListener` | earliest |
-| `order.events` | `promotion-service-order-listener` | promotion-service `OrderEventListener` (coins on `DELIVERED`) | earliest |
+| `order.events` | `promotion-service-order-listener` | promotion-service `OrderEventListener` (coins on `DELIVERED`; per-return coin reversal on `RETURN_REFUNDED`, which skips the 2-day age gate when it carries `returnId`) | earliest |
 | `order.events` | `seller-service-ledger` | seller-service `OrderEventConsumer` (settlement ledger) | **earliest** (since 2026-11-17; the ledger is idempotent, so a replay books nothing twice) |
 | `user.events` | `<service>-privacy` | `UserDeletedListener` in auth, cart, notification, order, payment, promotion, rating, seller, support | earliest |
 | `audit.events` | `support-service-audit` | support-service `AuditConsumer` | earliest |
@@ -66,7 +66,8 @@ A field change must be made on both sides in the same change. All payloads are J
 | `INVENTORY_QUANTITY_CHANGED` | product-service sets the display-only `lastKnownQuantity`. cart-service checks back-in-stock alerts. |
 | `INVENTORY_PROVISIONING_FAILED` | product-service compensates the create (the saga's failure path, [Phase 3](../phases/phase-03-catalog-enrichment-and-saga.md)). |
 | `RATING_*` | product-service treats the event only as a trigger: it fetches the authoritative summary from rating-service over Feign and overwrites `average_rating`, `rating_count`, `review_count`, `rating_distribution`. Replays and out-of-order events therefore converge. |
-| `order.events` | notification-service sends email and inbox messages; promotion-service credits coins on delivery; seller-service books sale, commission and fee on shipment delivery and reverses them on return. |
+| `order.events` | notification-service sends email and inbox messages; promotion-service credits coins on delivery and, per refunded return, gives back redeemed coins and reverses earned coins pro rata (`coin_return_reversals`); seller-service books sale, commission and fee on shipment delivery and reverses them on return. |
+| `RETURN_REFUNDED` fields | order-service adds `returnItemsValue` (sum of unit price x quantity of the return) and `orderItemsValue` (order subtotal) to RETURN_* events, null otherwise. promotion-service's copy reads `returnId`, `returnItemsValue`, `orderItemsValue`; `paymentStatus=REFUNDED` marks the completing return. Events without them take the legacy full-refund path and keep the age gate. |
 | `USER_DELETED` | each service anonymises or deletes its own data for that user. |
 | `audit.events` | support-service stores the record for `GET /api/admin/audit`. |
 

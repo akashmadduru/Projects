@@ -10,7 +10,8 @@ import java.util.UUID;
  * <p>Phase 9 additions (additive): {@code shipments} (every shipment of the order), {@code
  * shipmentId} (SHIPMENT_STATUS_CHANGED: the shipment that moved; {@code status} and the tracking
  * fields are then that shipment's), {@code returnShipmentId}/{@code returnId}/{@code refundAmount}
- * (RETURN_* events).
+ * (RETURN_* events); {@code returnItemsValue}/{@code orderItemsValue} (RETURN_*: items value of the
+ * return and of the order, for pro-rata coins).
  */
 public record OrderEvent(
     UUID eventId,
@@ -33,7 +34,9 @@ public record OrderEvent(
     UUID shipmentId,
     UUID returnId,
     UUID returnShipmentId,
-    BigDecimal refundAmount) {
+    BigDecimal refundAmount,
+    BigDecimal returnItemsValue,
+    BigDecimal orderItemsValue) {
 
   /** One shipment of the order; {@code amount} = items value of that shipment (seller gross). */
   public record ShipmentInfo(

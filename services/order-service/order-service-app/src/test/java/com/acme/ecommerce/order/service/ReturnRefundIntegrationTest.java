@@ -9,6 +9,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.acme.ecommerce.common.core.error.CodedException;
@@ -18,6 +19,7 @@ import com.acme.ecommerce.order.api.dto.AdminRequests.ReturnTarget;
 import com.acme.ecommerce.order.api.dto.ReturnResponse;
 import com.acme.ecommerce.order.client.PaymentFeignClient;
 import com.acme.ecommerce.order.client.PaymentFeignClient.RefundResult;
+import com.acme.ecommerce.order.client.PromotionFeignClient;
 import com.acme.ecommerce.order.domain.Order;
 import com.acme.ecommerce.order.domain.Order.ReturnLine;
 import com.acme.ecommerce.order.domain.Order.ShipTo;
@@ -59,6 +61,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 class ReturnRefundIntegrationTest extends AbstractOrderIntegrationTest {
 
   @MockitoBean private PaymentFeignClient payments;
+  @MockitoBean private PromotionFeignClient promotions;
   @MockitoSpyBean private OrderEventPublisher events;
 
   @Autowired private ReturnService returns;
@@ -280,6 +283,28 @@ class ReturnRefundIntegrationTest extends AbstractOrderIntegrationTest {
                 BigDecimal.class,
                 id))
         .isEqualByComparingTo("10.00");
+  }
+
+  @Test
+  @DisplayName("AC-14..16: the refund event carries the coin feed and promotion is never called")
+  void eventCarriesCoinFeed() {
+    UUID id = pickedUpReturn("30");
+    UUID orderId = orderOf(id);
+    paymentReplies("SUCCEEDED");
+
+    returns.refund(id);
+
+    String json =
+        jdbc.queryForObject(
+            "select replace(payload::text, ' ', '') from orders.outbox"
+                + " where aggregate_id = ? and kind = 'ORDER_EVENT'",
+            String.class,
+            orderId);
+    assertThat(json).contains("\"returnId\":\"" + id + "\"");
+    assertThat(json).containsPattern("\"returnItemsValue\":100([.]0+)?[,}]");
+    assertThat(json).containsPattern("\"orderItemsValue\":300([.]0+)?[,}]");
+    assertThat(json).doesNotContain("\"paymentStatus\":\"REFUNDED\""); // 1 of 3 items
+    verifyNoInteractions(promotions);
   }
 
   @Test

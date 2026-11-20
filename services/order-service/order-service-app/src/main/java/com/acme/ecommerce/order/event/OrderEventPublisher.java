@@ -6,6 +6,7 @@ import com.acme.ecommerce.order.api.dto.ReturnResponse;
 import com.acme.ecommerce.order.api.dto.ShipmentResponse;
 import com.acme.ecommerce.order.outbox.Outbox;
 import com.acme.ecommerce.order.outbox.Outbox.Kind;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -111,7 +112,13 @@ public class OrderEventPublisher {
         shipment == null ? null : shipment.id(),
         ret == null ? null : ret.id(),
         ret == null ? null : ret.shipmentId(),
-        ret == null ? null : ret.refundAmount());
+        ret == null ? null : ret.refundAmount(),
+        ret == null || ret.items() == null
+            ? null
+            : ret.items().stream()
+                .map(i -> i.unitPrice().multiply(BigDecimal.valueOf(i.quantity())))
+                .reduce(BigDecimal.ZERO, BigDecimal::add),
+        ret == null ? null : o.subtotalAmount());
   }
 
   private void send(OrderEventType type, OrderResponse o, OrderEvent event) {
@@ -168,6 +175,8 @@ public class OrderEventPublisher {
             failures,
             productName,
             Instant.now().toString(),
+            null,
+            null,
             null,
             null,
             null,
