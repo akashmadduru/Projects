@@ -61,8 +61,29 @@ reported a FAILED refund) or, for cash on delivery and `refundTo=WALLET`, to the
 frozen on the first attempt and progress is stored on the return, so every retry is safe.
 
 **Deploy order: payment-service first, then order-service.** order-service reads `refundStatus` in the refund reply. An
-older payment-service does not send it and order-service reads a missing value as SUCCEEDED, which would mark a PENDING
-Razorpay refund as done. Never run the new order-service against an old payment-service.
+older payment-service does not send it; order-service logs a WARN ("sent no refundStatus") and reads a missing value as
+PENDING for a card refund (so it is never marked done by mistake, and stays PENDING until payment-service is upgraded)
+and as SUCCEEDED for a wallet destination (final in the old version). Do not run the new order-service against an old
+payment-service.
+
+**Migration V13.** It sets `lock_timeout = 5s` and only adds columns, so it fails fast rather than queueing behind a long
+transaction: just redeploy. V13 changed before its first release; a local database that already applied the earlier
+file needs `flyway repair` (checksum), or drop and recreate the local order database.
+
+**Before deploying, reconcile in-flight returns.** Returns refunded by the old code have no stored leg progress. For every
+return that is PICKED_UP, finish it on the old build, or confirm with these queries that nothing was paid yet.
+```sql
+-- order_db: returns the new code would treat as never started
+SELECT id, order_id, refund_amount FROM orders.order_returns
+WHERE status = 'PICKED_UP' AND wallet_leg_amount IS NULL;
+-- payment_db: money the old code already moved for them (compare the ids above)
+SELECT idempotency_key, amount, created_at FROM payment.wallet_txns
+WHERE idempotency_key ~ '^(return-wallet-|return-rest-|refund-return-)';
+SELECT idempotency_key, status, amount FROM payment.refunds WHERE idempotency_key LIKE 'return-%';
+```
+A listed return with a wallet or refund row is partly paid. The new code replays the same keys, so the wallet and card
+calls return the existing rows and nothing is paid twice, but the amounts are recomputed: check they match the rows
+found, and if not, settle by hand before retrying.
 
 **A COD refund that returns 404 leaves the return PICKED_UP.** A COD order placed while payment-service was down has no
 payment row (placement is best effort), and there is no fallback credit any more. The refund fails loudly with 404, the

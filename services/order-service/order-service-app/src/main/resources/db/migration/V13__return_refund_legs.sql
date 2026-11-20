@@ -1,6 +1,9 @@
 -- O-05a: per-return refund progress. Additive only: every column is nullable or defaulted and
 -- nothing is backfilled, so rows created before this migration load with null legs and are frozen
 -- on their first retry. Old code ignores these columns.
+-- Fail fast instead of queueing behind a long transaction: just redeploy.
+SET LOCAL lock_timeout = '5s';
+
 ALTER TABLE orders.order_returns
     ADD COLUMN shipping_refund     numeric(19, 4) NOT NULL DEFAULT 0,
     ADD COLUMN wallet_leg_amount   numeric(19, 4),
