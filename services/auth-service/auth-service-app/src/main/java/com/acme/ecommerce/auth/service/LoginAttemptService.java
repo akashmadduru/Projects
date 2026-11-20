@@ -24,7 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
  * the lockout would quietly never trigger. That failure mode is invisible in every test that checks
  * only the HTTP status.
  *
- * <p>This is THE brute-force control. The per-IP Bucket4j throttle is per-replica and per-source-
+ * <p>This is THE brute-force control. The per-IP throttle is a soft control and per-source-
  * address: an attacker with a botnet walks straight past it. This counter is in the shared database
  * and is attached to the account under attack.
  */

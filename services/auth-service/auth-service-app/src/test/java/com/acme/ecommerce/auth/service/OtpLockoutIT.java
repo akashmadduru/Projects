@@ -133,6 +133,25 @@ class OtpLockoutIT extends AbstractAuthIntegrationTest {
   }
 
   @Test
+  @DisplayName("wrong OTPs during an active lock do not move locked_until; response stays INVALID")
+  void wrongOtpsDoNotRenewLock() {
+    for (int i = 0; i < 5; i++) {
+      wrongOtp(credentialUser.getId(), PHONE);
+    }
+    UserCredential locked = credentials.findById(credentialUser.getId()).orElseThrow();
+    java.time.Instant until = locked.getLockedUntil();
+    short failures = locked.getFailedAttempts();
+
+    for (int i = 0; i < 3; i++) {
+      wrongOtp(credentialUser.getId(), PHONE);
+    }
+
+    UserCredential after = credentials.findById(credentialUser.getId()).orElseThrow();
+    assertThat(after.getLockedUntil()).isEqualTo(until);
+    assertThat(after.getFailedAttempts()).isEqualTo(failures);
+  }
+
+  @Test
   @DisplayName("after locked_until passes, OTP login succeeds and the failure count resets")
   void successResetsCounters() {
     for (int i = 0; i < 5; i++) {

@@ -124,7 +124,10 @@ public class OtpLoginService {
     }
     if (!tokens.verifyCode(
         user.getId(), Purpose.OTP_LOGIN, phone, code, PhoneVerificationService.MAX_ATTEMPTS)) {
-      loginAttempts.recordFailure(user.getId());
+      // Not while locked: wrong codes must not keep renewing a victim's lock (same as password).
+      if (!loginAttempts.isLocked(user.getId())) {
+        loginAttempts.recordFailure(user.getId());
+      }
       metrics.loginAttempt(AuthMethod.OTP, "bad_code");
       throw new AuthException(AuthErrorCode.AUTH_OTP_INVALID, "OTP rejected");
     }

@@ -16,10 +16,10 @@ import java.util.UUID;
  * here, which is a far clearer model than a nullable {@code password_hash} column that every code
  * path has to null-check.
  *
- * <p>THE LOCKOUT HERE IS THE REAL BRUTE-FORCE CONTROL. The Bucket4j per-IP throttle is per-instance
- * and per-source-address: an attacker with a botnet walks straight through it. This counter lives
- * in the shared database, so it is correct with one replica or fifty, and it is attached to the
- * thing actually under attack (the account) rather than to the thing the attacker controls (the
+ * <p>THE LOCKOUT HERE IS THE REAL BRUTE-FORCE CONTROL. The per-IP throttle is a soft, fixed-window
+ * control and per-source-address: an attacker with a botnet walks straight through it. This counter
+ * lives in the shared database, so it is correct with one replica or fifty, and it is attached to
+ * the thing actually under attack (the account) rather than to the thing the attacker controls (the
  * source IP).
  */
 @Entity

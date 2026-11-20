@@ -124,7 +124,7 @@ class SharedWindowCounterTest {
       assertFallbackTripsAtCapacityPlusOne(counter, "timeout");
       Duration elapsed = Duration.ofNanos(System.nanoTime() - started);
 
-      assertThat(elapsed).isLessThan(Duration.ofSeconds(5));
+      assertThat(elapsed).isLessThan(Duration.ofSeconds(1));
       assertThat(output).contains(SharedWindowCounter.WARN_MESSAGE);
       acceptor.interrupt();
     }

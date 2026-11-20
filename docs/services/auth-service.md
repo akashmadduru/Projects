@@ -275,7 +275,9 @@ Skipping step 1 or 3 is what produces the classic "everyone got logged out durin
 - **OTP send caps.** Checked in `OtpLoginService.request` before the user lookup, for every valid
   E.164 number, so known and unknown numbers behave the same (202, empty body, no SMS when capped).
   Defaults: `AUTH_OTP_PER_PHONE_CAPACITY=3` per `auth.rate-limit.otp-per-phone-window` (15 m) and
-  `AUTH_OTP_PER_PHONE_DAILY=10` per UTC day. **A value of 0 disables that cap.** Keys are
+  `AUTH_OTP_PER_PHONE_DAILY=10` per UTC day. The caps count OTP *requests*, not SMS sent: a request
+  inside the 30 s resend cooldown sends nothing but still uses up a cap slot, so a user who
+  double-clicks spends two of three. **A value of 0 disables that cap.** Keys are
   `auth:otp:phone:{E164}` and `auth:otp:day:{E164}`; the number is plaintext in the key and the
   TTL bounds how long it is kept.
 - **Residual timing risk.** The known-phone verify path does more database work than the unknown
@@ -288,5 +290,12 @@ Skipping step 1 or 3 is what produces the classic "everyone got logged out durin
   lock state, so they are never locked. Their exposure is bounded by 5 attempts per code and the
   daily cap: at most 50 guesses a day against 10^6 codes. A lock for them is deferred to backlog
   B-9 (it needs a migration or a second lock store).
+- **Redis expectations.** The `auth:rl:*` and `auth:otp:*` keys all carry a TTL. Redis should have
+  `maxmemory` set with an eviction policy that tolerates them (for example `volatile-lru` or
+  `allkeys-lru`); evicted counters only reset a window early (soft control).
+- **Fallback map.** During a Redis outage the per-instance fallback map is cleared wholesale when
+  it exceeds `max-tracked-clients`, which gives mid-limit clients a fresh window. Soft control.
+- **Lockout during a lock.** Wrong OTPs while the account is already locked do not record a failure
+  (same as the password path), so an attacker cannot renew a lock. Each lock lasts at most 15 m.
 - **Victim DoS.** An attacker can use up a victim's OTP caps (at most one window or one UTC day) and
   lock a victim's password login through wrong OTPs; the lock is capped at 15 m, never permanent.
