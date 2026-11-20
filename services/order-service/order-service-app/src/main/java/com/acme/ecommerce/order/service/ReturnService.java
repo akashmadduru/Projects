@@ -120,31 +120,16 @@ public class ReturnService {
   /** Runs the rest leg; an exception records FAILED and never bumps the attempt. */
   private String restLeg(ReturnRefundPlan plan) {
     UUID id = plan.returnId();
-    String state;
-    if ("DIRECT_WALLET".equals(plan.route())) {
-      state = guarded(id, () -> creditRest(plan));
-    } else {
-      state = guarded(id, () -> callRefund(plan, plan.key()));
-      if ("FAILED".equals(state)) {
-        // Only a FAILED refund row may start a new key; the loser of a race gets 409.
-        if (!store.bumpRestLegAttempt(id, plan.attempt())) {
-          throw new CodedException(ErrorCode.RESOURCE_CONFLICT, "Refund in progress");
-        }
-        state = guarded(id, () -> callRefund(plan, "return-" + id + "-r" + (plan.attempt() + 1)));
+    String state = guarded(id, () -> callRefund(plan, plan.key()));
+    if ("FAILED".equals(state)) {
+      // Only a FAILED refund row may start a new key; the loser of a race gets 409.
+      if (!store.bumpRestLegAttempt(id, plan.attempt())) {
+        throw new CodedException(ErrorCode.RESOURCE_CONFLICT, "Refund in progress");
       }
+      state = guarded(id, () -> callRefund(plan, "return-" + id + "-r" + (plan.attempt() + 1)));
     }
     store.setRestLegState(id, state);
     return state;
-  }
-
-  private String creditRest(ReturnRefundPlan plan) {
-    remote.creditWallet(
-        plan.userId(),
-        plan.rest(),
-        plan.currency(),
-        plan.orderId(),
-        "return-rest-" + plan.returnId());
-    return "SUCCEEDED";
   }
 
   private String guarded(UUID id, Supplier<String> call) {
@@ -156,7 +141,16 @@ public class ReturnService {
     }
   }
 
+  /**
+   * The rest leg: a wallet-method order is credited directly, the others go through
+   * payment-service.
+   */
   private String callRefund(ReturnRefundPlan plan, String key) {
+    if ("DIRECT_WALLET".equals(plan.route())) {
+      String creditKey = "return-rest-" + plan.returnId();
+      remote.creditWallet(plan.userId(), plan.rest(), plan.currency(), plan.orderId(), creditKey);
+      return "SUCCEEDED";
+    }
     String destination = "PAYMENT_WALLET".equals(plan.route()) ? "WALLET" : null;
     return remote.refund(plan.orderId(), plan.rest(), "Return refunded", key, destination);
   }

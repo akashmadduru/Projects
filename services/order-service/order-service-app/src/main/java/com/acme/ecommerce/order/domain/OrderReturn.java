@@ -151,10 +151,6 @@ public class OrderReturn {
     updatedAt = now;
   }
 
-  public boolean isFrozen() {
-    return walletLegAmount != null;
-  }
-
   public void freezeLegs(BigDecimal wallet, BigDecimal rest, String route) {
     walletLegAmount = wallet;
     restLegAmount = rest;

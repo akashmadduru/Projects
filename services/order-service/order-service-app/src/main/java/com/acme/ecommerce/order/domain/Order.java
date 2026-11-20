@@ -658,10 +658,10 @@ public class Order {
               .multiply(subtotalAmount.subtract(totalDiscount))
               .divide(subtotalAmount, 2, RoundingMode.HALF_UP);
     }
-    BigDecimal shipping = BigDecimal.ZERO;
-    if (shippingAmount.signum() > 0 && completesOrder(merged) && !shippingAlreadyRefunded()) {
-      shipping = shippingAmount.setScale(2, RoundingMode.HALF_UP);
-    }
+    BigDecimal shipping =
+        shippingAmount.signum() > 0 && completesOrder(merged) && !shippingAlreadyRefunded()
+            ? shippingAmount.setScale(2, RoundingMode.HALF_UP)
+            : BigDecimal.ZERO;
     OrderReturn r =
         OrderReturn.request(
             this,

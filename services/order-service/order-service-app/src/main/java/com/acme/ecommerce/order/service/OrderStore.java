@@ -624,7 +624,7 @@ public class OrderStore {
   @Transactional
   public ReturnRefundPlan freezeLegs(UUID returnId) {
     OrderReturn r = findReturn(returnId);
-    if (r.isFrozen()) {
+    if (r.getWalletLegAmount() != null) {
       return plan(r);
     }
     // Siblings are read after this lock, so concurrent freezes see each other (never both first).
@@ -635,12 +635,15 @@ public class OrderStore {
     BigDecimal siblingWallet = BigDecimal.ZERO;
     BigDecimal siblingRest = BigDecimal.ZERO;
     for (OrderReturn s : o.getReturns()) {
-      if (s == r || (s.getStatus() != ReturnStatus.REFUNDED && !s.isFrozen())) {
+      if (s == r || (s.getStatus() != ReturnStatus.REFUNDED && s.getWalletLegAmount() == null)) {
         continue;
       }
       BigDecimal sr = s.getRefundAmount().setScale(2, RoundingMode.HALF_UP);
       // A REFUNDED row from before V13 has no frozen legs: it was split by the legacy formula.
-      BigDecimal sw = s.isFrozen() ? s.getWalletLegAmount() : walletShare(sr, walletPaid, total);
+      BigDecimal sw =
+          s.getWalletLegAmount() != null
+              ? s.getWalletLegAmount()
+              : walletShare(sr, walletPaid, total);
       siblingWallet = siblingWallet.add(sw);
       siblingRest = siblingRest.add(sr.subtract(sw)); // w + rest = R holds for frozen rows too
     }
