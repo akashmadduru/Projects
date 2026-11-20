@@ -17,7 +17,9 @@ public record ReturnResponse(
     Instant updatedAt,
     String adminNote,
     UUID shipmentId,
-    boolean abuseFlag) {
+    boolean abuseFlag,
+    BigDecimal shippingRefund,
+    String refundState) {
 
   public record ReturnItemResponse(
       UUID productId, UUID variantId, String name, int quantity, BigDecimal unitPrice) {}

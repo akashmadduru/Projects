@@ -323,6 +323,15 @@ public class PaymentRepository {
         .update();
   }
 
+  /** Status of the refund row stored under this idempotency key (null if none). */
+  public String refundStatusByKey(String idempotencyKey) {
+    return jdbc.sql("SELECT status FROM payment.refunds WHERE idempotency_key = :k")
+        .param("k", idempotencyKey)
+        .query(String.class)
+        .optional()
+        .orElse(null);
+  }
+
   public String refundStatus(UUID id) {
     return jdbc.sql("SELECT status FROM payment.refunds WHERE id = :i")
         .param("i", id)

@@ -29,6 +29,7 @@ import com.acme.ecommerce.order.repository.OrderReturnRepository;
 import com.acme.ecommerce.order.repository.OrderShipmentRepository;
 import jakarta.persistence.criteria.Predicate;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
@@ -71,20 +72,27 @@ public class OrderStore {
   public record CancelPlan(
       boolean alreadyCancelled, boolean refundNeeded, BigDecimal amount, String currency) {}
 
-  /** What a return refund needs to know up front. */
+  /** What a return refund needs to know up front. Wallet, rest and route are null until frozen. */
   public record ReturnRefundPlan(
       UUID returnId,
       UUID orderId,
-      BigDecimal refundAmount,
-      String currency,
-      boolean card,
-      boolean paid,
-      List<ReturnLine> lines,
       UUID userId,
-      BigDecimal orderTotal,
-      BigDecimal walletAmount,
-      String method,
-      String refundTo) {}
+      String currency,
+      ReturnStatus status,
+      List<ReturnLine> lines,
+      BigDecimal wallet,
+      BigDecimal rest,
+      String route,
+      boolean walletDone,
+      String restState,
+      int attempt,
+      String key) {
+
+    /** Destination sent to payment-service for the card leg (null = back to the card). */
+    public String destination() {
+      return "PAYMENT_WALLET".equals(route) ? "WALLET" : null;
+    }
+  }
 
   private final OrderRepository orders;
   private final OrderReturnRepository returns;
@@ -550,25 +558,32 @@ public class OrderStore {
         .orElse(null);
   }
 
-  /** Validates the return is ready to be refunded and describes the refund. */
+  /** The return as the admin sees it. */
+  @Transactional(readOnly = true)
+  public ReturnResponse view(UUID returnId) {
+    return mapper.toResponse(findReturn(returnId));
+  }
+
+  /** Describes the refund; REFUNDED is allowed (the caller returns early), other states are not. */
   @Transactional(readOnly = true)
   public ReturnRefundPlan refundPlan(UUID returnId) {
     OrderReturn r = findReturn(returnId);
-    if (r.getStatus() != ReturnStatus.PICKED_UP) {
+    if (r.getStatus() != ReturnStatus.PICKED_UP && r.getStatus() != ReturnStatus.REFUNDED) {
       throw new CodedException(
           ErrorCode.INVALID_STATUS_TRANSITION,
           "Return is " + r.getStatus() + ", expected PICKED_UP");
     }
+    return plan(r);
+  }
+
+  private ReturnRefundPlan plan(OrderReturn r) {
     Order o = r.getOrder();
     return new ReturnRefundPlan(
         r.getId(),
         o.getId(),
-        r.getRefundAmount(),
+        o.getUserId(),
         o.getCurrency(),
-        o.getPaymentMethod() == PaymentMethod.CARD && o.getPaymentId() != null,
-        o.getPaymentStatus() == PaymentStatus.PAID
-            || o.getPaymentStatus() == PaymentStatus.COD_COLLECTED
-            || o.getPaymentStatus() == PaymentStatus.PARTIALLY_REFUNDED,
+        r.getStatus(),
         r.getItems().stream()
             .map(
                 (OrderReturnItem i) ->
@@ -578,13 +593,122 @@ public class OrderStore {
                         i.getQuantity(),
                         offerOf(o, r.getShipmentId(), i)))
             .toList(),
-        o.getUserId(),
-        o.getTotalAmount(),
-        o.getWalletAmount(),
-        o.getPaymentMethod().name(),
-        r.getRefundTo());
+        r.getWalletLegAmount(),
+        r.getRestLegAmount(),
+        r.getRestRoute(),
+        r.getWalletLegDoneAt() != null,
+        r.getRestLegState(),
+        r.getRestLegAttempt(),
+        r.refundKey());
   }
 
+  /**
+   * The 2-minute refund lease; false when another caller holds it or the return is not PICKED_UP.
+   */
+  public boolean claimRefundLease(UUID returnId) {
+    return returns.claimRefundLease(returnId) == 1;
+  }
+
+  public void releaseRefundLease(UUID returnId) {
+    returns.releaseRefundLease(returnId);
+  }
+
+  /** Starts the next card-leg key; false when another caller already moved the attempt on. */
+  public boolean bumpRestLegAttempt(UUID returnId, int attempt) {
+    return returns.bumpRestLegAttempt(returnId, attempt) == 1;
+  }
+
+  public List<UUID> pendingRestLegIds() {
+    return returns.findPendingRestLegIds();
+  }
+
+  /**
+   * Freezes the wallet and rest legs on the first attempt (no-op afterwards), so every retry sends
+   * the same amounts under the same keys. w = min(round2(R*W/T), W - w of siblings, R); rest = R -
+   * w; rest beyond the card remainder moves to the wallet. w + rest = R to the cent.
+   */
+  @Transactional
+  public ReturnRefundPlan freezeLegs(UUID returnId) {
+    OrderReturn r = findReturn(returnId);
+    if (r.isFrozen()) {
+      return plan(r);
+    }
+    Order o = r.getOrder();
+    BigDecimal refund = r.getRefundAmount().setScale(2, RoundingMode.HALF_UP);
+    BigDecimal walletPaid = o.getWalletAmount();
+    BigDecimal total = o.getTotalAmount();
+    BigDecimal siblingWallet = BigDecimal.ZERO;
+    BigDecimal siblingRest = BigDecimal.ZERO;
+    for (OrderReturn s : o.getReturns()) {
+      if (s == r || (s.getStatus() != ReturnStatus.REFUNDED && !s.isFrozen())) {
+        continue;
+      }
+      BigDecimal sr = s.getRefundAmount().setScale(2, RoundingMode.HALF_UP);
+      // A REFUNDED row from before V13 has no frozen legs: it was split by the legacy formula.
+      BigDecimal sw = s.isFrozen() ? s.getWalletLegAmount() : walletShare(sr, walletPaid, total);
+      siblingWallet = siblingWallet.add(sw);
+      siblingRest = siblingRest.add(s.isFrozen() ? s.getRestLegAmount() : sr.subtract(sw));
+    }
+    BigDecimal wallet =
+        walletShare(refund, walletPaid, total)
+            .min(walletPaid.subtract(siblingWallet))
+            .min(refund)
+            .max(BigDecimal.ZERO);
+    BigDecimal rest = refund.subtract(wallet);
+    BigDecimal cardRoom = total.subtract(walletPaid).subtract(siblingRest).max(BigDecimal.ZERO);
+    if (rest.compareTo(cardRoom) > 0) {
+      wallet = wallet.add(rest.subtract(cardRoom));
+      rest = cardRoom;
+    }
+    r.freezeLegs(wallet, rest, route(o, r, rest));
+    return plan(r);
+  }
+
+  private static BigDecimal walletShare(
+      BigDecimal refund, BigDecimal walletPaid, BigDecimal total) {
+    if (walletPaid.signum() <= 0 || total.signum() <= 0) {
+      return BigDecimal.ZERO;
+    }
+    return refund.multiply(walletPaid).divide(total, 2, RoundingMode.HALF_UP).min(refund);
+  }
+
+  /** Where the non-wallet remainder goes. COD and refundTo=WALLET go through payment-service. */
+  private static String route(Order o, OrderReturn r, BigDecimal rest) {
+    if (rest.signum() <= 0) {
+      return "NONE";
+    }
+    if (o.getPaymentMethod() == PaymentMethod.WALLET) {
+      return "DIRECT_WALLET";
+    }
+    boolean paid =
+        o.getPaymentStatus() == PaymentStatus.PAID
+            || o.getPaymentStatus() == PaymentStatus.COD_COLLECTED
+            || o.getPaymentStatus() == PaymentStatus.PARTIALLY_REFUNDED;
+    if (!paid) {
+      return "NONE";
+    }
+    boolean card = o.getPaymentMethod() == PaymentMethod.CARD && o.getPaymentId() != null;
+    return card && !"WALLET".equals(r.getRefundTo()) ? "PAYMENT_SOURCE" : "PAYMENT_WALLET";
+  }
+
+  /** The wallet credit is committed before the card leg is attempted (AC-6). */
+  @Transactional
+  public void markWalletLegDone(UUID returnId) {
+    findReturn(returnId).markWalletLegDone(Instant.now());
+  }
+
+  /** PENDING, SUCCEEDED or FAILED (never changes the attempt). */
+  @Transactional
+  public void setRestLegState(UUID returnId, String state) {
+    findReturn(returnId).setRestLegState(state, Instant.now());
+  }
+
+  /**
+   * First half of finalizing, inside the caller's transaction: only a PICKED_UP return can become
+   * REFUNDED and the {@code @Version} check rejects a concurrent finalize. The caller adds the
+   * stock-release and event outbox rows in the same transaction. This is the single hook for the
+   * F-10 coin rows.
+   */
   @Transactional
   public ReturnOutcome completeRefund(UUID returnId) {
     OrderReturn r = findReturn(returnId);
@@ -593,6 +717,7 @@ public class OrderStore {
     BigDecimal itemsValue = o.paidItemsValue();
     boolean full = o.getRefundedAmount().add(r.getRefundAmount()).compareTo(itemsValue) >= 0;
     o.recordRefund(r.getRefundAmount(), full);
+    orders.flush();
     return new ReturnOutcome(mapper.toResponse(r), mapper.toResponse(o));
   }
 

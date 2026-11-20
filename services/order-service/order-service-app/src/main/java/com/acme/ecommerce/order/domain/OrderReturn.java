@@ -57,6 +57,35 @@ public class OrderReturn {
   @Column(name = "refund_amount", nullable = false, updatable = false)
   private BigDecimal refundAmount;
 
+  /** Part of refund_amount that is the order shipping fee (completing return only). */
+  @Column(name = "shipping_refund", nullable = false, updatable = false)
+  private BigDecimal shippingRefund = BigDecimal.ZERO;
+
+  // Refund progress (V13). Legs are frozen on the first attempt; null on rows made before V13.
+  @Column(name = "wallet_leg_amount")
+  private BigDecimal walletLegAmount;
+
+  @Column(name = "rest_leg_amount")
+  private BigDecimal restLegAmount;
+
+  /** NONE | PAYMENT_SOURCE | PAYMENT_WALLET | DIRECT_WALLET. */
+  @Column(name = "rest_route", length = 16)
+  private String restRoute;
+
+  @Column(name = "wallet_leg_done_at")
+  private Instant walletLegDoneAt;
+
+  /** null = not started, then PENDING | SUCCEEDED | FAILED. */
+  @Column(name = "rest_leg_state", length = 12)
+  private String restLegState;
+
+  // Lease and attempt are changed only by the conditional updates in OrderReturnRepository.
+  @Column(name = "rest_leg_attempt", nullable = false, insertable = false, updatable = false)
+  private int restLegAttempt;
+
+  @Column(name = "refund_lease_until", insertable = false, updatable = false)
+  private Instant refundLeaseUntil;
+
   @Column(name = "refund_to", nullable = false, updatable = false, length = 10)
   private String refundTo = "SOURCE";
 
@@ -87,6 +116,7 @@ public class OrderReturn {
       ReturnReason reason,
       String comment,
       BigDecimal refundAmount,
+      BigDecimal shippingRefund,
       String refundTo,
       UUID shipmentId,
       Instant now) {
@@ -98,6 +128,7 @@ public class OrderReturn {
     r.reason = reason;
     r.comment = comment;
     r.refundAmount = refundAmount;
+    r.shippingRefund = shippingRefund;
     r.refundTo = refundTo == null ? "SOURCE" : refundTo;
     r.createdAt = now;
     r.updatedAt = now;
@@ -123,6 +154,32 @@ public class OrderReturn {
     requireStatus(ReturnStatus.APPROVED);
     status = ReturnStatus.PICKED_UP;
     updatedAt = now;
+  }
+
+  public boolean isFrozen() {
+    return walletLegAmount != null;
+  }
+
+  public void freezeLegs(BigDecimal wallet, BigDecimal rest, String route) {
+    walletLegAmount = wallet;
+    restLegAmount = rest;
+    restRoute = route;
+  }
+
+  public void markWalletLegDone(Instant now) {
+    walletLegDoneAt = now;
+  }
+
+  public void setRestLegState(String state, Instant now) {
+    restLegState = state;
+    updatedAt = now;
+  }
+
+  /**
+   * Idempotency key of the card leg: attempt 0 keeps the original key, later ones add -r&lt;n&gt;.
+   */
+  public String refundKey() {
+    return "return-" + id + (restLegAttempt == 0 ? "" : "-r" + restLegAttempt);
   }
 
   public void markRefunded(Instant now) {

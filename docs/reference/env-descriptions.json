@@ -335,6 +335,11 @@
       "requiredInProd": true,
       "text": "Hostname the Eureka server advertises. No default in `prod`."
     },
+    "ORDER_RETURNS_REFUND_POLL_INTERVAL_MS": {
+      "group": "Business rules",
+      "usedBy": "order",
+      "text": "How often (ms, default 300000) the order service re-checks return refunds whose card leg is still PENDING and finishes the return once payment-service reports it settled."
+    },
     "ORDER_RISK_VELOCITY_THRESHOLD": {
       "group": "Business rules",
       "usedBy": "order (Compose)",

@@ -649,12 +649,17 @@ public class Order {
               .multiply(subtotalAmount.subtract(totalDiscount))
               .divide(subtotalAmount, 2, RoundingMode.HALF_UP);
     }
+    BigDecimal shipping = BigDecimal.ZERO;
+    if (shippingAmount.signum() > 0 && completesOrder(merged) && !shippingAlreadyRefunded()) {
+      shipping = shippingAmount.setScale(2, RoundingMode.HALF_UP);
+    }
     OrderReturn r =
         OrderReturn.request(
             this,
             reason,
             comment,
-            refund.setScale(2, RoundingMode.HALF_UP),
+            refund.add(shipping).setScale(2, RoundingMode.HALF_UP),
+            shipping,
             refundTo,
             scope == null ? null : scope.getId(),
             now);
@@ -669,6 +674,18 @@ public class Order {
     }
     returns.add(r);
     return r;
+  }
+
+  /** True when these lines, on top of earlier non-rejected returns, cover every order line. */
+  private boolean completesOrder(Map<LineKey, Integer> lines) {
+    return remainingReturnable(null).entrySet().stream()
+        .allMatch(e -> e.getValue() - lines.getOrDefault(e.getKey(), 0) == 0);
+  }
+
+  private boolean shippingAlreadyRefunded() {
+    return returns.stream()
+        .anyMatch(
+            r -> r.getStatus() != ReturnStatus.REJECTED && r.getShippingRefund().signum() > 0);
   }
 
   private OrderShipment resolveReturnShipment(List<ReturnLine> lines, UUID hint) {

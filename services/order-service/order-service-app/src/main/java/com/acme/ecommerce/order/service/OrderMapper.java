@@ -223,6 +223,8 @@ public class OrderMapper {
         r.getUpdatedAt(),
         r.getAdminNote(),
         r.getShipmentId(),
-        r.isAbuseFlag());
+        r.isAbuseFlag(),
+        r.getShippingRefund(),
+        r.getRestLegState());
   }
 }

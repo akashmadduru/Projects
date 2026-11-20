@@ -691,7 +691,7 @@ public class PaymentService {
   public RefundResponse refund(UUID orderId, RefundRequest req) {
     Payment p = find(orderId);
     if (payments.refundExists(req.idempotencyKey())) {
-      return refundView(payments.findById(p.id()).orElse(p));
+      return refundView(payments.findById(p.id()).orElse(p), req.idempotencyKey());
     }
     if ("COD_PENDING".equals(p.status())
         || "REQUIRES_PAYMENT".equals(p.status())
@@ -722,7 +722,7 @@ public class PaymentService {
         status -> {
           Payment locked = payments.lockById(p.id()).orElseThrow();
           if (payments.refundExists(req.idempotencyKey())) {
-            return refundView(locked);
+            return refundView(locked, req.idempotencyKey());
           }
           BigDecimal total = locked.refundedAmount().add(amount);
           if (total.compareTo(locked.amount()) > 0) {
@@ -730,6 +730,7 @@ public class PaymentService {
                 ErrorCode.DOMAIN_RULE_VIOLATION, "Refund amount exceeds the refundable balance");
           }
           // A Razorpay refund is only accepted, not done: PENDING until a webhook confirms it.
+          String insertedStatus = providerRefund != null ? "PENDING" : "SUCCEEDED";
           UUID refundRowId =
               payments.insertRefund(
                   locked.id(),
@@ -738,7 +739,7 @@ public class PaymentService {
                   stripeRefund,
                   providerRefund,
                   req.idempotencyKey(),
-                  providerRefund != null ? "PENDING" : "SUCCEEDED");
+                  insertedStatus);
           if (toWallet) {
             wallet.credit(
                 locked.userId(),
@@ -753,9 +754,9 @@ public class PaymentService {
           payments.applyRefund(locked.id(), total, newStatus);
           if (providerRefund != null
               && applyParkedRefundEvents(locked.id(), refundRowId, providerRefund)) {
-            return refundView(payments.findById(locked.id()).orElseThrow());
+            return refundView(payments.findById(locked.id()).orElseThrow(), req.idempotencyKey());
           }
-          return new RefundResponse(newStatus, total);
+          return new RefundResponse(newStatus, total, insertedStatus);
         });
   }
 
@@ -957,8 +958,10 @@ public class PaymentService {
     return amount.setScale(2, RoundingMode.HALF_UP).movePointRight(2).longValueExact();
   }
 
-  private static RefundResponse refundView(Payment p) {
-    return new RefundResponse(p.status(), p.refundedAmount());
+  /** The payment's state plus the status of the refund row stored under this key. */
+  private RefundResponse refundView(Payment p, String idempotencyKey) {
+    return new RefundResponse(
+        p.status(), p.refundedAmount(), payments.refundStatusByKey(idempotencyKey));
   }
 
   private PaymentResponse view(Payment p) {

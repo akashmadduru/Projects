@@ -23,7 +23,7 @@
 | `cart_db` | `cart` | `cart_service` | cart-service | 5 (V1–V5) | `alerts`, `cart_items`, `carts`, `list_items`, `lists`, `saved_items`, `wishlist_items` |
 | `inventory_db` | `inventory` | `inventory_service` | inventory-service | 7 (V1–V7) | `reservation_releases`, `reservations`, `stock_levels`, `variant_stock`, `warehouse_stock`, `warehouses` |
 | `notification_db` | `notification` | `notification_service` | notification-service | 1 (V1–V1) | `campaigns`, `notifications`, `push_subscriptions`, `settings` |
-| `order_db` | `orders` | `order_service` | order-service | 10 (V1–V10) | `order_items`, `order_return_items`, `order_returns`, `order_shipments`, `order_status_history`, `orders`, `outbox`, `pending_wallet_credits`, `subscriptions` |
+| `order_db` | `orders` | `order_service` | order-service | 13 (V1–V13) | `order_items`, `order_return_items`, `order_returns`, `order_shipments`, `order_status_history`, `orders`, `outbox`, `pending_wallet_credits`, `subscriptions` |
 | `payment_db` | `payment` | `payment_service` | payment-service | 4 (V1–V4) | `gift_card_redeem_failures`, `gift_cards`, `payments`, `processed_events`, `refunds`, `wallet_txns`, `wallets` |
 | `product_db` | `product` | `product_service` | product-service | 13 (V1–V13) | `categories`, `embedding_failures`, `fx_rates`, `image_settings`, `offers`, `product_embeddings`, `product_images`, `product_variants`, `product_views`, `products`, `theme_settings` |
 | `promotion_db` | `promotion` | `promotion_service` | promotion-service | 4 (V1–V4) | `bank_offers`, `coin_ledger`, `coupons`, `deal_claims`, `deals`, `exchange_programs`, `exchange_quotes`, `redemptions` |
@@ -39,6 +39,8 @@
 (constraint `ck_payments_mode`); `payments.provider_order_id` (Razorpay `order_…`, indexed) and
 `payments.provider_payment_id` (Razorpay `pay_…`) are new and null for Stripe rows; `refunds.provider_refund_id`
 holds the Razorpay refund id. `method` stays `CARD`/`COD`: `CARD` means "paid online", whatever the provider.
+
+**2026-11-21 return refunds (O-05a).** order V13 adds refund progress to `order_returns`, all nullable or defaulted and not backfilled: `shipping_refund` (the part of `refund_amount` that is the shipping fee; set on the one return that completes the order), `wallet_leg_amount` / `rest_leg_amount` / `rest_route` (NONE, PAYMENT_SOURCE, PAYMENT_WALLET, DIRECT_WALLET; frozen on the first refund attempt), `wallet_leg_done_at`, `rest_leg_state` (null, PENDING, SUCCEEDED, FAILED), `rest_leg_attempt` (0 uses key `return-<id>`, n uses `return-<id>-r<n>`), `refund_lease_until` (2-minute lease against concurrent refunds), and the partial index `ix_order_returns_rest_pending` for the PENDING watch. payment-service has no migration: `RefundResponse.refundStatus` reads the existing `refunds.status`.
 
 **2026-11-17 tech-debt changes.** payment V4: gift card codes are stored as `code_hash` + `code_last4` (plaintext `code` emptied), plus `gift_card_redeem_failures` for the redeem lockout. order V8: `pending_wallet_credits`, wallet money owed back to a customer, retried until it lands; V9 adds `kind`/`debit_key` so an ambiguously failed wallet debit is reversed only if it happened (payment-service `POST /internal/wallet/reverse`); V10 adds `outbox`, the transactional outbox for order side effects and `order.events`. product V12: `product_embeddings.source_updated_at` (the product version an embedding was checked against); V13: `products.moderation_status` / `moderation_note` / `reviewed_by` / `reviewed_at` for seller-product review.
 

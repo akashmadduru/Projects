@@ -66,9 +66,10 @@ class DependencyBreakerCapabilityTest {
   void perServiceAndIoErrors() throws IOException {
     Client failing =
         capability.enrich(
-            (req, opts) -> {
-              throw new IOException("connection refused");
-            });
+            (Client)
+                (req, opts) -> {
+                  throw new IOException("connection refused");
+                });
     for (int i = 0; i < 10; i++) {
       assertThatThrownBy(
               () -> failing.execute(request("http://payment-service/p"), new Request.Options()))
@@ -78,10 +79,7 @@ class DependencyBreakerCapabilityTest {
         .isEqualTo(CircuitBreaker.State.OPEN);
 
     Client healthy = capability.enrich(answering(200));
-    assertThat(
-            healthy
-                .execute(request("http://user-service/u"), new Request.Options())
-                .status())
+    assertThat(healthy.execute(request("http://user-service/u"), new Request.Options()).status())
         .isEqualTo(200);
   }
 }

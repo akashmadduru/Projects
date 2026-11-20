@@ -44,7 +44,10 @@ public interface PaymentFeignClient {
       String referenceId,
       String idempotencyKey) {}
 
-  record RefundResult(String status, BigDecimal refundedAmount) {}
+  /**
+   * refundStatus (PENDING | SUCCEEDED | FAILED) is null from a payment-service that predates it.
+   */
+  record RefundResult(String status, BigDecimal refundedAmount, String refundStatus) {}
 
   /** Give back the debit with debitKey only if it happened (TD-P8-23). */
   record WalletReverse(UUID userId, String debitKey, String creditKey) {}

@@ -134,6 +134,7 @@ order:
     zone: Asia/Kolkata
   returns:
     window-days: 7
+    refund-poll-interval-ms: ${ORDER_RETURNS_REFUND_POLL_INTERVAL_MS:300000}
   pending:
     expiry: 30m
   jwt:

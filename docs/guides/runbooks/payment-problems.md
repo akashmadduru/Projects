@@ -53,6 +53,33 @@ builds. Both are quick at current sizes (seconds for tens of thousands of rows);
 window. V8 adds nullable columns: no table rewrite, only a brief exclusive lock (it sets `lock_timeout = 5s`, so it
 fails fast rather than queueing behind a long transaction; just redeploy).
 
+## Return refunds (shipping, COD, split legs, PENDING card leg)
+
+Admin refund of a PICKED_UP return (`POST /api/admin/returns/{id}/status`) pays two legs: the wallet share first (key
+`return-wallet-<id>`), then the rest to the card (key `return-<id>`, or `return-<id>-r<n>` after payment-service
+reported a FAILED refund) or, for cash on delivery and `refundTo=WALLET`, to the wallet through payment-service. Legs are
+frozen on the first attempt and progress is stored on the return, so every retry is safe.
+
+**Deploy order: payment-service first, then order-service.** order-service reads `refundStatus` in the refund reply. An
+older payment-service does not send it and order-service reads a missing value as SUCCEEDED, which would mark a PENDING
+Razorpay refund as done. Never run the new order-service against an old payment-service.
+
+**A COD refund that returns 404 leaves the return PICKED_UP.** A COD order placed while payment-service was down has no
+payment row (placement is best effort), and there is no fallback credit any more. The refund fails loudly with 404, the
+wallet is not credited and the return stays PICKED_UP. A 409 means the COD payment is still COD_PENDING (the order was
+never marked delivered and collected). Fix the cause, then retry. Backlog B-10 makes sure every COD order gets a payment row.
+
+**PENDING card leg.** Razorpay accepts a refund before it is done. The return stays PICKED_UP with `refundState=PENDING`
+and no stock release or event. `ReturnRefundWatch` re-checks it every `ORDER_RETURNS_REFUND_POLL_INTERVAL_MS` (default
+5 minutes) by replaying the same key, which payment-service answers from its own table without calling Razorpay. On
+SUCCEEDED the return completes once. On FAILED the log line `RETURN REFUND FAILED` (ERROR) names the return; the admin
+retries and a new `-r<n>` key is used. The wallet is not credited again.
+
+**Refund in progress (409).** Another call holds the 2-minute lease. Wait and retry.
+
+**Rollback.** Revert the images (order-service first, then payment-service). The V13 columns are ignored by old code. A
+return left PENDING completes under the old logic, which treats an accepted refund as done.
+
 ## Double charge
 
 Log line `DOUBLE CHARGE` at ERROR carries both provider payment ids. It means the customer switched provider, paid

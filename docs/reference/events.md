@@ -21,6 +21,8 @@ compose network at `kafka:9092`; no host port is published. On AWS it is MSK
 | `user.events` | broker default (1) | userId | user-service | `USER_DELETED` |
 | `audit.events` | broker default (1) | resourceId | auth-service, and every service using `common-web`'s `AuditPublisher` | audit record: actor (user id, roles), action, resource type and id, before/after JSON, IP |
 
+`RETURN_REFUNDED` is published (through the outbox, in the same transaction as the REFUNDED status and the stock release) only after the refund money has settled, so a PENDING card refund publishes nothing until it settles.
+
 Topics without a `KafkaTopicConfig` bean are auto-created with the broker default of 1 partition.
 Each topic `X` also has a dead-letter topic `X.DLT` (see [failure handling](#failure-handling)).
 

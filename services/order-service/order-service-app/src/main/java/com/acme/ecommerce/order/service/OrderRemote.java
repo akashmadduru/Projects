@@ -294,11 +294,17 @@ public class OrderRemote {
     refund(orderId, amount, reason, idempotencyKey, null);
   }
 
-  /** Strict refund; destination SOURCE (default) or WALLET. */
-  public void refund(
+  /**
+   * Strict refund; destination SOURCE (default) or WALLET. Returns the status of the refund row for
+   * this key: PENDING, SUCCEEDED or FAILED. A null from payment-service is read as SUCCEEDED, which
+   * is only safe once payment-service runs the version that sends it: deploy payment-service first.
+   */
+  public String refund(
       UUID orderId, BigDecimal amount, String reason, String idempotencyKey, String destination) {
     try {
-      payments.refund(orderId, new RefundRequest(amount, reason, idempotencyKey, destination));
+      var result =
+          payments.refund(orderId, new RefundRequest(amount, reason, idempotencyKey, destination));
+      return result == null || result.refundStatus() == null ? "SUCCEEDED" : result.refundStatus();
     } catch (FeignException e) {
       throw RemoteCalls.translate("payment-service", e);
     }
