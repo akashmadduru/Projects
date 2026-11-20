@@ -20,6 +20,11 @@ public interface OrderRepository
 
   Optional<Order> findByIdAndUserId(UUID id, UUID userId);
 
+  /** Row lock, so sibling returns of one order freeze their refund legs one at a time. */
+  @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+  @Query("select o from Order o where o.id = :id")
+  Optional<Order> lockById(@Param("id") UUID id);
+
   /** The live order made from this cart (TD-BE-15); mirrors the partial unique index. */
   @Query(
       "select o.id from Order o where o.userId = :userId and o.cartFingerprint = :fingerprint"

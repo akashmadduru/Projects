@@ -133,6 +133,28 @@ class ReturnRefundIntegrationTest extends AbstractOrderIntegrationTest {
     return id;
   }
 
+  /** Another picked-up return of one item on the same order. */
+  private UUID siblingOf(UUID returnId) {
+    UUID orderId = orderOf(returnId);
+    UUID user =
+        jdbc.queryForObject("select user_id from orders.orders where id = ?", UUID.class, orderId);
+    UUID id =
+        store
+            .requestReturn(
+                user,
+                orderId,
+                List.of(new ReturnLine(product, null, 1)),
+                ReturnReason.DAMAGED,
+                null,
+                "SOURCE",
+                null)
+            .ret()
+            .id();
+    store.decide(id, true, null);
+    store.pickedUp(id);
+    return id;
+  }
+
   private void paymentReplies(String... statuses) {
     var stub = when(payments.refund(any(), any()));
     RefundResult first = new RefundResult("PARTIALLY_REFUNDED", BigDecimal.TEN, statuses[0]);
@@ -363,6 +385,50 @@ class ReturnRefundIntegrationTest extends AbstractOrderIntegrationTest {
     assertThat(outbox(orderId, "RELEASE_STOCK")).isEqualTo(1);
     assertThat(outbox(orderId, "ORDER_EVENT")).isEqualTo(1);
     verify(payments, times(1)).refund(any(), any());
+  }
+
+  @Test
+  @DisplayName("two sibling returns refunded at once freeze legs that stay inside the order totals")
+  void concurrentSiblings() throws Exception {
+    UUID first = pickedUpReturn("100");
+    UUID second = siblingOf(first);
+    paymentReplies("SUCCEEDED");
+    CountDownLatch start = new CountDownLatch(1);
+    ExecutorService pool = Executors.newFixedThreadPool(2);
+    try {
+      List<Future<ReturnResponse>> done =
+          List.of(first, second).stream()
+              .map(
+                  id ->
+                      pool.submit(
+                          () -> {
+                            start.await();
+                            return returns.refund(id);
+                          }))
+              .toList();
+      start.countDown();
+      for (Future<ReturnResponse> f : done) {
+        assertThat(f.get(20, TimeUnit.SECONDS).status()).isEqualTo("REFUNDED");
+      }
+    } finally {
+      pool.shutdownNow();
+    }
+
+    for (UUID id : List.of(first, second)) {
+      assertThat(
+              jdbc.queryForObject(
+                  "select wallet_leg_amount + rest_leg_amount - refund_amount from"
+                      + " orders.order_returns where id = ?",
+                  BigDecimal.class,
+                  id))
+          .isEqualByComparingTo("0");
+    }
+    assertThat(
+            jdbc.queryForObject(
+                "select sum(wallet_leg_amount) from orders.order_returns where order_id = ?",
+                BigDecimal.class,
+                orderOf(first)))
+        .isLessThanOrEqualTo(new BigDecimal("100.00"));
   }
 
   @Test

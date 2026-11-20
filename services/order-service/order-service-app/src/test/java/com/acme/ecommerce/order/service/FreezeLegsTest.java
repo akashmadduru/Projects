@@ -36,9 +36,10 @@ class FreezeLegsTest {
   private static final UUID P = UUID.randomUUID();
 
   private final OrderReturnRepository returnsRepo = mock(OrderReturnRepository.class);
+  private final OrderRepository orderRepo = mock(OrderRepository.class);
   private final OrderStore store =
       new OrderStore(
-          mock(OrderRepository.class),
+          orderRepo,
           returnsRepo,
           mock(OrderShipmentRepository.class),
           mock(OrderMapper.class),
@@ -109,6 +110,7 @@ class FreezeLegsTest {
 
   private ReturnRefundPlan freeze(OrderReturn r) {
     when(returnsRepo.findById(any())).thenReturn(Optional.of(r));
+    when(orderRepo.lockById(any())).thenReturn(Optional.of(r.getOrder()));
     return store.freezeLegs(UUID.randomUUID());
   }
 

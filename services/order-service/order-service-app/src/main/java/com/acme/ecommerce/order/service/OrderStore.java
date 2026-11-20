@@ -633,7 +633,8 @@ public class OrderStore {
     if (r.isFrozen()) {
       return plan(r);
     }
-    Order o = r.getOrder();
+    // Siblings are read after this lock, so concurrent freezes see each other (never both first).
+    Order o = orders.lockById(r.getOrder().getId()).orElseThrow();
     BigDecimal refund = r.getRefundAmount().setScale(2, RoundingMode.HALF_UP);
     BigDecimal walletPaid = o.getWalletAmount();
     BigDecimal total = o.getTotalAmount();
