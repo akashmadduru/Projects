@@ -284,4 +284,53 @@ class CoinReturnReversalIntegrationTest extends AbstractPromotionIntegrationTest
     assertThat(sum(user, "return-earn-")).isEqualTo(-10);
     assertThat(reversalRows(order)).isEqualTo(1);
   }
+
+  @Test
+  @DisplayName("a negative value gives no coins and a zero due; an oversized value is capped")
+  void negativeAndOversizedValues() {
+    UUID user = UUID.randomUUID();
+    UUID order = UUID.randomUUID();
+    UUID neg = UUID.randomUUID();
+    seed(user, order, 30, 30, 100);
+
+    coins.onReturnRefunded(order, user, neg, new BigDecimal("-100"), ORDER_VALUE, false);
+
+    assertThat(rows(user, "return-%-" + neg)).isZero();
+    assertThat(((Number) reversal(neg).get("redeem_due")).intValue()).isZero();
+    assertThat(((Number) reversal(neg).get("earn_due")).intValue()).isZero();
+
+    coins.onReturnRefunded(
+        order, user, UUID.randomUUID(), new BigDecimal("900"), ORDER_VALUE, false);
+
+    assertThat(sum(user, "return-redeem-")).isEqualTo(30); // capped at N, never more
+    assertThat(sum(user, "return-earn-")).isEqualTo(-30);
+  }
+
+  @Test
+  @DisplayName("a per-return partial followed by the legacy full refund totals at most N and E")
+  void legacyAfterPerReturn() {
+    UUID user = UUID.randomUUID();
+    UUID order = UUID.randomUUID();
+    seed(user, order, 30, 30, 100);
+
+    coins.onReturnRefunded(order, user, UUID.randomUUID(), THIRD, ORDER_VALUE, false);
+    coins.onFullyRefunded(order, user);
+    coins.releaseRedeem(order);
+
+    assertThat(sum(user, "return-earn-") + sum(user, "earn-")).isEqualTo(-30);
+    assertThat(sum(user, "return-redeem-") + sum(user, "redeem-")).isEqualTo(30);
+  }
+
+  @Test
+  @DisplayName("shares round down: 26 coins of a third is 8, not 9")
+  void roundsDown() {
+    UUID user = UUID.randomUUID();
+    UUID order = UUID.randomUUID();
+    seed(user, order, 26, 26, 100);
+
+    coins.onReturnRefunded(order, user, UUID.randomUUID(), THIRD, ORDER_VALUE, false);
+
+    assertThat(sum(user, "return-redeem-")).isEqualTo(8);
+    assertThat(sum(user, "return-earn-")).isEqualTo(-8);
+  }
 }

@@ -9,6 +9,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
+import com.acme.ecommerce.common.web.kafka.KafkaJson;
 import com.acme.ecommerce.promotion.config.PromotionProperties;
 import com.acme.ecommerce.promotion.service.CoinService;
 import java.math.BigDecimal;
@@ -110,7 +111,8 @@ class OrderEventListenerReturnTest {
         "{\"type\":\"RETURN_REFUNDED\",\"orderId\":\"o\",\"returnId\":\"r1\","
             + "\"returnItemsValue\":100.50,\"orderItemsValue\":300,\"somethingNew\":1}";
     OrderEvent e =
-        new com.fasterxml.jackson.databind.ObjectMapper().readValue(json, OrderEvent.class);
+        KafkaJson.eventDeserializer(OrderEvent.class, "com.acme.ecommerce.promotion.event")
+            .deserialize("order.events", json.getBytes(java.nio.charset.StandardCharsets.UTF_8));
 
     assertThat(e.returnId()).isEqualTo("r1");
     assertThat(e.returnItemsValue()).isEqualByComparingTo("100.50");

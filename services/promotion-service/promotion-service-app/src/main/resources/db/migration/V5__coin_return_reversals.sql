@@ -8,6 +8,7 @@ CREATE TABLE promotion.coin_return_reversals
     earn_due    integer     NOT NULL,
     earn_taken  integer     NOT NULL,
     completes   boolean     NOT NULL,
-    created_at  timestamptz NOT NULL DEFAULT now()
+    created_at  timestamptz NOT NULL DEFAULT now(),
+    CHECK (redeem_due >= 0 AND earn_due >= 0 AND earn_taken >= 0 AND earn_taken <= earn_due)
 );
 CREATE INDEX ix_coin_return_reversals_order ON promotion.coin_return_reversals (order_id);
