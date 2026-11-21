@@ -15,8 +15,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * Contract pinned for order-service (TD-BE-15): every cart line it reads carries {@code addedAt}.
- * order-service fingerprints the cart from it and refuses to place an order without one (503), so
- * a null here would turn every cart checkout into an error.
+ * order-service fingerprints the cart from it and refuses to place an order without one (503), so a
+ * null here would turn every cart checkout into an error.
  */
 class CartResponseContractTest extends AbstractCartIntegrationTest {
 
