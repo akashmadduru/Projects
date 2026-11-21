@@ -4,6 +4,7 @@ import com.acme.ecommerce.common.core.error.CodedException;
 import com.acme.ecommerce.common.core.error.ErrorCode;
 import com.acme.ecommerce.common.web.job.JobLock;
 import com.acme.ecommerce.user.membership.Notifier;
+import com.acme.ecommerce.user.outbox.UserOutbox;
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -19,7 +20,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
@@ -29,10 +29,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.simple.JdbcClient;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Privacy orchestration: data export jobs (zip kept 24 h) and account deletion (7-day grace, then
@@ -43,7 +44,6 @@ public class PrivacyService {
 
   private static final Logger log = LoggerFactory.getLogger(PrivacyService.class);
 
-  static final String TOPIC = "user.events";
   static final List<String> EXPORT_SERVICES =
       List.of(
           "auth-service",
@@ -67,7 +67,8 @@ public class PrivacyService {
   private final JdbcClient jdbc;
   private final PrivacyKafkaConfig.PrivacyHttp http;
   private final Notifier notifier;
-  private final KafkaTemplate<String, String> kafka;
+  private final UserOutbox outbox;
+  private final TransactionTemplate tx;
   private final String token;
   private final String storefront;
   private final int graceDays;
@@ -77,7 +78,8 @@ public class PrivacyService {
       JdbcClient jdbc,
       PrivacyKafkaConfig.PrivacyHttp http,
       Notifier notifier,
-      KafkaTemplate<String, String> privacyKafkaTemplate,
+      UserOutbox outbox,
+      PlatformTransactionManager txManager,
       @Value("${user.internal-token:}") String token,
       @Value("${user.storefront-url:http://localhost:3000}") String storefront,
       @Value("${user.privacy.grace-days:7}") int graceDays,
@@ -85,7 +87,8 @@ public class PrivacyService {
     this.jdbc = jdbc;
     this.http = http;
     this.notifier = notifier;
-    this.kafka = privacyKafkaTemplate;
+    this.outbox = outbox;
+    this.tx = new TransactionTemplate(txManager);
     this.token = token;
     this.storefront = storefront;
     this.graceDays = graceDays;
@@ -494,6 +497,21 @@ public class PrivacyService {
       log.info("Deletion of {} postponed: {}", userId, e.getMessage());
       return false;
     }
+    // One transaction: the request status, the erasure and the outbox row commit or roll back
+    // together. Kafka is the relay's job (UserOutboxRelay); nothing here talks to it.
+    return Boolean.TRUE.equals(tx.execute(status -> erase(userId)));
+  }
+
+  private boolean erase(UUID userId) {
+    int claimed =
+        jdbc.sql(
+                "UPDATE users.deletion_requests SET status = 'COMPLETED', completed_at = now(),"
+                    + " email = NULL WHERE user_id = :u AND status = 'SCHEDULED'")
+            .param("u", userId)
+            .update();
+    if (claimed == 0) {
+      return false; // cancelled meanwhile, or another run completed it
+    }
     jdbc.sql(
             "UPDATE users.user_profiles SET email = NULL, display_name = 'Deleted user', phone = NULL WHERE user_id = :u")
         .param("u", userId)
@@ -512,27 +530,13 @@ public class PrivacyService {
             "UPDATE users.membership_payments SET email = NULL WHERE user_id = :u")) {
       jdbc.sql(sql).param("u", userId).update();
     }
-    String event =
-        "{\"eventId\":\""
-            + UUID.randomUUID()
-            + "\",\"type\":\"USER_DELETED\",\"userId\":\""
-            + userId
-            + "\",\"occurredAt\":\""
-            + Instant.now()
-            + "\"}";
-    try {
-      kafka.send(TOPIC, userId.toString(), event).get(10, TimeUnit.SECONDS);
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-      throw new IllegalStateException("interrupted publishing USER_DELETED", e);
-    } catch (java.util.concurrent.ExecutionException | java.util.concurrent.TimeoutException e) {
-      throw new IllegalStateException("could not publish USER_DELETED: " + e, e);
-    }
-    jdbc.sql(
-            "UPDATE users.deletion_requests SET status = 'COMPLETED', completed_at = now(), email"
-                + " = NULL WHERE user_id = :u")
-        .param("u", userId)
-        .update();
+    outbox.enqueue(
+        userId,
+        new UserOutbox.UserDeletedEvent(
+            UUID.randomUUID().toString(),
+            "USER_DELETED",
+            userId.toString(),
+            Instant.now().toString()));
     return true;
   }
 
