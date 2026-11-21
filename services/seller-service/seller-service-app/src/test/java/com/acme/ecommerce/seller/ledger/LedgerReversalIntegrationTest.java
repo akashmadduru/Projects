@@ -1,6 +1,7 @@
 package com.acme.ecommerce.seller.ledger;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.acme.ecommerce.seller.support.AbstractSellerIntegrationTest;
 import java.math.BigDecimal;
@@ -253,5 +254,58 @@ class LedgerReversalIntegrationTest extends AbstractSellerIntegrationTest {
     assertThat(rows).hasSize(1);
     assertThat(rows.get(0)[0]).isEqualTo(returnId);
     assertThat((BigDecimal) rows.get(0)[1]).isEqualByComparingTo("42.00");
+  }
+
+  @Autowired private javax.sql.DataSource dataSource;
+
+  @Test
+  @DisplayName("a reversal waits on a held SALE row lock, then reads the committed state and caps")
+  void reversalWaitsOnHeldSaleLockThenCompletes() throws Exception {
+    UUID s = seller("10");
+    UUID order = UUID.randomUUID();
+    UUID shipment = UUID.randomUUID();
+    deliver(order, shipment, s, "100.00", "INR");
+    ExecutorService pool = Executors.newSingleThreadExecutor();
+    try (java.sql.Connection holder = dataSource.getConnection()) {
+      holder.setAutoCommit(false);
+      try (var st = holder.createStatement()) {
+        st.execute(
+            "SELECT 1 FROM ledger_entries WHERE shipment_id = '"
+                + shipment
+                + "' AND type = 'SALE' AND return_id IS NULL FOR UPDATE");
+        // while holding the lock, a competing reversal of 70 is booked but not yet committed
+        st.execute(
+            "INSERT INTO ledger_entries (seller_id, type, amount, currency, order_id, shipment_id, return_id)"
+                + " VALUES ('"
+                + s
+                + "', 'REFUND_REVERSAL', -70.00, 'INR', '"
+                + order
+                + "', '"
+                + shipment
+                + "', '"
+                + UUID.randomUUID()
+                + "')");
+      }
+      Future<?> waiting =
+          pool.submit(
+              () ->
+                  ledger.reverseReturn(
+                      order, shipment, UUID.randomUUID(), new BigDecimal("60.00"), "INR"));
+
+      assertThatThrownBy(() -> waiting.get(1500, java.util.concurrent.TimeUnit.MILLISECONDS))
+          .isInstanceOf(java.util.concurrent.TimeoutException.class);
+      assertThat(waiting.isDone()).isFalse();
+
+      holder.commit();
+      waiting.get(10, java.util.concurrent.TimeUnit.SECONDS);
+    } finally {
+      pool.shutdownNow();
+    }
+
+    // 70 + capped 30, not 70 + 60
+    assertThat(sum(shipment, "REFUND_REVERSAL")).isEqualByComparingTo("-100.00");
+    assertThat(sum(shipment, "COMMISSION_REVERSAL"))
+        .isEqualByComparingTo("10.00"); // completing: the rest of the booked commission
+    assertThat(count(shipment, "FEE_REVERSAL")).isEqualTo(1);
   }
 }
