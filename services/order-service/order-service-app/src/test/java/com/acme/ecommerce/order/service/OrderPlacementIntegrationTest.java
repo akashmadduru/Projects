@@ -474,7 +474,9 @@ class OrderPlacementIntegrationTest extends AbstractOrderIntegrationTest {
         .extracting(e -> ((CodedException) e).errorCode())
         .isEqualTo(ErrorCode.RESOURCE_CONFLICT);
     assertThat(orderCount()).isEqualTo(1);
-    verify(carts, times(2)).clearCart();
+    // The clear is the durable, scoped one, and the refused retry re-asks for the SAME order.
+    verify(remote, times(2)).clearCart(eq(user), eq(first.order().id()), any());
+    verify(carts, never()).clearCart();
     // Refused at the insert, before any stock was reserved for it.
     verify(remote, times(1)).reserveStock(any(), any(), anyString());
   }
@@ -752,6 +754,58 @@ class OrderPlacementIntegrationTest extends AbstractOrderIntegrationTest {
 
     assertThat(second.created()).isTrue();
     assertThat(orderCount()).isEqualTo(2);
+  }
+
+  @Test
+  @DisplayName("C5: a cart order clears through the outbox with the saved order's user and lines")
+  void cartOrderClearsDurably() {
+    Instant added = Instant.parse("2026-11-18T18:00:00Z");
+    cartHolds(added);
+
+    OrderService.Placement p = orders.place(user, "c@example.com", "clear-1", fromCart());
+
+    var lines = org.mockito.ArgumentCaptor.forClass(List.class);
+    verify(remote, times(1)).clearCart(eq(user), eq(p.order().id()), lines.capture());
+    assertThat(lines.getValue()).hasSize(1);
+    var line = (com.acme.ecommerce.cart.api.dto.CartItemResponse) lines.getValue().get(0);
+    assertThat(line.productId()).isEqualTo(shirt);
+    assertThat(line.quantity()).isEqualTo(2);
+    assertThat(line.addedAt()).isEqualTo(added);
+    verify(carts, never()).clearCart();
+  }
+
+  @Test
+  @DisplayName("AC-20: buy-now never clears the cart and enqueues nothing")
+  void buyNowNeverClears() {
+    orders.place(user, "c@example.com", "bn-clear", buyNow(shirt, 1));
+
+    verify(remote, never()).clearCart(any(), any(), any());
+    verify(remote, never()).enqueueClearCart(any(), any(), any());
+    verify(remote, never()).attemptClearCart(any(), any(), any());
+    verify(carts, never()).clearCart();
+    verify(carts, never()).getCart();
+  }
+
+  @Test
+  @DisplayName("C5: a WALLET order from the cart enqueues inside the paid transaction, then tries")
+  void walletCartOrderEnqueuesThenAttempts() {
+    cartHolds(Instant.parse("2026-11-18T18:30:00Z"));
+    when(remote.walletBalance(user))
+        .thenReturn(new PaymentFeignClient.WalletBalance(new BigDecimal("100000.00"), "INR"));
+
+    OrderService.Placement p =
+        orders.place(
+            user,
+            "c@example.com",
+            "wallet-clear",
+            new PlaceOrderRequest(
+                addressId, PaymentMethodRequest.CARD, null, null, true, null, null));
+
+    assertThat(p.order().paymentMethod()).isEqualTo("WALLET");
+    var order = org.mockito.Mockito.inOrder(remote);
+    order.verify(remote).enqueueClearCart(eq(user), eq(p.order().id()), any());
+    order.verify(remote).attemptClearCart(eq(user), eq(p.order().id()), any());
+    verify(remote, never()).clearCart(any(), any(), any());
   }
 
   @Test

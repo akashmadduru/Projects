@@ -281,7 +281,7 @@ public class OrderService {
       if (existing.isEmpty()) {
         throw race;
       }
-      clearCartBestEffort(existing.get());
+      remote.clearCart(userId, existing.get(), cart.items());
       throw new CodedException(
           ErrorCode.RESOURCE_CONFLICT,
           "This cart has already been ordered (order " + existing.get() + ")");
@@ -391,10 +391,13 @@ public class OrderService {
               s -> {
                 OrderResponse o = store.markPaid(savedId, null).order();
                 events.publish(placedType, o);
+                if (!buyNow) {
+                  remote.enqueueClearCart(saved.userId(), savedId, cart.items());
+                }
                 return o;
               });
       if (!buyNow) {
-        clearCartBestEffort(saved.id());
+        remote.attemptClearCart(saved.userId(), savedId, cart.items());
       }
       return new Placement(paid, true);
     }
@@ -414,7 +417,7 @@ public class OrderService {
     }
 
     if (!buyNow) {
-      clearCartBestEffort(saved.id());
+      remote.clearCart(saved.userId(), saved.id(), cart.items());
     }
     if (method == PaymentMethod.COD) {
       events.publish(placedType, saved);
@@ -474,7 +477,8 @@ public class OrderService {
   }
 
   /** The cart's lines and its fingerprint (never null: a cart without one is refused). */
-  private record CartSnapshot(List<Line> lines, String fingerprint) {}
+  private record CartSnapshot(
+      List<Line> lines, String fingerprint, List<CartItemResponse> items) {}
 
   private CartSnapshot cartSnapshot() {
     CartResponse cart = call("cart-service", carts::getCart);
@@ -499,7 +503,7 @@ public class OrderService {
       throw new CodedException(
           ErrorCode.DEPENDENCY_UNAVAILABLE, "Your cart could not be read, please try again");
     }
-    return new CartSnapshot(lines, fingerprint);
+    return new CartSnapshot(lines, fingerprint, List.copyOf(cart.items()));
   }
 
   /**
@@ -795,14 +799,6 @@ public class OrderService {
       }
     }
     return found;
-  }
-
-  private void clearCartBestEffort(UUID orderId) {
-    try {
-      carts.clearCart();
-    } catch (RuntimeException e) {
-      log.warn("Order {} placed but the cart could not be cleared: {}", orderId, e.toString());
-    }
   }
 
   private static <T> T call(String service, java.util.function.Supplier<T> action) {

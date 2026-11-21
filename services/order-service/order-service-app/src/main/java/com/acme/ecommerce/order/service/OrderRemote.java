@@ -1,5 +1,8 @@
 package com.acme.ecommerce.order.service;
 
+import com.acme.ecommerce.cart.api.dto.CartItemResponse;
+import com.acme.ecommerce.cart.api.dto.ConsumedLinesRequest;
+import com.acme.ecommerce.order.client.CartInternalFeignClient;
 import com.acme.ecommerce.order.client.InventoryFeignClient;
 import com.acme.ecommerce.order.client.InventoryFeignClient.Item;
 import com.acme.ecommerce.order.client.PaymentFeignClient;
@@ -45,6 +48,7 @@ public class OrderRemote {
   private final SellerInternalFeignClient sellers;
   private final WalletCreditBacks walletCreditBacks;
   private final Outbox outbox;
+  private final CartInternalFeignClient cartInternal;
 
   public OrderRemote(
       InventoryFeignClient inventory,
@@ -53,8 +57,10 @@ public class OrderRemote {
       UserInternalFeignClient usersInternal,
       SellerInternalFeignClient sellers,
       WalletCreditBacks walletCreditBacks,
-      Outbox outbox) {
+      Outbox outbox,
+      CartInternalFeignClient cartInternal) {
     this.outbox = outbox;
+    this.cartInternal = cartInternal;
     this.walletCreditBacks = walletCreditBacks;
     this.inventory = inventory;
     this.payments = payments;
@@ -157,7 +163,59 @@ public class OrderRemote {
         "RELEASE_STOCK:" + orderId + ":" + returnId);
   }
 
+  // ---- cart clear (durable, scoped to the lines the order consumed) --------------------------
+
+  /** What the relay needs to clear one order's lines from its user's cart. */
+  public record ClearCartPayload(UUID userId, UUID orderId, List<ConsumedLinesRequest.Line> lines) {}
+
+  static String clearCartKey(UUID orderId) {
+    return Kind.CLEAR_CART + ":" + orderId;
+  }
+
+  /**
+   * Records the clear (idempotent per order, in the caller's transaction when there is one). The
+   * aggregate is per user so a pending clear never holds back an order's own effects.
+   */
+  public void enqueueClearCart(UUID userId, UUID orderId, List<CartItemResponse> items) {
+    outbox.enqueue(
+        Kind.CLEAR_CART,
+        UUID.nameUUIDFromBytes(
+            ("cart:" + userId).getBytes(java.nio.charset.StandardCharsets.UTF_8)),
+        new ClearCartPayload(userId, orderId, toLines(items)),
+        clearCartKey(orderId));
+  }
+
+  private static List<ConsumedLinesRequest.Line> toLines(List<CartItemResponse> items) {
+    return items.stream()
+        .map(
+            i ->
+                new ConsumedLinesRequest.Line(
+                    i.productId(), i.variantId(), i.offerId(), i.quantity(), i.addedAt()))
+        .toList();
+  }
+
+  /** One inline try at a recorded clear: DONE on success, left PENDING for the relay on failure. */
+  public void attemptClearCart(UUID userId, UUID orderId, List<CartItemResponse> items) {
+    try {
+      clearCartNow(new ClearCartPayload(userId, orderId, toLines(items)));
+      outbox.complete(clearCartKey(orderId));
+    } catch (RuntimeException e) {
+      log.warn("Order {} placed; its cart clear is queued for retry: {}", orderId, e.toString());
+    }
+  }
+
+  /** Durable: removes the order's lines from the user's cart, now and then until it lands. */
+  public void clearCart(UUID userId, UUID orderId, List<CartItemResponse> items) {
+    enqueueClearCart(userId, orderId, items);
+    attemptClearCart(userId, orderId, items);
+  }
+
   // ---- strict calls the outbox relay delivers (throw on failure so the relay retries) ----------
+
+  public void clearCartNow(ClearCartPayload payload) {
+    cartInternal.consumed(
+        payload.userId(), new ConsumedLinesRequest(payload.orderId(), payload.lines()));
+  }
 
   public void restoreStockNow(UUID orderId) {
     inventory.restore(orderId);
