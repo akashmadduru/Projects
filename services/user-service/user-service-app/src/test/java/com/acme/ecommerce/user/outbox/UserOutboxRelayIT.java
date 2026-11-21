@@ -222,7 +222,8 @@ class UserOutboxRelayIT extends AbstractUserIntegrationTest {
     outbox.enqueue(u, event(u));
     // a payload the mapper rejects with an input-echoing message (Jackson quotes the source)
     UUID bad = UUID.randomUUID();
-    insertRaw(bad, "USER_DELETED:" + bad, "{\"eventId\":{\"email\":\"" + email + "\"}}", "now()");
+    // Jackson echoes an unknown property NAME in its message; here the name is the email
+    insertRaw(bad, "USER_DELETED:" + bad, "{\"" + email + "\":\"v\"}", "now()");
     when(kafka.send(anyString(), anyString(), anyString()))
         .thenReturn(CompletableFuture.failedFuture(new RuntimeException("x".repeat(2000))));
     relay.relay();
