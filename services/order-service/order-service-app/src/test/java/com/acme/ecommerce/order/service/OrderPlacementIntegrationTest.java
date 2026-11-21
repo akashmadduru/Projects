@@ -590,4 +590,163 @@ class OrderPlacementIntegrationTest extends AbstractOrderIntegrationTest {
     assertThat(p.created()).isTrue();
     verify(carts, never()).getCart();
   }
+
+  // --- AC-1, 3, 4, 5, 6, 7: concurrency and duplicate regression cover ----------------------------
+
+  private PlaceOrderRequest fromCartWithExtras() {
+    return new PlaceOrderRequest(
+        addressId, PaymentMethodRequest.CARD, "SAVE50", null, true, 10, null);
+  }
+
+  private void couponAndPartialWalletAvailable() {
+    when(remote.validateCoupon(eq("SAVE50"), any(), eq("INR"), anyBoolean()))
+        .thenReturn(
+            new PromotionFeignClient.Validation(
+                "SAVE50", "50 off", new BigDecimal("50.00"), "INR"));
+    when(remote.walletBalance(user))
+        .thenReturn(new PaymentFeignClient.WalletBalance(new BigDecimal("100.00"), "INR"));
+  }
+
+  private record Outcome(OrderService.Placement placement, CodedException error) {}
+
+  /** Runs one placement per key at the same moment and returns the outcomes in key order. */
+  private List<Outcome> race(UUID who, List<String> keys, PlaceOrderRequest req) throws Exception {
+    var pool = java.util.concurrent.Executors.newFixedThreadPool(keys.size());
+    var start = new java.util.concurrent.CountDownLatch(1);
+    try {
+      List<java.util.concurrent.Future<Outcome>> futures = new java.util.ArrayList<>();
+      for (String key : keys) {
+        futures.add(
+            pool.submit(
+                () -> {
+                  start.await();
+                  try {
+                    return new Outcome(orders.place(who, "c@example.com", key, req), null);
+                  } catch (CodedException e) {
+                    return new Outcome(null, e);
+                  }
+                }));
+      }
+      start.countDown();
+      List<Outcome> out = new java.util.ArrayList<>();
+      for (var f : futures) {
+        out.add(f.get(30, java.util.concurrent.TimeUnit.SECONDS));
+      }
+      return out;
+    } finally {
+      pool.shutdownNow();
+    }
+  }
+
+  @Test
+  @DisplayName("AC-1: two different-key placements race: one order, one 409, each charge once")
+  void differentKeyRaceChargesOnce() throws Exception {
+    cartHolds(Instant.parse("2026-11-18T13:00:00Z"));
+    couponAndPartialWalletAvailable();
+
+    List<Outcome> outcomes = race(user, List.of("one-a", "one-b"), fromCartWithExtras());
+
+    assertThat(outcomes.stream().filter(o -> o.placement() != null)).hasSize(1);
+    Outcome loser = outcomes.stream().filter(o -> o.error() != null).findFirst().orElseThrow();
+    assertThat(loser.error().errorCode()).isEqualTo(ErrorCode.RESOURCE_CONFLICT);
+    assertThat(orderCount()).isEqualTo(1);
+    verify(remote, times(1)).reserveStock(any(), any(), anyString());
+    verify(remote, times(1))
+        .redeemCoupon(eq("SAVE50"), eq(user), any(), any(), eq("INR"), anyBoolean());
+    verify(remote, times(1)).redeemCoins(eq(user), eq(10), any());
+    verify(remote, times(1)).debitWallet(eq(user), any(), eq("INR"), any());
+  }
+
+  @Test
+  @DisplayName("AC-3: the same key and address, repeated, returns the original order")
+  void sameKeyRepeatedReturnsOriginal() {
+    cartHolds(Instant.parse("2026-11-18T14:00:00Z"));
+
+    OrderService.Placement first = orders.place(user, "c@example.com", "same-key", fromCart());
+    OrderService.Placement again = orders.place(user, "c@example.com", "same-key", fromCart());
+
+    assertThat(first.created()).isTrue();
+    assertThat(again.created()).isFalse();
+    assertThat(again.order().id()).isEqualTo(first.order().id());
+    assertThat(orderCount()).isEqualTo(1);
+    verify(remote, times(1)).reserveStock(any(), any(), anyString());
+  }
+
+  @Test
+  @DisplayName("AC-3: the same key and address, raced, gives one order and one created=false")
+  void sameKeyRaceReturnsOriginal() throws Exception {
+    cartHolds(Instant.parse("2026-11-18T14:30:00Z"));
+
+    List<Outcome> outcomes = race(user, List.of("dup-key", "dup-key"), fromCart());
+
+    assertThat(outcomes).allSatisfy(o -> assertThat(o.placement()).isNotNull());
+    assertThat(outcomes.stream().filter(o -> o.placement().created())).hasSize(1);
+    assertThat(outcomes.get(0).placement().order().id())
+        .isEqualTo(outcomes.get(1).placement().order().id());
+    assertThat(orderCount()).isEqualTo(1);
+    verify(remote, times(1)).reserveStock(any(), any(), anyString());
+  }
+
+  @Test
+  @DisplayName("AC-4: after the first order is CANCELLED the same cart can be ordered again")
+  void cancelledOrderFreesTheCart() {
+    cartHolds(Instant.parse("2026-11-18T15:00:00Z"));
+    OrderService.Placement first = orders.place(user, "c@example.com", "c-1", fromCart());
+    jdbc.update("update orders.orders set status = 'CANCELLED' where id = ?", first.order().id());
+
+    OrderService.Placement second = orders.place(user, "c@example.com", "c-2", fromCart());
+
+    assertThat(second.created()).isTrue();
+    assertThat(second.order().id()).isNotEqualTo(first.order().id());
+    assertThat(orderCount()).isEqualTo(2);
+  }
+
+  @Test
+  @DisplayName("AC-5: the cart cleared and the same items re-added is a new cart, not blocked")
+  void reAddedItemsAreANewCart() {
+    Instant added = Instant.parse("2026-11-18T16:00:00Z");
+    cartHolds(added);
+    OrderService.Placement first = orders.place(user, "c@example.com", "r-1", fromCart());
+    assertThat(status(first.order().id())).isEqualTo("PENDING_PAYMENT");
+
+    cartHolds(added.plusSeconds(3600));
+    OrderService.Placement second = orders.place(user, "c@example.com", "r-2", fromCart());
+
+    assertThat(second.created()).isTrue();
+    assertThat(orderCount()).isEqualTo(2);
+  }
+
+  @Test
+  @DisplayName("AC-6: buy-now with two different keys makes two orders and never reads the cart")
+  void buyNowTwiceMakesTwoOrders() {
+    OrderService.Placement a = orders.place(user, "c@example.com", "bn-1", buyNow(shirt, 2));
+    OrderService.Placement b = orders.place(user, "c@example.com", "bn-2", buyNow(shirt, 2));
+
+    assertThat(a.created()).isTrue();
+    assertThat(b.created()).isTrue();
+    assertThat(b.order().id()).isNotEqualTo(a.order().id());
+    assertThat(orderCount()).isEqualTo(2);
+    verify(carts, never()).getCart();
+  }
+
+  @Test
+  @DisplayName("AC-7: two users with identical carts both place; one user's order never blocks another")
+  void identicalCartsOfTwoUsers() {
+    UUID other = UUID.randomUUID();
+    when(remote.createPayment(any(), eq(other), any(), eq("INR"), eq("CARD")))
+        .thenReturn(
+            new PaymentResult("pay-2", null, "REQUIRES_PAYMENT", "RAZORPAY", null, "rzp_test"));
+    cartHolds(Instant.parse("2026-11-18T17:00:00Z"));
+
+    OrderService.Placement a = orders.place(user, "a@example.com", "u-a", fromCart());
+    OrderService.Placement b = orders.place(other, "b@example.com", "u-b", fromCart());
+
+    assertThat(a.created()).isTrue();
+    assertThat(b.created()).isTrue();
+    assertThat(b.order().id()).isNotEqualTo(a.order().id());
+    assertThat(
+            jdbc.queryForObject(
+                "select count(*) from orders.orders where user_id = ?", Integer.class, other))
+        .isEqualTo(1);
+  }
 }
