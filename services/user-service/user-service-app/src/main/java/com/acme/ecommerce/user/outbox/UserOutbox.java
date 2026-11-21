@@ -35,13 +35,13 @@ public class UserOutbox {
   public void enqueue(UUID userId, UserDeletedEvent event) {
     int inserted =
         jdbc.sql(
-            "INSERT INTO users.outbox (aggregate_id, kind, payload, idem_key)"
-                + " VALUES (:a, :k, CAST(:p AS jsonb), :i) ON CONFLICT (idem_key) DO NOTHING")
-        .param("a", userId)
-        .param("k", KIND)
-        .param("p", toJson(event))
-        .param("i", KIND + ":" + userId)
-        .update();
+                "INSERT INTO users.outbox (aggregate_id, kind, payload, idem_key)"
+                    + " VALUES (:a, :k, CAST(:p AS jsonb), :i) ON CONFLICT (idem_key) DO NOTHING")
+            .param("a", userId)
+            .param("k", KIND)
+            .param("p", toJson(event))
+            .param("i", KIND + ":" + userId)
+            .update();
     if (inserted == 0) {
       log.warn("USER_DELETED outbox row already exists, duplicate suppressed: userId={}", userId);
     }
