@@ -66,8 +66,8 @@ A field change must be made on both sides in the same change. All payloads are J
 | `INVENTORY_QUANTITY_CHANGED` | product-service sets the display-only `lastKnownQuantity`. cart-service checks back-in-stock alerts. |
 | `INVENTORY_PROVISIONING_FAILED` | product-service compensates the create (the saga's failure path, [Phase 3](../phases/phase-03-catalog-enrichment-and-saga.md)). |
 | `RATING_*` | product-service treats the event only as a trigger: it fetches the authoritative summary from rating-service over Feign and overwrites `average_rating`, `rating_count`, `review_count`, `rating_distribution`. Replays and out-of-order events therefore converge. |
-| `order.events` | notification-service sends email and inbox messages; promotion-service credits coins on delivery and, per refunded return, gives back redeemed coins and reverses earned coins pro rata (`coin_return_reversals`); seller-service books sale, commission and fee on shipment delivery and reverses them on return. |
-| `RETURN_REFUNDED` fields | order-service adds `returnItemsValue` (sum of unit price x quantity of the return) and `orderItemsValue` (order subtotal) to RETURN_* events, null otherwise. promotion-service's copy reads `returnId`, `returnItemsValue`, `orderItemsValue`; `paymentStatus=REFUNDED` marks the completing return. Events without them take the legacy full-refund path and keep the age gate. |
+| `order.events` | notification-service sends email and inbox messages; promotion-service credits coins on delivery and, per refunded return, gives back redeemed coins and reverses earned coins pro rata (`coin_return_reversals`); seller-service books sale, commission and fee on shipment delivery and reverses them on return (items value, capped at the SALE, `FEE_REVERSAL` once when fully reversed; ledger `type` gains `FEE_REVERSAL`). Every `order.events` message with `shipments` also feeds the `ledger_shipments` register that the nightly reconcile compares against. |
+| `RETURN_REFUNDED` fields | order-service adds `returnItemsValue` (sum of unit price x quantity of the return) and `orderItemsValue` (order subtotal) to RETURN_* events, null otherwise. promotion-service's copy reads `returnId`, `returnItemsValue`, `orderItemsValue`; `paymentStatus=REFUNDED` marks the completing return. Events without them take the legacy full-refund path and keep the age gate. seller-service is strict: a `RETURN_REFUNDED` without `returnId`, `returnShipmentId` and `returnItemsValue` logs ERROR "LEDGER ALERT" and is dead-lettered at once (no `refundAmount` fallback). |
 | `USER_DELETED` | each service anonymises or deletes its own data for that user. |
 | `audit.events` | support-service stores the record for `GET /api/admin/audit`. |
 
@@ -117,6 +117,22 @@ kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic order.events
 ```
 
 Logs carry the request's correlation id, and traces go to Jaeger (http://127.0.0.1:16686).
+
+## Runbook: seller ledger (F-20261119-13)
+
+- **Deploy order.** order-service with F-09/F-10 (it publishes `returnItemsValue`) deploys before seller-service.
+  The other order breaks every return refund.
+- **Expect** ERROR logs starting `LEDGER ALERT malformed RETURN_REFUNDED` and a message on `order.events.DLT` for each
+  malformed event. Nothing is posted for it. After a consumer-group reset to earliest, old events without
+  `returnItemsValue` also land there; they were applied before and have no money effect.
+- **Replay a dead-lettered return** once the cause is fixed: republish the DLT record to `order.events`
+  (same key). The consumer is idempotent per return.
+- **Reconcile.** Daily at 02:30 UTC (`seller.ledger.reconcile.cron`), read-only. Findings: `GET
+  /api/admin/ledger/discrepancies?open=true`; run now: `POST /api/admin/ledger/reconcile` (409 if one is running).
+  `POST /api/admin/ledger/discrepancies/{id}/repair` (ADMIN/FINANCE) fixes `MISSING_SALE` and `UNMATCHED_REVERSAL`;
+  the other kinds are manual. Refused repairs are logged at WARN with the actor.
+- **Blind spots:** shipments none of whose events arrived, amount changes without an event, returns whose
+  `RETURN_REFUNDED` was dead-lettered, deliveries before this deploy that have no SALE.
 
 ## Known gaps
 

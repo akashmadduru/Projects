@@ -77,7 +77,7 @@ Phase 9 was built under "no tests, no HLD/LLD, record shortcuts as debt". The in
 - **Where:** order-service `ReturnService`, invoice generator, delivery estimate.
 - **Risk:**
   - One return covers one shipment; items from several shipments need separate returns. Lines are resolved against the given `shipmentId`, else the single/first delivered shipment containing the first line's product. The return window is counted per shipment from its own `deliveredAt`.
-  - `RETURN_REFUNDED` carries `returnShipmentId` + `returnId` + `refundAmount` (gross incl. discount pro-rating); seller-service reverses commission itself ([TD-P9-20](#td-p9-20)).
+  - `RETURN_REFUNDED` carries `returnShipmentId` + `returnId` + `refundAmount` (gross incl. discount pro-rating); seller-service reverses commission itself (fixed in F-20261119-13: items value, capped, fee reversed; see the remediation plan).
   - Return restock passes `offerId` (resolved from the shipment's order item) but the warehouse is still resolved by inventory from its reservation record; a line split across two warehouses of the same offer restocks in reservation order.
   - Shipment amount = items value only; order-level discount, coupon, coins, shipping and tax are pro-rated by items-value share on shipment invoices (may differ by a cent from the order totals). A non-platform seller invoice shows name and warehouse only (no seller GSTIN/address; not fetched from seller-service).
   - Delivery estimate per shipment = ship-to pincode vs warehouse pincode (3-digit / 1-digit prefix rule, 2/3/5 days, 7 non-Indian), ignoring offer `dispatchDays`; `estimated_delivery_date` = latest shipment ETA, while the checkout-time estimate/COD check still uses the fixed warehouse prefix.
@@ -133,16 +133,17 @@ Phase 9 was built under "no tests, no HLD/LLD, record shortcuts as debt". The in
 - **Risk:** `p9e-*` sellers (names `P9E*`) and their users remain; seller-owned test products ("E2E Bulk ...", "E2E Sponsored ...") and test warehouses (`S*-DEL`, `T*`, inactive) remain. Test offers on seeded products (Dune "P9 Store" at 12.5, and the e2e sellers) were deactivated, not deleted. The seeded Laptop product (id starts `25e35f99`) no longer resolves on the PDP (404), and its "P9 Traders" offer could not be inspected; cause not yet established. Credentials are intentionally not recorded here. Extends [TD-P8-19](phase8.md#td-p8-19).
 - **Fix:** Investigate and restore the Laptop product; delete these rows (or `docker compose down -v`) before sharing the environment.
 
-<a id="td-p9-20"></a>
-## TD-P9-20 Seller ledger: fee on returns, per-line refunds, no reconcile
-- **Severity / Effort:** Med / M
-- **Where:** seller-service `LedgerService`, `OrderEventConsumer`; order-service `RETURN_REFUNDED` payload.
-- **Risk:** Residual of TD-P9-07 (fixed 2026-11-17: the ledger consumer starts from `earliest`, so a new consumer group no longer skips deliveries; replay is safe because every ledger write is unique per shipment/type or per return; failures reach the DLT since TD-BE-17). Still open: the per-shipment fee is not reversed on a return (a policy decision), a `RETURN_REFUNDED` event without line amounts reverses the whole shipment, and nothing reconciles the ledger against order-service.
-- **Fix:** Decide the return-fee policy; carry per-line refund amounts in the event; a nightly reconcile of delivered shipments against `ledger_entries`.
-
 <a id="td-p9-21"></a>
 ## TD-P9-21 Product review: edits after approval are not re-reviewed
 - **Severity / Effort:** Low / S
 - **Where:** product-service `ProductModerationService`, `SellerCatalogService`; admin `ModerationView`.
 - **Risk:** Residual of TD-P9-03 (fixed 2026-11-17: a marketplace seller's new product is created inactive and PENDING_REVIEW; admins approve or reject it at Catalog > Product review, `/api/products/admin/moderation`, with automatic warnings for no image, no description, banned terms and prices far from the category average; a rejected product the seller edits goes back to the queue; the seller sees the status on their listings; seller bulk edits now publish PRODUCT_UPDATED). An approved product the seller later edits (name, description, image) goes live without a second review. Banned terms are a config list (`product.moderation.banned-terms`), not a managed list.
 - **Fix:** Send material edits of an approved seller product back to review while keeping the last approved version live; manage banned terms in the admin console.
+
+<a id="td-p9-22"></a>
+## TD-P9-22 seller-service `LedgerService.reverseRefund` has no event caller
+- **Severity / Effort:** Low / S
+- **Where:** seller-service `LedgerService.reverseRefund`.
+- **Risk:** the `RETURN_REFUNDED` whole-order fallback was removed in F-20261119-13, so nothing calls the method.
+- **Fix:** part B (per-shipment cancel, [TD-P9-12](#td-p9-12)) must use it for the whole-shipment refund path or delete it.
+- **Debt line:** td-p9-22 | seller-service LedgerService.reverseRefund has no event caller (RETURN_REFUNDED fallback removed in F-20261119-13); part B (per-shipment cancel) must use it for the whole-shipment refund path or delete it | owner: part B follow-up

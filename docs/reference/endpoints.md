@@ -299,12 +299,15 @@ Request and response shapes for Phases 1–5 are in [api.md](api.md); later phas
 | DELETE | `/api/admin/ratings/{id}` | AdminRatingController |
 | GET | `/internal/privacy/users/{userId}/export` | PrivacyExportController |
 
-## seller-service (25)
+## seller-service (28)
 
 | Method | Path | Controller |
 |---|---|---|
 | POST | `/api/ads/{adId}/click` | AdController |
 | POST | `/api/ads/impressions` | AdController |
+| GET | `/api/admin/ledger/discrepancies` | FinanceController |
+| POST | `/api/admin/ledger/discrepancies/{id}/repair` | FinanceController |
+| POST | `/api/admin/ledger/reconcile` | FinanceController |
 | GET | `/api/admin/payouts` | FinanceController |
 | POST | `/api/admin/payouts/run` | FinanceController |
 | GET | `/api/admin/sellers` | SellerController |

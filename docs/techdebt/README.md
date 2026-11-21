@@ -125,8 +125,8 @@ Shortcuts taken while building customer accounts (login, Google SSO, user/cart/o
 | TD-P9-17 | Storefront Phase 9 UX shortcuts | phase9 | Low | M | [phase9.md](phase9.md#td-p9-17) |
 | TD-P9-18 | Seller portal assumed API shapes, raw-UUID forms | phase9 | Low | M | [phase9.md](phase9.md#td-p9-18) |
 | TD-P9-19 | Phase 9 test data left in dev (Laptop PDP 404) | phase9 | Low | S | [phase9.md](phase9.md#td-p9-19) |
-| TD-P9-20 | Seller ledger: fee on returns, per-line refunds, no reconcile | phase9 | Med | M | [phase9.md](phase9.md#td-p9-20) |
 | TD-P9-21 | Product review: edits after approval are not re-reviewed | phase9 | Low | S | [phase9.md](phase9.md#td-p9-21) |
+| TD-P9-22 | Seller ledger `reverseRefund` has no event caller | phase9 | Low | S | [phase9.md](phase9.md#td-p9-22) |
 | TD-SEC-14 | Database dumps with credential material remain in git history | infra-security | High | S | [infra-security.md](infra-security.md#td-sec-14) |
 | TD-AI-02 | No IRSA role or NetworkPolicy egress for Bedrock | ai | Med | S | [ai.md](ai.md#td-ai-02) |
 | TD-AI-03 | No search-specific rate limit | ai | Med | M | [ai.md](ai.md#td-ai-03) |

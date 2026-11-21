@@ -30,7 +30,8 @@ column here is the progress log.
 | 6a | [TD-P6-04](phase6.md#td-p6-04), [TD-P7-07](phase7.md#td-p7-07) | Fail closed on missing stock rows, catalog sync creates rows for every product and variant, release cannot add stock | ✅ Fixed 2026-11-17 (residual: [TD-P7-22](phase7.md#td-p7-22)) |
 | 6b | [TD-P9-02](phase9.md#td-p9-02) | One source of truth: `warehouse_stock`; legacy totals derived from it | 🟡 Step 1 done 2026-11-17: hourly reconcile makes `warehouse_stock` authoritative; retiring the legacy tables remains (now Med) |
 | 7 | [TD-P8-07](phase8.md#td-p8-07) | Atomic wallet reserve-and-debit; retried credit-back | ✅ Fixed 2026-11-17 (residual: [TD-P8-22](phase8.md#td-p8-22)) |
-| 8 | [TD-P9-07](phase9.md#td-p9-07) | Seller ledger from `earliest`, idempotent, DLQ, fee reversal | ✅ Fixed 2026-11-17 (residual: [TD-P9-20](phase9.md#td-p9-20)) |
+| 8 | [TD-P9-07](phase9.md#td-p9-07) | Seller ledger from `earliest`, idempotent, DLQ, fee reversal | ✅ Fixed 2026-11-17; residual TD-P9-20 fixed in row 8a |
+| 8a | TD-P9-20 (F-20261119-13) | Seller ledger: return fee reversed once, reversals capped on items value, strict `RETURN_REFUNDED`, nightly reconcile and admin repair | ✅ Part A done 2026-11-21 (fee policy provisional; part B: [TD-P9-12](phase9.md#td-p9-12), [TD-P9-22](phase9.md#td-p9-22)) |
 | 9 | [TD-P9-03](phase9.md#td-p9-03) | `PENDING_REVIEW` for seller products, admin approval queue, `PRODUCT_UPDATED` from bulk | ✅ Fixed 2026-11-17 (residual: [TD-P9-21](phase9.md#td-p9-21)) |
 | 10 | [TD-P9-09](phase9.md#td-p9-09) (code part) | Revoke role on suspend, mask KYC fields, audit admin decisions | 🟡 Code part done 2026-11-17 (role revoked on suspend, KYC masked, decisions audited); provider integrations need your choice |
 
