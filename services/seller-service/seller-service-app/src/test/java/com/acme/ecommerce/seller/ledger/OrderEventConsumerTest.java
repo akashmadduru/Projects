@@ -74,6 +74,26 @@ class OrderEventConsumerTest {
   }
 
   @Test
+  @DisplayName("a non-positive items value or a non-UUID id is alerted without echoing the id")
+  void nonPositiveOrUnparseableReturnIsAlertedAndRejected(CapturedOutput output) {
+    List<OrderEvt> bad =
+        List.of(
+            returnRefunded(returnId, shipment, BigDecimal.ZERO),
+            returnRefunded(returnId, shipment, new BigDecimal("-5.00")),
+            returnRefunded("not-a-uuid\nFORGED", shipment, new BigDecimal("1.00")),
+            returnRefunded(returnId, "nope", new BigDecimal("1.00")));
+
+    for (OrderEvt e : bad) {
+      assertThatThrownBy(() -> listener.onEvent(e)).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    assertThat(output.getAll()).contains("LEDGER ALERT malformed RETURN_REFUNDED");
+    assertThat(output.getAll()).doesNotContain("FORGED");
+    verify(ledger, org.mockito.Mockito.never())
+        .reverseReturn(any(), any(), any(), any(), anyString());
+  }
+
+  @Test
   @DisplayName("a well-formed RETURN_REFUNDED reverses the items value, not the refund amount")
   void wellFormedReturnRefundedCallsReverseReturnWithItemsValue() {
     listener.onEvent(returnRefunded(returnId, shipment, new BigDecimal("100.00")));

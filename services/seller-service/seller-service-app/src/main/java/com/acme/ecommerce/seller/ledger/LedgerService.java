@@ -75,7 +75,9 @@ public class LedgerService {
    * Records what order-service announced for each shipment in {@code ledger_shipments}, the source
    * the reconcile job compares the ledger against. It commits in its own transaction so a failing
    * posting (or an outer rollback) never removes it, and it is monotonic: an older event (lower
-   * status rank) is ignored, so an out-of-order SHIPPED never overwrites DELIVERED.
+   * status rank) is ignored, so an out-of-order SHIPPED never overwrites DELIVERED. Shipment
+   * amounts are treated as immutable once DELIVERED: a replay at the same rank carries the same
+   * amount, so no timestamp tiebreak is kept.
    */
   @Transactional(propagation = Propagation.REQUIRES_NEW)
   public void track(UUID orderId, List<Part> parts, String currency) {
@@ -150,8 +152,9 @@ public class LedgerService {
 
   /**
    * Whole-shipment reversal of the given shipments (or of the whole order when null): books the
-   * remainder of each SALE on the shared cap. No event caller until part B; part B must use it or
-   * delete it (F-20261119-13 CTO ruling d).
+   * remainder of each SALE on the shared cap. It has no event caller yet (td-p9-22). It locks
+   * several SALE rows one after another (in shipment_id order) while a payout run locks its rows in
+   * one unordered statement, so a multi-shipment call can deadlock with a payout run (td-p9-22).
    */
   @Transactional
   public void reverseRefund(UUID orderId, List<UUID> shipmentIds) {
@@ -182,20 +185,25 @@ public class LedgerService {
 
   /**
    * The one reversal core. The SALE row lock serialises every reversal of a shipment, so the
-   * remainder read below stays valid until commit. It holds one row and only inserts, so it cannot
-   * deadlock with a payout run (which locks rows in one statement and updates them).
+   * remainder read below stays valid until commit. For a single shipment it holds one row and only
+   * inserts, so it cannot deadlock with a payout run; that guarantee does not extend to {@link
+   * #reverseRefund} over several shipments. A SALE that belongs to another order than the event's
+   * is rejected with IllegalArgumentException (dead-lettered, nothing posted).
    */
   private void reverse(
       UUID orderId, UUID shipmentId, UUID returnId, Optional<BigDecimal> basis, String currency) {
     var sale =
         jdbc.sql(
-                "SELECT seller_id, amount, currency FROM ledger_entries WHERE shipment_id = :s"
+                "SELECT seller_id, amount, currency, order_id FROM ledger_entries WHERE shipment_id = :s"
                     + " AND type = 'SALE' AND return_id IS NULL FOR UPDATE")
             .param("s", shipmentId)
             .query(
                 (rs, n) ->
                     new Object[] {
-                      rs.getObject(1, UUID.class), rs.getBigDecimal(2), rs.getString(3)
+                      rs.getObject(1, UUID.class),
+                      rs.getBigDecimal(2),
+                      rs.getString(3),
+                      rs.getObject(4, UUID.class)
                     })
             .optional();
     if (sale.isEmpty()) {
@@ -212,6 +220,10 @@ public class LedgerService {
           .param("e", basis.orElse(null))
           .update();
       return;
+    }
+    if (!orderId.equals(sale.get()[3])) {
+      throw new IllegalArgumentException(
+          "shipment " + shipmentId + " belongs to another order than " + orderId);
     }
     if (returnId != null
         && jdbc.sql(

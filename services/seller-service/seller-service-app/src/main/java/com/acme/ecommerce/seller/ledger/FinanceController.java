@@ -7,6 +7,8 @@ import com.acme.ecommerce.seller.ledger.LedgerService.LedgerEntry;
 import com.acme.ecommerce.seller.ledger.LedgerService.Payout;
 import com.acme.ecommerce.seller.ledger.LedgerService.PayoutRun;
 import com.acme.ecommerce.seller.seller.SellerService;
+import java.math.BigDecimal;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -73,11 +75,8 @@ public class FinanceController {
 
   @GetMapping("/api/admin/ledger/discrepancies")
   @PreAuthorize("hasAnyRole('ADMIN','FINANCE')")
-  public Paged<Discrepancy> discrepancies(
-      @RequestParam(defaultValue = "true") boolean open,
-      @RequestParam(defaultValue = "0") int page,
-      @RequestParam(defaultValue = "20") int size) {
-    return reconciler.list(open, page, size);
+  public List<Discrepancy> discrepancies(@RequestParam(defaultValue = "true") boolean open) {
+    return reconciler.list(open);
   }
 
   @PostMapping("/api/admin/ledger/reconcile")
@@ -90,7 +89,10 @@ public class FinanceController {
 
   @PostMapping("/api/admin/ledger/discrepancies/{id}/repair")
   @PreAuthorize("hasAnyRole('ADMIN','FINANCE')")
-  public Discrepancy repair(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
-    return reconciler.repair(id, jwt.getSubject());
+  public Discrepancy repair(
+      @PathVariable UUID id,
+      @RequestParam(required = false) BigDecimal amount,
+      @AuthenticationPrincipal Jwt jwt) {
+    return reconciler.repair(id, jwt.getSubject(), amount);
   }
 }

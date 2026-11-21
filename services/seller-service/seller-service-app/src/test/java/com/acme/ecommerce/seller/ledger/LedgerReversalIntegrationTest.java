@@ -230,6 +230,24 @@ class LedgerReversalIntegrationTest extends AbstractSellerIntegrationTest {
   }
 
   @Test
+  @DisplayName("a reversal naming another order than the SALE's is rejected and posts nothing")
+  void reversalForAnotherOrderIsRejected() {
+    UUID s = seller("10");
+    UUID order = UUID.randomUUID();
+    UUID shipment = UUID.randomUUID();
+    deliver(order, shipment, s, "100.00", "INR");
+
+    assertThatThrownBy(
+            () ->
+                ledger.reverseReturn(
+                    UUID.randomUUID(), shipment, UUID.randomUUID(), new BigDecimal("40.00"), "INR"))
+        .isInstanceOf(IllegalArgumentException.class);
+
+    assertThat(count(shipment, "REFUND_REVERSAL")).isZero();
+    assertThat(count(shipment, "COMMISSION_REVERSAL")).isZero();
+  }
+
+  @Test
   @DisplayName("a reversal with no SALE posts nothing and is reported once")
   void reversalWithoutSaleWritesUnmatchedRow() {
     UUID order = UUID.randomUUID();

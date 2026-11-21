@@ -145,5 +145,6 @@ Phase 9 was built under "no tests, no HLD/LLD, record shortcuts as debt". The in
 - **Severity / Effort:** Low / S
 - **Where:** seller-service `LedgerService.reverseRefund`.
 - **Risk:** the `RETURN_REFUNDED` whole-order fallback was removed in F-20261119-13, so nothing calls the method.
+- **Deadlock note:** a multi-shipment call locks several SALE rows one after another (shipment_id order) while a payout run locks its rows in one unordered statement, so the two can deadlock (Postgres aborts one; nothing is corrupted). Call it once per shipment, each in its own transaction, or order the payout run's lock, before adding a caller.
 - **Fix:** part B (per-shipment cancel, [TD-P9-12](#td-p9-12)) must use it for the whole-shipment refund path or delete it.
-- **Debt line:** td-p9-22 | seller-service LedgerService.reverseRefund has no event caller (RETURN_REFUNDED fallback removed in F-20261119-13); part B (per-shipment cancel) must use it for the whole-shipment refund path or delete it | owner: part B follow-up
+- **Debt line:** td-p9-22 | seller-service LedgerService.reverseRefund has no event caller (RETURN_REFUNDED fallback removed in F-20261119-13); part B (per-shipment cancel) must use it for the whole-shipment refund path or delete it; a multi-shipment call can deadlock with a payout run (lock several SALE rows vs one unordered FOR UPDATE), so call per shipment or order the payout lock first | owner: part B follow-up

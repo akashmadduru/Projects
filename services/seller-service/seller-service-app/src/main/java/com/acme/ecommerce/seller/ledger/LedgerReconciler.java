@@ -6,7 +6,6 @@ import com.acme.ecommerce.common.core.error.ErrorCode;
 import com.acme.ecommerce.common.core.error.ResourceConflictException;
 import com.acme.ecommerce.common.core.error.ResourceNotFoundException;
 import com.acme.ecommerce.common.web.job.JobLock;
-import com.acme.ecommerce.seller.Paged;
 import com.acme.ecommerce.seller.client.OrderFeignClient;
 import java.math.BigDecimal;
 import java.time.Duration;
@@ -34,12 +33,7 @@ public class LedgerReconciler {
   private static final Logger log = LoggerFactory.getLogger(LedgerReconciler.class);
   private static final String JOB = "seller-ledger-reconcile";
   private static final List<String> KINDS =
-      List.of(
-          "MISSING_SALE",
-          "AMOUNT_MISMATCH",
-          "OVER_REVERSED",
-          "STATE_MISMATCH",
-          "UNMATCHED_REVERSAL");
+      List.of("MISSING_SALE", "AMOUNT_MISMATCH", "STATE_MISMATCH", "UNMATCHED_REVERSAL");
 
   public record Discrepancy(
       UUID id,
@@ -64,8 +58,7 @@ public class LedgerReconciler {
       BigDecimal amount,
       boolean pastGrace,
       BigDecimal saleAmount,
-      boolean recentSale,
-      BigDecimal reversed) {}
+      boolean recentSale) {}
 
   private final JdbcClient jdbc;
   private final JobLock jobLock;
@@ -113,9 +106,7 @@ public class LedgerReconciler {
           jdbc.sql(
                   "SELECT r.shipment_id, r.order_id, r.seller_id, r.status, r.amount,"
                       + " r.updated_at < now() - CAST(:g AS interval), s.amount,"
-                      + " s.created_at >= now() - make_interval(days => :d),"
-                      + " COALESCE((SELECT -SUM(x.amount) FROM ledger_entries x"
-                      + " WHERE x.shipment_id = r.shipment_id AND x.type = 'REFUND_REVERSAL'), 0)"
+                      + " s.created_at >= now() - make_interval(days => :d)"
                       + " FROM ledger_shipments r LEFT JOIN ledger_entries s"
                       + " ON s.shipment_id = r.shipment_id AND s.type = 'SALE' AND s.return_id IS NULL"
                       + " WHERE r.shipment_id > :after ORDER BY r.shipment_id LIMIT :n")
@@ -133,8 +124,7 @@ public class LedgerReconciler {
                           rs.getBigDecimal(5),
                           rs.getBoolean(6),
                           rs.getBigDecimal(7),
-                          rs.getBoolean(8),
-                          rs.getBigDecimal(9)))
+                          rs.getBoolean(8)))
               .list();
       page.forEach(r -> check(r, counts));
       if (page.size() < pageSize) {
@@ -154,9 +144,6 @@ public class LedgerReconciler {
     if (r.amount().compareTo(r.saleAmount()) != 0) {
       report(
           counts, r, "AMOUNT_MISMATCH", r.amount(), r.saleAmount(), "SALE differs from register");
-    }
-    if (r.reversed().compareTo(r.saleAmount()) > 0) {
-      report(counts, r, "OVER_REVERSED", r.saleAmount(), r.reversed(), "reversed more than sold");
     }
     if (r.recentSale()) {
       try {
@@ -200,23 +187,14 @@ public class LedgerReconciler {
 
   // ---- admin ------------------------------------------------------------------------------
 
-  public Paged<Discrepancy> list(boolean open, int page, int size) {
-    int s = Paged.clampSize(size);
-    String where = open ? " WHERE resolved_at IS NULL" : "";
-    long total =
-        jdbc.sql("SELECT count(*) FROM ledger_discrepancies" + where).query(Long.class).single();
-    return Paged.of(
-        jdbc.sql(
-                "SELECT * FROM ledger_discrepancies"
-                    + where
-                    + " ORDER BY first_seen_at DESC, id LIMIT :l OFFSET :o")
-            .param("l", s)
-            .param("o", (long) Math.max(page, 0) * s)
-            .query(LedgerReconciler::map)
-            .list(),
-        Math.max(page, 0),
-        s,
-        total);
+  /** Newest first, capped at 200; the open rows unless {@code open} is false. */
+  public List<Discrepancy> list(boolean open) {
+    return jdbc.sql(
+            "SELECT * FROM ledger_discrepancies"
+                + (open ? " WHERE resolved_at IS NULL" : "")
+                + " ORDER BY first_seen_at DESC, id LIMIT 200")
+        .query(LedgerReconciler::map)
+        .list();
   }
 
   private static Discrepancy map(java.sql.ResultSet rs, int n) throws java.sql.SQLException {
@@ -236,8 +214,12 @@ public class LedgerReconciler {
         rs.getString("resolved_by"));
   }
 
-  /** Posts the missing booking through the normal idempotent paths; {@code actor} is the caller. */
-  public Discrepancy repair(UUID id, String actor) {
+  /**
+   * Posts the missing booking through the normal idempotent paths; {@code actor} is the caller.
+   * order-service confirms status and seller but not the amount, so a MISSING_SALE repair books
+   * only the admin-entered {@code amount} (logged with the actor and kept in the row's detail).
+   */
+  public Discrepancy repair(UUID id, String actor, BigDecimal amount) {
     Discrepancy d =
         jdbc.sql("SELECT * FROM ledger_discrepancies WHERE id = :i")
             .param("i", id)
@@ -248,25 +230,26 @@ public class LedgerReconciler {
       return d;
     }
     try {
-      post(d);
+      post(d, amount);
     } catch (ApplicationException e) {
       log.warn("Ledger repair of {} ({}) refused for {}: {}", id, d.kind(), actor, e.getMessage());
       throw e;
     }
     jdbc.sql(
-            "UPDATE ledger_discrepancies SET resolved_at = now(), resolved_by = :a"
-                + " WHERE id = :i AND resolved_at IS NULL")
+            "UPDATE ledger_discrepancies SET resolved_at = now(), resolved_by = :a,"
+                + " detail = COALESCE(detail, '') || CAST(:n AS text) WHERE id = :i AND resolved_at IS NULL")
         .param("a", actor)
+        .param("n", amount == null ? "" : "; repaired with admin-entered amount " + amount)
         .param("i", id)
         .update();
-    log.info("Ledger repair of {} ({}) done by {}", id, d.kind(), actor);
+    log.info("Ledger repair of {} ({}) done by {} amount={}", id, d.kind(), actor, amount);
     return jdbc.sql("SELECT * FROM ledger_discrepancies WHERE id = :i")
         .param("i", id)
         .query(LedgerReconciler::map)
         .single();
   }
 
-  private void post(Discrepancy d) {
+  private void post(Discrepancy d, BigDecimal amount) {
     switch (d.kind()) {
       case "MISSING_SALE" -> {
         OrderFeignClient.ShipmentInfo ship;
@@ -280,20 +263,19 @@ public class LedgerReconciler {
         if (!"DELIVERED".equals(ship.status()) || !d.sellerId().equals(ship.sellerId())) {
           throw new ResourceConflictException("Order-service does not confirm a delivery");
         }
-        var reg =
-            jdbc.sql("SELECT amount, currency FROM ledger_shipments WHERE shipment_id = :s")
+        if (amount == null || amount.signum() <= 0) {
+          throw new ResourceConflictException("Enter the shipment amount (amount=...) to repair");
+        }
+        String currency =
+            jdbc.sql("SELECT currency FROM ledger_shipments WHERE shipment_id = :s")
                 .param("s", d.shipmentId())
-                .query((rs, n) -> new Object[] {rs.getBigDecimal(1), rs.getString(2)})
+                .query(String.class)
                 .single();
         ledger.recordDelivered(
             d.orderId(),
             new LedgerService.Part(
-                d.shipmentId().toString(),
-                d.sellerId().toString(),
-                "DELIVERED",
-                (BigDecimal) reg[0],
-                null),
-            (String) reg[1]);
+                d.shipmentId().toString(), d.sellerId().toString(), "DELIVERED", amount, null),
+            currency);
         if (!saleBooked(d.shipmentId())) {
           throw new ResourceConflictException("SALE could not be booked (unknown seller?)");
         }

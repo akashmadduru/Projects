@@ -123,13 +123,14 @@ Logs carry the request's correlation id, and traces go to Jaeger (http://127.0.0
 - **Deploy order.** order-service with F-09/F-10 (it publishes `returnItemsValue`) deploys before seller-service.
   The other order breaks every return refund.
 - **Expect** ERROR logs starting `LEDGER ALERT malformed RETURN_REFUNDED` and a message on `order.events.DLT` for each
-  malformed event. Nothing is posted for it. After a consumer-group reset to earliest, old events without
+  malformed event (missing or unparseable ids, items value not above zero, or a shipment that belongs to another order).
+  Nothing is posted for it. After a consumer-group reset to earliest, old events without
   `returnItemsValue` also land there; they were applied before and have no money effect.
 - **Replay a dead-lettered return** once the cause is fixed: republish the DLT record to `order.events`
   (same key). The consumer is idempotent per return.
 - **Reconcile.** Daily at 02:30 UTC (`seller.ledger.reconcile.cron`), read-only. Findings: `GET
-  /api/admin/ledger/discrepancies?open=true`; run now: `POST /api/admin/ledger/reconcile` (409 if one is running).
-  `POST /api/admin/ledger/discrepancies/{id}/repair` (ADMIN/FINANCE) fixes `MISSING_SALE` and `UNMATCHED_REVERSAL`;
+  /api/admin/ledger/discrepancies?open=true` (newest first, at most 200); run now: `POST /api/admin/ledger/reconcile` (409 if one is running).
+  `POST /api/admin/ledger/discrepancies/{id}/repair` (ADMIN/FINANCE) fixes `MISSING_SALE` (needs `?amount=`, the shipment amount the admin has verified: order-service does not confirm amounts, so it is never taken from the register; the amount is logged and kept in the row's detail) and `UNMATCHED_REVERSAL`;
   the other kinds are manual. Refused repairs are logged at WARN with the actor.
 - **Blind spots:** shipments none of whose events arrived, amount changes without an event, returns whose
   `RETURN_REFUNDED` was dead-lettered, deliveries before this deploy that have no SALE.

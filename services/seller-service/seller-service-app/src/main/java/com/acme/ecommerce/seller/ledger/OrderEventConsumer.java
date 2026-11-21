@@ -77,6 +77,22 @@ public class OrderEventConsumer {
       this.platformSeller = platformSeller;
     }
 
+    private static boolean wellFormed(OrderEvt e) {
+      if (e.returnId() == null
+          || e.returnShipmentId() == null
+          || e.returnItemsValue() == null
+          || e.returnItemsValue().signum() <= 0) {
+        return false;
+      }
+      try {
+        UUID.fromString(e.returnId());
+        UUID.fromString(e.returnShipmentId());
+        return true;
+      } catch (IllegalArgumentException ex) {
+        return false;
+      }
+    }
+
     @KafkaListener(
         topics = "order.events",
         groupId = "seller-service-ledger",
@@ -95,15 +111,15 @@ public class OrderEventConsumer {
         ledger.track(orderId, parts, currency);
       }
       if ("RETURN_REFUNDED".equals(e.type())) {
-        if (e.returnId() == null || e.returnShipmentId() == null || e.returnItemsValue() == null) {
+        if (!wellFormed(e)) {
           // No fallback to refundAmount: it includes shipping and discounts, which are never the
           // seller's. IllegalArgumentException is not retryable: straight to order.events.DLT.
           log.error(
-              "LEDGER ALERT malformed RETURN_REFUNDED order={} returnId={} returnShipmentId={}"
-                  + " returnItemsValue={} - dead-lettered, nothing posted",
+              "LEDGER ALERT malformed RETURN_REFUNDED order={} returnId present={}"
+                  + " returnShipmentId present={} returnItemsValue={} - dead-lettered, nothing posted",
               e.orderId(),
-              e.returnId(),
-              e.returnShipmentId(),
+              e.returnId() != null,
+              e.returnShipmentId() != null,
               e.returnItemsValue());
           throw new IllegalArgumentException("malformed RETURN_REFUNDED for order " + e.orderId());
         }

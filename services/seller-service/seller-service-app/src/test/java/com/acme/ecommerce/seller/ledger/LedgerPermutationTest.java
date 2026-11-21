@@ -23,6 +23,7 @@ class LedgerPermutationTest extends AbstractSellerIntegrationTest {
 
   @Autowired private LedgerService ledger;
   @Autowired private JdbcClient jdbc;
+  @Autowired private LedgerReconciler reconciler;
 
   private UUID seller() {
     UUID id = UUID.randomUUID();
@@ -114,6 +115,37 @@ class LedgerPermutationTest extends AbstractSellerIntegrationTest {
     deliver(orderId, shipment, seller);
     apply(R1, seller, orderId, shipment, UUID.randomUUID(), UUID.randomUUID());
     // S 100.01, C 12.50, F 10.00, R1 33.33, c1 = round(33.33 x 12.50 / 100.01) = 4.17
+    assertThat(net(shipment)).isEqualByComparingTo("48.35");
+  }
+
+  @Test
+  @DisplayName(
+      "a return before DELIVERED is reported (nothing booked), then converges after repair")
+  void returnBeforeDeliveredIsReportedThenConvergesAfterRepair() {
+    UUID seller = seller();
+    UUID orderId = UUID.randomUUID();
+    UUID shipment = UUID.randomUUID();
+    UUID r1 = UUID.randomUUID();
+
+    ledger.reverseReturn(orderId, shipment, r1, new BigDecimal("33.33"), "INR");
+
+    // not converged: nothing posted, one UNMATCHED_REVERSAL row carrying the return and its value
+    assertThat(net(shipment)).isEqualByComparingTo("0.00");
+    var found =
+        jdbc.sql(
+                "SELECT id, ref, expected FROM ledger_discrepancies"
+                    + " WHERE shipment_id = :s AND kind = 'UNMATCHED_REVERSAL' AND resolved_at IS NULL")
+            .param("s", shipment)
+            .query(
+                (rs, n) -> new Object[] {rs.getObject(1, UUID.class), rs.getObject(2, UUID.class)})
+            .list();
+    assertThat(found).hasSize(1);
+    assertThat(found.get(0)[1]).isEqualTo(r1);
+
+    deliver(orderId, shipment, seller);
+    reconciler.repair((UUID) found.get(0)[0], "perm-test", null);
+
+    // converged to the same net as DELIVERED then R1 (S - C - F - R1 + c1)
     assertThat(net(shipment)).isEqualByComparingTo("48.35");
   }
 }

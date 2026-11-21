@@ -198,33 +198,6 @@ class LedgerReconcilerIntegrationTest extends AbstractSellerIntegrationTest {
   }
 
   @Test
-  @DisplayName("reversals above the SALE are reported")
-  void overReversedReported() {
-    UUID s = seller();
-    UUID order = UUID.randomUUID();
-    UUID over = UUID.randomUUID();
-    UUID within = UUID.randomUUID();
-    shipment(order, over, s, "DELIVERED", true);
-    shipment(order, within, s, "DELIVERED", true);
-    for (UUID sh : List.of(over, within)) {
-      jdbc.sql(
-              "INSERT INTO ledger_entries (seller_id, type, amount, currency, order_id, shipment_id, return_id)"
-                  + " VALUES (:s, 'REFUND_REVERSAL', :a, 'INR', :o, :sh, :r)")
-          .param("s", s)
-          .param("a", new BigDecimal(sh.equals(over) ? "-150.00" : "-60.00"))
-          .param("o", order)
-          .param("sh", sh)
-          .param("r", UUID.randomUUID())
-          .update();
-    }
-
-    reconciler.runNow().orElseThrow();
-
-    assertThat(found(over, "OVER_REVERSED")).isEqualTo(1);
-    assertThat(found(within, "OVER_REVERSED")).isZero();
-  }
-
-  @Test
   @DisplayName("order-service saying not found, not delivered or another seller is reported")
   void stateMismatchReported() {
     UUID s = seller();
@@ -337,6 +310,7 @@ class LedgerReconcilerIntegrationTest extends AbstractSellerIntegrationTest {
     for (int i = 0; i < 2; i++) {
       mvc.perform(
               post("/api/admin/ledger/discrepancies/{id}/repair", id)
+                  .param("amount", "80.00")
                   .with(as("fin-1", "ROLE_FINANCE")))
           .andExpect(status().isOk())
           .andExpect(jsonPath("$.resolvedBy").value("fin-1"));
@@ -346,6 +320,31 @@ class LedgerReconcilerIntegrationTest extends AbstractSellerIntegrationTest {
     assertThat(entries(shipment, "COMMISSION")).isEqualTo(1);
     assertThat(entries(shipment, "FEE")).isEqualTo(1);
     assertThat(resolvedBy(id)).isEqualTo("fin-1");
+    // the admin-entered amount is booked, not the register's 100.00
+    assertThat(
+            jdbc.sql("SELECT amount FROM ledger_entries WHERE shipment_id = :s AND type = 'SALE'")
+                .param("s", shipment)
+                .query(BigDecimal.class)
+                .single())
+        .isEqualByComparingTo("80.00");
+  }
+
+  @Test
+  @DisplayName("a missing-SALE repair without an admin-entered amount is a 409 and books nothing")
+  void repairWithoutAmountIsRefused() throws Exception {
+    UUID s = seller();
+    UUID order = UUID.randomUUID();
+    UUID shipment = UUID.randomUUID();
+    UUID id = missingSale(s, order, shipment);
+    feignSays(shipment, order, s, "DELIVERED");
+
+    mvc.perform(
+            post("/api/admin/ledger/discrepancies/{id}/repair", id)
+                .with(as("fin-1", "ROLE_FINANCE")))
+        .andExpect(status().isConflict());
+
+    assertThat(entries(shipment, "SALE")).isZero();
+    assertThat(resolvedBy(id)).isNull();
   }
 
   @Test
@@ -437,6 +436,7 @@ class LedgerReconcilerIntegrationTest extends AbstractSellerIntegrationTest {
 
     mvc.perform(
             post("/api/admin/ledger/discrepancies/{id}/repair", id)
+                .param("amount", "100.00")
                 .with(as("principal-7", "ROLE_ADMIN"))
                 .contentType("application/json")
                 .content("{\"resolvedBy\":\"mallory\",\"resolved_by\":\"mallory\"}"))
@@ -463,6 +463,7 @@ class LedgerReconcilerIntegrationTest extends AbstractSellerIntegrationTest {
     feignSays(shipment, order, s, "DELIVERED");
     mvc.perform(
             post("/api/admin/ledger/discrepancies/{id}/repair", id)
+                .param("amount", "100.00")
                 .with(as("fin-9", "ROLE_FINANCE")))
         .andExpect(status().isOk());
     assertThat(output)

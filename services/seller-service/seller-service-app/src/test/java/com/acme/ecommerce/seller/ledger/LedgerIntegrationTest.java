@@ -118,8 +118,8 @@ class LedgerIntegrationTest extends AbstractSellerIntegrationTest {
   }
 
   @Test
-  @DisplayName("a zero or negative balance is carried forward, not paid out")
-  void negativeBalanceCarriesForward() {
+  @DisplayName("a zero balance (fully reversed shipment) is not paid out")
+  void fullyReversedShipmentIsNotPaidOut() {
     UUID s = seller("10");
     UUID order = UUID.randomUUID();
     UUID shipment = UUID.randomUUID();
