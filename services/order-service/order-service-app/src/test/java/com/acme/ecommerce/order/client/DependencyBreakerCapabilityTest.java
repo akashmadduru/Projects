@@ -7,9 +7,11 @@ import feign.Client;
 import feign.Request;
 import feign.Response;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
+import io.github.resilience4j.circuitbreaker.CircuitBreakerConfig;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.DisplayName;
@@ -81,5 +83,71 @@ class DependencyBreakerCapabilityTest {
     Client healthy = capability.enrich(answering(200));
     assertThat(healthy.execute(request("http://user-service/u"), new Request.Options()).status())
         .isEqualTo(200);
+  }
+
+  @Test
+  @DisplayName(
+      "AC-9b: after the open wait, half-open probes succeed, the breaker closes, calls resume")
+  void recoversThroughHalfOpen() throws Exception {
+    CircuitBreakerRegistry quick =
+        CircuitBreakerRegistry.of(
+            CircuitBreakerConfig.from(registry.getDefaultConfig())
+                .waitDurationInOpenState(Duration.ofMillis(200))
+                .build());
+    DependencyBreakerCapability quickCapability = new DependencyBreakerCapability(quick);
+    AtomicInteger status = new AtomicInteger(503);
+    Client client =
+        quickCapability.enrich(
+            (Client)
+                (req, opts) -> {
+                  calls.incrementAndGet();
+                  return Response.builder()
+                      .status(status.get())
+                      .request(req)
+                      .headers(Map.of())
+                      .build();
+                });
+    CircuitBreaker breaker = quick.circuitBreaker("dep-promotion-service");
+    for (int i = 0; i < 10; i++) {
+      client.execute(request("http://promotion-service/x"), new Request.Options());
+    }
+    assertThat(breaker.getState()).isEqualTo(CircuitBreaker.State.OPEN);
+    assertThatThrownBy(
+            () -> client.execute(request("http://promotion-service/x"), new Request.Options()))
+        .isInstanceOf(IOException.class);
+
+    status.set(200);
+    Thread.sleep(400);
+    int before = calls.get();
+    for (int i = 0; i < 3; i++) {
+      assertThat(
+              client.execute(request("http://promotion-service/x"), new Request.Options()).status())
+          .isEqualTo(200);
+    }
+
+    assertThat(breaker.getState()).isEqualTo(CircuitBreaker.State.CLOSED);
+    assertThat(calls.get() - before).isEqualTo(3);
+    assertThat(
+            client.execute(request("http://promotion-service/x"), new Request.Options()).status())
+        .isEqualTo(200);
+  }
+
+  @Test
+  @DisplayName("AC-9: a tripped product-service breaker leaves the cart-service breaker closed")
+  void trippedProductBreakerDoesNotAffectCart() throws IOException {
+    Client down = capability.enrich(answering(503));
+    for (int i = 0; i < 10; i++) {
+      down.execute(request("http://product-service/api/products/1"), new Request.Options());
+    }
+    assertThat(registry.circuitBreaker("dep-product-service").getState())
+        .isEqualTo(CircuitBreaker.State.OPEN);
+
+    Client cart = capability.enrich(answering(200));
+    assertThat(
+            cart.execute(request("http://cart-service/api/cart"), new Request.Options()).status())
+        .isEqualTo(200);
+
+    assertThat(registry.circuitBreaker("dep-cart-service").getState())
+        .isEqualTo(CircuitBreaker.State.CLOSED);
   }
 }

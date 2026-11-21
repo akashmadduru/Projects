@@ -19,6 +19,7 @@ import com.acme.ecommerce.order.api.dto.OrderLineRequest;
 import com.acme.ecommerce.order.api.dto.PlaceOrderRequest;
 import com.acme.ecommerce.order.api.dto.PlaceOrderRequest.PaymentMethodRequest;
 import com.acme.ecommerce.order.client.CartFeignClient;
+import com.acme.ecommerce.order.client.DependencyBreakerCapability;
 import com.acme.ecommerce.order.client.InventoryFeignClient;
 import com.acme.ecommerce.order.client.PaymentFeignClient;
 import com.acme.ecommerce.order.client.PaymentFeignClient.PaymentResult;
@@ -29,6 +30,8 @@ import com.acme.ecommerce.order.client.UserFeignClient;
 import com.acme.ecommerce.order.event.OrderEventPublisher;
 import com.acme.ecommerce.order.support.AbstractOrderIntegrationTest;
 import com.acme.ecommerce.user.api.dto.AddressResponse;
+import io.github.resilience4j.circuitbreaker.CircuitBreaker;
+import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
@@ -591,7 +594,8 @@ class OrderPlacementIntegrationTest extends AbstractOrderIntegrationTest {
     verify(carts, never()).getCart();
   }
 
-  // --- AC-1, 3, 4, 5, 6, 7: concurrency and duplicate regression cover ----------------------------
+  // --- AC-1, 3, 4, 5, 6, 7: concurrency and duplicate regression cover
+  // ----------------------------
 
   private PlaceOrderRequest fromCartWithExtras() {
     return new PlaceOrderRequest(
@@ -730,7 +734,8 @@ class OrderPlacementIntegrationTest extends AbstractOrderIntegrationTest {
   }
 
   @Test
-  @DisplayName("AC-7: two users with identical carts both place; one user's order never blocks another")
+  @DisplayName(
+      "AC-7: two users with identical carts both place; one user's order never blocks another")
   void identicalCartsOfTwoUsers() {
     UUID other = UUID.randomUUID();
     when(remote.createPayment(any(), eq(other), any(), eq("INR"), eq("CARD")))
@@ -748,5 +753,157 @@ class OrderPlacementIntegrationTest extends AbstractOrderIntegrationTest {
             jdbc.queryForObject(
                 "select count(*) from orders.orders where user_id = ?", Integer.class, other))
         .isEqualTo(1);
+  }
+
+  // --- AC-8, 9: breakers through the real Feign client stack ------------------------------------
+
+  /** A stub HTTP layer that counts the requests that actually reach "the host". */
+  private static final class StubHost implements feign.Client {
+    final java.util.concurrent.atomic.AtomicInteger requests =
+        new java.util.concurrent.atomic.AtomicInteger();
+    volatile int status;
+
+    StubHost(int status) {
+      this.status = status;
+    }
+
+    @Override
+    public feign.Response execute(feign.Request request, feign.Request.Options options) {
+      requests.incrementAndGet();
+      return feign.Response.builder()
+          .status(status)
+          .request(request)
+          .headers(java.util.Map.of())
+          .build();
+    }
+  }
+
+  private <T> T realClient(
+      Class<T> type, String host, DependencyBreakerCapability breakers, feign.Client stub) {
+    return feign.Feign.builder()
+        .contract(new org.springframework.cloud.openfeign.support.SpringMvcContract())
+        .retryer(feign.Retryer.NEVER_RETRY)
+        .client(breakers.enrich(stub))
+        .target(type, "http://" + host);
+  }
+
+  /** Drives the client with 5xx answers until the host's breaker is open. */
+  private void trip(Runnable call, CircuitBreakerRegistry registry, String host) {
+    for (int i = 0; i < 10; i++) {
+      assertThatThrownBy(call::run).isInstanceOf(feign.FeignException.class);
+    }
+    assertThat(registry.circuitBreaker("dep-" + host).getState())
+        .isEqualTo(CircuitBreaker.State.OPEN);
+  }
+
+  private void assertFailsFast(Runnable placement, StubHost host) {
+    int before = host.requests.get();
+    long t0 = System.nanoTime();
+    assertThatThrownBy(placement::run)
+        .isInstanceOf(CodedException.class)
+        .extracting(e -> ((CodedException) e).errorCode())
+        .isEqualTo(ErrorCode.DEPENDENCY_UNAVAILABLE);
+    assertThat(host.requests.get()).as("host calls while the breaker is open").isEqualTo(before);
+    assertThat(java.time.Duration.ofNanos(System.nanoTime() - t0))
+        .as("no read-timeout wait")
+        .isLessThan(java.time.Duration.ofSeconds(1));
+    assertThat(orderCount()).isZero();
+  }
+
+  @Test
+  @DisplayName("AC-8: an open product-service breaker gives 503 at once, with no host call")
+  void openProductBreaker() {
+    var registry = DependencyBreakerCapability.defaultRegistry();
+    var host = new StubHost(503);
+    ProductViewFeignClient real =
+        realClient(
+            ProductViewFeignClient.class,
+            "product-service",
+            new DependencyBreakerCapability(registry),
+            host);
+    when(products.findById(any())).thenAnswer(inv -> real.findById(inv.getArgument(0)));
+    trip(() -> real.findById(shirt), registry, "product-service");
+
+    assertFailsFast(
+        () -> orders.place(user, "c@example.com", "open-product", buyNow(shirt, 1)), host);
+  }
+
+  @Test
+  @DisplayName("AC-8: an open cart-service breaker gives 503 at once, with no host call")
+  void openCartBreaker() {
+    var registry = DependencyBreakerCapability.defaultRegistry();
+    var host = new StubHost(503);
+    CartFeignClient real =
+        realClient(
+            CartFeignClient.class, "cart-service", new DependencyBreakerCapability(registry), host);
+    when(carts.getCart()).thenAnswer(inv -> real.getCart());
+    trip(real::getCart, registry, "cart-service");
+
+    assertFailsFast(() -> orders.place(user, "c@example.com", "open-cart", fromCart()), host);
+  }
+
+  @Test
+  @DisplayName("AC-8: an open user-service breaker gives 503 at once, with no host call")
+  void openUserBreaker() {
+    var registry = DependencyBreakerCapability.defaultRegistry();
+    var host = new StubHost(503);
+    UserFeignClient real =
+        realClient(
+            UserFeignClient.class, "user-service", new DependencyBreakerCapability(registry), host);
+    when(users.findAddress(any())).thenAnswer(inv -> real.findAddress(inv.getArgument(0)));
+    trip(() -> real.findAddress(addressId), registry, "user-service");
+
+    assertFailsFast(() -> orders.place(user, "c@example.com", "open-user", buyNow(shirt, 1)), host);
+  }
+
+  @Test
+  @DisplayName(
+      "AC-9: a 404 from product-service keeps its domain error and never opens the breaker")
+  void productNotFoundKeepsDomainError() {
+    var registry = DependencyBreakerCapability.defaultRegistry();
+    var host = new StubHost(404);
+    ProductViewFeignClient real =
+        realClient(
+            ProductViewFeignClient.class,
+            "product-service",
+            new DependencyBreakerCapability(registry),
+            host);
+    when(products.findById(any())).thenAnswer(inv -> real.findById(inv.getArgument(0)));
+
+    for (int i = 0; i < 25; i++) {
+      assertThatThrownBy(
+              () ->
+                  orders.place(user, "c@example.com", "nf-" + UUID.randomUUID(), buyNow(shirt, 1)))
+          .isInstanceOf(CodedException.class)
+          .extracting(e -> ((CodedException) e).errorCode())
+          .isEqualTo(ErrorCode.PRODUCT_UNAVAILABLE);
+    }
+
+    assertThat(host.requests.get()).isEqualTo(25);
+    assertThat(registry.circuitBreaker("dep-product-service").getState())
+        .isEqualTo(CircuitBreaker.State.CLOSED);
+  }
+
+  @Test
+  @DisplayName("AC-9: a 404 from user-service keeps ADDRESS_NOT_FOUND and never opens the breaker")
+  void addressNotFoundKeepsDomainError() {
+    var registry = DependencyBreakerCapability.defaultRegistry();
+    var host = new StubHost(404);
+    UserFeignClient real =
+        realClient(
+            UserFeignClient.class, "user-service", new DependencyBreakerCapability(registry), host);
+    when(users.findAddress(any())).thenAnswer(inv -> real.findAddress(inv.getArgument(0)));
+
+    for (int i = 0; i < 25; i++) {
+      assertThatThrownBy(
+              () ->
+                  orders.place(user, "c@example.com", "an-" + UUID.randomUUID(), buyNow(shirt, 1)))
+          .isInstanceOf(CodedException.class)
+          .extracting(e -> ((CodedException) e).errorCode())
+          .isEqualTo(ErrorCode.ADDRESS_NOT_FOUND);
+    }
+
+    assertThat(registry.circuitBreaker("dep-user-service").getState())
+        .isEqualTo(CircuitBreaker.State.CLOSED);
   }
 }
