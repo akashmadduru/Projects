@@ -1,0 +1,13 @@
+{
+ "product_id": "54f54fb0-76da-4ba7-42b7-5e15b072e7f9",
+ "name": "Ionfy Massager Lite",
+ "prompt": "studio packshot photo of a Green Ionfy Massager Lite, made of ceramic, personal wellness, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 4251014330,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:20:46",
+ "file_path": "product-images/images/54f54fb0-76da-4ba7-42b7-5e15b072e7f9.jpg",
+ "file_size": 27415
+}

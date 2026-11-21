@@ -53,8 +53,8 @@ public class RatingEventListener {
           event.ratingId());
 
       // The summary is authoritative, so the event is only a trigger: event order and replays do
-      // not matter. Fetched outside any transaction; a rating-service outage is logged below and
-      // repaired by the next event for this product (or the backfill script).
+      // not matter. Fetched outside any transaction; a rating-service outage propagates, so the
+      // container retries the event and then dead-letters it (TD-BE-17).
       RatingSummary summary = ratings.summary(productId);
       productCatalog.applyRatingSummary(productId, summary);
 
@@ -66,8 +66,6 @@ public class RatingEventListener {
       // Graceful: product may have been deleted before event was processed
       log.debug(
           "Product not found during rating update productId={}: {}", productId, e.getMessage());
-    } catch (Exception e) {
-      log.error("Error processing rating event productId={}: {}", productId, e.getMessage(), e);
     }
   }
 }

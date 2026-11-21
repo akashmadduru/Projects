@@ -1,0 +1,13 @@
+{
+ "product_id": "1d123ef9-2b24-4c2c-9987-584c731bdd0d",
+ "name": "Arri Phone Gen 3",
+ "prompt": "studio packshot photo of a Space Grey Arri Phone Gen 3, made of ceramic, mobiles & smartphones, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2383940855,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:26:20",
+ "file_path": "product-images/images/1d123ef9-2b24-4c2c-9987-584c731bdd0d.jpg",
+ "file_size": 37587
+}

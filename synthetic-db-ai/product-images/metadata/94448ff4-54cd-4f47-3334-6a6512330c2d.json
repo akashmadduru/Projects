@@ -1,0 +1,13 @@
+{
+ "product_id": "94448ff4-54cd-4f47-3334-6a6512330c2d",
+ "name": "Miexno Robot Vacuum Plus",
+ "prompt": "studio packshot photo of a Olive Miexno Robot Vacuum Plus, made of silicone, cleaning, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 358833838,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:20:57",
+ "file_path": "product-images/images/94448ff4-54cd-4f47-3334-6a6512330c2d.jpg",
+ "file_size": 53139
+}

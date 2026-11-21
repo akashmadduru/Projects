@@ -1,0 +1,13 @@
+{
+ "product_id": "b1cab338-99a7-4c61-473b-1e96c81c807f",
+ "name": "Nomiri Switch Series 2",
+ "prompt": "studio packshot photo of a Navy Blue Nomiri Switch Series 2, made of silicone, networking, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2350881661,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:11:46",
+ "file_path": "product-images/images/b1cab338-99a7-4c61-473b-1e96c81c807f.jpg",
+ "file_size": 42651
+}

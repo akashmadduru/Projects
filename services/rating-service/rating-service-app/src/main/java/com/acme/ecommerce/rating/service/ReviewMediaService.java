@@ -27,9 +27,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
- * Review photos. Files are stored under a random UUID name (never the client's), the type is decided
- * from magic bytes (never the client's Content-Type), so there is no path traversal or type spoofing
- * surface.
+ * Review photos. Files are stored under a random UUID name (never the client's), the type is
+ * decided from magic bytes (never the client's Content-Type), so there is no path traversal or type
+ * spoofing surface.
  */
 @Slf4j
 @Service
@@ -53,7 +53,9 @@ public class ReviewMediaService {
   @Transactional
   public RatingMediaResponse upload(UUID ratingId, MultipartFile file, UUID userId) {
     Rating rating =
-        ratings.findById(ratingId).orElseThrow(() -> new ResourceNotFoundException("Rating", ratingId));
+        ratings
+            .findById(ratingId)
+            .orElseThrow(() -> new ResourceNotFoundException("Rating", ratingId));
     if (!Objects.equals(rating.getUserId(), userId)) {
       throw new ForbiddenException("Only the review author may add photos");
     }
@@ -106,7 +108,9 @@ public class ReviewMediaService {
             .filter(x -> x.getRatingId().equals(ratingId))
             .orElseThrow(() -> new ResourceNotFoundException("Media", mediaId));
     Rating rating =
-        ratings.findById(ratingId).orElseThrow(() -> new ResourceNotFoundException("Rating", ratingId));
+        ratings
+            .findById(ratingId)
+            .orElseThrow(() -> new ResourceNotFoundException("Rating", ratingId));
     if (!isAdmin && !Objects.equals(rating.getUserId(), userId)) {
       throw new ForbiddenException("Only the review author may remove photos");
     }
@@ -118,7 +122,8 @@ public class ReviewMediaService {
     ReviewMedia m =
         media.findById(mediaId).orElseThrow(() -> new ResourceNotFoundException("Media", mediaId));
     try {
-      return new StoredFile(Files.readAllBytes(Path.of(mediaDir).resolve(m.getFileName())), m.getContentType());
+      return new StoredFile(
+          Files.readAllBytes(Path.of(mediaDir).resolve(m.getFileName())), m.getContentType());
     } catch (IOException e) {
       throw new ResourceNotFoundException("Media", mediaId);
     }

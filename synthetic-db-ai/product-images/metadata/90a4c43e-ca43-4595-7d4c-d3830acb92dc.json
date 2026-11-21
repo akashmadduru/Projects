@@ -1,0 +1,13 @@
+{
+ "product_id": "90a4c43e-ca43-4595-7d4c-d3830acb92dc",
+ "name": "Cokano Jacket Gen 3",
+ "prompt": "studio packshot photo of a White Cokano Jacket Gen 3, made of glass, men's clothing, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 355976971,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:33:51",
+ "file_path": "product-images/images/90a4c43e-ca43-4595-7d4c-d3830acb92dc.jpg",
+ "file_size": 50675
+}

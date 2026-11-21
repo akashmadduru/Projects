@@ -1,0 +1,13 @@
+{
+ "product_id": "4d31f039-ebaf-48c7-2b6f-07c27fd2cb65",
+ "name": "Tanofy Frying Pan Prime",
+ "prompt": "studio packshot photo of a Midnight Tanofy Frying Pan Prime, made of leather, cookware, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2373137517,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:33:08",
+ "file_path": "product-images/images/4d31f039-ebaf-48c7-2b6f-07c27fd2cb65.jpg",
+ "file_size": 72516
+}

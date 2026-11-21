@@ -1,0 +1,13 @@
+{
+ "product_id": "ece5442e-7718-40f3-baa3-b45cfccb5f00",
+ "name": "Sulomi Resistance Bands Lite",
+ "prompt": "studio packshot photo of a Blue Sulomi Resistance Bands Lite, made of stainless steel, fitness, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1832541901,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T22:01:26",
+ "file_path": "product-images/images/ece5442e-7718-40f3-baa3-b45cfccb5f00.jpg",
+ "file_size": 82814
+}

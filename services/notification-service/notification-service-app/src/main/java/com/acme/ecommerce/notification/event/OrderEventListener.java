@@ -18,9 +18,13 @@ import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
 /**
- * Turns {@code order.events} into customer emails. Never throws: a failed or unsupported event is
- * logged and skipped (poison-message safe), because retrying an email forever is worse than
- * missing one. Tech debt: in-memory de-dupe only, no outbox/retry.
+ * Turns {@code order.events} into customer emails and inbox entries. Unsupported events are
+ * skipped. A failure (mail server down, database blip) propagates, so the container retries it 3
+ * times and then dead-letters it to {@code order.events.DLT} (TD-BE-17); the retry count is
+ * bounded, so a broken mail server cannot loop forever. The in-memory de-dupe forgets an event that
+ * failed, so its retry is not mistaken for a duplicate. The inbox write is idempotent by its dedupe
+ * key; an email can be sent twice only if sending succeeded and something after it failed (nothing
+ * does).
  */
 @Component
 public class OrderEventListener {
@@ -63,47 +67,58 @@ public class OrderEventListener {
       groupId = "notification-service-order-listener",
       containerFactory = "orderKafkaListenerFactory")
   public void onOrderEvent(OrderEvent event) {
-    try {
-      if (event == null || event.type() == null) {
-        log.warn("Skipping undecodable or typeless order event");
-        return;
-      }
-      UUID userId = parseUuid(event.userId());
-      boolean hasEmail = event.email() != null && !event.email().isBlank();
-      if (!hasEmail && userId == null) {
-        log.info("Skipping {} for order {}: no email or user on event", event.type(), event.orderId());
-        return;
-      }
-      if (event.eventId() != null) {
-        synchronized (seen) {
-          if (!seen.add(event.eventId())) {
-            log.info("Skipping duplicate event {}", event.eventId());
-            return;
-          }
+    if (event == null || event.type() == null) {
+      log.warn("Skipping undecodable or typeless order event");
+      return;
+    }
+    UUID userId = parseUuid(event.userId());
+    boolean hasEmail = event.email() != null && !event.email().isBlank();
+    if (!hasEmail && userId == null) {
+      log.info(
+          "Skipping {} for order {}: no email or user on event", event.type(), event.orderId());
+      return;
+    }
+    if (event.eventId() != null) {
+      synchronized (seen) {
+        if (!seen.add(event.eventId())) {
+          log.info("Skipping duplicate event {}", event.eventId());
+          return;
         }
       }
-      EmailContent content = contentFor(event);
-      if (content == null) {
-        log.debug("No email for {} status={}", event.type(), event.status());
-        return;
-      }
-      if (userId != null) {
-        // Inbox entry (+ push when pushOrders) for every order event; link is storefront-relative.
-        dispatcher.notifyUser(
-            userId,
-            "ORDER",
-            content.subject(),
-            inboxBody(content.text()),
-            "/orders/" + event.orderId(),
-            event.eventId() == null ? null : "order:" + event.eventId());
-      }
-      boolean emailOrders = userId == null || preferences.get(userId).emailOrders();
-      if (hasEmail && emailOrders) {
-        mail.send(event.email(), content.subject(), content.text(), content.html());
-        log.info("Sent {} email for order {}", event.type(), event.orderId());
-      }
+    }
+    try {
+      deliver(event, userId, hasEmail);
     } catch (RuntimeException e) {
-      log.error("Failed to handle order event {}: {}", event == null ? null : event.eventId(), e.toString());
+      if (event.eventId() != null) {
+        synchronized (seen) {
+          seen.remove(event.eventId());
+        }
+      }
+      log.warn("Failed to handle order event {}; will retry: {}", event.eventId(), e.toString());
+      throw e;
+    }
+  }
+
+  private void deliver(OrderEvent event, UUID userId, boolean hasEmail) {
+    EmailContent content = contentFor(event);
+    if (content == null) {
+      log.debug("No email for {} status={}", event.type(), event.status());
+      return;
+    }
+    if (userId != null) {
+      // Inbox entry (+ push when pushOrders) for every order event; link is storefront-relative.
+      dispatcher.notifyUser(
+          userId,
+          "ORDER",
+          content.subject(),
+          inboxBody(content.text()),
+          "/orders/" + event.orderId(),
+          event.eventId() == null ? null : "order:" + event.eventId());
+    }
+    boolean emailOrders = userId == null || preferences.get(userId).emailOrders();
+    if (hasEmail && emailOrders) {
+      mail.send(event.email(), content.subject(), content.text(), content.html());
+      log.info("Sent {} email for order {}", event.type(), event.orderId());
     }
   }
 
@@ -141,14 +156,18 @@ public class OrderEventListener {
           renderer.render(
               EmailTemplate.SUBSCRIPTION_ORDER_PLACED,
               Map.of(
-                  "productName", e.firstItemName() == null ? "your subscribed item" : e.firstItemName(),
-                  "link", properties.storefrontBaseUrl() + "/account/subscriptions"));
+                  "productName",
+                  e.firstItemName() == null ? "your subscribed item" : e.firstItemName(),
+                  "link",
+                  properties.storefrontBaseUrl() + "/account/subscriptions"));
       case "SUBSCRIPTION_FAILED" ->
           renderer.render(
               EmailTemplate.SUBSCRIPTION_FAILED,
               Map.of(
-                  "productName", e.firstItemName() == null ? "your subscribed item" : e.firstItemName(),
-                  "link", properties.storefrontBaseUrl() + "/account/subscriptions"));
+                  "productName",
+                  e.firstItemName() == null ? "your subscribed item" : e.firstItemName(),
+                  "link",
+                  properties.storefrontBaseUrl() + "/account/subscriptions"));
       case "RETURN_REQUESTED" ->
           renderer.order(
               "Return requested for order " + ref,
@@ -182,7 +201,10 @@ public class OrderEventListener {
           renderer.order(
               "Part of order " + ref + " has shipped",
               "A package from " + seller + " is on the way",
-              "Your order " + ref + " ships in several packages. The package from " + seller
+              "Your order "
+                  + ref
+                  + " ships in several packages. The package from "
+                  + seller
                   + " has shipped."
                   + (e.carrier() == null ? "" : "\nCarrier: " + e.carrier())
                   + (e.trackingNumber() == null ? "" : "\nTracking number: " + e.trackingNumber())
@@ -195,7 +217,10 @@ public class OrderEventListener {
           renderer.order(
               "Part of order " + ref + " delivered",
               "A package from " + seller + " was delivered",
-              "The package from " + seller + " in order " + ref
+              "The package from "
+                  + seller
+                  + " in order "
+                  + ref
                   + " was delivered. You can return its items within 7 days.",
               "View order",
               orderUrl);

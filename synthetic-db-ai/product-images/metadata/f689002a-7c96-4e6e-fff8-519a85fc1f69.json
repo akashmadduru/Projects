@@ -1,0 +1,13 @@
+{
+ "product_id": "f689002a-7c96-4e6e-fff8-519a85fc1f69",
+ "name": "Mize Laptop Ultra",
+ "prompt": "studio packshot photo of a Red Mize Laptop Ultra, made of silicone, laptops, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 751536960,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T22:07:34",
+ "file_path": "product-images/images/f689002a-7c96-4e6e-fff8-519a85fc1f69.jpg",
+ "file_size": 81486
+}

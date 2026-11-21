@@ -1,12 +1,12 @@
 package com.acme.ecommerce.auth.token;
 
-import com.acme.ecommerce.common.web.job.JobLock;
-import org.springframework.beans.factory.annotation.Autowired;
 import com.acme.ecommerce.auth.config.AuthProperties;
 import com.acme.ecommerce.common.core.time.TimeProvider;
+import com.acme.ecommerce.common.web.job.JobLock;
 import java.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -51,6 +51,9 @@ public class RefreshTokenReaper {
     this.config = properties.housekeeping();
   }
 
+  /** Cluster-wide guard so only one replica runs this job per tick. */
+  @Autowired private JobLock jobLock;
+
   /**
    * Sweeps dead rows.
    *
@@ -58,9 +61,6 @@ public class RefreshTokenReaper {
    * that runs long would immediately be followed by the next one, and two overlapping DELETEs over
    * the same range are pure lock contention.
    */
-  /** Cluster-wide guard so only one replica runs this job per tick. */
-  @Autowired private JobLock jobLock;
-
   @Scheduled(
       initialDelayString = "${auth.housekeeping.interval:1h}",
       fixedDelayString = "${auth.housekeeping.interval:1h}")

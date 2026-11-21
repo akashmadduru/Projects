@@ -1,0 +1,15 @@
+{
+ "product_id": "6fe82a11-a354-4133-583a-0a1a339a8e0f",
+ "name": "Orno RC Helicopter Ultra",
+ "prompt": "studio packshot photo of a Rose Gold Orno RC Helicopter Ultra, made of cotton, remote control, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2305780007,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:26:00",
+ "file_path": "static/images/6fe82a11-a354-4133-583a-0a1a339a8e0f.jpg",
+ "file_size": 45085,
+ "uploaded": false,
+ "s3_url": null
+}

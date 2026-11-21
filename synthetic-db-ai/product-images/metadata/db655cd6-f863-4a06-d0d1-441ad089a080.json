@@ -1,0 +1,13 @@
+{
+ "product_id": "db655cd6-f863-4a06-d0d1-441ad089a080",
+ "name": "Colo Protein Bars Classic",
+ "prompt": "studio packshot photo of a Navy Blue Colo Protein Bars Classic, made of aluminium, snacks, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2927609485,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:24:27",
+ "file_path": "product-images/images/db655cd6-f863-4a06-d0d1-441ad089a080.jpg",
+ "file_size": 43553
+}

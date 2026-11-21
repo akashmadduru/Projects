@@ -4,6 +4,7 @@ import com.acme.ecommerce.auth.domain.OneTimeToken;
 import com.acme.ecommerce.auth.repository.OneTimeTokenRepository;
 import com.acme.ecommerce.common.core.time.TimeProvider;
 import java.nio.charset.StandardCharsets;
+import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
@@ -13,6 +14,11 @@ import java.util.Base64;
 import java.util.HexFormat;
 import java.util.Optional;
 import java.util.UUID;
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,11 +26,11 @@ import org.springframework.transaction.annotation.Transactional;
  * Issues and redeems every single-use secret in the service: link tokens (password reset, email
  * verification) and 6-digit codes (phone verification, OTP login).
  *
- * <p>Only SHA-256 hashes are stored. Link tokens are 256 bits of CSPRNG output, so an unsalted
- * hash is appropriate (same reasoning as refresh tokens). Codes only have 10^6 values, so the hash
- * is salted with {@code userId:purpose:} and protection comes from the short expiry plus the hard
- * attempt cap - not from the hash. Redemption is atomic (conditional UPDATE), so a token or code
- * works exactly once even under concurrent requests.
+ * <p>Only hashes are stored. Link tokens are 256 bits of CSPRNG output, so an unsalted SHA-256 is
+ * appropriate (same reasoning as refresh tokens). Codes only have 10^6 values, so they are hashed
+ * with HMAC-SHA256 under a server key over {@code userId:purpose:code}; online guessing is stopped
+ * by the short expiry plus the hard attempt cap. Redemption is atomic (conditional UPDATE), so a
+ * token or code works exactly once even under concurrent requests.
  */
 @Service
 public class OneTimeTokenService {
@@ -38,13 +44,32 @@ public class OneTimeTokenService {
   }
 
   private static final SecureRandom RANDOM = new SecureRandom();
+  private static final Logger log = LoggerFactory.getLogger(OneTimeTokenService.class);
 
   private final OneTimeTokenRepository tokens;
   private final TimeProvider timeProvider;
 
-  public OneTimeTokenService(OneTimeTokenRepository tokens, TimeProvider timeProvider) {
+  /**
+   * HMAC key for 6-digit codes (TD-P6-09), or null when {@code AUTH_DATA_KEY} is not set. A code
+   * has only 10^6 values, so a plain hash in a leaked database is reversed in milliseconds; with a
+   * key the attacker also needs the server secret. Derived from {@code AUTH_DATA_KEY} with a fixed
+   * label so no second secret has to be managed. Changing the key only invalidates codes in flight
+   * (they live minutes).
+   */
+  private final SecretKeySpec codeKey;
+
+  public OneTimeTokenService(
+      OneTimeTokenRepository tokens,
+      TimeProvider timeProvider,
+      @Value("${auth.data-key:}") String dataKey) {
     this.tokens = tokens;
     this.timeProvider = timeProvider;
+    this.codeKey = deriveCodeKey(dataKey);
+    if (codeKey == null) {
+      log.warn(
+          "AUTH_DATA_KEY is not set: one-time codes are hashed without a server secret."
+              + " Set it in every non-local environment.");
+    }
   }
 
   /** Issues a link token, replacing any previous one for the same user and purpose. */
@@ -131,8 +156,34 @@ public class OneTimeTokenService {
     return tokens.deleteExpiredBefore(cutoff);
   }
 
-  private static String codeHash(UUID userId, Purpose purpose, String code) {
-    return sha256(userId + ":" + purpose.name() + ":" + code);
+  private String codeHash(UUID userId, Purpose purpose, String code) {
+    String input = userId + ":" + purpose.name() + ":" + code;
+    if (codeKey == null) {
+      return sha256(input);
+    }
+    return HexFormat.of().formatHex(hmac(codeKey, input.getBytes(StandardCharsets.UTF_8)));
+  }
+
+  static SecretKeySpec deriveCodeKey(String base64DataKey) {
+    if (base64DataKey == null || base64DataKey.isBlank()) {
+      return null;
+    }
+    byte[] master = Base64.getDecoder().decode(base64DataKey.trim());
+    byte[] derived =
+        hmac(
+            new SecretKeySpec(master, "HmacSHA256"),
+            "acme-auth/one-time-code-hash/v1".getBytes(StandardCharsets.UTF_8));
+    return new SecretKeySpec(derived, "HmacSHA256");
+  }
+
+  private static byte[] hmac(SecretKeySpec key, byte[] data) {
+    try {
+      Mac mac = Mac.getInstance("HmacSHA256");
+      mac.init(key);
+      return mac.doFinal(data);
+    } catch (GeneralSecurityException e) {
+      throw new IllegalStateException("HmacSHA256 unavailable", e);
+    }
   }
 
   private static String sha256(String value) {

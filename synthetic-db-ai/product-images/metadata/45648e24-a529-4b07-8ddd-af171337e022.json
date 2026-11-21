@@ -1,0 +1,13 @@
+{
+ "product_id": "45648e24-a529-4b07-8ddd-af171337e022",
+ "name": "Exqua Omega-3 Plus",
+ "prompt": "studio packshot photo of a Silver Exqua Omega-3 Plus, made of nylon, supplements, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2815506906,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:40:44",
+ "file_path": "product-images/images/45648e24-a529-4b07-8ddd-af171337e022.jpg",
+ "file_size": 54468
+}

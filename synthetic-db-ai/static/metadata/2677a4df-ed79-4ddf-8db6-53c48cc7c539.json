@@ -1,0 +1,15 @@
+{
+ "product_id": "2677a4df-ed79-4ddf-8db6-53c48cc7c539",
+ "name": "Ionrita Glucometer Pro",
+ "prompt": "studio packshot photo of a Black Ionrita Glucometer Pro, made of stainless steel, medical devices, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1752718089,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-15T23:41:05",
+ "file_path": "static/images/2677a4df-ed79-4ddf-8db6-53c48cc7c539.jpg",
+ "file_size": 40504,
+ "uploaded": false,
+ "s3_url": null
+}

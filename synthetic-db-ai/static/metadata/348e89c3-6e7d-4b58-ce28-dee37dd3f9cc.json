@@ -1,0 +1,15 @@
+{
+ "product_id": "348e89c3-6e7d-4b58-ce28-dee37dd3f9cc",
+ "name": "Volo Protein Bars Lite",
+ "prompt": "studio packshot photo of a Grey Volo Protein Bars Lite, made of cotton, snacks, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2070863066,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T00:20:51",
+ "file_path": "static/images/348e89c3-6e7d-4b58-ce28-dee37dd3f9cc.jpg",
+ "file_size": 55408,
+ "uploaded": false,
+ "s3_url": null
+}

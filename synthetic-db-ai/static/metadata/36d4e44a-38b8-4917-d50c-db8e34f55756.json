@@ -1,0 +1,15 @@
+{
+ "product_id": "36d4e44a-38b8-4917-d50c-db8e34f55756",
+ "name": "Vensumi Protein Powder Pro",
+ "prompt": "studio packshot photo of a Silver Vensumi Protein Powder Pro, made of ceramic, supplements, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 4088279069,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:39:43",
+ "file_path": "static/images/36d4e44a-38b8-4917-d50c-db8e34f55756.jpg",
+ "file_size": 39940,
+ "uploaded": false,
+ "s3_url": null
+}

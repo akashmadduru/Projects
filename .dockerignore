@@ -53,3 +53,6 @@ services/*/build/
 services/*/target/
 libs/*/build/
 libs/*/target/
+
+# --- local data tooling (GBs of model cache and generated images; never part of a service image) ---
+synthetic-db-ai/

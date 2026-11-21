@@ -1,0 +1,15 @@
+{
+ "product_id": "6e033d6f-28ca-4315-7875-a97a7b1ee10a",
+ "name": "Quaquali Mesh System Ultra",
+ "prompt": "studio packshot photo of a Silver Quaquali Mesh System Ultra, made of bamboo, networking, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 4060445171,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:57:56",
+ "file_path": "static/images/6e033d6f-28ca-4315-7875-a97a7b1ee10a.jpg",
+ "file_size": 86125,
+ "uploaded": false,
+ "s3_url": null
+}

@@ -2,26 +2,20 @@ package com.acme.ecommerce.rating.web;
 
 import com.acme.ecommerce.common.core.error.CodedException;
 import com.acme.ecommerce.common.core.error.ValidationException;
+import com.acme.ecommerce.rating.api.dto.MyRatingStatusResponse;
 import com.acme.ecommerce.rating.api.dto.RatingMediaResponse;
+import com.acme.ecommerce.rating.api.dto.RatingResponse;
+import com.acme.ecommerce.rating.api.dto.RatingSummaryResponse;
 import com.acme.ecommerce.rating.service.QaService;
+import com.acme.ecommerce.rating.service.RatingService;
+import com.acme.ecommerce.rating.service.ReviewEligibilityService;
 import com.acme.ecommerce.rating.service.ReviewMediaService;
+import com.acme.ecommerce.rating.web.dto.CreateRatingRequest;
 import com.acme.ecommerce.rating.web.dto.QaDtos.AnswerRequest;
 import com.acme.ecommerce.rating.web.dto.QaDtos.AnswerResponse;
 import com.acme.ecommerce.rating.web.dto.QaDtos.QuestionRequest;
 import com.acme.ecommerce.rating.web.dto.QaDtos.QuestionResponse;
 import com.acme.ecommerce.rating.web.dto.QaDtos.UpvoteResponse;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.RequestPart;
-import org.springframework.web.multipart.MultipartFile;
-import com.acme.ecommerce.common.security.Roles;
-import com.acme.ecommerce.rating.api.dto.MyRatingStatusResponse;
-import com.acme.ecommerce.rating.api.dto.RatingResponse;
-import com.acme.ecommerce.rating.api.dto.RatingSummaryResponse;
-import com.acme.ecommerce.rating.service.RatingService;
-import com.acme.ecommerce.rating.service.ReviewEligibilityService;
-import com.acme.ecommerce.rating.web.dto.CreateRatingRequest;
 import com.acme.ecommerce.rating.web.dto.UpdateRatingRequest;
 import jakarta.validation.Valid;
 import java.util.Map;
@@ -32,9 +26,11 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PagedModel;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -45,8 +41,10 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 /** Reviews for purchased products. The user id is ALWAYS the JWT subject, never a request field. */
 @RestController
@@ -158,11 +156,9 @@ public class RatingController {
   @ResponseStatus(HttpStatus.NO_CONTENT)
   @PreAuthorize("isAuthenticated()")
   public void deleteMedia(
-      @PathVariable UUID ratingId,
-      @PathVariable UUID mediaId,
-      @AuthenticationPrincipal Jwt jwt,
-      Authentication authentication) {
-    mediaService.delete(ratingId, mediaId, userId(jwt), isAdmin(authentication));
+      @PathVariable UUID ratingId, @PathVariable UUID mediaId, @AuthenticationPrincipal Jwt jwt) {
+    // Author only; staff remove a whole review via the audited admin endpoint (TD-ADM-05).
+    mediaService.delete(ratingId, mediaId, userId(jwt), false);
   }
 
   @GetMapping("/media/{mediaId}")
@@ -195,7 +191,8 @@ public class RatingController {
     Sort stable = base.and(Sort.by(Sort.Order.desc("createdAt"), Sort.Order.asc("id")));
     Pageable pageable =
         PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), MAX_PAGE_SIZE), stable);
-    return new PagedModel<>(ratings.findByProductId(productId, stars, verified, withMedia, pageable));
+    return new PagedModel<>(
+        ratings.findByProductId(productId, stars, verified, withMedia, pageable));
   }
 
   @GetMapping("/products/{productId}/summary")
@@ -238,17 +235,18 @@ public class RatingController {
   public RatingResponse update(
       @PathVariable UUID id,
       @Valid @RequestBody UpdateRatingRequest request,
-      @AuthenticationPrincipal Jwt jwt,
-      Authentication authentication) {
-    return ratings.update(id, request, userId(jwt), isAdmin(authentication));
+      @AuthenticationPrincipal Jwt jwt) {
+    // Author only: staff never rewrite a customer's words (they delete or approve instead).
+    return ratings.update(id, request, userId(jwt), false);
   }
 
   @DeleteMapping("/{id}")
   @ResponseStatus(HttpStatus.NO_CONTENT)
   @PreAuthorize("isAuthenticated()")
-  public void delete(
-      @PathVariable UUID id, @AuthenticationPrincipal Jwt jwt, Authentication authentication) {
-    ratings.delete(id, userId(jwt), isAdmin(authentication));
+  public void delete(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
+    // Author only. Admins delete other people's reviews through DELETE /api/admin/ratings/{id},
+    // which the audit interceptor records (TD-ADM-05).
+    ratings.delete(id, userId(jwt), false);
   }
 
   @PostMapping("/{ratingId}/votes/{voteType}")
@@ -263,10 +261,5 @@ public class RatingController {
 
   private static UUID userId(Jwt jwt) {
     return UUID.fromString(jwt.getSubject());
-  }
-
-  private static boolean isAdmin(Authentication authentication) {
-    return authentication.getAuthorities().stream()
-        .anyMatch(a -> Roles.ROLE_ADMIN.equals(a.getAuthority()));
   }
 }

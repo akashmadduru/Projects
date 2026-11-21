@@ -1,0 +1,13 @@
+{
+ "product_id": "5b7e08e5-0a77-45cd-bc68-eb4ea6c617a4",
+ "name": "Zemidex Planner Essential",
+ "prompt": "studio packshot photo of a Red Zemidex Planner Essential, made of polyester, stationery, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2139213142,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:24:47",
+ "file_path": "product-images/images/5b7e08e5-0a77-45cd-bc68-eb4ea6c617a4.jpg",
+ "file_size": 60497
+}

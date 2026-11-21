@@ -1,0 +1,13 @@
+{
+ "product_id": "cf451fde-aab7-4271-0d94-bdc13d83c7e8",
+ "name": "Coqua Bluetooth Speaker Essential",
+ "prompt": "studio packshot photo of a White Coqua Bluetooth Speaker Essential, made of leather, speakers, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1396657047,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:13:19",
+ "file_path": "product-images/images/cf451fde-aab7-4271-0d94-bdc13d83c7e8.jpg",
+ "file_size": 57346
+}

@@ -1,0 +1,13 @@
+{
+ "product_id": "dfd34500-0956-405f-db53-1f1bf27566a3",
+ "name": "Ripipi Phone Max",
+ "prompt": "studio packshot photo of a Red Ripipi Phone Max, made of stainless steel, mobiles & smartphones, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 772721849,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:53:45",
+ "file_path": "product-images/images/dfd34500-0956-405f-db53-1f1bf27566a3.jpg",
+ "file_size": 35203
+}

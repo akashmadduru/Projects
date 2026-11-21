@@ -1,0 +1,13 @@
+{
+ "product_id": "75cdcb79-d4a8-4793-0a4d-c24fbcc41775",
+ "name": "Orli Sneakers Max",
+ "prompt": "studio packshot photo of a Grey Orli Sneakers Max, made of polyester, footwear, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 15068324,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:42:29",
+ "file_path": "product-images/images/75cdcb79-d4a8-4793-0a4d-c24fbcc41775.jpg",
+ "file_size": 44780
+}

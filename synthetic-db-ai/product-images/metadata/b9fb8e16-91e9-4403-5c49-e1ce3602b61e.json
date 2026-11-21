@@ -1,0 +1,13 @@
+{
+ "product_id": "b9fb8e16-91e9-4403-5c49-e1ce3602b61e",
+ "name": "Ioncoba Soundbar Series 2",
+ "prompt": "studio packshot photo of a Rose Gold Ioncoba Soundbar Series 2, made of silicone, speakers, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2346574618,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:29:56",
+ "file_path": "product-images/images/b9fb8e16-91e9-4403-5c49-e1ce3602b61e.jpg",
+ "file_size": 40114
+}

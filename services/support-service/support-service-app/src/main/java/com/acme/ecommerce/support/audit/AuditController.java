@@ -31,7 +31,15 @@ public class AuditController {
       @RequestParam(required = false) String to,
       @RequestParam(defaultValue = "0") int page,
       @RequestParam(defaultValue = "20") int size) {
-    return audit.search(actor, resourceType, resourceId, action, instant(from, "from"), instant(to, "to"), page, size);
+    return audit.search(
+        actor,
+        resourceType,
+        resourceId,
+        action,
+        instant(from, "from"),
+        instant(to, "to"),
+        page,
+        size);
   }
 
   private static Instant instant(String s, String field) {
@@ -41,7 +49,8 @@ public class AuditController {
     try {
       return s.length() == 10 ? Instant.parse(s + "T00:00:00Z") : Instant.parse(s);
     } catch (DateTimeParseException e) {
-      throw ValidationException.forField(field, "Use ISO-8601, e.g. 2026-01-31 or 2026-01-31T10:00:00Z");
+      throw ValidationException.forField(
+          field, "Use ISO-8601, e.g. 2026-01-31 or 2026-01-31T10:00:00Z");
     }
   }
 }

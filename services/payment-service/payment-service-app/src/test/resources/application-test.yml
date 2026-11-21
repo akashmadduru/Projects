@@ -1,0 +1,22 @@
+# Test profile (TD-P8-01). The datasource comes from AbstractPaymentIntegrationTest.
+spring:
+  kafka:
+    listener:
+      auto-startup: false
+    producer:
+      properties:
+        max.block.ms: 2000
+  cloud:
+    discovery:
+      enabled: false
+
+payment:
+  jwt:
+    jwks-uri: http://localhost:1/.well-known/jwks.json
+  internal-token: test-internal-token
+  reporter:
+    interval-ms: 3600000
+
+eureka:
+  client:
+    enabled: false

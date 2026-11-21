@@ -1,0 +1,13 @@
+{
+ "product_id": "5060b4f0-e120-4ed9-09ee-f6e5792157e1",
+ "name": "Linu Acrylic Paint Kit Elite",
+ "prompt": "studio packshot photo of a Silver Linu Acrylic Paint Kit Elite, made of nylon, art supplies, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2278138146,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:16:54",
+ "file_path": "product-images/images/5060b4f0-e120-4ed9-09ee-f6e5792157e1.jpg",
+ "file_size": 71110
+}

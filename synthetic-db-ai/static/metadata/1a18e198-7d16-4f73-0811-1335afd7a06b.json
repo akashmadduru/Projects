@@ -1,0 +1,15 @@
+{
+ "product_id": "1a18e198-7d16-4f73-0811-1335afd7a06b",
+ "name": "Dexsu Sketch Pad Max",
+ "prompt": "studio packshot photo of a Black Dexsu Sketch Pad Max, made of nylon, art supplies, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1931650434,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T01:40:36",
+ "file_path": "static/images/1a18e198-7d16-4f73-0811-1335afd7a06b.jpg",
+ "file_size": 30793,
+ "uploaded": false,
+ "s3_url": null
+}

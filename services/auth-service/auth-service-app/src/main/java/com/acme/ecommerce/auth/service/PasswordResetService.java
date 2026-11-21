@@ -81,8 +81,10 @@ public class PasswordResetService {
                     user.getEmail(),
                     EmailTemplate.PASSWORD_RESET,
                     Map.of(
-                        "link", storefrontBaseUrl + "/reset-password?token=" + token,
-                        "name", user.getDisplayName()));
+                        "link",
+                        storefrontBaseUrl + "/reset-password?token=" + token,
+                        "name",
+                        user.getDisplayName()));
               });
     } catch (RuntimeException e) {
       // Swallowed deliberately: an error here must look identical to "no such account".

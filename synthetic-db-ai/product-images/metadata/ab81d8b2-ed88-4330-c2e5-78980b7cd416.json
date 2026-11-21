@@ -1,0 +1,13 @@
+{
+ "product_id": "ab81d8b2-ed88-4330-c2e5-78980b7cd416",
+ "name": "Kali Mountain Bike Max",
+ "prompt": "studio packshot photo of a Blue Kali Mountain Bike Max, made of aluminium, cycling, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 604267809,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:19:03",
+ "file_path": "product-images/images/ab81d8b2-ed88-4330-c2e5-78980b7cd416.jpg",
+ "file_size": 65867
+}

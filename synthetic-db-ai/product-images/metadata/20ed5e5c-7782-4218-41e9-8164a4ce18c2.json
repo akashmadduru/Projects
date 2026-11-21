@@ -1,0 +1,13 @@
+{
+ "product_id": "20ed5e5c-7782-4218-41e9-8164a4ce18c2",
+ "name": "Trafy Running Shoes Plus",
+ "prompt": "studio packshot photo of a Space Grey Trafy Running Shoes Plus, made of ceramic, footwear, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2260479660,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 768,
+ "created_at": "2026-11-15T23:18:23",
+ "file_path": "product-images/images/20ed5e5c-7782-4218-41e9-8164a4ce18c2.jpg",
+ "file_size": 75102
+}

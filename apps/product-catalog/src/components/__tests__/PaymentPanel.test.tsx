@@ -13,7 +13,8 @@ const api = vi.hoisted(() => ({
 const openCheckout = vi.hoisted(() => vi.fn())
 
 vi.mock('../../services/paymentApi', () => ({ paymentApi: api }))
-vi.mock('../../lib/razorpay', () => ({ openRazorpayCheckout: openCheckout }))
+// loadRazorpay is a plain function so vi.resetAllMocks() cannot strip its resolved value.
+vi.mock('../../lib/razorpay', () => ({ openRazorpayCheckout: openCheckout, loadRazorpay: () => Promise.resolve() }))
 
 const razorpayPayment: PaymentInfo = {
   paymentId: 'pay-1',

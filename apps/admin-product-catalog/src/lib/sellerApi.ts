@@ -60,6 +60,8 @@ function flattenOffer(v: OfferView): Offer {
     dispatchDays: v.offer.dispatchDays,
     active: v.offer.active,
     availableQuantity: v.offer.availableQuantity,
+    reviewStatus: v.reviewStatus,
+    reviewNote: v.reviewNote,
   };
 }
 

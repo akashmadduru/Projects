@@ -1,0 +1,13 @@
+{
+ "product_id": "af456e1a-7918-4d33-d278-0c9fd5fe0ee5",
+ "name": "Travenion Bracelet Pro",
+ "prompt": "studio packshot photo of a Silver Travenion Bracelet Pro, made of stainless steel, watches & jewellery, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3329100270,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:22:16",
+ "file_path": "product-images/images/af456e1a-7918-4d33-d278-0c9fd5fe0ee5.jpg",
+ "file_size": 41164
+}

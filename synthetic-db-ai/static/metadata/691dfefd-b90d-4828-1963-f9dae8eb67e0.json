@@ -1,0 +1,15 @@
+{
+ "product_id": "691dfefd-b90d-4828-1963-f9dae8eb67e0",
+ "name": "Ritradex Fitness Band Gen 3",
+ "prompt": "studio packshot photo of a Olive Ritradex Fitness Band Gen 3, made of wood, smart watches, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 4216007274,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:20:49",
+ "file_path": "static/images/691dfefd-b90d-4828-1963-f9dae8eb67e0.jpg",
+ "file_size": 51105,
+ "uploaded": false,
+ "s3_url": null
+}

@@ -1,0 +1,13 @@
+{
+ "product_id": "b1e36db8-6413-437d-57f1-e96621d69b13",
+ "name": "Quaquadex Fountain Pen Gen 3",
+ "prompt": "studio packshot photo of a Olive Quaquadex Fountain Pen Gen 3, made of leather, stationery, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 693702508,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:23:23",
+ "file_path": "product-images/images/b1e36db8-6413-437d-57f1-e96621d69b13.jpg",
+ "file_size": 44622
+}

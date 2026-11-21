@@ -1,0 +1,13 @@
+{
+ "product_id": "fd9f8266-0144-4259-f092-b4b84ab1197c",
+ "name": "Lumri Mixed Nuts Plus",
+ "prompt": "studio packshot photo of a White Lumri Mixed Nuts Plus, made of cotton, snacks, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 388143898,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:41:00",
+ "file_path": "product-images/images/fd9f8266-0144-4259-f092-b4b84ab1197c.jpg",
+ "file_size": 69841
+}

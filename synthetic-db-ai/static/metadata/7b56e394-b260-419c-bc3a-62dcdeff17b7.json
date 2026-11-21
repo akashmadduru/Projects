@@ -1,0 +1,15 @@
+{
+ "product_id": "7b56e394-b260-419c-bc3a-62dcdeff17b7",
+ "name": "Orba Bookshelf Series 2",
+ "prompt": "studio packshot photo of a Green Orba Bookshelf Series 2, made of leather, furniture, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 483260078,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:47:11",
+ "file_path": "static/images/7b56e394-b260-419c-bc3a-62dcdeff17b7.jpg",
+ "file_size": 59188,
+ "uploaded": false,
+ "s3_url": null
+}

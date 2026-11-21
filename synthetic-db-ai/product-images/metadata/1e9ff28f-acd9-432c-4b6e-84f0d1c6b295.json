@@ -1,0 +1,13 @@
+{
+ "product_id": "1e9ff28f-acd9-432c-4b6e-84f0d1c6b295",
+ "name": "Loqua Olive Oil Elite",
+ "prompt": "studio packshot photo of a Olive Loqua Olive Oil Elite, made of ceramic, pantry, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3254273227,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 768,
+ "created_at": "2026-11-15T23:16:05",
+ "file_path": "product-images/images/1e9ff28f-acd9-432c-4b6e-84f0d1c6b295.jpg",
+ "file_size": 64514
+}

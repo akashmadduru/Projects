@@ -1,0 +1,146 @@
+{
+ "runs": [
+  {
+   "at": "2026-11-19T17:34:22.623Z",
+   "role": "forge-cpo",
+   "tokens": 21044,
+   "tools": 6,
+   "ms": 35238,
+   "round": 0,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-19T17:34:48.163Z",
+   "role": "forge-cto",
+   "tokens": 14907,
+   "tools": 5,
+   "ms": 15826,
+   "round": 0,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-19T19:32:23.771Z",
+   "role": "forge-cto",
+   "tokens": 20255,
+   "tools": 9,
+   "ms": 25830,
+   "round": 0,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-19T19:38:09.987Z",
+   "role": "forge-architect",
+   "tokens": 89928,
+   "tools": 54,
+   "ms": 313039,
+   "round": 0,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-19T19:38:38.066Z",
+   "role": "forge-cto",
+   "tokens": 17351,
+   "tools": 2,
+   "ms": 11451,
+   "round": 0,
+   "outcome": "approve"
+  },
+  {
+   "at": "2026-11-19T19:39:09.859Z",
+   "role": "forge-cpo",
+   "tokens": 4964,
+   "tools": 2,
+   "ms": 15138,
+   "round": 1,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-19T19:39:51.391Z",
+   "role": "forge-em",
+   "tokens": 21282,
+   "tools": 4,
+   "ms": 30271,
+   "round": 0,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-19T20:00:29.238Z",
+   "role": "forge-backend-engineer",
+   "tokens": 120081,
+   "tools": 49,
+   "ms": 1221000,
+   "round": 1,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-19T20:17:56.302Z",
+   "role": "forge-backend-engineer",
+   "tokens": 2288,
+   "tools": 5,
+   "ms": 24656,
+   "round": 2,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-19T20:29:20.835Z",
+   "role": "forge-security",
+   "tokens": 77180,
+   "tools": 14,
+   "ms": 108185,
+   "round": 1,
+   "outcome": "approve"
+  },
+  {
+   "at": "2026-11-19T20:29:43.754Z",
+   "role": "forge-reviewer",
+   "tokens": 77630,
+   "tools": 16,
+   "ms": 112306,
+   "round": 1,
+   "outcome": "approve"
+  },
+  {
+   "at": "2026-11-20T17:16:21.529Z",
+   "role": "forge-backend-engineer",
+   "tokens": 12620,
+   "tools": 20,
+   "ms": 900000,
+   "round": 2,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-20T17:30:40.532Z",
+   "role": "forge-reviewer",
+   "tokens": 34204,
+   "tools": 9,
+   "ms": 50940,
+   "round": 2,
+   "outcome": "approve"
+  },
+  {
+   "at": "2026-11-20T17:31:07.534Z",
+   "role": "forge-security",
+   "tokens": 28281,
+   "tools": 10,
+   "ms": 68952,
+   "round": 2,
+   "outcome": "approve"
+  },
+  {
+   "at": "2026-11-20T17:31:34.914Z",
+   "role": "forge-qa",
+   "tokens": 22602,
+   "tools": 6,
+   "ms": 23072,
+   "round": 0,
+   "outcome": "pass"
+  }
+ ],
+ "events": [
+  {
+   "at": "2026-11-19T20:07:11.413Z",
+   "type": "gate_fail",
+   "note": "CEO verify FAIL: env reference --check, 2 undescribed vars (AUTH_OTP_PER_PHONE_CAPACITY, AUTH_OTP_PER_PHONE_DAILY) and a stale generated doc. The engineer did not run forge-verify. Auth tests 100/100 pass."
+  }
+ ]
+}

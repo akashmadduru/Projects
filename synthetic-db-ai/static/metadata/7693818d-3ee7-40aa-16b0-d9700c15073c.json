@@ -1,0 +1,15 @@
+{
+ "product_id": "7693818d-3ee7-40aa-16b0-d9700c15073c",
+ "name": "Lonu Headphones Prime",
+ "prompt": "studio packshot photo of a White Lonu Headphones Prime, made of leather, headphones & earbuds, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 4236220375,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:43:22",
+ "file_path": "static/images/7693818d-3ee7-40aa-16b0-d9700c15073c.jpg",
+ "file_size": 29335,
+ "uploaded": false,
+ "s3_url": null
+}

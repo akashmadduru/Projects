@@ -1,5 +1,6 @@
 package com.acme.ecommerce.cart.alert;
 
+import com.acme.ecommerce.common.web.kafka.KafkaJson;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.math.BigDecimal;
 import java.util.HashMap;
@@ -16,11 +17,7 @@ import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
-import org.springframework.kafka.listener.DefaultErrorHandler;
-import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
-import org.springframework.kafka.support.serializer.JsonDeserializer;
 import org.springframework.stereotype.Component;
-import org.springframework.util.backoff.FixedBackOff;
 
 /**
  * Kafka wiring + listeners for alerts: product.events (price changes) and inventory.events
@@ -38,8 +35,7 @@ public class AlertEventConsumers {
   public record ProductEvt(String eventType, UUID productId, ProductPayload payload) {}
 
   @JsonIgnoreProperties(ignoreUnknown = true)
-  public record InventoryEvt(
-      String eventType, UUID productId, UUID variantId, Integer quantity) {}
+  public record InventoryEvt(String eventType, UUID productId, UUID variantId, Integer quantity) {}
 
   private static <T> ConcurrentKafkaListenerContainerFactory<String, T> factory(
       String servers, Class<T> type) {
@@ -48,13 +44,7 @@ public class AlertEventConsumers {
     props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest");
     DefaultKafkaConsumerFactory<String, T> cf =
         new DefaultKafkaConsumerFactory<>(
-            props,
-            StringDeserializer::new,
-            () -> {
-              JsonDeserializer<T> json = new JsonDeserializer<>(type, false);
-              json.addTrustedPackages("*");
-              return new ErrorHandlingDeserializer<>(json);
-            });
+            props, StringDeserializer::new, () -> KafkaJson.eventDeserializer(type, "*"));
     ConcurrentKafkaListenerContainerFactory<String, T> f =
         new ConcurrentKafkaListenerContainerFactory<>();
     f.setConsumerFactory(cf);

@@ -1,0 +1,15 @@
+{
+ "product_id": "3a7dac87-7379-4858-6ee4-2e9825e918f8",
+ "name": "Voco Speaker Max",
+ "prompt": "studio packshot photo of a Black Voco Speaker Max, made of cotton, speakers, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2688820492,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:37:54",
+ "file_path": "static/images/3a7dac87-7379-4858-6ee4-2e9825e918f8.jpg",
+ "file_size": 58264,
+ "uploaded": false,
+ "s3_url": null
+}

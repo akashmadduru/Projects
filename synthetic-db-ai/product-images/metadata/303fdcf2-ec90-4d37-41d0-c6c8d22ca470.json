@@ -1,0 +1,13 @@
+{
+ "product_id": "303fdcf2-ec90-4d37-41d0-c6c8d22ca470",
+ "name": "Quakaba Trolley Bag Plus",
+ "prompt": "studio packshot photo of a Olive Quakaba Trolley Bag Plus, made of stainless steel, bags & luggage, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3853522579,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-15T23:51:01",
+ "file_path": "product-images/images/303fdcf2-ec90-4d37-41d0-c6c8d22ca470.jpg",
+ "file_size": 39402
+}

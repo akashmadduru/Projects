@@ -1,0 +1,13 @@
+{
+ "product_id": "79bad406-4f8d-45d4-bc43-55b62c43196c",
+ "name": "Lumnuli Coffee Beans Plus",
+ "prompt": "studio packshot photo of a White Lumnuli Coffee Beans Plus, made of ceramic, beverages, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2272141501,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:44:46",
+ "file_path": "product-images/images/79bad406-4f8d-45d4-bc43-55b62c43196c.jpg",
+ "file_size": 73213
+}

@@ -1,0 +1,13 @@
+{
+ "product_id": "a4727bc3-2e82-4b5f-1414-0c71d350deeb",
+ "name": "Suven Bookshelf Lite",
+ "prompt": "studio packshot photo of a Grey Suven Bookshelf Lite, made of glass, furniture, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2288016326,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:14:01",
+ "file_path": "product-images/images/a4727bc3-2e82-4b5f-1414-0c71d350deeb.jpg",
+ "file_size": 39934
+}

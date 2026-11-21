@@ -1,0 +1,13 @@
+{
+ "product_id": "46c5afc1-a945-4b9f-aef4-5c01abbc1a46",
+ "name": "Pilum Flash Drive Lite",
+ "prompt": "studio packshot photo of a Space Grey Pilum Flash Drive Lite, made of cotton, storage, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3485577718,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T01:44:50",
+ "file_path": "product-images/images/46c5afc1-a945-4b9f-aef4-5c01abbc1a46.jpg",
+ "file_size": 42741
+}

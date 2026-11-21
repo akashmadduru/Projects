@@ -1,0 +1,13 @@
+{
+ "product_id": "47aabe67-7521-48f6-bb69-a67f72628734",
+ "name": "Taex Multivitamin Series 2",
+ "prompt": "studio packshot photo of a Blue Taex Multivitamin Series 2, made of wood, supplements, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3388561235,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:20:41",
+ "file_path": "product-images/images/47aabe67-7521-48f6-bb69-a67f72628734.jpg",
+ "file_size": 82477
+}

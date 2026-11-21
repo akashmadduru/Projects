@@ -22,6 +22,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.LongSupplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -46,6 +48,18 @@ public class PaymentService {
   private final WalletService wallet;
   private final PaymentProperties properties;
   private final TransactionTemplate tx;
+
+  /**
+   * Provider re-checks are synchronous HTTP calls made while the customer waits on the order page.
+   * Each provider object (Stripe intent or Razorpay order id) is re-checked at most once per
+   * interval, and not at all just after it was created (it cannot be paid yet). Per pod, in memory:
+   * a missed re-check only delays settlement until the next load or the webhook.
+   */
+  static final long RECHECK_INTERVAL_MS = 10_000;
+
+  private static final int RECHECK_MAX_TRACKED = 10_000;
+  private final ConcurrentHashMap<String, Long> lastRecheck = new ConcurrentHashMap<>();
+  LongSupplier clock = () -> System.nanoTime() / 1_000_000;
 
   public PaymentService(
       PaymentRepository payments,
@@ -163,6 +177,36 @@ public class PaymentService {
   /** Creates the provider-side object. Returns {stripeIntentId, razorpayOrderId}, nulls if none. */
   private String[] provision(
       String mode, String subject, BigDecimal amount, String currency, String stripeKey) {
+    String[] ids = createProviderObject(mode, subject, amount, currency, stripeKey);
+    for (String id : ids) {
+      if (id != null) {
+        lastRecheck.put(id, clock.getAsLong());
+      }
+    }
+    return ids;
+  }
+
+  /** True at most once per interval per provider object; marks it as checked when true. */
+  private boolean recheckDue(String providerObjectId) {
+    long now = clock.getAsLong();
+    boolean[] due = {false};
+    lastRecheck.compute(
+        providerObjectId,
+        (k, prev) -> {
+          if (prev != null && now - prev < RECHECK_INTERVAL_MS) {
+            return prev;
+          }
+          due[0] = true;
+          return now;
+        });
+    if (lastRecheck.size() > RECHECK_MAX_TRACKED) {
+      lastRecheck.values().removeIf(t -> now - t >= RECHECK_INTERVAL_MS);
+    }
+    return due[0];
+  }
+
+  private String[] createProviderObject(
+      String mode, String subject, BigDecimal amount, String currency, String stripeKey) {
     long minor = toMinor(amount);
     return switch (mode) {
       case PaymentProviders.STRIPE ->
@@ -179,6 +223,40 @@ public class PaymentService {
     };
   }
 
+  /**
+   * Internal: the order was cancelled or expired before it was paid (TD-P6-03). A Stripe intent is
+   * cancelled so it can no longer be paid, then the payment is voided. A Razorpay order cannot be
+   * cancelled, so it is left open: if the customer still pays it, the webhook settles it and
+   * order-service refunds the late payment. If Stripe refuses the cancel (most likely it was paid a
+   * moment ago), the payment is left as it is for the same late-payment path.
+   */
+  public PaymentResponse cancelUnpaid(UUID orderId) {
+    Payment p = find(orderId);
+    boolean unpaid = "REQUIRES_PAYMENT".equals(p.status()) || "PROCESSING".equals(p.status());
+    if (!"CARD".equals(p.method()) || !unpaid) {
+      return view(p);
+    }
+    if (PaymentProviders.RAZORPAY.equals(p.mode())) {
+      log.info("Order {} cancelled before paying; Razorpay order left to lapse", orderId);
+      return view(p);
+    }
+    if (PaymentProviders.STRIPE.equals(p.mode()) && p.intentId() != null && stripe.enabled()) {
+      try {
+        stripe.cancel(p.intentId());
+      } catch (RuntimeException e) {
+        log.warn(
+            "Could not cancel Stripe intent {} for cancelled order {}; a late payment will be"
+                + " refunded by order-service: {}",
+            p.intentId(),
+            orderId,
+            e.getMessage());
+        return view(p);
+      }
+    }
+    payments.voidUnpaid(p.id());
+    return view(payments.findById(p.id()).orElse(p));
+  }
+
   /** Internal read (no ownership check). */
   public PaymentResponse getInternal(UUID orderId) {
     return view(find(orderId));
@@ -186,7 +264,8 @@ public class PaymentService {
 
   /**
    * Owner read. Also reconciles: re-checks the provider (local dev without webhooks, or a missed
-   * webhook) and retries reporting an unreported outcome to order-service.
+   * webhook; throttled, see {@link #RECHECK_INTERVAL_MS}) and retries reporting an unreported
+   * outcome to order-service.
    */
   public PaymentResponse getForOwner(UUID orderId, UUID userId) {
     Payment p = find(orderId);
@@ -261,7 +340,10 @@ public class PaymentService {
 
   private Payment reconcile(Payment p) {
     if ("REQUIRES_PAYMENT".equals(p.status()) || "PROCESSING".equals(p.status())) {
-      if (PaymentProviders.STRIPE.equals(p.mode()) && p.intentId() != null && stripe.enabled()) {
+      if (PaymentProviders.STRIPE.equals(p.mode())
+          && p.intentId() != null
+          && stripe.enabled()
+          && recheckDue(p.intentId())) {
         try {
           String s = stripe.retrieve(p.intentId()).status();
           if ("succeeded".equals(s)) {
@@ -274,13 +356,23 @@ public class PaymentService {
         }
       } else if (PaymentProviders.RAZORPAY.equals(p.mode())
           && p.providerOrderId() != null
-          && razorpay.enabled()) {
+          && razorpay.enabled()
+          && recheckDue(p.providerOrderId())) {
         try {
-          if ("paid".equals(razorpay.fetchOrder(p.providerOrderId()).status())) {
-            var captured = razorpay.capturedPayment(p.providerOrderId());
-            if (captured != null) {
-              payments.setProviderPaymentId(p.id(), captured.id());
+          // One call: the order's captured payment, if any (auto-capture marks the order paid).
+          var captured = razorpay.capturedPayment(p.providerOrderId());
+          if (captured != null) {
+            if (captured.amount() != toMinor(p.amount())
+                || !p.currency().equalsIgnoreCase(captured.currency())) {
+              // Same rule as the webhook: never settle on an amount we did not ask for.
+              log.error(
+                  "Razorpay payment {} amount/currency does not match payment {}; not applying",
+                  captured.id(),
+                  p.id());
+              return p;
             }
+            flagIfSettledElsewhere(p, PaymentProviders.RAZORPAY, captured.id());
+            payments.setProviderPaymentId(p.id(), captured.id());
             return applyOutcome(p, "SUCCEEDED");
           }
         } catch (RuntimeException e) {

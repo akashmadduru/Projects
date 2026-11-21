@@ -1,0 +1,13 @@
+{
+ "product_id": "f61032e6-c7c5-47d2-dffd-a9485478f20c",
+ "name": "Orlovo Notebook Gen 3",
+ "prompt": "studio packshot photo of a Silver Orlovo Notebook Gen 3, made of abs plastic, laptops, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3988717011,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:35:07",
+ "file_path": "product-images/images/f61032e6-c7c5-47d2-dffd-a9485478f20c.jpg",
+ "file_size": 33035
+}

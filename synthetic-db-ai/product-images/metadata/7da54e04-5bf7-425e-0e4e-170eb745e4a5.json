@@ -1,0 +1,13 @@
+{
+ "product_id": "7da54e04-5bf7-425e-0e4e-170eb745e4a5",
+ "name": "Nomi Sneakers Prime",
+ "prompt": "studio packshot photo of a Olive Nomi Sneakers Prime, made of glass, footwear, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3608271194,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:48:26",
+ "file_path": "product-images/images/7da54e04-5bf7-425e-0e4e-170eb745e4a5.jpg",
+ "file_size": 38115
+}

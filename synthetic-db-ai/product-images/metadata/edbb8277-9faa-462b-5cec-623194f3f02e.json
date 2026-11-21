@@ -1,0 +1,13 @@
+{
+ "product_id": "edbb8277-9faa-462b-5cec-623194f3f02e",
+ "name": "Lisu Tent Ultra",
+ "prompt": "studio packshot photo of a Green Lisu Tent Ultra, made of cotton, camping, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1791682397,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:35:55",
+ "file_path": "product-images/images/edbb8277-9faa-462b-5cec-623194f3f02e.jpg",
+ "file_size": 32653
+}

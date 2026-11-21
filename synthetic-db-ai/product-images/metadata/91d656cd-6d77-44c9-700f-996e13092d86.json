@@ -1,0 +1,13 @@
+{
+ "product_id": "91d656cd-6d77-44c9-700f-996e13092d86",
+ "name": "Arfyta Blender Ultra",
+ "prompt": "studio packshot photo of a Grey Arfyta Blender Ultra, made of glass, small appliances, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2115146960,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:14:16",
+ "file_path": "product-images/images/91d656cd-6d77-44c9-700f-996e13092d86.jpg",
+ "file_size": 34756
+}

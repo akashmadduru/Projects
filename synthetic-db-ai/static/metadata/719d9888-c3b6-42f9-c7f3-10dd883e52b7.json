@@ -1,0 +1,15 @@
+{
+ "product_id": "719d9888-c3b6-42f9-c7f3-10dd883e52b7",
+ "name": "Liventra Kurta Elite",
+ "prompt": "studio packshot photo of a Silver Liventra Kurta Elite, made of abs plastic, women's clothing, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 552174713,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:40:33",
+ "file_path": "static/images/719d9888-c3b6-42f9-c7f3-10dd883e52b7.jpg",
+ "file_size": 43598,
+ "uploaded": false,
+ "s3_url": null
+}

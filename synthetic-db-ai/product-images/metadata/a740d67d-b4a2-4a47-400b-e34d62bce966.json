@@ -1,0 +1,13 @@
+{
+ "product_id": "a740d67d-b4a2-4a47-400b-e34d62bce966",
+ "name": "Lilo T-Shirt Prime",
+ "prompt": "studio packshot photo of a Rose Gold Lilo T-Shirt Prime, made of polyester, men's clothing, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 58295426,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:15:49",
+ "file_path": "product-images/images/a740d67d-b4a2-4a47-400b-e34d62bce966.jpg",
+ "file_size": 41166
+}

@@ -44,6 +44,7 @@ public class AdminPaymentController {
   public Paged<AdminPaymentRow> list(
       @RequestParam(required = false) String status,
       @RequestParam(required = false) String method,
+      @RequestParam(required = false) String mode,
       @RequestParam(required = false) UUID orderId,
       @RequestParam(defaultValue = "0") int page,
       @RequestParam(defaultValue = "20") int size) {
@@ -51,8 +52,9 @@ public class AdminPaymentController {
     int s = Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
     String st = upper(status);
     String m = upper(method);
-    long total = queries.count(st, m, orderId);
-    List<AdminPaymentRow> rows = queries.search(st, m, orderId, s, (long) p * s);
+    String md = upper(mode);
+    long total = queries.count(st, m, md, orderId);
+    List<AdminPaymentRow> rows = queries.search(st, m, md, orderId, s, (long) p * s);
     int pages = (int) ((total + s - 1) / s);
     return new Paged<>(rows, new PageMeta(s, p, total, pages));
   }

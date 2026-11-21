@@ -1,0 +1,12 @@
+{
+ "id": "F-20261119-03",
+ "slug": "shared-client-ip",
+ "step": "pr-ready-owner-push",
+ "branch": "forge/F-20261119-03-shared-client-ip",
+ "worktree": ".openforge/worktrees/F-20261119-03",
+ "base_sha": "fcf6f2a2b93ae497b67244260fba86f3cb8aa29f",
+ "implementer": "forge-backend-engineer",
+ "head_sha": "a04ad61022c80d18ad22866d6609eb72adde5bbb",
+ "slice1_approved_sha": "d195a9377114e52e7a405e75dc2f77322b9208a2",
+ "owner_push_approved": "2026-11-20 (AskUserQuestion)"
+}

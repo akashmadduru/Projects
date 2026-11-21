@@ -107,3 +107,15 @@ variable "razorpay_webhook_secret" {
   default   = ""
   sensitive = true
 }
+
+variable "vapid_public_key" {
+  type      = string
+  default   = ""
+  sensitive = true
+}
+
+variable "vapid_private_key" {
+  type      = string
+  default   = ""
+  sensitive = true
+}

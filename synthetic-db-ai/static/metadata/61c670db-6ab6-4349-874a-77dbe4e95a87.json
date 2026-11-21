@@ -1,0 +1,15 @@
+{
+ "product_id": "61c670db-6ab6-4349-874a-77dbe4e95a87",
+ "name": "Arzesu Omega-3 Elite",
+ "prompt": "studio packshot photo of a White Arzesu Omega-3 Elite, made of leather, supplements, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3312399855,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:28:53",
+ "file_path": "static/images/61c670db-6ab6-4349-874a-77dbe4e95a87.jpg",
+ "file_size": 62309,
+ "uploaded": false,
+ "s3_url": null
+}

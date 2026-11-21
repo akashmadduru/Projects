@@ -1,0 +1,13 @@
+{
+ "product_id": "a9432c9d-dad1-4b6f-f8eb-97028ea41e79",
+ "name": "Liorqua Omega-3 Gen 3",
+ "prompt": "studio packshot photo of a Green Liorqua Omega-3 Gen 3, made of silicone, supplements, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3835519818,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:17:17",
+ "file_path": "product-images/images/a9432c9d-dad1-4b6f-f8eb-97028ea41e79.jpg",
+ "file_size": 64210
+}

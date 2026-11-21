@@ -54,9 +54,8 @@ public interface UserAccountRepository
   boolean existsByPhoneAndPhoneVerifiedTrueAndIdNot(String phone, UUID id);
 
   /**
-   * Batch role load for the admin user list: the page itself is fetched without roles (a
-   * collection fetch join cannot be paginated in SQL), then this loads roles for the page's ids
-   * in one query.
+   * Batch role load for the admin user list: the page itself is fetched without roles (a collection
+   * fetch join cannot be paginated in SQL), then this loads roles for the page's ids in one query.
    */
   @EntityGraph(attributePaths = "roles")
   List<UserAccount> findWithRolesByIdIn(Collection<UUID> ids);
@@ -65,8 +64,7 @@ public interface UserAccountRepository
   @Query(
       "select count(distinct u) from UserAccount u join u.roles r"
           + " where r.name = :roleName and u.status = :status")
-  long countByRoleAndStatus(
-      @Param("roleName") String roleName, @Param("status") UserStatus status);
+  long countByRoleAndStatus(@Param("roleName") String roleName, @Param("status") UserStatus status);
 
   /** Rows of [UserStatus, Long] for the admin dashboard. */
   @Query("select u.status, count(u) from UserAccount u group by u.status")

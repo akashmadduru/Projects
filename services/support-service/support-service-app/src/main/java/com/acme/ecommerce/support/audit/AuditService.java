@@ -70,8 +70,14 @@ public class AuditService {
   }
 
   public Paged<Entry> search(
-      String actor, String resourceType, String resourceId, String action, Instant from, Instant to,
-      int page, int size) {
+      String actor,
+      String resourceType,
+      String resourceId,
+      String action,
+      Instant from,
+      Instant to,
+      int page,
+      int size) {
     int sz = Paged.clampSize(size);
     StringBuilder where = new StringBuilder(" where 1=1");
     List<Object> args = new ArrayList<>();
@@ -103,12 +109,15 @@ public class AuditService {
       where.append(" and at <= ?");
       args.add(Timestamp.from(to));
     }
-    Long total = jdbc.queryForObject("select count(*) from audit_log" + where, Long.class, args.toArray());
+    Long total =
+        jdbc.queryForObject("select count(*) from audit_log" + where, Long.class, args.toArray());
     args.add(sz);
     args.add((long) Math.max(0, page) * sz);
     List<Entry> rows =
         jdbc.query(
-            "select * from audit_log" + where + " order by at desc, received_at desc limit ? offset ?",
+            "select * from audit_log"
+                + where
+                + " order by at desc, received_at desc limit ? offset ?",
             (rs, i) ->
                 new Entry(
                     rs.getObject("id", UUID.class),

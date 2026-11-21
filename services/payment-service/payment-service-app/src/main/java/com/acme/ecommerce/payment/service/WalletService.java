@@ -149,6 +149,42 @@ public class WalletService {
         });
   }
 
+  /**
+   * Gives back a debit if, and only if, it happened (TD-P8-23). Used when a debit failed
+   * ambiguously: a timeout may hide a debit that committed, and crediting blindly would create
+   * money when it did not. Credits exactly the original amount under {@code creditKey}, so a
+   * repeat, or a normal refund using the same key, can never pay twice.
+   *
+   * @return true when money was returned now; false when there was no such debit or it was already
+   *     returned
+   */
+  public boolean reverseDebit(UUID userId, String debitKey, String creditKey) {
+    return Boolean.TRUE.equals(
+        tx.execute(
+            status -> {
+              Wallet w = wallets.lock(userId).orElse(null);
+              if (w == null || wallets.txnExists(creditKey)) {
+                return false;
+              }
+              var debit = wallets.findDebit(debitKey).orElse(null);
+              if (debit == null || !debit.userId().equals(userId)) {
+                return false;
+              }
+              BigDecimal after = w.balance().add(debit.amount());
+              wallets.update(userId, after, w.currency());
+              wallets.insertTxn(
+                  userId,
+                  "CREDIT",
+                  debit.amount(),
+                  debit.currency(),
+                  "REFUND",
+                  debit.referenceId(),
+                  creditKey,
+                  after);
+              return true;
+            }));
+  }
+
   private static CodedException insufficient() {
     return new CodedException(ErrorCode.INSUFFICIENT_BALANCE, "Insufficient wallet balance");
   }

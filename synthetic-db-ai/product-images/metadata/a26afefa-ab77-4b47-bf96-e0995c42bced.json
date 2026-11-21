@@ -1,0 +1,13 @@
+{
+ "product_id": "a26afefa-ab77-4b47-bf96-e0995c42bced",
+ "name": "Taquaco Mechanical Keyboard Plus",
+ "prompt": "studio packshot photo of a Red Taquaco Mechanical Keyboard Plus, made of polyester, keyboards & mice, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 810557296,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:13:38",
+ "file_path": "product-images/images/a26afefa-ab77-4b47-bf96-e0995c42bced.jpg",
+ "file_size": 54927
+}

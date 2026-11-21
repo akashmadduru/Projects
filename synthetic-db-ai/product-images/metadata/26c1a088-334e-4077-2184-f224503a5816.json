@@ -1,0 +1,13 @@
+{
+ "product_id": "26c1a088-334e-4077-2184-f224503a5816",
+ "name": "Lokata Flash Drive Classic",
+ "prompt": "studio packshot photo of a Space Grey Lokata Flash Drive Classic, made of ceramic, storage, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 647321424,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-15T23:41:23",
+ "file_path": "product-images/images/26c1a088-334e-4077-2184-f224503a5816.jpg",
+ "file_size": 33606
+}

@@ -1,0 +1,15 @@
+{
+ "product_id": "0a5c2859-5464-48c7-96ff-7758c877614f",
+ "name": "Zeba Bike Lock Edition",
+ "prompt": "studio packshot photo of a Silver Zeba Bike Lock Edition, made of stainless steel, cycling, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3779724345,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 768,
+ "created_at": "2026-11-15T22:43:30",
+ "file_path": "static/images/0a5c2859-5464-48c7-96ff-7758c877614f.jpg",
+ "file_size": 110726,
+ "uploaded": false,
+ "s3_url": null
+}

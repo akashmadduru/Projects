@@ -1,0 +1,13 @@
+{
+ "product_id": "c71d24c5-8540-4657-0108-09d5cf1091f8",
+ "name": "Arridex Deodorant Gen 3",
+ "prompt": "studio packshot photo of a Red Arridex Deodorant Gen 3, made of bamboo, fragrances, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 4270058110,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:37:06",
+ "file_path": "product-images/images/c71d24c5-8540-4657-0108-09d5cf1091f8.jpg",
+ "file_size": 68486
+}

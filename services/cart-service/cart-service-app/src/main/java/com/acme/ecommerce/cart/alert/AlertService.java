@@ -58,7 +58,8 @@ public class AlertService {
           ErrorCode.VALIDATION_FAILED, "Your account has no email address for alerts");
     }
     if (!"PRICE_DROP".equals(r.type()) && !"BACK_IN_STOCK".equals(r.type())) {
-      throw new CodedException(ErrorCode.VALIDATION_FAILED, "type must be PRICE_DROP or BACK_IN_STOCK");
+      throw new CodedException(
+          ErrorCode.VALIDATION_FAILED, "type must be PRICE_DROP or BACK_IN_STOCK");
     }
     if (alerts.countByUser(userId) >= MAX_ALERTS) {
       throw new CodedException(ErrorCode.CART_LIMIT, "Alerts are limited to " + MAX_ALERTS);
@@ -143,7 +144,9 @@ public class AlertService {
             new NotificationFeignClient.InboxBody(
                 a.userId().toString(),
                 "ALERT",
-                "ALERT_PRICE_DROP".equals(template) ? "Price drop: " + pname : "Back in stock: " + pname,
+                "ALERT_PRICE_DROP".equals(template)
+                    ? "Price drop: " + pname
+                    : "Back in stock: " + pname,
                 "Tap to view the product.",
                 "/products/" + a.productId()));
       } catch (RuntimeException e) {

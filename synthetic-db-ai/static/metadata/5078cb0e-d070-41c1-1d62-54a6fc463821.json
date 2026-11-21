@@ -1,0 +1,15 @@
+{
+ "product_id": "5078cb0e-d070-41c1-1d62-54a6fc463821",
+ "name": "Lisu Bookshelf Plus",
+ "prompt": "studio packshot photo of a White Lisu Bookshelf Plus, made of silicone, furniture, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 394393456,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:17:10",
+ "file_path": "static/images/5078cb0e-d070-41c1-1d62-54a6fc463821.jpg",
+ "file_size": 32295,
+ "uploaded": false,
+ "s3_url": null
+}

@@ -1,0 +1,11 @@
+{
+ "id": "F-20261119-09",
+ "slug": "return-refunds",
+ "step": "done-gate-pass",
+ "branch": "forge/F-20261119-09-return-refunds",
+ "worktree": ".openforge/worktrees/F-20261119-09",
+ "base_sha": "218998b1b0ec3bb70e2e207eec0fa342b8bc6414",
+ "implementer": "forge-backend-engineer",
+ "head_sha": "b3cda340c42cb466b55a09c709cd76da6054900a",
+ "portfolio": "O-05"
+}

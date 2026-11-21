@@ -1,0 +1,13 @@
+{
+ "product_id": "b61175cf-8783-41a4-5ad7-b811a95d2c9f",
+ "name": "Zeion Air Fryer Max",
+ "prompt": "studio packshot photo of a Black Zeion Air Fryer Max, made of stainless steel, small appliances, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2922710668,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:25:54",
+ "file_path": "product-images/images/b61175cf-8783-41a4-5ad7-b811a95d2c9f.jpg",
+ "file_size": 37227
+}

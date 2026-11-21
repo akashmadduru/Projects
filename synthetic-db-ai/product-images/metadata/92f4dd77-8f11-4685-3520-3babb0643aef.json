@@ -1,0 +1,13 @@
+{
+ "product_id": "92f4dd77-8f11-4685-3520-3babb0643aef",
+ "name": "Lumrior Robot Vacuum Series 2",
+ "prompt": "studio packshot photo of a Grey Lumrior Robot Vacuum Series 2, made of nylon, cleaning, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1028235233,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:02:56",
+ "file_path": "product-images/images/92f4dd77-8f11-4685-3520-3babb0643aef.jpg",
+ "file_size": 48441
+}

@@ -1,0 +1,13 @@
+{
+ "product_id": "1116b1e9-c72c-478f-8617-077a097daae7",
+ "name": "Mior Handbag Edition",
+ "prompt": "studio packshot photo of a Olive Mior Handbag Edition, made of polyester, bags & luggage, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2099071433,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 768,
+ "created_at": "2026-11-15T22:59:07",
+ "file_path": "product-images/images/1116b1e9-c72c-478f-8617-077a097daae7.jpg",
+ "file_size": 82852
+}

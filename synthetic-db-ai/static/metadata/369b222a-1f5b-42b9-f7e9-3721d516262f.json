@@ -1,0 +1,15 @@
+{
+ "product_id": "369b222a-1f5b-42b9-f7e9-3721d516262f",
+ "name": "Lotralum Tent Edition",
+ "prompt": "studio packshot photo of a Olive Lotralum Tent Edition, made of nylon, camping, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1605789800,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T00:57:17",
+ "file_path": "static/images/369b222a-1f5b-42b9-f7e9-3721d516262f.jpg",
+ "file_size": 34386,
+ "uploaded": false,
+ "s3_url": null
+}

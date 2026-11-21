@@ -1,0 +1,15 @@
+{
+ "product_id": "0397f263-8a8e-493a-7c0c-f54f5ab1f03f",
+ "name": "Lumta Tent Plus",
+ "prompt": "studio packshot photo of a Black Lumta Tent Plus, made of bamboo, camping, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3697904954,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 768,
+ "created_at": "2026-11-15T22:33:00",
+ "file_path": "static/images/0397f263-8a8e-493a-7c0c-f54f5ab1f03f.jpg",
+ "file_size": 58408,
+ "uploaded": false,
+ "s3_url": null
+}

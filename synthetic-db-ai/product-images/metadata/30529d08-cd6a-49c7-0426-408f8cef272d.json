@@ -1,0 +1,13 @@
+{
+ "product_id": "30529d08-cd6a-49c7-0426-408f8cef272d",
+ "name": "Rili Helmet Essential",
+ "prompt": "studio packshot photo of a Navy Blue Rili Helmet Essential, made of aluminium, cycling, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 972935588,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:26:04",
+ "file_path": "product-images/images/30529d08-cd6a-49c7-0426-408f8cef272d.jpg",
+ "file_size": 44705
+}

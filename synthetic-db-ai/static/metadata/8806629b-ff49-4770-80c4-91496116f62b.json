@@ -1,0 +1,15 @@
+{
+ "product_id": "8806629b-ff49-4770-80c4-91496116f62b",
+ "name": "Venardex Portable Drive Max",
+ "prompt": "studio packshot photo of a Rose Gold Venardex Portable Drive Max, made of bamboo, storage, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1291209850,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:55:44",
+ "file_path": "static/images/8806629b-ff49-4770-80c4-91496116f62b.jpg",
+ "file_size": 23067,
+ "uploaded": false,
+ "s3_url": null
+}

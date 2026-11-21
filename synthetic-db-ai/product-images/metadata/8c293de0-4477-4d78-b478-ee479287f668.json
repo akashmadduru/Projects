@@ -1,0 +1,13 @@
+{
+ "product_id": "8c293de0-4477-4d78-b478-ee479287f668",
+ "name": "Quano Ultrabook Edition",
+ "prompt": "studio packshot photo of a White Quano Ultrabook Edition, made of glass, laptops, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 950698944,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:26:23",
+ "file_path": "product-images/images/8c293de0-4477-4d78-b478-ee479287f668.jpg",
+ "file_size": 30110
+}

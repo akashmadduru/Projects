@@ -1,0 +1,13 @@
+{
+ "product_id": "abbaaf56-5187-4f52-49e2-e2099f7fd673",
+ "name": "Nuven Portable Drive Max",
+ "prompt": "studio packshot photo of a Navy Blue Nuven Portable Drive Max, made of cotton, storage, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 98086442,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:19:18",
+ "file_path": "product-images/images/abbaaf56-5187-4f52-49e2-e2099f7fd673.jpg",
+ "file_size": 36947
+}

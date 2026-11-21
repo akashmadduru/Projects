@@ -1,0 +1,13 @@
+{
+ "product_id": "8662b9e0-e06e-42b1-5c07-0e242a098a3c",
+ "name": "Trata Thermometer Series 2",
+ "prompt": "studio packshot photo of a Rose Gold Trata Thermometer Series 2, made of bamboo, medical devices, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3932540557,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:14:51",
+ "file_path": "product-images/images/8662b9e0-e06e-42b1-5c07-0e242a098a3c.jpg",
+ "file_size": 38463
+}

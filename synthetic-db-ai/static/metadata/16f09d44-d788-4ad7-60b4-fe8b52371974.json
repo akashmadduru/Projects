@@ -1,0 +1,15 @@
+{
+ "product_id": "16f09d44-d788-4ad7-60b4-fe8b52371974",
+ "name": "Fyexor Laptop Gen 3",
+ "prompt": "studio packshot photo of a Space Grey Fyexor Laptop Gen 3, made of bamboo, laptops, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1153515346,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T01:56:52",
+ "file_path": "static/images/16f09d44-d788-4ad7-60b4-fe8b52371974.jpg",
+ "file_size": 38680,
+ "uploaded": false,
+ "s3_url": null
+}

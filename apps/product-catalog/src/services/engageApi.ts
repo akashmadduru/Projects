@@ -29,6 +29,8 @@ export const engageApi = {
   wallet: () => apiFetch<Wallet>('/api/wallet'),
   giftCards: () => apiFetch<GiftCard[]>('/api/gift-cards'),
   buyGiftCard: (body: GiftCardRequest) => apiFetch<GiftCardPurchase>('/api/gift-cards', { method: 'POST', body }),
+  /** Emails the recipient a new code; the old one stops working. */
+  resendGiftCard: (id: string) => apiFetch<void>(`/api/gift-cards/${id}/resend`, { method: 'POST' }),
   redeemGiftCard: (code: string) => apiFetch<unknown>('/api/gift-cards/redeem', { method: 'POST', body: { code } }),
 
   coins: (currency?: string) => apiFetch<Coins>('/api/coins', currency ? { params: { currency } } : undefined),

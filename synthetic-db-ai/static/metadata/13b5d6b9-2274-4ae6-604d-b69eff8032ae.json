@@ -1,0 +1,15 @@
+{
+ "product_id": "13b5d6b9-2274-4ae6-604d-b69eff8032ae",
+ "name": "Rilum Sneakers Gen 3",
+ "prompt": "studio packshot photo of a Grey Rilum Sneakers Gen 3, made of cotton, footwear, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1291553285,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T01:57:42",
+ "file_path": "static/images/13b5d6b9-2274-4ae6-604d-b69eff8032ae.jpg",
+ "file_size": 24239,
+ "uploaded": false,
+ "s3_url": null
+}

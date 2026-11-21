@@ -1,0 +1,15 @@
+{
+ "product_id": "3c3f8bf8-f0e7-44ae-050b-bac09c46ae7c",
+ "name": "Lummili Razor Pro",
+ "prompt": "studio packshot photo of a White Lummili Razor Pro, made of leather, grooming, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 488513291,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:05:36",
+ "file_path": "static/images/3c3f8bf8-f0e7-44ae-050b-bac09c46ae7c.jpg",
+ "file_size": 29850,
+ "uploaded": false,
+ "s3_url": null
+}

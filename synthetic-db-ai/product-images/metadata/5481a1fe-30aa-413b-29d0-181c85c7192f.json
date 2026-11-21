@@ -1,0 +1,13 @@
+{
+ "product_id": "5481a1fe-30aa-413b-29d0-181c85c7192f",
+ "name": "Exnuli Cushion Cover Ultra",
+ "prompt": "studio packshot photo of a Green Exnuli Cushion Cover Ultra, made of leather, home decor, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1031575628,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:42:54",
+ "file_path": "product-images/images/5481a1fe-30aa-413b-29d0-181c85c7192f.jpg",
+ "file_size": 38869
+}

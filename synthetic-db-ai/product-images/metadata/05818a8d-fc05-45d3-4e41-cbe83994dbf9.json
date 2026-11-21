@@ -1,0 +1,13 @@
+{
+ "product_id": "05818a8d-fc05-45d3-4e41-cbe83994dbf9",
+ "name": "Tadexdex Protein Powder Essential",
+ "prompt": "studio packshot photo of a Olive Tadexdex Protein Powder Essential, made of glass, supplements, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2549661994,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:21:14",
+ "file_path": "product-images/images/05818a8d-fc05-45d3-4e41-cbe83994dbf9.jpg",
+ "file_size": 47116
+}

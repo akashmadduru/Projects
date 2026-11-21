@@ -1,10 +1,9 @@
 package com.acme.ecommerce.order.service;
 
-import com.acme.ecommerce.common.web.job.JobLock;
-import org.springframework.beans.factory.annotation.Autowired;
 import com.acme.ecommerce.common.core.error.CodedException;
 import com.acme.ecommerce.common.core.error.ErrorCode;
 import com.acme.ecommerce.common.core.error.ResourceNotFoundException;
+import com.acme.ecommerce.common.web.job.JobLock;
 import com.acme.ecommerce.order.api.dto.OrderLineRequest;
 import com.acme.ecommerce.order.api.dto.OrderResponse;
 import com.acme.ecommerce.order.api.dto.PlaceOrderRequest;
@@ -24,6 +23,7 @@ import java.util.Set;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -139,11 +139,12 @@ public class SubscriptionService {
     } catch (FeignException e) {
       throw new CodedException(ErrorCode.PRODUCT_UNAVAILABLE, "Product is not available");
     }
-    if (!p.active()) {
+    if (!Boolean.TRUE.equals(p.active())) {
       throw new CodedException(ErrorCode.PRODUCT_UNAVAILABLE, "Product is not available");
     }
     boolean hasVariants =
-        p.variants() != null && p.variants().stream().anyMatch(v -> !Boolean.FALSE.equals(v.active()));
+        p.variants() != null
+            && p.variants().stream().anyMatch(v -> !Boolean.FALSE.equals(v.active()));
     if (hasVariants && r.variantId() == null) {
       throw new CodedException(ErrorCode.VALIDATION_FAILED, "Please choose a variant");
     }
@@ -238,7 +239,8 @@ public class SubscriptionService {
       throw new CodedException(ErrorCode.VALIDATION_FAILED, "quantity must be between 1 and 99");
     }
     if (!FREQUENCIES.contains(freq)) {
-      throw new CodedException(ErrorCode.VALIDATION_FAILED, "frequencyDays must be 7, 14, 30 or 60");
+      throw new CodedException(
+          ErrorCode.VALIDATION_FAILED, "frequencyDays must be 7, 14, 30 or 60");
     }
     if (!"COD".equals(method) && !"WALLET".equals(method)) {
       throw new CodedException(ErrorCode.VALIDATION_FAILED, "paymentMethod must be COD or WALLET");
@@ -324,15 +326,18 @@ public class SubscriptionService {
     int failures = s.failures() + 1;
     boolean pause = failures >= props.getLoyalty().getSubscriptionMaxFailures();
     log.warn("Subscription {} failed ({}): {}", s.id(), failures, e.toString());
-    jdbc.sql(
-            "UPDATE orders.subscriptions SET failures = :f, status = :st WHERE id = :i")
+    jdbc.sql("UPDATE orders.subscriptions SET failures = :f, status = :st WHERE id = :i")
         .param("f", failures)
         .param("st", pause ? "PAUSED" : "ACTIVE")
         .param("i", s.id())
         .update();
     if (!pause) {
       jdbc.sql("UPDATE orders.subscriptions SET next_run_on = :n WHERE id = :i")
-          .param("n", pricing.today().plusDays(1).isAfter(s.nextRunOn()) ? pricing.today().plusDays(1) : s.nextRunOn().plusDays(1))
+          .param(
+              "n",
+              pricing.today().plusDays(1).isAfter(s.nextRunOn())
+                  ? pricing.today().plusDays(1)
+                  : s.nextRunOn().plusDays(1))
           .param("i", s.id())
           .update();
     }

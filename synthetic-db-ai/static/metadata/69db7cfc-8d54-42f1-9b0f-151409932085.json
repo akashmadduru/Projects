@@ -1,0 +1,15 @@
+{
+ "product_id": "69db7cfc-8d54-42f1-9b0f-151409932085",
+ "name": "Dexvenze Gaming Monitor Series 2",
+ "prompt": "studio packshot photo of a White Dexvenze Gaming Monitor Series 2, made of bamboo, monitors, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2676551188,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:34:57",
+ "file_path": "static/images/69db7cfc-8d54-42f1-9b0f-151409932085.jpg",
+ "file_size": 37912,
+ "uploaded": false,
+ "s3_url": null
+}

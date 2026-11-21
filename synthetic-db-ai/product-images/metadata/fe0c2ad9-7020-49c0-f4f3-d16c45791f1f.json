@@ -1,0 +1,13 @@
+{
+ "product_id": "fe0c2ad9-7020-49c0-f4f3-d16c45791f1f",
+ "name": "Iontra Kurta Series 2",
+ "prompt": "studio packshot photo of a White Iontra Kurta Series 2, made of ceramic, women's clothing, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1389790595,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:35:33",
+ "file_path": "product-images/images/fe0c2ad9-7020-49c0-f4f3-d16c45791f1f.jpg",
+ "file_size": 25938
+}

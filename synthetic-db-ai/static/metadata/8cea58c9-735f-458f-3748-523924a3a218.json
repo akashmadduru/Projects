@@ -1,0 +1,15 @@
+{
+ "product_id": "8cea58c9-735f-458f-3748-523924a3a218",
+ "name": "Ionorsu Gaming Monitor Plus",
+ "prompt": "studio packshot photo of a Red Ionorsu Gaming Monitor Plus, made of cotton, monitors, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3626583737,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:58:46",
+ "file_path": "static/images/8cea58c9-735f-458f-3748-523924a3a218.jpg",
+ "file_size": 42781,
+ "uploaded": false,
+ "s3_url": null
+}

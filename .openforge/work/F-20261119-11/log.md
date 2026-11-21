@@ -1,0 +1,7 @@
+- 2026-11-21 CEO: discover; worktree forge/F-20261119-11-checkout-integrity at F-10 head 820e5a8 (stacked: order/payment/promotion chain unmerged)
+- 2026-11-21 CEO: objective.md written; CPO requirements launched
+- 2026-11-21 CEO: requirements.md accepted; CTO complexity launched
+- 2026-11-21 CEO: complexity L (6) transcribed, standing Owner approval, 3 stacked parts; architect launched
+- 2026-11-21 Architect: design.md + ADR 0010 (Proposed); PR-A ~20, PR-B ~100, PR-C ~230 prod lines; CTO acceptance launched
+- 2026-11-21 CTO: design accepted, 7 conditions, 3 stacked PRs (A ~30, B ~100, C ~230); ADR 0010 Accepted with CTO edits; EM launched
+- 2026-11-21 EM: tasks.md 19 tasks (A1-A6, B1-B5, C1-C8), all ACs and conditions covered; engineer launched on PR-A

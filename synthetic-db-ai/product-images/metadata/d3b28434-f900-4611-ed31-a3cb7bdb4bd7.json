@@ -1,0 +1,13 @@
+{
+ "product_id": "d3b28434-f900-4611-ed31-a3cb7bdb4bd7",
+ "name": "Notra Portable Drive Plus",
+ "prompt": "studio packshot photo of a Blue Notra Portable Drive Plus, made of abs plastic, storage, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3854227938,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T01:48:27",
+ "file_path": "product-images/images/d3b28434-f900-4611-ed31-a3cb7bdb4bd7.jpg",
+ "file_size": 41507
+}

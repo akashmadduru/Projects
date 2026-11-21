@@ -1,0 +1,13 @@
+{
+ "product_id": "72d405f0-0028-4b99-4ffb-dc72accd0c69",
+ "name": "Lumexmi Face Serum Edition",
+ "prompt": "studio packshot photo of a Blue Lumexmi Face Serum Edition, made of silicone, skin care, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3712928287,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:46:23",
+ "file_path": "product-images/images/72d405f0-0028-4b99-4ffb-dc72accd0c69.jpg",
+ "file_size": 82199
+}

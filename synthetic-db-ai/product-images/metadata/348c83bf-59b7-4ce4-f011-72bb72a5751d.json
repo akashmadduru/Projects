@@ -1,0 +1,13 @@
+{
+ "product_id": "348c83bf-59b7-4ce4-f011-72bb72a5751d",
+ "name": "Exnuion Smart TV Plus",
+ "prompt": "studio packshot photo of a Black Exnuion Smart TV Plus, made of nylon, televisions, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3994870905,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T00:18:29",
+ "file_path": "product-images/images/348c83bf-59b7-4ce4-f011-72bb72a5751d.jpg",
+ "file_size": 41650
+}

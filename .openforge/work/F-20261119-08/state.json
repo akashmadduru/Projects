@@ -1,0 +1,12 @@
+{
+ "id": "F-20261119-08",
+ "slug": "token-revocation",
+ "step": "pr-ready-owner-push",
+ "branch": "forge/F-20261119-08-token-revocation",
+ "worktree": ".openforge/worktrees/F-20261119-08",
+ "base_sha": "a04ad61022c80d18ad22866d6609eb72adde5bbb",
+ "implementer": "forge-backend-engineer",
+ "head_sha": "48847f8f759572b273ded0411d22c7425e484ea9",
+ "portfolio": "O-01",
+ "owner_push_approved": "2026-11-20 (AskUserQuestion)"
+}

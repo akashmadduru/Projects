@@ -1,0 +1,15 @@
+{
+ "product_id": "6631a2fe-b440-426c-d14c-6612debda927",
+ "name": "Ionloor Colour Pencil Set Classic",
+ "prompt": "studio packshot photo of a Red Ionloor Colour Pencil Set Classic, made of polyester, art supplies, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1231458497,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:31:51",
+ "file_path": "static/images/6631a2fe-b440-426c-d14c-6612debda927.jpg",
+ "file_size": 110050,
+ "uploaded": false,
+ "s3_url": null
+}

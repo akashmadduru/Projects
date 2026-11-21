@@ -6,9 +6,9 @@ TD-BE-01, TD-BE-02, TD-BE-04 and TD-BE-05 were resolved by Phase 6; residual ris
 
 <a id="td-be-03"></a>
 ## TD-BE-03 Cart clear after order is best-effort, no outbox
-- **Severity / Effort:** Med / M
+- **Severity / Effort:** Low / M (was Med; narrowed 2026-11-18)
 - **Where:** `OrderService.clearCartBestEffort`.
-- **Risk:** If cart-service is down after commit, the order exists and the cart is not cleared (only a log warning); a customer can re-order the same items.
+- **Risk:** If cart-service is down after commit, the order exists and the cart is not cleared (only a log warning), so the cart still shows the ordered items. Since 2026-11-18 (TD-BE-15) checking out that same cart again is refused with 409 and retries the clear, so it can no longer become a second order; what remains is the stale cart until the next checkout attempt.
 - **Fix:** Outbox row in the order transaction, relayed to cart-service or consumed from `order.events`.
 
 <a id="td-be-06"></a>
@@ -25,33 +25,12 @@ TD-BE-01, TD-BE-02, TD-BE-04 and TD-BE-05 were resolved by Phase 6; residual ris
 - **Risk:** A degraded dependency ties up request threads for the full timeout. Dependency failures map to 503 `DEPENDENCY_UNAVAILABLE`.
 - **Fix:** Resilience4j breakers per client with fast-fail.
 
-<a id="td-be-08"></a>
-## TD-BE-08 Gateway 503 for 30-40s after a service restart
-- **Severity / Effort:** Med / S
-- **Where:** Gateway load-balancer instance cache (`services/gateway/src/main/resources/application.yml`).
-- **Risk:** Observed during rollout: after restarting user/cart/order service, requests 503 until the cached instance list refreshes.
-- **Fix:** Shorten the LB cache TTL / Eureka fetch interval in dev, or enable gateway retry for idempotent GETs.
-
 <a id="td-be-09"></a>
 ## TD-BE-09 Cart/wishlist trust client snapshots; productId unchecked
 - **Severity / Effort:** Med / S
 - **Where:** `services/cart-service/cart-service-app/.../service/CartService.java`, `WishlistService.java`.
 - **Risk:** name/price/image are display-only and client-supplied; cart accepts any productId. Money is safe because order-service re-prices from product-service, but the cart can show wrong prices and hold dead products.
 - **Fix:** Validate productId against product-service on add (or refresh snapshots on cart read).
-
-<a id="td-be-10"></a>
-## TD-BE-10 Jackson `fail-on-null-for-primitives=false` in order-service
-- **Severity / Effort:** Med / S
-- **Where:** `order-service-app/src/main/resources/application.yml` (line ~29).
-- **Risk:** Needed to deserialize product-service responses with missing primitives, but it also lets malformed JSON become 0/false silently across all order-service inputs.
-- **Fix:** Use a client-specific ObjectMapper for the Feign decoder; restore the default for the server.
-
-<a id="td-be-11"></a>
-## TD-BE-11 No abandoned-cart cleanup / account-deletion propagation
-- **Severity / Effort:** Low / M
-- **Where:** all three services.
-- **Risk:** Stale carts, wishlists, addresses and orders persist after an auth-service account is deleted (no events consumed).
-- **Fix:** Consume user-deleted events; scheduled purge of carts idle for N days.
 
 <a id="td-be-12"></a>
 ## TD-BE-12 SecurityConfig copy-pasted across 6 services
@@ -66,13 +45,6 @@ TD-BE-01, TD-BE-02, TD-BE-04 and TD-BE-05 were resolved by Phase 6; residual ris
 - **Where:** `CartService`, `WishlistService`. Merge limited to 100 cart / 200 wishlist items per call; checkout rejects more than 50 lines (a cart can exceed what checkout accepts).
 - **Fix:** Enforce a per-cart line cap (50) and wishlist cap on add, with a clear error code.
 
-<a id="td-be-14"></a>
-## TD-BE-14 `user_profiles.email` never refreshed
-- **Severity / Effort:** Low / S
-- **Where:** `services/user-service/user-service-app/.../service/UserService.java`.
-- **Risk:** Email is a snapshot of the JWT claim at first call.
-- **Fix:** Refresh on each `GET /me` when the claim differs.
-
 <a id="td-be-15"></a>
 ## TD-BE-15 Concurrent checkouts with different keys can double-order one cart
 - **Severity / Effort:** Med / M
@@ -86,9 +58,3 @@ TD-BE-01, TD-BE-02, TD-BE-04 and TD-BE-05 were resolved by Phase 6; residual ris
 - **Where:** Gradle runs in an `eclipse-temurin:25-jdk` container (no host JDK). Spotless fails on the Windows bind mount ("Could not read build/spotless-clean"), so the build was copied into the container's `/tmp` and formatted sources copied back. Those Java files now have LF endings while siblings are CRLF. `docker compose up --build` needed `BUILDX_BAKE_ENTITLEMENTS_FS=0`.
 - **Fix:** Add `.gitattributes` (`*.java text eol=lf` or `crlf`, pick one) and renormalize; install a host JDK 25 or document the container build; document the buildx variable.
 
-<a id="td-be-17"></a>
-## TD-BE-17 Six Kafka listeners swallow errors, bypassing retry and the DLQ
-- **Severity / Effort:** High / S
-- **Where:** inventory-service `ProductEventListener`; product-service `InventoryEventListener`, `RatingEventListener`; notification-service `OrderEventListener`; promotion-service `OrderEventListener`; seller-service `OrderEventConsumer`. Each wraps its work in `catch (Exception e)` and only logs. Found 2026-11-14.
-- **Risk:** Every listener factory is wired to `DlqErrorHandlers` (3 retries, then `<topic>.DLT`), but a listener that never throws never reaches it. A transient failure (database blip, rating-service down) drops the event for good: stock not provisioned, a coin credit or ledger entry never booked, an order email never sent. Nothing records the loss except one log line.
-- **Fix:** Catch only the exceptions that mean "safe to skip" (for example `ResourceNotFoundException`, duplicate-key on replay) and rethrow everything else so the error handler retries and dead-letters it. Then alert on messages arriving in any `*.DLT` topic.

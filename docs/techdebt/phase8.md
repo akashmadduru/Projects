@@ -8,6 +8,8 @@ Phase 8 was built under "no tests, no HLD/LLD, record shortcuts as debt". The in
 ## TD-P8-01 No tests for Phase 8
 - **Severity / Effort:** High / L
 - **Where:** payment-service (wallet, gift cards, purposes), order-service (wallet/coins checkout, buy-again, subscriptions + job), promotion-service (coins ledger, order.events consumer, members-only deals), user-service (membership, preferences, referrals), notification-service (inbox, push, campaigns), cart-service (lists, reminders); storefront account pages, checkout, notification bell, personalised home; admin Campaigns view.
+- **Progress 2026-11-17:** wallet and gift-card money paths have tests: wallet credit-back retry, debit reversal only if the debit happened, gift-card hashing and redeem lockout, wallet paying a whole order and its compensation. Still untested: the coin ledger, refund splits, campaigns, subscriptions job, user-service membership/referrals.
+- **Progress 2026-11-18:** Testcontainers suites now cover the wallet ledger (idempotent keys, no overdraft, concurrent debits, reversal), gift cards (redeem once, per-IP limit, lookup) and coins (earn once, member double, redeem/release, refund clawback, expiring soon). Still untested: checkout with wallet/coins end to end, campaigns, subscriptions, the UI.
 - **Risk:** The only safety net is the one-off e2e script. Money paths (wallet debit/credit, coin redeem/reverse, refund splits) have no contract or concurrency tests. Extends [TD-P7-01](phase7.md#td-p7-01), [TD-P6-05](phase6.md#td-p6-05), TD-TEST-01/02.
 - **Fix:** Ledger tests (idempotency keys, balance invariants), checkout application-order tests, refund-split tests, campaign audience tests, subscription job tests; Playwright for wallet + coins checkout.
 
@@ -31,27 +33,6 @@ Phase 8 was built under "no tests, no HLD/LLD, record shortcuts as debt". The in
 - **Where:** notification-service push module (own JDK-only RFC 8291 aes128gcm + RFC 8292 VAPID implementation); `apps/product-catalog/public/sw.js`.
 - **Risk:** Verified only up to encryption and the HTTP attempt against a fake endpoint. It has never reached FCM, Mozilla autopush or Apple. The library route was rejected because the available web-push library drags in netty/async-http-client; the hand-rolled crypto has had no review. No handling of expired endpoints beyond what the sender sees, and the storefront does not handle `pushsubscriptionchange`.
 - **Fix:** Test against a real browser on all three push services; either adopt a maintained library or get the crypto reviewed; prune subscriptions on 404/410.
-
-<a id="td-p8-05"></a>
-## TD-P8-05 VAPID private key stored in plaintext
-- **Severity / Effort:** Med / S
-- **Where:** `notification_db.notification.settings`; env `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT`.
-- **Risk:** Unless the env vars are set, keys are generated at first start and the private key sits unencrypted in the database, so a DB leak lets an attacker send push as the site. Regenerating (e.g. on a fresh volume) silently invalidates every stored browser subscription.
-- **Fix:** Require the keys from env/secret store in production; encrypt at rest; document rotation.
-
-<a id="td-p8-06"></a>
-## TD-P8-06 Gift cards: plaintext codes, no redeem rate limit
-- **Severity / Effort:** High / S
-- **Where:** `<payment>/` gift card service and controller; `gift_cards.code`; `GET /api/gift-cards`.
-- **Risk:** The code is stored in plain text and the purchaser can read it back from `GET /api/gift-cards`. `POST /api/gift-cards/redeem` has no brute-force limit, so guessing codes (16 chars, `XXXX-XXXX-XXXX-XXXX`) is only bounded by gateway defaults. The recipient email is best effort with no resend. `PENDING_PAYMENT` cards are never swept or cancelled. No admin lookup or cancel. A "Gift card sent" inbox entry to the purchaser is also best effort.
-- **Fix:** Store a hash of the code (show once); per-user and per-IP redeem limits with lockout; resend endpoint; sweep job for abandoned `PENDING_PAYMENT`; admin lookup view (also not built, see [TD-P8-03](#td-p8-03) admin gaps).
-
-<a id="td-p8-07"></a>
-## TD-P8-07 Wallet gaps: single currency, best-effort credit-back, races
-- **Severity / Effort:** High / M
-- **Where:** `<payment>/` wallet service; order-service checkout and cancel/expiry paths calling `/internal/wallet/debit|credit`.
-- **Risk:** A wallet has one currency (reset only when the balance is 0); no top-up, withdrawal, expiry or admin adjustment UI. Credit-back on cancel, expiry and payment failure is best effort (logged, no retry queue or outbox), so a payment-service outage at that moment loses the customer's money. Checkout reads the balance then debits, so a race surfaces as 409 `INSUFFICIENT_BALANCE` on a failed checkout. Same shape as [TD-P6-01](phase6.md#td-p6-01). Wallet inbox entries (refund, gift card, referral) are posted best effort after a fresh credit.
-- **Fix:** Outbox-driven credit-back with retry and alert; single atomic reserve-and-debit; multi-currency wallet or explicit conversion rules; admin adjustment with audit.
 
 <a id="td-p8-08"></a>
 ## TD-P8-08 Refund split and return edge cases
@@ -78,8 +59,8 @@ Phase 8 was built under "no tests, no HLD/LLD, record shortcuts as debt". The in
 ## TD-P8-11 Subscribe and Save shortcuts
 - **Severity / Effort:** Med / M
 - **Where:** `order-service/.../` subscription service, daily job, `POST /internal/subscriptions/run-due`.
-- **Risk:** The daily job runs in-process on every order-service instance with no ShedLock (idempotent through the `sub-<id>-<date>` key, but N replicas all run it; see [TD-P6-13](phase6.md#td-p6-13)). The delivery address is fetched at run time through a user-service internal endpoint. `WALLET` subscriptions fail (and pause after 3 tries) when the wallet is short. The 5% is applied as a reduced unit price with no separate discount line and no price-change notice. `SUBSCRIPTION_ORDER_PLACED` is published instead of `ORDER_PLACED`, and `SUBSCRIPTION_FAILED` mail/inbox text is generic because the event has no failure reason field. The dev trigger accepts `?date=` to simulate days and is protected only by `X-Internal-Token`.
-- **Fix:** ShedLock; carry a failure reason in the event; explicit discount line; notify before a price change; drop or guard the dev trigger in production.
+- **Risk:** The daily job runs on one order-service instance at a time (`JobLock`) and is idempotent through the `sub-<id>-<date>` key. The delivery address is fetched at run time through a user-service internal endpoint. `WALLET` subscriptions fail (and pause after 3 tries) when the wallet is short. The 5% is applied as a reduced unit price with no separate discount line and no price-change notice. `SUBSCRIPTION_ORDER_PLACED` is published instead of `ORDER_PLACED`, and `SUBSCRIPTION_FAILED` mail/inbox text is generic because the event has no failure reason field. The dev trigger accepts `?date=` to simulate days and is protected only by `X-Internal-Token`.
+- **Fix:** Carry a failure reason in the event; explicit discount line; notify before a price change; drop or guard the dev trigger in production.
 
 <a id="td-p8-12"></a>
 ## TD-P8-12 Membership gaps
@@ -89,18 +70,11 @@ Phase 8 was built under "no tests, no HLD/LLD, record shortcuts as debt". The in
 - **Fix:** Short-TTL cache plus fail-open for members; renewal and reminder jobs; admin plans and members endpoints.
 
 <a id="td-p8-13"></a>
-## TD-P8-13 Referral programme gaps
+## TD-P8-13 Referral claims have no abuse checks
 - **Severity / Effort:** Med / S
-- **Where:** user-service referrals (`/api/referrals`, `/internal/referrals/by-referee/{userId}`); promotion-service reward logic; storefront register/claim.
-- **Risk:** Promotion-service reads the referee lookup defensively (accepts `referrerUserId|referrerId|referrer|userId`). It does not tell user-service a reward was paid, although user-service exposes `POST /internal/referrals/by-referee/{userId}/rewarded` (not in the contract), so `GET /api/referrals` `rewarded` and `rewards` stay 0. No abuse checks on a claim (same device/IP, account age). The storefront keeps the code in `localStorage` (`referral-code`) and claims after the first authenticated render with no feedback on success or rejection.
-- **Fix:** Promotion-service calls the `rewarded` endpoint after the ledger write; fraud checks; surface the claim result.
-
-<a id="td-p8-14"></a>
-## TD-P8-14 Non-order payments reuse `payments.order_id`
-- **Severity / Effort:** Med / S
-- **Where:** `<payment>/` payments table and `/internal/payments`; admin payments ledger.
-- **Risk:** For purposes `MEMBERSHIP` and `GIFT_CARD` the unique subject id is stored in `order_id` (= `referenceId`); there is no separate `unique(purpose, reference_id)`, and the admin ledger still labels the column "orderId". Membership attempts send `orderId=referenceId` plus `referenceId` and `purpose`. A collision between an order id and another subject id is only prevented by uuid randomness.
-- **Fix:** Add a unique `(purpose, reference_id)` constraint, make `order_id` nullable, relabel the admin column.
+- **Where:** user-service referrals (`POST /api/referrals/claim`); promotion-service `CoinService.referralReward`.
+- **Risk:** Narrowed 2026-11-18: promotion-service already reports the reward back (`POST /internal/referrals/by-referee/{id}/rewarded`) and reads a typed lookup, and the storefront now shows the claim result. Left: no abuse checks on a claim (same device or IP as the referrer, account age). The reward only pays after the referee's first delivered order, which limits farming to real orders.
+- **Fix:** Record the claim IP/device and refuse (or hold for review) a claim matching the referrer's; minimum account age.
 
 <a id="td-p8-15"></a>
 ## TD-P8-15 Notification centre, preferences and inbox shortcuts
@@ -120,8 +94,8 @@ Phase 8 was built under "no tests, no HLD/LLD, record shortcuts as debt". The in
 ## TD-P8-17 Abandoned-cart reminder shortcuts
 - **Severity / Effort:** Low / S
 - **Where:** `cart-service/.../` reminder job, MVC interceptor, `POST /internal/cart/reminders/run`.
-- **Risk:** The email is captured by an MVC interceptor after a successful non-GET `/api/cart/**` call, so guest/merged carts with no later mutation have no email. The job has no lock (every instance runs it, see [TD-P6-13](phase6.md#td-p6-13)). The reminder is stored in the inbox as type `PROMO`. The dev trigger accepts an extra `minAgeMinutes` parameter.
-- **Fix:** Resolve the email from user-service at send time; ShedLock; a dedicated inbox type.
+- **Risk:** The email is captured by an MVC interceptor after a successful non-GET `/api/cart/**` call, so guest/merged carts with no later mutation have no email. The reminder is stored in the inbox as type `PROMO`. The dev trigger accepts an extra `minAgeMinutes` parameter.
+- **Fix:** Resolve the email from user-service at send time; a dedicated inbox type.
 
 <a id="td-p8-18"></a>
 ## TD-P8-18 Storefront Phase 8 UX shortcuts
@@ -134,9 +108,8 @@ Phase 8 was built under "no tests, no HLD/LLD, record shortcuts as debt". The in
   - Gift card and membership payments reuse `PaymentPanel` with a `returnUrl` to the account page; there is no polling after return, so the user must refresh to see `ACTIVE`.
   - Lists page uses `window.prompt`/`confirm` for rename/delete; no drag-and-drop or note editing.
   - Push opt-in registers `/sw.js` only after opt-in; no `pushsubscriptionchange` handling, and the toggle state is per browser, not synced with server preferences.
-  - Main chunk grew from about 584 kB to 608 kB (includes other in-flight changes); Checkout still statically imports `PaymentPanel`/Stripe (extends [TD-P7-18](phase7.md#td-p7-18)).
   - `PersonalisedHome` makes about 7 requests on home load (batch, 3x also-viewed, buy-again, deals).
-- **Fix:** Aggregated recommendations endpoint; server pricing preview ([TD-FE-02](frontend.md#td-fe-02)); poll or SSE after payment return and for the badge; styled dialogs; lazy-load checkout.
+- **Fix:** Aggregated recommendations endpoint; server pricing preview ([TD-FE-02](frontend.md#td-fe-02)); poll or SSE after payment return and for the badge; styled dialogs. (The main-chunk size was fixed under TD-P7-18 on 2026-11-18: checkout and Stripe load lazily.)
 
 <a id="td-p8-19"></a>
 ## TD-P8-19 Test data left in the dev database
@@ -151,3 +124,10 @@ Phase 8 was built under "no tests, no HLD/LLD, record shortcuts as debt". The in
 - **Where:** `deploy/local/scripts/create-customer-dbs.sql`, `deploy/local/postgres/init/01-schemas.sql`, `deploy/local/.env.example` (`NOTIFICATION_DB_PASSWORD`).
 - **Risk:** notification-service now has its own database (`notification_db`, role `notification_service`, schema `notification`). Existing volumes need `create-customer-dbs.sql` run manually (extends [TD-SEC-05](infra-security.md#td-sec-05)); the password is a committed throwaway value (extends [TD-SEC-03](infra-security.md#td-sec-03)). Phase 8 images were again built through the offline mirror, not the repo Dockerfiles ([TD-P6-06](phase6.md#td-p6-06)).
 - **Fix:** Migration runner for infra databases; secrets manager for the password; a normal `compose up --build` once Maven Central is reachable.
+
+<a id="td-p8-22"></a>
+## TD-P8-22 Wallet product gaps: one currency, no top-up or admin adjustment
+- **Severity / Effort:** Low / M
+- **Where:** payment-service `WalletService`; admin and storefront wallet screens.
+- **Risk:** Residual of TD-P8-07 (fixed 2026-11-17: money owed back to a wallet is recorded in `orders.pending_wallet_credits` before payment-service is called and retried with backoff until it lands; "WALLET CREDIT STUCK" is logged at ERROR after 10 attempts). The debit was already atomic (row lock plus balance check), so a checkout race fails cleanly with 409. A wallet still holds one currency (reset only at a zero balance), and there is no top-up, withdrawal, expiry or audited admin adjustment.
+- **Fix:** Product decisions first (multi-currency or conversion rules, top-up via the payment providers); then an admin adjustment endpoint, audited.

@@ -46,7 +46,7 @@ class PasswordLoginIntegrationTest extends AbstractAuthIntegrationTest {
   @Test
   @DisplayName("correct credentials issue a structurally valid token pair")
   void correctCredentialsIssueTokens() throws Exception {
-    TokenPair pair = loginService.login(new LoginRequest(EMAIL, PASSWORD), device());
+    TokenPair pair = loginService.login(new LoginRequest(EMAIL, PASSWORD), device()).tokens();
 
     assertThat(pair.refreshTokenRaw()).isNotBlank();
     assertThat(pair.expiresInSeconds()).isEqualTo(600);

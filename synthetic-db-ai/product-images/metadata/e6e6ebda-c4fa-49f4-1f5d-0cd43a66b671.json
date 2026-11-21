@@ -1,0 +1,13 @@
+{
+ "product_id": "e6e6ebda-c4fa-49f4-1f5d-0cd43a66b671",
+ "name": "Ordex Jeans Pro",
+ "prompt": "studio packshot photo of a Navy Blue Ordex Jeans Pro, made of stainless steel, men's clothing, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 618460246,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:57:56",
+ "file_path": "product-images/images/e6e6ebda-c4fa-49f4-1f5d-0cd43a66b671.jpg",
+ "file_size": 49140
+}

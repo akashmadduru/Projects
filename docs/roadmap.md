@@ -13,9 +13,9 @@ Size: **S** = under a day, **M** = a few days, **L** = a week or more.
 | Browse and search | Keyword search with autocomplete, typo tolerance (Postgres full-text + trigram), facets, variants, deals, recommendations, compare, sitemap | In-memory ranking over capped id lists ([TD-P7-03](techdebt/phase7.md#td-p7-03)); no SSR/prerender |
 | Product page | Gallery and zoom, variants, Q&A, review photos, offers, pincode delivery check, buy box across sellers | No 360° images; bank offers and EMI are display-only |
 | Cart and checkout | Buy Now, save for later, coupons, coins, wallet, COD, shipping and GST, risk checks | Stripe live mode never exercised; only SIMULATED payments verified ([TD-P6-02](techdebt/phase6.md#td-p6-02)) |
-| After purchase | Full order lifecycle, split shipments, tracking, returns and refunds, invoices, notifications, support tickets | No outbox: post-commit side effects can be lost ([TD-P6-01](techdebt/phase6.md#td-p6-01)) |
+| After purchase | Full order lifecycle, split shipments, tracking, returns and refunds, invoices, notifications, support tickets | Order side effects and events go through a transactional outbox (since 2026-11-17) |
 | Accounts | Email/password, Google SSO, OTP login, password reset, 2FA, session management, privacy export and deletion | SMS is a dev stub; login not blocked for an unverified email |
-| Admin and sellers | Full admin console, seller portal, payouts, ads, audit log, support desk, FX rates | Seller products go live unmoderated ([TD-P9-03](techdebt/phase9.md#td-p9-03)) |
+| Admin and sellers | Full admin console, seller portal, payouts, ads, audit log, support desk, FX rates | Seller products are reviewed before going live (since 2026-11-17) |
 | Retention | Membership, coins, gift cards, subscriptions, referrals, lists, notification centre, campaigns, web push | Web push never delivered to a real push service |
 
 The most important fact: **almost nothing from Phase 5 on has automated tests**, and the store

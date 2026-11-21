@@ -79,6 +79,9 @@ export interface Offer {
   readonly dispatchDays?: number;
   readonly active: boolean;
   readonly availableQuantity?: number | null;
+  /** The product's review state; a seller's new product is hidden until approved. */
+  readonly reviewStatus?: 'APPROVED' | 'PENDING_REVIEW' | 'REJECTED' | null;
+  readonly reviewNote?: string | null;
 }
 
 /** Wire shape of /api/seller/offers items. */
@@ -96,6 +99,8 @@ export interface OfferView {
   readonly productId: string;
   readonly productName?: string | null;
   readonly productSku?: string | null;
+  readonly reviewStatus?: 'APPROVED' | 'PENDING_REVIEW' | 'REJECTED' | null;
+  readonly reviewNote?: string | null;
 }
 
 export interface OfferRequest {

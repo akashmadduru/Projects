@@ -4,8 +4,8 @@ import com.acme.ecommerce.order.api.dto.OrderItemResponse;
 import com.acme.ecommerce.order.api.dto.OrderResponse;
 import com.acme.ecommerce.order.api.dto.ReturnResponse;
 import com.acme.ecommerce.order.api.dto.SellerShipmentResponse;
-import com.acme.ecommerce.order.api.dto.ShipmentResponse;
 import com.acme.ecommerce.order.api.dto.ShipToResponse;
+import com.acme.ecommerce.order.api.dto.ShipmentResponse;
 import com.acme.ecommerce.order.api.dto.TaxBreakdownResponse;
 import com.acme.ecommerce.order.api.dto.TimelineEntryResponse;
 import com.acme.ecommerce.order.config.OrderProperties;
@@ -184,8 +184,10 @@ public class OrderMapper {
                     new TimelineEntryResponse(
                         h.getStatus().name(), h.getNote(), h.getActor().name(), h.getCreatedAt())));
     if (out.isEmpty()
-        || !(out.get(0).status().equals("PLACED") || out.get(0).status().equals("PENDING_PAYMENT"))) {
-      out.add(0, new TimelineEntryResponse("PLACED", "Shipment created", "SYSTEM", s.getCreatedAt()));
+        || !(out.get(0).status().equals("PLACED")
+            || out.get(0).status().equals("PENDING_PAYMENT"))) {
+      out.add(
+          0, new TimelineEntryResponse("PLACED", "Shipment created", "SYSTEM", s.getCreatedAt()));
     }
     if (s.getStatus() == OrderStatus.CANCELLED
         && !out.get(out.size() - 1).status().equals("CANCELLED")) {

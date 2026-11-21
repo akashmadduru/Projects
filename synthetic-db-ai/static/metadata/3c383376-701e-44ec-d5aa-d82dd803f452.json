@@ -1,0 +1,15 @@
+{
+ "product_id": "3c383376-701e-44ec-d5aa-d82dd803f452",
+ "name": "Cokaba Multivitamin Ultra",
+ "prompt": "studio packshot photo of a Rose Gold Cokaba Multivitamin Ultra, made of nylon, supplements, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1984493931,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:05:19",
+ "file_path": "static/images/3c383376-701e-44ec-d5aa-d82dd803f452.jpg",
+ "file_size": 77974,
+ "uploaded": false,
+ "s3_url": null
+}

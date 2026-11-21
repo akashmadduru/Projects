@@ -220,8 +220,6 @@ services:
     port: 8090
     database: notification
     jwksEnv: NOTIFICATION_JWKS_URI
-    # Starts at 1 and stays small: with no VAPID keys configured the first start generates and
-    # stores them, which two simultaneous first starts would race on.
     hpa: { min: 1, max: 3, cpu: 70 }
     pdb: false
     env:
@@ -233,6 +231,9 @@ services:
     secretEnv:
       - { name: MAIL_USERNAME, key: mail_username }
       - { name: MAIL_PASSWORD, key: mail_password }
+      # Web push keys from the secret store; the prod profile never generates them (TD-P8-05).
+      - { name: VAPID_PUBLIC_KEY, key: vapid_public_key }
+      - { name: VAPID_PRIVATE_KEY, key: vapid_private_key }
 
   seller-service:
     port: 8091

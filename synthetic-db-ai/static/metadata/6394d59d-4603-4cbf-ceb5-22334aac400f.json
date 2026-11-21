@@ -1,0 +1,15 @@
+{
+ "product_id": "6394d59d-4603-4cbf-ceb5-22334aac400f",
+ "name": "Vodexar Moisturiser Plus",
+ "prompt": "studio packshot photo of a Rose Gold Vodexar Moisturiser Plus, made of aluminium, skin care, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 131426811,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:29:37",
+ "file_path": "static/images/6394d59d-4603-4cbf-ceb5-22334aac400f.jpg",
+ "file_size": 53295,
+ "uploaded": false,
+ "s3_url": null
+}

@@ -1,0 +1,15 @@
+{
+ "product_id": "3f543703-d1da-4f06-06ab-60ea8f743133",
+ "name": "Liqua Construction Set Max",
+ "prompt": "studio packshot photo of a Olive Liqua Construction Set Max, made of stainless steel, building toys, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3857200387,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:36:16",
+ "file_path": "static/images/3f543703-d1da-4f06-06ab-60ea8f743133.jpg",
+ "file_size": 36414,
+ "uploaded": false,
+ "s3_url": null
+}

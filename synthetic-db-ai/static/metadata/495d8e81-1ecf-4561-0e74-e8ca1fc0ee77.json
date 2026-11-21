@@ -1,0 +1,15 @@
+{
+ "product_id": "495d8e81-1ecf-4561-0e74-e8ca1fc0ee77",
+ "name": "Tapi Flash Drive Edition",
+ "prompt": "studio packshot photo of a Blue Tapi Flash Drive Edition, made of ceramic, storage, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 161915578,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:10:37",
+ "file_path": "static/images/495d8e81-1ecf-4561-0e74-e8ca1fc0ee77.jpg",
+ "file_size": 86362,
+ "uploaded": false,
+ "s3_url": null
+}

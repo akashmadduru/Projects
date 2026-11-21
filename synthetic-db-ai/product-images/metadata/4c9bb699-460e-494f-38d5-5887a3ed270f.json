@@ -1,0 +1,13 @@
+{
+ "product_id": "4c9bb699-460e-494f-38d5-5887a3ed270f",
+ "name": "Mifyor Deodorant Classic",
+ "prompt": "studio packshot photo of a Space Grey Mifyor Deodorant Classic, made of ceramic, fragrances, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 4282106158,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:35:17",
+ "file_path": "product-images/images/4c9bb699-460e-494f-38d5-5887a3ed270f.jpg",
+ "file_size": 38332
+}

@@ -1,0 +1,13 @@
+{
+ "product_id": "b2b839af-7ee1-4bb4-e8c2-8534b67fa0be",
+ "name": "Arrili Mountain Bike Pro",
+ "prompt": "studio packshot photo of a Grey Arrili Mountain Bike Pro, made of polyester, cycling, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1775943308,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:24:01",
+ "file_path": "product-images/images/b2b839af-7ee1-4bb4-e8c2-8534b67fa0be.jpg",
+ "file_size": 33689
+}

@@ -48,7 +48,7 @@ service-level setting (add it under that service's `env:` in `values.yaml`). Rel
 |---|---|---|---|---|---|
 | `AUTH_ALLOWED_REDIRECT_URIS` | auth | `http://localhost:5173/auth/callback` |  | .env + helm | Comma-separated exact URLs the SPAs may be redirected to after sign-in. No wildcards. |
 | `AUTH_COOKIE_SECURE` | auth | `false` |  | .env + helm | Marks the refresh-token cookie `Secure` (HTTPS only). `true` everywhere except local HTTP. |
-| `AUTH_DATA_KEY` 🔒 | auth | `""` |  | .env + helm | AES-256 key (base64, 32 bytes) that encrypts two-factor secrets at rest. Blank: the service starts, but enabling two-factor fails. Losing or changing it locks existing 2FA users out. |
+| `AUTH_DATA_KEY` 🔒 | auth | `""` |  | .env + helm | AES-256 key (base64, 32 bytes) that encrypts two-factor secrets at rest; a key derived from it also hashes one-time codes (OTP, phone verification). Blank: the service starts, but enabling two-factor fails and codes are hashed without a server secret (a warning is logged). Losing or changing it locks existing 2FA users out and invalidates codes in flight. |
 | `AUTH_DEFAULT_REDIRECT_URI` | auth | `http://localhost:5173/auth/callback` |  | .env + helm | Redirect used when the caller does not name one. |
 | `AUTH_JWT_AUDIENCES` | all services | `ecommerce-platform` |  | .env + helm | Token audience (`aud`). Same rule as the issuer. |
 | `AUTH_JWT_ISSUER` | all services | `https://auth.acme-ecommerce.internal` |  | .env + helm | Token issuer (`iss`). Must be identical in auth-service, the gateway and every resource server, or every request fails with `invalid_token`. |
@@ -111,8 +111,8 @@ service-level setting (add it under that service's `env:` in `values.yaml`). Rel
 | `SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH` | notification | _Spring default_ |  | compose + helm | SMTP authentication on/off. `true` with a real provider. |
 | `SPRING_MAIL_PROPERTIES_MAIL_SMTP_SSL_ENABLE` | notification | _Spring default_ |  | compose + helm | Implicit TLS (port 465). |
 | `SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE` | notification | _Spring default_ |  | compose + helm | Upgrade the SMTP connection with STARTTLS (port 587). |
-| `VAPID_PRIVATE_KEY` 🔒 | notification | `""` |  | .env | Browser-push private key. Blank: generated on first start. |
-| `VAPID_PUBLIC_KEY` | notification | `""` |  | .env | Browser-push public key. Blank: generated on first start and stored in the database. |
+| `VAPID_PRIVATE_KEY` 🔒 | notification | `""` |  | .env | Browser-push private key, paired with `VAPID_PUBLIC_KEY`. Required for web push under `prod`, where it is never generated or stored in the database. |
+| `VAPID_PUBLIC_KEY` | notification | `""` |  | .env | Browser-push public key (base64url; `npx web-push generate-vapid-keys`). Blank outside `prod`: generated on first start and stored in the database. Blank under `prod`: web push is off (an ERROR is logged). Changing the pair invalidates every browser subscription. |
 | `VAPID_SUBJECT` | notification | `mailto:admin@acme.local` |  | .env + helm | Contact (`mailto:`) sent to push services. |
 
 ## Edge, CORS and rate limits
@@ -161,6 +161,8 @@ service-level setting (add it under that service's `env:` in `values.yaml`). Rel
 
 | Variable | Used by | Default | Required | Set in | What it does |
 |---|---|---|---|---|---|
+| `INVENTORY_DEFAULT_STOCK_QUANTITY` | inventory | `0` |  | compose | Stock given to a product or variant that has no stock row when product-service's catalog sync finds it. Default 0, so nothing is sellable until it is stocked; the local stack uses 100 so the demo catalog can be bought. Existing quantities are never changed. |
+| `INVENTORY_MISSING_STOCK_ROWS` | inventory | `REJECT` |  | - | `REJECT` (default): an order line with no stock row is out of stock. `UNLIMITED`: the old behaviour, where such a line could be oversold. Escape hatch only. |
 | `ORDER_RISK_AVG_MIN_ORDERS` | order (Compose) | _Spring default_ |  | compose | Minimum past orders before the "unusually large order" check applies (Compose default 3). |
 | `ORDER_RISK_AVG_MULTIPLIER` | order (Compose) | _Spring default_ |  | compose | How many times the customer's average an order may be before it is flagged (Compose default 10). |
 | `ORDER_RISK_VELOCITY_THRESHOLD` | order (Compose) | _Spring default_ |  | compose | Orders in a short window that trigger a velocity risk flag (Compose default 8). Mapped by Spring onto `order.risk.*`. |
@@ -177,6 +179,11 @@ service-level setting (add it under that service's `env:` in `values.yaml`). Rel
 | `EMBEDDING_BEDROCK_MODEL_ID` | product-service | `amazon.titan-embed-text-v2:0` |  | .env + helm | Bedrock embedding model. Default `amazon.titan-embed-text-v2:0`, called with 1024 dimensions. The vector column is `vector(1024)`, so a model with another width needs a new table and a cutover, not just this setting. |
 | `EMBEDDING_PROVIDER` | product-service | `none` |  | .env + helm | Embedding provider for semantic product search (Cartwise AI-1): `none` (default, feature off, `GET /api/products/search` answers keyword-only with `degraded=true`), `bedrock`, or `fake` (deterministic non-semantic vectors, refused unless the `dev-fake` profile is active). |
 | `EMBEDDING_RECONCILER_ENABLED` | product-service | `true` |  | .env | `false` stops the background job that (re)embeds new and changed products. Search keeps using the vectors already stored. |
+| `IMAGE_SERVER_TOKEN` 🔒 | static-image-server | _Spring default_ |  | .env | Write token static-image-server requires on PUT/DELETE (reads are public). Set in `deploy/local/.env`. |
+| `NGINX_ENVSUBST_FILTER` | static-image-server | _Spring default_ |  | compose | nginx image setting: only variables with this prefix (`IMAGE_SERVER_`) are substituted into the config template, so nginx's own `$variables` are left alone. |
+| `STATIC_IMAGE_SERVER_PUBLIC_URL` | product-service | `""` |  | .env | Browser-facing base URL of the product images. Seeds the `parentUrl` setting on first startup only; after that `PUT /api/admin/image-settings` changes it at runtime without a restart. |
+| `STATIC_IMAGE_SERVER_TOKEN` 🔒 | product-service | `""` |  | compose | `X-Image-Token` product-service sends on PUT/DELETE to static-image-server. Same value as `IMAGE_SERVER_TOKEN`. |
+| `STATIC_IMAGE_SERVER_URL` | product-service | `""` |  | compose | Where product-service reaches static-image-server to upload/delete product images (e.g. `http://static-image-server/product-images`). Blank disables the image upload endpoints; existing image URLs keep working. |
 
 ## Observability
 
@@ -194,9 +201,9 @@ Set when the app is **built**, not at runtime: they are compiled into the JavaSc
 | `VITE_ADMIN_URL` | product-catalog | Link from the storefront footer to the admin site. |
 | `VITE_API_BASE_URL` | admin-product-catalog | Origin of the API the admin app calls. On AWS it is the admin site itself (CloudFront forwards `/api/*`). |
 | `VITE_APP_ORIGIN` | admin-product-catalog | Public origin of the admin app, used for OAuth redirects. |
-| `VITE_AUTH_BASE_URL` | product-catalog | Origin the storefront uses to start Google sign-in (`/oauth2/authorization/google`). On AWS the storefront origin. |
+| `VITE_AUTH_BASE_URL` | admin-product-catalog, product-catalog | Origin the storefront uses to start Google sign-in (`/oauth2/authorization/google`). On AWS the storefront origin. The admin app reads it too: Google sign-in starts there (default `http://localhost:8081` in dev, the API origin in production builds). |
 | `VITE_GOOGLE_SSO_ENABLED` | product-catalog | Shows the "Continue with Google" button. `deploy.sh` sets it from whether `GOOGLE_CLIENT_ID` is filled in. |
-| `VITE_STOREFRONT_ORIGIN` | admin-product-catalog | _undescribed_ |
+| `VITE_STOREFRONT_ORIGIN` | admin-product-catalog | Admin app: the storefront origin, used only to build "Preview on storefront" links in the theme editor. Default `http://localhost:3000`. |
 
 ## Deploy script settings (`deploy/aws/config.env`)
 

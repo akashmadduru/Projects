@@ -1,0 +1,13 @@
+{
+ "product_id": "25ff80b9-9c56-4a25-4635-95a892a08b2a",
+ "name": "Lovota Spice Box Series 2",
+ "prompt": "studio packshot photo of a Green Lovota Spice Box Series 2, made of stainless steel, pantry, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1519596639,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-15T23:40:38",
+ "file_path": "product-images/images/25ff80b9-9c56-4a25-4635-95a892a08b2a.jpg",
+ "file_size": 85774
+}

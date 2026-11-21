@@ -1,0 +1,182 @@
+{
+ "runs": [
+  {
+   "at": "2026-11-20T18:30:42.771Z",
+   "role": "forge-cpo",
+   "tokens": 19837,
+   "tools": 6,
+   "ms": 29943,
+   "round": 0,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-20T18:31:12.032Z",
+   "role": "forge-cto",
+   "tokens": 14698,
+   "tools": 5,
+   "ms": 14730,
+   "round": 0,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-20T18:31:46.861Z",
+   "role": "forge-cto",
+   "tokens": 1901,
+   "tools": 7,
+   "ms": 52440,
+   "round": 0,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-20T18:38:05.523Z",
+   "role": "forge-architect",
+   "tokens": 112329,
+   "tools": 59,
+   "ms": 366055,
+   "round": 0,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-20T18:39:13.253Z",
+   "role": "forge-cto",
+   "tokens": 20029,
+   "tools": 5,
+   "ms": 19011,
+   "round": 0,
+   "outcome": "approve"
+  },
+  {
+   "at": "2026-11-20T18:40:40.671Z",
+   "role": "forge-architect",
+   "tokens": 18014,
+   "tools": 4,
+   "ms": 76233,
+   "round": 0,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-20T18:41:49.092Z",
+   "role": "forge-em",
+   "tokens": 29219,
+   "tools": 9,
+   "ms": 54990,
+   "round": 0,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-20T19:04:33.732Z",
+   "role": "forge-backend-engineer",
+   "tokens": 196680,
+   "tools": 89,
+   "ms": 1322844,
+   "round": 1,
+   "outcome": "partial"
+  },
+  {
+   "at": "2026-11-20T19:17:33.956Z",
+   "role": "forge-backend-engineer",
+   "tokens": 15627,
+   "tools": 14,
+   "ms": 809502,
+   "round": 1,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-20T19:22:57.861Z",
+   "role": "forge-security",
+   "tokens": 73744,
+   "tools": 14,
+   "ms": 156452,
+   "round": 1,
+   "outcome": "approve"
+  },
+  {
+   "at": "2026-11-20T19:23:44.194Z",
+   "role": "forge-reviewer",
+   "tokens": 111709,
+   "tools": 19,
+   "ms": 185788,
+   "round": 1,
+   "outcome": "request_changes"
+  },
+  {
+   "at": "2026-11-20T19:48:36.607Z",
+   "role": "forge-backend-engineer",
+   "tokens": 40600,
+   "tools": 27,
+   "ms": 1463277,
+   "round": 2,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-20T20:29:21.519Z",
+   "role": "forge-backend-engineer",
+   "tokens": 66401,
+   "tools": 38,
+   "ms": 2383915,
+   "round": 3,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-20T20:36:46.993Z",
+   "role": "forge-reviewer",
+   "tokens": 76798,
+   "tools": 26,
+   "ms": 183822,
+   "round": 2,
+   "outcome": "request_changes"
+  },
+  {
+   "at": "2026-11-20T20:37:13.472Z",
+   "role": "forge-security",
+   "tokens": 78417,
+   "tools": 21,
+   "ms": 199852,
+   "round": 2,
+   "outcome": "approve"
+  },
+  {
+   "at": "2026-11-20T20:59:40.133Z",
+   "role": "forge-backend-engineer",
+   "tokens": 22110,
+   "tools": 16,
+   "ms": 1305366,
+   "round": 4,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-20T21:05:39.787Z",
+   "role": "forge-security",
+   "tokens": 30250,
+   "tools": 12,
+   "ms": 72517,
+   "round": 3,
+   "outcome": "approve"
+  },
+  {
+   "at": "2026-11-20T21:06:34.655Z",
+   "role": "forge-reviewer",
+   "tokens": 44113,
+   "tools": 15,
+   "ms": 120842,
+   "round": 3,
+   "outcome": "approve"
+  },
+  {
+   "at": "2026-11-20T21:07:13.469Z",
+   "role": "forge-qa",
+   "tokens": 26579,
+   "tools": 7,
+   "ms": 31043,
+   "round": 0,
+   "outcome": "pass"
+  }
+ ],
+ "events": [
+  {
+   "at": "2026-11-20T19:48:36.660Z",
+   "type": "gate_fail",
+   "note": "size: 641 production lines (549 added + 92 deleted) > 600. The engineer reported only the +549 and called it 'under 600'. A self-report error; the CEO counted it the gate's way."
+  }
+ ]
+}

@@ -1,0 +1,13 @@
+{
+ "product_id": "a81d9456-6c35-4283-2536-7b5725a51d41",
+ "name": "Bano Dumbbell Set Lite",
+ "prompt": "studio packshot photo of a Blue Bano Dumbbell Set Lite, made of silicone, fitness, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 835692333,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:41:57",
+ "file_path": "product-images/images/a81d9456-6c35-4283-2536-7b5725a51d41.jpg",
+ "file_size": 45186
+}

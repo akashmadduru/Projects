@@ -1,0 +1,15 @@
+{
+ "product_id": "4657ef0b-4c7b-4592-5458-37c2523cb185",
+ "name": "Venri Face Serum Series 2",
+ "prompt": "studio packshot photo of a Navy Blue Venri Face Serum Series 2, made of silicone, skin care, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 838505517,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:01:03",
+ "file_path": "static/images/4657ef0b-4c7b-4592-5458-37c2523cb185.jpg",
+ "file_size": 18350,
+ "uploaded": false,
+ "s3_url": null
+}

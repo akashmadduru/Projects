@@ -3,15 +3,15 @@ package com.acme.ecommerce.order.config;
 import com.acme.ecommerce.common.core.error.ErrorCode;
 import com.acme.ecommerce.common.security.AudienceValidator;
 import com.acme.ecommerce.common.security.PlatformJwtAuthenticationConverter;
+import com.acme.ecommerce.common.security.UuidSubjectValidator;
 import com.acme.ecommerce.order.error.ProblemResponseWriter;
 import java.util.ArrayList;
-import org.springframework.core.Ordered;
-import org.springframework.core.annotation.Order;
-import org.springframework.security.web.access.intercept.AuthorizationFilter;
 import java.util.List;
 import org.springframework.cloud.client.loadbalancer.LoadBalanced;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -26,6 +26,7 @@ import org.springframework.security.oauth2.jwt.JwtIssuerValidator;
 import org.springframework.security.oauth2.jwt.JwtTimestampValidator;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.intercept.AuthorizationFilter;
 import org.springframework.web.client.RestTemplate;
 
 /**
@@ -232,6 +233,7 @@ public class SecurityConfig {
     validators.add(new JwtTimestampValidator(OrderProperties.Jwt.CLOCK_SKEW));
     validators.add(new JwtIssuerValidator(jwt.getIssuer()));
     validators.add(new AudienceValidator(jwt.getAudience()));
+    validators.add(new UuidSubjectValidator());
     return new DelegatingOAuth2TokenValidator<>(validators);
   }
 

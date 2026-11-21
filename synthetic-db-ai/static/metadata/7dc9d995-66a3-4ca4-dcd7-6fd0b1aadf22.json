@@ -1,0 +1,15 @@
+{
+ "product_id": "7dc9d995-66a3-4ca4-dcd7-6fd0b1aadf22",
+ "name": "Kano Mesh System Series 2",
+ "prompt": "studio packshot photo of a Red Kano Mesh System Series 2, made of wood, networking, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3839907452,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:48:42",
+ "file_path": "static/images/7dc9d995-66a3-4ca4-dcd7-6fd0b1aadf22.jpg",
+ "file_size": 60349,
+ "uploaded": false,
+ "s3_url": null
+}

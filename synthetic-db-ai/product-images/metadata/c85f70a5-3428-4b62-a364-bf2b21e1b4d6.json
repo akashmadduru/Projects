@@ -1,0 +1,13 @@
+{
+ "product_id": "c85f70a5-3428-4b62-a364-bf2b21e1b4d6",
+ "name": "Fytaba Yoga Mat Pro",
+ "prompt": "studio packshot photo of a Space Grey Fytaba Yoga Mat Pro, made of stainless steel, fitness, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 538814191,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:06:17",
+ "file_path": "product-images/images/c85f70a5-3428-4b62-a364-bf2b21e1b4d6.jpg",
+ "file_size": 55178
+}

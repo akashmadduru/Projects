@@ -1,0 +1,13 @@
+{
+ "product_id": "4a35b73a-b58e-4ec8-0238-437017fe17d2",
+ "name": "Nokaka Jacket Classic",
+ "prompt": "studio packshot photo of a Red Nokaka Jacket Classic, made of silicone, men's clothing, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2479784191,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:13:11",
+ "file_path": "product-images/images/4a35b73a-b58e-4ec8-0238-437017fe17d2.jpg",
+ "file_size": 108960
+}

@@ -1,0 +1,13 @@
+{
+ "product_id": "34880e1d-2ae1-476c-157b-5ece95968e3a",
+ "name": "Dexsu Wall Clock Gen 3",
+ "prompt": "studio packshot photo of a Green Dexsu Wall Clock Gen 3, made of ceramic, home decor, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3122459902,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:47:43",
+ "file_path": "product-images/images/34880e1d-2ae1-476c-157b-5ece95968e3a.jpg",
+ "file_size": 28379
+}

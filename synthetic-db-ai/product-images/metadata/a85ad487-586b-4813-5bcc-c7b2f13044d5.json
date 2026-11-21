@@ -1,0 +1,13 @@
+{
+ "product_id": "a85ad487-586b-4813-5bcc-c7b2f13044d5",
+ "name": "Fyfytra Smartphone Edition",
+ "prompt": "studio packshot photo of a Black Fyfytra Smartphone Edition, made of abs plastic, mobiles & smartphones, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 947950441,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:00:33",
+ "file_path": "product-images/images/a85ad487-586b-4813-5bcc-c7b2f13044d5.jpg",
+ "file_size": 22938
+}

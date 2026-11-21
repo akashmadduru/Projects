@@ -13,7 +13,7 @@ import java.util.UUID;
  * @param q the search text, 2..{@value ProductController#MAX_TEXT_FILTER} characters
  * @param mode {@code keyword}, {@code semantic} or {@code hybrid} (default)
  * @param sort {@code relevance} (default), {@code price_asc}, {@code price_desc} or {@code newest}
- * @param brand comma-separated brand names (OR)
+ * @param brand brand names (OR); see {@link #toQuery(java.util.List)}
  */
 public record SearchParams(
     String q,
@@ -35,6 +35,14 @@ public record SearchParams(
 
   /** Validates and converts; every failure is a {@code VALIDATION_FAILED} problem+json (400). */
   public SearchQuery toQuery() {
+    return toQuery(ProductListParams.literalValues(brand == null ? null : new String[] {brand}));
+  }
+
+  /**
+   * @param brands the raw repeated {@code brand} values (Spring would join them with commas into
+   *     {@link #brand}, so the controller passes them separately)
+   */
+  public SearchQuery toQuery(java.util.List<String> brands) {
     String text = q == null ? "" : q.strip();
     if (text.length() < MIN_QUERY_LENGTH) {
       throw ValidationException.forField(
@@ -61,9 +69,7 @@ public record SearchParams(
     if (pageSize < 1 || pageSize > MAX_SIZE) {
       throw ValidationException.forField("size", "must be between 1 and " + MAX_SIZE);
     }
-    SearchFilters filters =
-        new SearchFilters(
-            categoryId, minPrice, maxPrice, minRating, ProductListParams.splitCsv(brand));
+    SearchFilters filters = new SearchFilters(categoryId, minPrice, maxPrice, minRating, brands);
     return new SearchQuery(
         text, SearchMode.parse(mode), SearchSort.parse(sort), filters, pageNumber, pageSize);
   }

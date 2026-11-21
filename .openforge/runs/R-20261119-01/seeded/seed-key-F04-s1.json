@@ -1,0 +1,10 @@
+[
+ {
+  "desc": "S1 money/major: settle is no longer once-only (status guard removed) — refund.failed after processed reverses a settled refund",
+  "injected": "+ \"WHERE id = :i\")"
+ },
+ {
+  "desc": "S2 concurrency/major: refund row lookup no longer locks (FOR UPDATE removed) — webhook vs refund race",
+  "injected": "WHERE provider_refund_id = :r ORDER BY created_at LIMIT 1\")"
+ }
+]

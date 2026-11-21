@@ -1,0 +1,13 @@
+{
+ "product_id": "b8390731-33ea-423f-05fe-336c6d6cd532",
+ "name": "Miionfy Coffee Beans Essential",
+ "prompt": "studio packshot photo of a Blue Miionfy Coffee Beans Essential, made of abs plastic, beverages, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1978709614,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:49:48",
+ "file_path": "product-images/images/b8390731-33ea-423f-05fe-336c6d6cd532.jpg",
+ "file_size": 56173
+}

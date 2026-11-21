@@ -1,0 +1,13 @@
+{
+ "product_id": "0a308d85-dde4-4031-38b6-50de92c0d35b",
+ "name": "Arlipi Vacuum Cleaner Max",
+ "prompt": "studio packshot photo of a White Arlipi Vacuum Cleaner Max, made of wood, cleaning, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1489551523,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:01:59",
+ "file_path": "product-images/images/0a308d85-dde4-4031-38b6-50de92c0d35b.jpg",
+ "file_size": 31207
+}

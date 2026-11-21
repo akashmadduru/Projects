@@ -1,0 +1,13 @@
+{
+ "product_id": "c9f41d8c-6fbc-499b-14ed-0916496bca3f",
+ "name": "Fypi Helmet Ultra",
+ "prompt": "studio packshot photo of a Navy Blue Fypi Helmet Ultra, made of nylon, cycling, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 29103216,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:38:52",
+ "file_path": "product-images/images/c9f41d8c-6fbc-499b-14ed-0916496bca3f.jpg",
+ "file_size": 49330
+}

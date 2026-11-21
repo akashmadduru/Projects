@@ -1,0 +1,247 @@
+diff --git a/services/payment-service/payment-service-app/src/main/java/com/acme/ecommerce/payment/repository/PaymentRepository.java b/services/payment-service/payment-service-app/src/main/java/com/acme/ecommerce/payment/repository/PaymentRepository.java
+index 36eb6b9..6922fd7 100644
+--- a/services/payment-service/payment-service-app/src/main/java/com/acme/ecommerce/payment/repository/PaymentRepository.java
++++ b/services/payment-service/payment-service-app/src/main/java/com/acme/ecommerce/payment/repository/PaymentRepository.java
+@@ -3,6 +3,7 @@ package com.acme.ecommerce.payment.repository;
+ import java.math.BigDecimal;
+ import java.sql.ResultSet;
+ import java.sql.SQLException;
++import java.time.OffsetDateTime;
+ import java.util.List;
+ import java.util.Optional;
+ import java.util.UUID;
+@@ -369,9 +370,10 @@ public class PaymentRepository {
+ 
+   /**
+    * Insert-first claim: a CARD payment awaiting payment with no provider order yet and the lease
+-   * taken now. Returns 1 for exactly one caller (the unique order_id index serialises racers).
++   * taken now. Returns the lease stamp for exactly one caller (the unique order_id index serialises
++   * racers); the holder keeps it to release only its own lease.
+    */
+-  public int insertClaimed(
++  public Optional<OffsetDateTime> insertClaimed(
+       UUID orderId,
+       UUID userId,
+       String method,
+@@ -383,7 +385,7 @@ public class PaymentRepository {
+             "INSERT INTO payment.payments (order_id, user_id, method, mode, amount, currency, "
+                 + "status, purpose, reference_id, provision_claimed_at) "
+                 + "VALUES (:o, :u, :m, :mode, :a, :c, 'REQUIRES_PAYMENT', :p, :o, now()) "
+-                + "ON CONFLICT (order_id) DO NOTHING")
++                + "ON CONFLICT (order_id) DO NOTHING RETURNING provision_claimed_at")
+         .param("o", orderId)
+         .param("u", userId)
+         .param("m", method)
+@@ -391,7 +393,8 @@ public class PaymentRepository {
+         .param("a", amount)
+         .param("c", currency)
+         .param("p", purpose)
+-        .update();
++        .query((rs, n) -> rs.getObject(1, OffsetDateTime.class))
++        .optional();
+   }
+ 
+   /** Publishes the created Razorpay order, once. 0 means someone else already published. */
+@@ -405,25 +408,34 @@ public class PaymentRepository {
+         .update();
+   }
+ 
+-  /** Gives the lease back after createOrder failed, so a retry need not wait for it to expire. */
+-  public int releaseProvision(UUID id) {
++  /**
++   * Gives the lease back after createOrder failed, so a retry need not wait for it to expire. Only
++   * the holder's own lease ({@code mine}): one already taken over by another caller stays intact.
++   */
++  public int releaseProvision(UUID id, OffsetDateTime mine) {
+     return jdbc.sql(
+             "UPDATE payment.payments SET provision_claimed_at = NULL "
+-                + "WHERE id = :i AND provider_order_id IS NULL")
++                + "WHERE id = :i AND provider_order_id IS NULL AND provision_claimed_at = :m")
+         .param("i", id)
++        .param("m", mine)
+         .update();
+   }
+ 
+-  /** Takes over the lease when the previous holder's has run out. 1 means we may provision. */
+-  public int reclaimProvision(UUID id, double leaseSeconds) {
++  /**
++   * Takes over the lease when the previous holder's has run out. the new lease stamp if we may
++   * provision.
++   */
++  public Optional<OffsetDateTime> reclaimProvision(UUID id, double leaseSeconds) {
+     return jdbc.sql(
+             "UPDATE payment.payments SET provision_claimed_at = now() "
+                 + "WHERE id = :i AND provider_order_id IS NULL AND status = 'REQUIRES_PAYMENT' "
+                 + "AND (provision_claimed_at IS NULL "
+-                + "OR provision_claimed_at < now() - make_interval(secs => :s))")
++                + "OR provision_claimed_at < now() - make_interval(secs => :s)) "
++                + "RETURNING provision_claimed_at")
+         .param("i", id)
+         .param("s", leaseSeconds)
+-        .update();
++        .query((rs, n) -> rs.getObject(1, OffsetDateTime.class))
++        .optional();
+   }
+ 
+   // ---- capture-mode watch ----------------------------------------------------------------------
+diff --git a/services/payment-service/payment-service-app/src/main/java/com/acme/ecommerce/payment/service/PaymentService.java b/services/payment-service/payment-service-app/src/main/java/com/acme/ecommerce/payment/service/PaymentService.java
+index 3f71527..37700cf 100644
+--- a/services/payment-service/payment-service-app/src/main/java/com/acme/ecommerce/payment/service/PaymentService.java
++++ b/services/payment-service/payment-service-app/src/main/java/com/acme/ecommerce/payment/service/PaymentService.java
+@@ -181,7 +181,7 @@ public class PaymentService {
+   private Payment createRazorpay(
+       CreatePaymentRequest req, BigDecimal amount, String currency, String purpose) {
+     UUID subject = req.subjectId();
+-    int claimed =
++    var claimed =
+         payments.insertClaimed(
+             subject,
+             req.userId(),
+@@ -194,13 +194,13 @@ public class PaymentService {
+         payments
+             .findByOrderId(subject)
+             .orElseThrow(() -> new CodedException(ErrorCode.INTERNAL_ERROR, "Payment not saved"));
+-    if (claimed == 1) {
+-      return publishRazorpayOrder(row);
++    if (claimed.isPresent()) {
++      return publishRazorpayOrder(row, claimed.get());
+     }
+     return awaitsRazorpayOrder(row) ? awaitRazorpayOrder(row) : row;
+   }
+ 
+-  private Payment publishRazorpayOrder(Payment p) {
++  private Payment publishRazorpayOrder(Payment p, java.time.OffsetDateTime lease) {
+     String orderId;
+     try {
+       orderId =
+@@ -208,7 +208,13 @@ public class PaymentService {
+               PaymentProviders.RAZORPAY, p.orderId().toString(), p.amount(), p.currency(), null)[1];
+     } catch (RuntimeException e) {
+       // No order id was obtained: hand the lease back so a retry does not wait for it to expire.
+-      payments.releaseProvision(p.id());
++      // A timeout counts as a failure too: the order may exist at Razorpay, and an orphan order
++      // that nobody can reach is the accepted worst case (the publish is conditional).
++      try {
++        payments.releaseProvision(p.id(), lease);
++      } catch (RuntimeException releaseFailure) {
++        e.addSuppressed(releaseFailure);
++      }
+       throw e;
+     }
+     if (payments.publishProviderOrder(p.id(), orderId) == 0) {
+@@ -232,8 +238,9 @@ public class PaymentService {
+       if (cur.providerOrderId() != null || !"REQUIRES_PAYMENT".equals(cur.status())) {
+         return cur;
+       }
+-      if (payments.reclaimProvision(cur.id(), leaseSeconds) == 1) {
+-        return publishRazorpayOrder(cur);
++      var mine = payments.reclaimProvision(cur.id(), leaseSeconds);
++      if (mine.isPresent()) {
++        return publishRazorpayOrder(cur, mine.get());
+       }
+       if (System.nanoTime() > deadline) {
+         throw new CodedException(
+diff --git a/services/payment-service/payment-service-app/src/test/java/com/acme/ecommerce/payment/service/PaymentPropertiesValidationTest.java b/services/payment-service/payment-service-app/src/test/java/com/acme/ecommerce/payment/config/PaymentPropertiesValidationTest.java
+similarity index 100%
+rename from services/payment-service/payment-service-app/src/test/java/com/acme/ecommerce/payment/service/PaymentPropertiesValidationTest.java
+rename to services/payment-service/payment-service-app/src/test/java/com/acme/ecommerce/payment/config/PaymentPropertiesValidationTest.java
+diff --git a/services/payment-service/payment-service-app/src/test/java/com/acme/ecommerce/payment/service/PaymentServiceRazorpayTest.java b/services/payment-service/payment-service-app/src/test/java/com/acme/ecommerce/payment/service/PaymentServiceRazorpayTest.java
+index a2b5ce5..c329486 100644
+--- a/services/payment-service/payment-service-app/src/test/java/com/acme/ecommerce/payment/service/PaymentServiceRazorpayTest.java
++++ b/services/payment-service/payment-service-app/src/test/java/com/acme/ecommerce/payment/service/PaymentServiceRazorpayTest.java
+@@ -132,7 +132,8 @@ class PaymentServiceRazorpayTest {
+     when(repo.findByOrderId(subject))
+         .thenReturn(Optional.empty())
+         .thenReturn(Optional.of(payment("RAZORPAY", "REQUIRES_PAYMENT", "INR", null)));
+-    when(repo.insertClaimed(any(), any(), any(), any(), any(), any(), any())).thenReturn(1);
++    when(repo.insertClaimed(any(), any(), any(), any(), any(), any(), any()))
++        .thenReturn(Optional.of(java.time.OffsetDateTime.now()));
+     when(repo.publishProviderOrder(paymentId, "order_9")).thenReturn(1);
+     when(repo.findById(paymentId))
+         .thenReturn(Optional.of(payment("RAZORPAY", "REQUIRES_PAYMENT", "INR")));
+@@ -372,7 +373,8 @@ class PaymentServiceRazorpayTest {
+     when(repo.findByOrderId(subject))
+         .thenReturn(Optional.empty())
+         .thenReturn(Optional.of(payment("RAZORPAY", "REQUIRES_PAYMENT", "INR", null)));
+-    when(repo.insertClaimed(any(), any(), any(), any(), any(), any(), any())).thenReturn(1);
++    when(repo.insertClaimed(any(), any(), any(), any(), any(), any(), any()))
++        .thenReturn(Optional.of(java.time.OffsetDateTime.now()));
+     when(repo.publishProviderOrder(paymentId, "order_9")).thenReturn(1);
+     when(repo.findById(paymentId))
+         .thenReturn(Optional.of(payment("RAZORPAY", "REQUIRES_PAYMENT", "INR")));
+diff --git a/services/payment-service/payment-service-app/src/test/java/com/acme/ecommerce/payment/service/RazorpayOrderClaimIntegrationTest.java b/services/payment-service/payment-service-app/src/test/java/com/acme/ecommerce/payment/service/RazorpayOrderClaimIntegrationTest.java
+index c1c50bd..552698c 100644
+--- a/services/payment-service/payment-service-app/src/test/java/com/acme/ecommerce/payment/service/RazorpayOrderClaimIntegrationTest.java
++++ b/services/payment-service/payment-service-app/src/test/java/com/acme/ecommerce/payment/service/RazorpayOrderClaimIntegrationTest.java
+@@ -227,6 +227,71 @@ class RazorpayOrderClaimIntegrationTest extends AbstractPaymentIntegrationTest {
+     assertThat(storedOrder(subject)).isNull();
+   }
+ 
++  @Test
++  @DisplayName("publish is guarded: a payment switched to another mode gets no order id")
++  void publishIsGuardedAgainstModeSwitch() {
++    UUID subject = UUID.randomUUID();
++    doAnswer(
++            i -> {
++              jdbc.sql("UPDATE payment.payments SET mode = 'STRIPE' WHERE order_id = :o")
++                  .param("o", subject)
++                  .update();
++              return order("order_switched");
++            })
++        .when(razorpay)
++        .createOrder(anyString(), anyLong(), anyString());
++
++    service.create(request(subject, "CARD"));
++
++    assertThat(storedOrder(subject)).isNull();
++  }
++
++  @Test
++  @DisplayName("a holder that overran its lease cannot release the lease of the one that took over")
++  void staleReleaseLeavesTakeoverLeaseIntact() throws Exception {
++    UUID subject = UUID.randomUUID();
++    CountDownLatch aInside = new CountDownLatch(1);
++    CountDownLatch bInside = new CountDownLatch(1);
++    CountDownLatch releaseA = new CountDownLatch(1);
++    CountDownLatch releaseB = new CountDownLatch(1);
++    AtomicInteger calls = new AtomicInteger();
++    doAnswer(
++            i -> {
++              if (calls.incrementAndGet() == 1) {
++                aInside.countDown();
++                releaseA.await();
++                throw new CodedException(ErrorCode.UPSTREAM_UNAVAILABLE, "A failed late");
++              }
++              bInside.countDown();
++              releaseB.await();
++              return order("order_b");
++            })
++        .when(razorpay)
++        .createOrder(anyString(), anyLong(), anyString());
++    ExecutorService pool = Executors.newFixedThreadPool(2);
++    Future<PaymentResponse> a = pool.submit(() -> service.create(request(subject, "CARD")));
++    assertThat(aInside.await(10, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
++    Future<PaymentResponse> b = pool.submit(() -> service.create(request(subject, "CARD")));
++    assertThat(bInside.await(10, java.util.concurrent.TimeUnit.SECONDS)).isTrue(); // took over
++    var bLease = leaseStamp(subject);
++
++    releaseA.countDown();
++    assertThatThrownBy(a::get).hasCauseInstanceOf(CodedException.class);
++
++    assertThat(leaseStamp(subject)).isEqualTo(bLease).isNotNull();
++    releaseB.countDown();
++    assertThat(b.get().providerOrderId()).isEqualTo("order_b");
++    pool.shutdown();
++  }
++
++  private Object leaseStamp(UUID subject) {
++    return jdbc.sql("SELECT provision_claimed_at FROM payment.payments WHERE order_id = :o")
++        .param("o", subject)
++        .query(java.sql.Timestamp.class)
++        .optional()
++        .orElse(null);
++  }
++
+   @Test
+   @DisplayName("COD create is unchanged: no Razorpay call, no lease")
+   void codUnchanged() {

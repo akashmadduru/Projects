@@ -1,0 +1,13 @@
+{
+ "product_id": "fe946749-3fcd-4c94-22d6-afdf2a0bc905",
+ "name": "Noexmi Flash Drive Ultra",
+ "prompt": "studio packshot photo of a Navy Blue Noexmi Flash Drive Ultra, made of glass, storage, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 148358102,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T00:30:15",
+ "file_path": "product-images/images/fe946749-3fcd-4c94-22d6-afdf2a0bc905.jpg",
+ "file_size": 70004
+}

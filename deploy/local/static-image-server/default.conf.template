@@ -1,0 +1,48 @@
+# static-image-server: product images over plain HTTP, plus write access for product-service.
+#   Read   GET    /product-images/<key>     public, ETag-revalidated (files can be replaced in place)
+#   List   GET    /product-images/<dir>/    JSON directory listing
+#   Write  PUT    /product-images/<key>     X-Image-Token required; parent dirs are created
+#   Delete DELETE /product-images/<key>     X-Image-Token required
+# ${IMAGE_SERVER_TOKEN} is substituted by the nginx image's envsubst step at container start.
+
+# The keys below embed the token, longer than the default 64-byte bucket.
+map_hash_bucket_size 256;
+
+map "$request_method:$http_x_image_token" $image_access_ok {
+    default                          0;
+    ~^(GET|HEAD|OPTIONS):            1;
+    "PUT:${IMAGE_SERVER_TOKEN}"      1;
+    "DELETE:${IMAGE_SERVER_TOKEN}"   1;
+}
+
+server {
+    listen 80;
+    server_name _;
+    client_max_body_size 25m;
+
+    location = /healthz {
+        access_log off;
+        default_type text/plain;
+        return 200 "ok";
+    }
+
+    location /product-images/ {
+        if ($image_access_ok = 0) { return 403; }
+
+        alias /data/product-images/;
+        dav_methods PUT DELETE;
+        create_full_put_path on;
+        dav_access user:rw group:r all:r;
+        autoindex on;
+        autoindex_format json;
+
+        add_header Cache-Control "no-cache" always;
+        add_header Access-Control-Allow-Origin "*" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        # Only images are stored; nothing is ever served as a page.
+        types { image/jpeg jpg jpeg; image/png png; image/webp webp; image/gif gif; image/avif avif; }
+        default_type application/octet-stream;
+    }
+
+    location / { return 404; }
+}

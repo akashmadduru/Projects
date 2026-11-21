@@ -1,0 +1,13 @@
+{
+ "product_id": "bd01d98f-17a1-400d-5a1c-f8829e6758ea",
+ "name": "Cobalo T-Shirt Essential",
+ "prompt": "studio packshot photo of a Blue Cobalo T-Shirt Essential, made of leather, men's clothing, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3655247025,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:01:33",
+ "file_path": "product-images/images/bd01d98f-17a1-400d-5a1c-f8829e6758ea.jpg",
+ "file_size": 91644
+}

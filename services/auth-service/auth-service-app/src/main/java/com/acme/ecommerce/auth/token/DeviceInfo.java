@@ -54,7 +54,8 @@ public final class DeviceInfo {
     try {
       String raw = browser(ua) + "|" + os(ua) + "|" + (ip == null ? "unknown" : prefix(ip));
       return HexFormat.of()
-          .formatHex(MessageDigest.getInstance("SHA-256").digest(raw.getBytes(StandardCharsets.UTF_8)));
+          .formatHex(
+              MessageDigest.getInstance("SHA-256").digest(raw.getBytes(StandardCharsets.UTF_8)));
     } catch (NoSuchAlgorithmException e) {
       throw new IllegalStateException(e);
     }

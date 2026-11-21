@@ -325,6 +325,9 @@ module "secrets" {
   razorpay_key_secret     = var.razorpay_key_secret
   razorpay_webhook_secret = var.razorpay_webhook_secret
 
+  vapid_public_key  = var.vapid_public_key
+  vapid_private_key = var.vapid_private_key
+
   smtp_username = module.ses.smtp_username
   smtp_password = module.ses.smtp_password
 }

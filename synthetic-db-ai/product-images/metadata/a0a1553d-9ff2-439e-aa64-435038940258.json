@@ -1,0 +1,13 @@
+{
+ "product_id": "a0a1553d-9ff2-439e-aa64-435038940258",
+ "name": "Dexno Soundbar Prime",
+ "prompt": "studio packshot photo of a Grey Dexno Soundbar Prime, made of bamboo, speakers, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3173295449,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:12:38",
+ "file_path": "product-images/images/a0a1553d-9ff2-439e-aa64-435038940258.jpg",
+ "file_size": 31693
+}

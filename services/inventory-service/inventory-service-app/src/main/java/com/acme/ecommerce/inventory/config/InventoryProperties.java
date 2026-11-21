@@ -23,6 +23,33 @@ public class InventoryProperties {
 
   @Builder.Default private Internal internal = new Internal();
 
+  @Builder.Default private Stock stock = new Stock();
+
+  /** How stock behaves for products and variants (TD-P6-04, TD-P7-07). */
+  @Data
+  @NoArgsConstructor
+  @AllArgsConstructor
+  @Builder
+  public static class Stock {
+    /**
+     * A platform order line with no stock rows at all. REJECT (default): it is out of stock.
+     * UNLIMITED: the pre-2026-11-17 behaviour, kept only as an escape hatch.
+     */
+    @Builder.Default private MissingRows missingRows = MissingRows.REJECT;
+
+    /**
+     * Quantity given to a stock row created for a product or variant that had none (the catalog
+     * sync, {@code POST /internal/inventory/stock/ensure}). 0 in production, so nothing becomes
+     * sellable until someone stocks it; the local stack sets a demo value.
+     */
+    @Builder.Default private int defaultQuantity = 0;
+  }
+
+  public enum MissingRows {
+    REJECT,
+    UNLIMITED
+  }
+
   /** Shared secret for /internal/** callers (INTERNAL_API_TOKEN). */
   @Data
   @NoArgsConstructor

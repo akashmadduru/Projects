@@ -1,0 +1,13 @@
+{
+ "product_id": "c82e1a27-f4c8-4b36-7a77-29770868188c",
+ "name": "Trapi Sneakers Ultra",
+ "prompt": "studio packshot photo of a Midnight Trapi Sneakers Ultra, made of nylon, footwear, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 4077640640,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:37:59",
+ "file_path": "product-images/images/c82e1a27-f4c8-4b36-7a77-29770868188c.jpg",
+ "file_size": 49234
+}

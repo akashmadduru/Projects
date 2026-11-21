@@ -117,6 +117,8 @@ export interface Product {
   /** Phase 7. Optional: older responses / list endpoint may omit them. */
   readonly brand?: string | null;
   readonly attributes?: Readonly<Record<string, string>> | null;
+  /** List price (MRP) shown struck through; the discount is computed against it. */
+  readonly listPrice?: number | null;
   /** Only authoritative on `GET /api/products/{id}`. */
   readonly variants?: readonly ProductVariant[];
 }
@@ -199,6 +201,10 @@ export interface CreateProductRequest {
   readonly images?: readonly ProductImageRequest[];
   readonly brand?: string | null;
   readonly attributes?: Readonly<Record<string, string>> | null;
+  /** List price (MRP). Omit to keep it; `0` clears it; must not be below `priceAmount`. */
+  readonly listPrice?: number;
+  /** Full variant list, saved in the same transaction as the product. Omit to leave them. */
+  readonly variants?: readonly ProductVariantRequest[];
 }
 
 /**
@@ -223,6 +229,10 @@ export interface UpdateProductRequest {
   readonly images?: readonly ProductImageRequest[];
   readonly brand?: string | null;
   readonly attributes?: Readonly<Record<string, string>> | null;
+  /** List price (MRP). Omit to keep it; `0` clears it; must not be below `priceAmount`. */
+  readonly listPrice?: number;
+  /** Full variant list, saved in the same transaction as the product. Omit to leave them. */
+  readonly variants?: readonly ProductVariantRequest[];
 }
 
 /**

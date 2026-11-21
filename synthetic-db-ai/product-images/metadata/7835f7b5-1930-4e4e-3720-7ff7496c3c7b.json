@@ -1,0 +1,13 @@
+{
+ "product_id": "7835f7b5-1930-4e4e-3720-7ff7496c3c7b",
+ "name": "Venmika Building Blocks Lite",
+ "prompt": "studio packshot photo of a White Venmika Building Blocks Lite, made of abs plastic, building toys, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 4065236057,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:44:31",
+ "file_path": "product-images/images/7835f7b5-1930-4e4e-3720-7ff7496c3c7b.jpg",
+ "file_size": 73466
+}

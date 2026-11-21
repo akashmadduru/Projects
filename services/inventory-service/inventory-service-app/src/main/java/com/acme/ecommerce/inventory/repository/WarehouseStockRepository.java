@@ -53,8 +53,12 @@ public class WarehouseStockRepository {
   public List<Row> lockForLine(UUID productId, UUID variantId, UUID offerId) {
     String where =
         offerId != null
-            ? " WHERE ws.offer_id = :o AND ws.product_id = :p AND ws.variant_key = COALESCE(:v, " + ZERO + ")"
-            : " WHERE ws.seller_id = :s AND ws.product_id = :p AND ws.variant_key = COALESCE(:v, " + ZERO + ")";
+            ? " WHERE ws.offer_id = :o AND ws.product_id = :p AND ws.variant_key = COALESCE(:v, "
+                + ZERO
+                + ")"
+            : " WHERE ws.seller_id = :s AND ws.product_id = :p AND ws.variant_key = COALESCE(:v, "
+                + ZERO
+                + ")";
     JdbcClient.StatementSpec spec =
         jdbc.sql(SELECT + where + " AND w.active ORDER BY ws.id FOR UPDATE OF ws")
             .param("p", productId)
@@ -130,6 +134,37 @@ public class WarehouseStockRepository {
     } else if (delta > 0) {
       upsert(productId, variantId, Platform.SELLER_ID, null, warehouseId, delta);
     }
+  }
+
+  /** True when the platform has any stock row for this product/variant, in any warehouse. */
+  public boolean platformRowExists(UUID productId, UUID variantId) {
+    return jdbc.sql(
+            "SELECT EXISTS (SELECT 1 FROM inventory.warehouse_stock WHERE product_id = :p"
+                + " AND variant_key = COALESCE(:v, "
+                + ZERO
+                + ") AND seller_id = :s)")
+        .param("p", productId)
+        .param("v", variantId, java.sql.Types.OTHER)
+        .param("s", Platform.SELLER_ID)
+        .query(Boolean.class)
+        .single();
+  }
+
+  /** Creates the platform row in a warehouse unless one exists; never changes a quantity. */
+  public boolean insertPlatformRowIfAbsent(
+      UUID productId, UUID variantId, UUID warehouseId, int quantity) {
+    return jdbc.sql(
+                "INSERT INTO inventory.warehouse_stock"
+                    + " (product_id, variant_id, seller_id, warehouse_id, quantity)"
+                    + " VALUES (:p, :v, :s, :w, :q)"
+                    + " ON CONFLICT (product_id, variant_key, seller_id, warehouse_id) DO NOTHING")
+            .param("p", productId)
+            .param("v", variantId, java.sql.Types.OTHER)
+            .param("s", Platform.SELLER_ID)
+            .param("w", warehouseId)
+            .param("q", quantity)
+            .update()
+        > 0;
   }
 
   public void deleteByProduct(UUID productId) {

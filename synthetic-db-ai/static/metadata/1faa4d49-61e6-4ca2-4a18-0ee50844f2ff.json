@@ -1,0 +1,15 @@
+{
+ "product_id": "1faa4d49-61e6-4ca2-4a18-0ee50844f2ff",
+ "name": "Expipi Camera Ultra",
+ "prompt": "studio packshot photo of a Red Expipi Camera Ultra, made of ceramic, cameras, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2440689996,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:27:23",
+ "file_path": "static/images/1faa4d49-61e6-4ca2-4a18-0ee50844f2ff.jpg",
+ "file_size": 41023,
+ "uploaded": false,
+ "s3_url": null
+}

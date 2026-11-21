@@ -39,7 +39,9 @@ FROM eclipse-temurin:25-jre-alpine AS runtime
 # curl is here solely for the compose healthcheck.
 RUN apk add --no-cache curl \
     && addgroup -S spring \
-    && adduser -S -G spring spring
+    && adduser -S -G spring spring \n    # Review photos (RATING_MEDIA_DIR). A new named volume copies this directory's ownership,
+    # so the service can write it without running as root (TD-P7-15).
+    && mkdir -p /data/media \n    && chown spring:spring /data/media
 
 WORKDIR /app
 

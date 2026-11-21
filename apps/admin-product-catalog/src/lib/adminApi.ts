@@ -19,6 +19,7 @@ import type {
   Deal,
   DealRequest,
   OrderStatusRequest,
+  ModerationItem,
   PagedModel,
 } from '@/types/commerce';
 
@@ -200,14 +201,15 @@ export function moderateRating(id: string, approve: boolean): Promise<unknown> {
   });
 }
 
-/** Admin delete reuses the customer endpoint; rating-service allows ADMIN and recomputes averages. */
+/** Admin delete under /api/admin so the audit log records the actor; averages are recomputed. */
 export function deleteRating(id: string): Promise<void> {
-  return apiFetch<void>(`/api/ratings/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  return apiFetch<void>(`/api/admin/ratings/${encodeURIComponent(id)}`, { method: 'DELETE' });
 }
 
 export function listPayments(query: {
   status?: string;
   method?: string;
+  mode?: string;
   orderId?: string;
   page: number;
   size: number;
@@ -233,7 +235,7 @@ export function isCategoryActive(c: Category): boolean {
   return c.active ?? c.isActive ?? true;
 }
 
-/** Create binds `isActive` (boxed Boolean); both spellings are sent so either binding works. */
+/** Create and update both bind `active` (TD-ADM-09). */
 export function createCategory(form: CategoryForm): Promise<Category> {
   return apiFetch<Category>('/api/categories', {
     method: 'POST',
@@ -241,13 +243,12 @@ export function createCategory(form: CategoryForm): Promise<Category> {
       name: form.name,
       description: form.description || null,
       parentCategoryId: form.parentCategoryId || null,
-      isActive: form.active,
       active: form.active,
     },
   });
 }
 
-/** Update binds `active` (primitive boolean) plus the optimistic-lock `version`. Parent is immutable. */
+/** Update also carries the optimistic-lock `version`. Parent is immutable. */
 export function updateCategory(id: string, form: CategoryForm, version: number): Promise<Category> {
   return apiFetch<Category>(`/api/categories/${encodeURIComponent(id)}`, {
     method: 'PUT',
@@ -255,7 +256,6 @@ export function updateCategory(id: string, form: CategoryForm, version: number):
       name: form.name,
       description: form.description || null,
       active: form.active,
-      isActive: form.active,
       version,
     },
   });
@@ -265,10 +265,10 @@ export function deleteCategory(id: string): Promise<void> {
   return apiFetch<void>(`/api/categories/${encodeURIComponent(id)}`, { method: 'DELETE' });
 }
 
-/** Lowest-stock rows first; the caller filters by each row's own threshold. */
+/** Rows at or below their own low-stock threshold, lowest first; `page.totalElements` is the true count. */
 export function lowestStock(size: number): Promise<PagedModel<Inventory>> {
   return apiFetch<PagedModel<Inventory>>('/api/inventory', {
-    query: { page: 0, size, sort: 'quantity,asc' },
+    query: { page: 0, size, sort: 'quantity,asc', lowStock: true },
   });
 }
 
@@ -299,10 +299,9 @@ export function replaceVariants(
 }
 
 /** Contract does not pin the list shape; accept a bare array or a PagedModel. */
+/** Every deal: promotion-service returns the full list (deals are curated by hand, so few). */
 export async function listDeals(): Promise<readonly Deal[]> {
-  const res = await apiFetch<readonly Deal[] | PagedModel<Deal>>('/api/admin/deals', {
-    query: { page: 0, size: 100 },
-  });
+  const res = await apiFetch<readonly Deal[] | PagedModel<Deal>>('/api/admin/deals');
   return Array.isArray(res) ? (res as readonly Deal[]) : (res as PagedModel<Deal>).content;
 }
 
@@ -365,4 +364,25 @@ export function reindexEmbeddings(productId?: string): Promise<{ queued: number 
     method: 'POST',
     query: productId ? { productId } : {},
   });
+}
+
+// ---- Product moderation (TD-P9-03) ----------------------------------------------------------
+
+export function listModeration(query: {
+  status?: string;
+  page: number;
+  size: number;
+}): Promise<PagedModel<ModerationItem>> {
+  return apiFetch<PagedModel<ModerationItem>>('/api/products/admin/moderation', { query });
+}
+
+export function decideModeration(
+  productId: string,
+  decision: 'APPROVE' | 'REJECT',
+  note?: string,
+): Promise<ModerationItem> {
+  return apiFetch<ModerationItem>(
+    `/api/products/admin/moderation/${encodeURIComponent(productId)}`,
+    { method: 'POST', body: { decision, note: note ?? null } },
+  );
 }

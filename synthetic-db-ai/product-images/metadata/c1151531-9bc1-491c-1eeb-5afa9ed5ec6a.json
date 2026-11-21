@@ -1,0 +1,13 @@
+{
+ "product_id": "c1151531-9bc1-491c-1eeb-5afa9ed5ec6a",
+ "name": "Orex Phone Edition",
+ "prompt": "studio packshot photo of a Red Orex Phone Edition, made of nylon, mobiles & smartphones, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3327211342,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:33:12",
+ "file_path": "product-images/images/c1151531-9bc1-491c-1eeb-5afa9ed5ec6a.jpg",
+ "file_size": 40134
+}

@@ -16,7 +16,6 @@ import com.acme.ecommerce.order.config.OrderProperties;
 import com.acme.ecommerce.order.domain.HistoryActor;
 import com.acme.ecommerce.order.domain.Order;
 import com.acme.ecommerce.order.domain.Order.ReturnLine;
-import com.acme.ecommerce.order.domain.OrderItem;
 import com.acme.ecommerce.order.domain.OrderReturn;
 import com.acme.ecommerce.order.domain.OrderReturnItem;
 import com.acme.ecommerce.order.domain.OrderShipment;
@@ -58,7 +57,9 @@ public class OrderStore {
   /** A state change plus whether this call actually changed anything (idempotency signal). */
   public record Result(OrderResponse order, boolean changed) {}
 
-  /** An advanced shipment (null for legacy orders without shipments) plus the order status before. */
+  /**
+   * An advanced shipment (null for legacy orders without shipments) plus the order status before.
+   */
   public record ShipmentAdvance(
       OrderResponse order, ShipmentResponse shipment, String previousOrderStatus) {}
 
@@ -120,6 +121,12 @@ public class OrderStore {
               }
               return mapper.toResponse(existing);
             });
+  }
+
+  /** The live (not cancelled) order made from this cart, if any (TD-BE-15). */
+  @Transactional(readOnly = true)
+  public Optional<UUID> findActiveOrderForCart(UUID userId, String cartFingerprint) {
+    return orders.findActiveIdByCartFingerprint(userId, cartFingerprint);
   }
 
   @Transactional
@@ -218,22 +225,28 @@ public class OrderStore {
           }
           return cb.and(ps.toArray(new Predicate[0]));
         };
-    return orders
-        .findAll(spec, pageable)
-        .map(
-            o ->
-                new AdminOrderSummary(
-                    o.getId(),
-                    o.getStatus().name(),
-                    o.getPaymentMethod().name(),
-                    o.getPaymentStatus().name(),
-                    o.getEmail(),
-                    o.getTotalAmount(),
-                    o.getCurrency(),
-                    o.getItems().stream().mapToLong(OrderItem::getQuantity).sum(),
-                    o.getPlacedAt(),
-                    o.isRiskHold(),
-                    o.getRiskScore()));
+    Page<Order> page = orders.findAll(spec, pageable);
+    // One grouped query for the page instead of lazily loading every order's items (TD-P6-27).
+    Map<UUID, Long> itemCounts = new java.util.HashMap<>();
+    if (page.hasContent()) {
+      for (Object[] row : orders.itemCounts(page.map(Order::getId).getContent())) {
+        itemCounts.put((UUID) row[0], ((Number) row[1]).longValue());
+      }
+    }
+    return page.map(
+        o ->
+            new AdminOrderSummary(
+                o.getId(),
+                o.getStatus().name(),
+                o.getPaymentMethod().name(),
+                o.getPaymentStatus().name(),
+                o.getEmail(),
+                o.getTotalAmount(),
+                o.getCurrency(),
+                itemCounts.getOrDefault(o.getId(), 0L),
+                o.getPlacedAt(),
+                o.isRiskHold(),
+                o.getRiskScore()));
   }
 
   /** Admin release of a risk hold (idempotent). */
@@ -329,8 +342,7 @@ public class OrderStore {
     }
     if (!o.isCancellable()) {
       throw new CodedException(
-          ErrorCode.ORDER_NOT_CANCELLABLE,
-          "Order cannot be cancelled in status " + o.getStatus());
+          ErrorCode.ORDER_NOT_CANCELLABLE, "Order cannot be cancelled in status " + o.getStatus());
     }
     boolean refund =
         o.getPaymentStatus() == PaymentStatus.PAID
@@ -446,7 +458,11 @@ public class OrderStore {
   public ShipmentRef shipmentRef(UUID shipmentId) {
     OrderShipment s = findShipment(shipmentId);
     return new ShipmentRef(
-        s.getId(), s.getOrder().getId(), s.getOrder().getUserId(), s.getSellerId(), s.getStatus().name());
+        s.getId(),
+        s.getOrder().getId(),
+        s.getOrder().getUserId(),
+        s.getSellerId(),
+        s.getStatus().name());
   }
 
   private OrderShipment findShipment(UUID id) {
@@ -484,7 +500,8 @@ public class OrderStore {
             props.getReturns().getWindowDays(),
             Instant.now());
     orders.flush();
-    long recent = returns.countByUserIdAndCreatedAtAfter(userId, Instant.now().minus(60, ChronoUnit.DAYS));
+    long recent =
+        returns.countByUserIdAndCreatedAtAfter(userId, Instant.now().minus(60, ChronoUnit.DAYS));
     long totalOrders = orders.countByUserIdAndStatusNot(userId, OrderStatus.CANCELLED);
     long returnedOrders = returns.countDistinctOrders(userId);
     if (recent > 3 || (totalOrders >= 4 && returnedOrders * 2 > totalOrders)) {

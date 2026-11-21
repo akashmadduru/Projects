@@ -73,6 +73,6 @@ export function useT(): (text: string) => string {
   const brand = useBrandStore((s) => s.config?.brand.name)
   return (text) => {
     const out = dict[text] ?? text
-    return brand && brand !== 'Cartwise' ? out.replace(/Cartwise/g, brand) : out
+    return brand && brand !== 'Cartwise' ? out.replace(/\bCartwise\b/g, brand) : out
   }
 }

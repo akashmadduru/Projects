@@ -68,6 +68,24 @@ public class WalletRepository {
         .update();
   }
 
+  /** A DEBIT row by its idempotency key, for reversal: {user, amount, currency, referenceId}. */
+  public record Debit(UUID userId, BigDecimal amount, String currency, String referenceId) {}
+
+  public Optional<Debit> findDebit(String key) {
+    return jdbc.sql(
+            "SELECT user_id, amount, currency, reference_id FROM payment.wallet_txns"
+                + " WHERE idempotency_key = :k AND type = 'DEBIT'")
+        .param("k", key)
+        .query(
+            (rs, n) ->
+                new Debit(
+                    rs.getObject(1, UUID.class),
+                    rs.getBigDecimal(2),
+                    rs.getString(3),
+                    rs.getString(4)))
+        .optional();
+  }
+
   public boolean txnExists(String key) {
     return jdbc.sql("SELECT EXISTS (SELECT 1 FROM payment.wallet_txns WHERE idempotency_key = :k)")
         .param("k", key)

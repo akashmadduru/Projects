@@ -1,0 +1,13 @@
+{
+ "product_id": "c376f0a7-b3c9-4473-32ce-f5ef398a6b0e",
+ "name": "Exnuli Cold Brew Pro",
+ "prompt": "studio packshot photo of a Green Exnuli Cold Brew Pro, made of stainless steel, beverages, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3678981153,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:35:35",
+ "file_path": "product-images/images/c376f0a7-b3c9-4473-32ce-f5ef398a6b0e.jpg",
+ "file_size": 19968
+}

@@ -19,8 +19,16 @@ spring:
     enabled: true
     schemas: inventory
     default-schema: inventory
+  kafka:
+    # No broker in a test JVM: fail a send in 2 s instead of blocking 60 s (TD-P7-22).
+    producer:
+      properties:
+        max.block.ms: 2000
 
 inventory:
+  stock:
+    # Tests call StockTotalsReconciler.reconcile() directly.
+    reconcile-initial-delay: PT24H
   jwt:
     # MUST equal TestKeys.ISSUER / TestKeys.AUDIENCE. The wrong-audience
     # rejection test is only meaningful because the happy path matches these

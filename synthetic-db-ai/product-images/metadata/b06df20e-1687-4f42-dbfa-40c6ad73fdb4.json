@@ -1,0 +1,13 @@
+{
+ "product_id": "b06df20e-1687-4f42-dbfa-40c6ad73fdb4",
+ "name": "Zemidex Jeans Max",
+ "prompt": "studio packshot photo of a Space Grey Zemidex Jeans Max, made of aluminium, men's clothing, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 381371576,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:22:23",
+ "file_path": "product-images/images/b06df20e-1687-4f42-dbfa-40c6ad73fdb4.jpg",
+ "file_size": 53497
+}

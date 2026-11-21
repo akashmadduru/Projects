@@ -1,0 +1,13 @@
+{
+ "product_id": "0ec11b57-8d55-4282-5b77-efea6ddf7b2f",
+ "name": "Quaquadex Dress Gen 3",
+ "prompt": "studio packshot photo of a Rose Gold Quaquadex Dress Gen 3, made of bamboo, women's clothing, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 903286784,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 768,
+ "created_at": "2026-11-15T22:55:19",
+ "file_path": "product-images/images/0ec11b57-8d55-4282-5b77-efea6ddf7b2f.jpg",
+ "file_size": 97512
+}

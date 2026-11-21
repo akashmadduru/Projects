@@ -1,0 +1,13 @@
+{
+ "product_id": "a8385b15-b264-4e93-1f59-63f4574ac6e1",
+ "name": "Katra 4K TV Edition",
+ "prompt": "studio packshot photo of a Grey Katra 4K TV Edition, made of silicone, televisions, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3374680328,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:36:27",
+ "file_path": "product-images/images/a8385b15-b264-4e93-1f59-63f4574ac6e1.jpg",
+ "file_size": 40221
+}

@@ -1,0 +1,15 @@
+{
+ "product_id": "156919dc-4c38-4229-b21f-6fd644cbdc00",
+ "name": "Minoba Robot Vacuum Ultra",
+ "prompt": "studio packshot photo of a Olive Minoba Robot Vacuum Ultra, made of cotton, cleaning, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 4110706565,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T01:22:38",
+ "file_path": "static/images/156919dc-4c38-4229-b21f-6fd644cbdc00.jpg",
+ "file_size": 46079,
+ "uploaded": false,
+ "s3_url": null
+}

@@ -7,3 +7,5 @@ output/
 output/
 .venv-images/
 .hf/
+product-images/
+static/

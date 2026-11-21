@@ -5,9 +5,23 @@
 import { apiFetch } from '../lib/http'
 import type { AvailableCoupon, CouponValidation, PaymentConfig, PaymentInfo, PaymentProvider } from '../types'
 
+/** Provider config changes only on a deploy; checkout and every payment panel would refetch it. */
+const CONFIG_TTL_MS = 5 * 60_000
+
 export class PaymentApiClient {
+  private configCache: { at: number; value: Promise<PaymentConfig> } | null = null
+
   config(): Promise<PaymentConfig> {
-    return apiFetch<PaymentConfig>('/api/payments/config')
+    const now = Date.now()
+    if (this.configCache && now - this.configCache.at < CONFIG_TTL_MS) return this.configCache.value
+    const value = apiFetch<PaymentConfig>('/api/payments/config')
+    const entry = { at: now, value }
+    this.configCache = entry
+    // Never cache a failure: the next caller retries.
+    value.catch(() => {
+      if (this.configCache === entry) this.configCache = null
+    })
+    return value
   }
 
   forOrder(orderId: string): Promise<PaymentInfo> {

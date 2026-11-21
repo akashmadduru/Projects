@@ -3,15 +3,6 @@
 Checked against the code on 2026-11-15. Design: [HLD-ai-platform](../architecture/design/HLD-ai-platform.md),
 [LLD-ai-1](../architecture/design/LLD-ai-1-semantic-search.md).
 
-## TD-AI-01
-**pgvector integration tests written but never run.** Severity: High. Effort: S.
-`HybridSearchIntegrationTest`, `HybridSearchProviderDownIntegrationTest` and `HybridSearchDisabledIntegrationTest`
-(Testcontainers, `pgvector/pgvector:0.8.7-pg17`) compile, but Docker was unavailable when AI-1 was finished, so the
-real SQL (schema-qualified operators, RRF, facets, iterative scans) has only been exercised by unit tests and an
-earlier partial run. Run `./gradlew :services:product-service:product-service-app:test` with Docker before
-enabling the feature anywhere. Unit tests (`EmbeddingTextTest`, `FakeEmbeddingPortTest`, `QueryEmbeddingCacheTest`,
-`QueryUnderstandingTest`) pass.
-
 ## TD-AI-02
 **No IRSA role or NetworkPolicy egress for Bedrock yet.** Severity: Med. Effort: S.
 Helm sets `EMBEDDING_PROVIDER: "none"` and `AWS_REGION`, but the product-service ServiceAccount has no IAM role
@@ -39,11 +30,6 @@ before the evaluation; if hybrid loses, change `productApi.ts` to `mode=keyword`
 The storefront calls `/search` and `/search/facets` for the same query; the second embed is a cache hit but the
 fused SQL runs twice. Acceptable at 200 candidates; return facets in the search response if it shows up in p95.
 
-## TD-AI-06
-**Formatting debt across product-service is wider than TD-TEST-07 says.** Severity: Low. Effort: S.
-`spotlessApply` on product-service reformats 27 files untouched by AI-1 (clients, config, repositories, services,
-controllers). They were left unformatted to keep the AI-1 change reviewable. Fix in a formatting-only commit.
-
 ## TD-AI-07
 **Product-service unit tests had rotted before AI-1.** Severity: Low. Effort: done.
 `ProductCatalogServiceTest` and `CreateProductRequestTest` did not compile after the Nov 12–14 DTO and constructor
@@ -57,7 +43,3 @@ product-service tests on every push, so this will recur (see the audit's CI trig
 Make unknown groups fail `--check`. Separately, `VITE_STOREFRONT_ORIGIN` (admin `ThemeView.vue`) is undescribed,
 so `--check` fails today independently of AI-1.
 
-## TD-AI-09
-**Node 26 breaks admin auth-store and route-guard tests.** Severity: Low. Effort: S.
-`auth.storage.spec.ts` and `guards.spec.ts` fail with `localStorage.clear` undefined: Node 26 ships a global
-`localStorage` that shadows jsdom's. Same family as TD-FE-12. Not caused by AI-1; the admin suite otherwise passes.

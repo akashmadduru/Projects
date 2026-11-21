@@ -1,0 +1,13 @@
+{
+ "product_id": "2d9d9006-c0d8-4317-b854-8ca7a45a70e1",
+ "name": "Sunuar Construction Set Ultra",
+ "prompt": "studio packshot photo of a White Sunuar Construction Set Ultra, made of polyester, building toys, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1845924297,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:48:36",
+ "file_path": "product-images/images/2d9d9006-c0d8-4317-b854-8ca7a45a70e1.jpg",
+ "file_size": 24798
+}

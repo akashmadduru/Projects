@@ -1,0 +1,13 @@
+{
+ "product_id": "a789368c-0fec-40cf-cf43-f6b0e20ca0d0",
+ "name": "Zeion Massager Gen 3",
+ "prompt": "studio packshot photo of a White Zeion Massager Gen 3, made of leather, personal wellness, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2405402492,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:18:26",
+ "file_path": "product-images/images/a789368c-0fec-40cf-cf43-f6b0e20ca0d0.jpg",
+ "file_size": 38981
+}

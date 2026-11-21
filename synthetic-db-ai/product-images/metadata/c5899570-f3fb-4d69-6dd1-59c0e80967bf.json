@@ -1,0 +1,13 @@
+{
+ "product_id": "c5899570-f3fb-4d69-6dd1-59c0e80967bf",
+ "name": "Lovenpi Study Table Gen 3",
+ "prompt": "studio packshot photo of a Grey Lovenpi Study Table Gen 3, made of abs plastic, furniture, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2765389661,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:36:28",
+ "file_path": "product-images/images/c5899570-f3fb-4d69-6dd1-59c0e80967bf.jpg",
+ "file_size": 26090
+}

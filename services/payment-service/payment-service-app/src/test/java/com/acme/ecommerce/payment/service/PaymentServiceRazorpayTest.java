@@ -312,4 +312,79 @@ class PaymentServiceRazorpayTest {
         .insertRefund(eq(paymentId), any(), any(), eq(null), providerRefund.capture(), eq("k1"));
     assertThat(providerRefund.getValue()).isEqualTo("rfnd_1");
   }
+
+  // ---- owner read: throttled, single-call provider re-check -----------------------------------
+
+  private final long[] now = {1_000_000L};
+
+  private void useFakeClock() {
+    service.clock = () -> now[0];
+  }
+
+  @Test
+  @DisplayName("re-check calls Razorpay once per interval, not on every page load")
+  void recheckIsThrottled() {
+    useFakeClock();
+    stubFind(payment("RAZORPAY", "REQUIRES_PAYMENT", "INR"));
+    org.mockito.Mockito.doReturn(null).when(razorpay).capturedPayment("order_9");
+
+    service.getForOwner(subject, user);
+    service.getForOwner(subject, user);
+    now[0] += PaymentService.RECHECK_INTERVAL_MS - 1;
+    service.getForOwner(subject, user);
+    verify(razorpay, org.mockito.Mockito.times(1)).capturedPayment("order_9");
+
+    now[0] += 1;
+    service.getForOwner(subject, user);
+    verify(razorpay, org.mockito.Mockito.times(2)).capturedPayment("order_9");
+    verify(razorpay, never()).fetchOrder(anyString());
+  }
+
+  @Test
+  @DisplayName("a just-created Razorpay order is not re-checked (it cannot be paid yet)")
+  void freshOrderSkipsRecheck() {
+    useFakeClock();
+    org.mockito.Mockito.doReturn(new RazorpayGateway.Order("order_9", "created", 49900, "INR"))
+        .when(razorpay)
+        .createOrder(anyString(), eq(49900L), eq("INR"));
+    when(repo.findByOrderId(subject))
+        .thenReturn(Optional.empty())
+        .thenReturn(Optional.of(payment("RAZORPAY", "REQUIRES_PAYMENT", "INR")));
+    service.create(
+        new CreatePaymentRequest(
+            subject, user, new BigDecimal("499"), "INR", "CARD", null, null, null));
+
+    service.getForOwner(subject, user);
+
+    verify(razorpay, never()).capturedPayment(anyString());
+  }
+
+  @Test
+  @DisplayName("re-check settles on a captured payment of the right amount, with one API call")
+  void recheckSettlesOnCapture() {
+    stubFind(payment("RAZORPAY", "REQUIRES_PAYMENT", "INR"));
+    org.mockito.Mockito.doReturn(new RazorpayGateway.CapturedPayment("pay_7", 49900, "INR"))
+        .when(razorpay)
+        .capturedPayment("order_9");
+
+    service.getForOwner(subject, user);
+
+    verify(repo).setProviderPaymentId(paymentId, "pay_7");
+    verify(repo).applyOutcome(paymentId, "SUCCEEDED");
+    verify(razorpay, never()).fetchOrder(anyString());
+  }
+
+  @Test
+  @DisplayName("re-check never settles on an amount we did not ask for")
+  void recheckRejectsAmountMismatch() {
+    stubFind(payment("RAZORPAY", "REQUIRES_PAYMENT", "INR"));
+    org.mockito.Mockito.doReturn(new RazorpayGateway.CapturedPayment("pay_7", 100, "INR"))
+        .when(razorpay)
+        .capturedPayment("order_9");
+
+    service.getForOwner(subject, user);
+
+    verify(repo, never()).applyOutcome(any(), anyString());
+    verify(repo, never()).setProviderPaymentId(any(), anyString());
+  }
 }

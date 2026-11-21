@@ -1,0 +1,13 @@
+- 2026-11-19T19:31:24Z step1-2: split from F-06 (O-01) on the CTO's 3-PR recommendation; requirements copied verbatim from the CPO's text.
+- 2026-11-19T19:32:42Z step3 CTO: ## Class: L. Step4 architect started.
+- 2026-11-19T19:43:24Z step4 architect: design.md + ADR 0007 (generic 202, PhoneClaimNotifier email w/ Redis SET NX 24h, AC-12(b) + PASSWORD_SET mail; ~140 prod lines). CEO ruling: the AC-12(b) techdebt-entry text goes to the register-sync objective; F-07 documents in API docs and the ADR.
+- 2026-11-19T19:43:46Z step4 CTO ACCEPT (7 conditions), transcribed. Architect to set ADR 0007 Accepted + cond 3 note; EM next.
+- 2026-11-19T19:44:54Z ADR 0007 Accepted; design.md cleanups (CEO diffed: CTO section unchanged). Step5 EM.
+- 2026-11-19T19:45:38Z step5 EM: T1-T8 (backend T1-5,7,8; frontend T6). Backend engineer started; frontend after backend commits (same worktree).
+- 2026-11-19T20:18:11Z backend committed 569eac4 (auth 104 + notification 3 tests; 178+11 prod). ADR copied into the repo docs (G-9 noted). Frontend T6 started.
+- 2026-11-19T20:21:24Z frontend T6 committed 613b3f1. tsc TS2742 was an artifact of a node_modules symlink; CEO replaced it with a real npm ci, tsc PASS. Full verify started.
+- 2026-11-20T17:16:00Z CEO verify FAIL: env var undescribed + lock give-up (rc 75). Sent back to backend engineer.
+- 2026-11-20T17:25:23Z env fix committed 2e3ce50. CEO verify running (lock wait 90 m).
+- 2026-11-20T17:36:53Z security APPROVE @ 2e3ce50b (4 minor). Waiting on reviewer.
+- 2026-11-20T17:38:11Z both APPROVE @ 2e3ce50b on first review. The duplicate ADR copy (docs/architecture/adr/0007) goes to known issues and G-9; no round for docs/tests-only minors. QA next.
+- 2026-11-20T17:38:56Z QA PASS (13 rows). forge-gate PASS at 2e3ce50b. pr.md written.

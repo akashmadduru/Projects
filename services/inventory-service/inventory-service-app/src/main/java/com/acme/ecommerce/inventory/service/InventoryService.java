@@ -5,13 +5,11 @@ import com.acme.ecommerce.common.core.error.ResourceNotFoundException;
 import com.acme.ecommerce.common.core.time.TimeProvider;
 import com.acme.ecommerce.inventory.api.dto.InventoryResponse;
 import com.acme.ecommerce.inventory.domain.Inventory;
+import com.acme.ecommerce.inventory.domain.Platform;
 import com.acme.ecommerce.inventory.event.InventoryEventPublisher;
 import com.acme.ecommerce.inventory.event.InventoryEventType;
 import com.acme.ecommerce.inventory.repository.InventoryRepository;
-import com.acme.ecommerce.inventory.domain.Platform;
-import com.acme.ecommerce.inventory.domain.Platform;
 import com.acme.ecommerce.inventory.repository.VariantStockRepository;
-import com.acme.ecommerce.inventory.repository.WarehouseStockRepository;
 import com.acme.ecommerce.inventory.repository.WarehouseStockRepository;
 import com.acme.ecommerce.inventory.web.dto.CreateInventoryRequest;
 import com.acme.ecommerce.inventory.web.dto.UpdateInventoryRequest;
@@ -43,8 +41,8 @@ import org.springframework.transaction.annotation.Transactional;
  * lowStockThreshold}, {@code INVENTORY_LOW_STOCK}) after commit - see {@link
  * InventoryEventPublisher}. {@code provisionWithQuantity} (the event-driven path reacting to {@code
  * PRODUCT_CREATED}, the choreographed creation-saga's entry point,
- * docs/architecture/design/LLD-catalog-enrichment-and-saga.md S2.2) does the same, now that it provisions at the
- * caller-requested starting quantity instead of always zero.
+ * docs/architecture/design/LLD-catalog-enrichment-and-saga.md S2.2) does the same, now that it
+ * provisions at the caller-requested starting quantity instead of always zero.
  */
 @Service
 @Transactional(readOnly = true)
@@ -79,6 +77,11 @@ public class InventoryService {
     return inventory.findAll(pageable).map(InventoryService::toResponse);
   }
 
+  /** Only rows at or below their own low-stock threshold. */
+  public Page<InventoryResponse> listLowStock(Pageable pageable) {
+    return inventory.findLowStock(pageable).map(InventoryService::toResponse);
+  }
+
   /**
    * A single stock-level row.
    *
@@ -97,11 +100,11 @@ public class InventoryService {
    * The stock-level row for a product, if one has been provisioned.
    *
    * <p>Backs {@code GET /api/inventory/by-product/{productId}}
-   * (docs/architecture/design/LLD-catalog-enrichment-and-saga.md S2.2, S3) - the read-only endpoint product-service's
-   * {@code CatalogAggregateService} calls through its {@code aggregateCb} circuit breaker
-   * (docs/architecture/adr/0003, Decision 2). An unprovisioned {@code productId} 404s here exactly like every
-   * other lookup in this service; turning that into "no inventory data" is the caller's decision,
-   * not this one's - mirrors {@link #findById}'s own posture.
+   * (docs/architecture/design/LLD-catalog-enrichment-and-saga.md S2.2, S3) - the read-only endpoint
+   * product-service's {@code CatalogAggregateService} calls through its {@code aggregateCb} circuit
+   * breaker (docs/architecture/adr/0003, Decision 2). An unprovisioned {@code productId} 404s here
+   * exactly like every other lookup in this service; turning that into "no inventory data" is the
+   * caller's decision, not this one's - mirrors {@link #findById}'s own posture.
    *
    * @param productId the product to look up stock for
    * @return the matching row
@@ -124,7 +127,8 @@ public class InventoryService {
                   // Variant-only product: no product-level row, expose the variant breakdown.
                   InventoryResponse stub = new InventoryResponse();
                   stub.setProductId(productId);
-                  stub.setQuantity(vq.stream().mapToInt(InventoryResponse.VariantQuantity::quantity).sum());
+                  stub.setQuantity(
+                      vq.stream().mapToInt(InventoryResponse.VariantQuantity::quantity).sum());
                   stub.setAvailableQuantity(stub.getQuantity());
                   return stub;
                 });
@@ -194,7 +198,8 @@ public class InventoryService {
     }
     events.publishAfterCommit(InventoryEventType.INVENTORY_QUANTITY_CHANGED, saved);
     maybePublishLowStock(saved);
-    warehouseStock.shift(saved.getProductId(), null, Platform.DEFAULT_WAREHOUSE_ID, saved.getQuantity());
+    warehouseStock.shift(
+        saved.getProductId(), null, Platform.DEFAULT_WAREHOUSE_ID, saved.getQuantity());
     return toResponse(saved);
   }
 
@@ -230,7 +235,10 @@ public class InventoryService {
     // the next PUT with a version that is already wrong.
     Inventory saved = inventory.saveAndFlush(row);
     warehouseStock.shift(
-        saved.getProductId(), null, Platform.DEFAULT_WAREHOUSE_ID, saved.getQuantity() - oldQuantity);
+        saved.getProductId(),
+        null,
+        Platform.DEFAULT_WAREHOUSE_ID,
+        saved.getQuantity() - oldQuantity);
     events.publishAfterCommit(InventoryEventType.INVENTORY_QUANTITY_CHANGED, saved);
     maybePublishLowStock(saved);
     return toResponse(saved);
@@ -253,9 +261,11 @@ public class InventoryService {
    * Provisions a stock-level row for {@code productId} at the caller-requested starting quantity,
    * if one does not already exist, denormalizing {@code name}/{@code sku} onto it in the same
    * write. Replaces the earlier zero-quantity-only {@code provisionIfAbsent} - the choreographed
-   * creation-saga's entry point on the inventory side (docs/architecture/design/HLD-catalog-enrichment-and-saga.md S5,
-   * docs/architecture/design/LLD-catalog-enrichment-and-saga.md S2.2). Called ONLY by {@code ProductEventListener} in
-   * reaction to a consumed {@code PRODUCT_CREATED} event - never by {@code InventoryController}.
+   * creation-saga's entry point on the inventory side
+   * (docs/architecture/design/HLD-catalog-enrichment-and-saga.md S5,
+   * docs/architecture/design/LLD-catalog-enrichment-and-saga.md S2.2). Called ONLY by {@code
+   * ProductEventListener} in reaction to a consumed {@code PRODUCT_CREATED} event - never by {@code
+   * InventoryController}.
    *
    * <p>IDEMPOTENT BY CONSTRUCTION, twice over (LLD S2.2, S6 edge-case table) - EXACTLY THE SAME
    * MECHANISM {@code provisionIfAbsent} used, just parameterized by quantity/name/sku. The
@@ -333,8 +343,8 @@ public class InventoryService {
   /**
    * Applies a denormalized product-name/SKU snapshot to the matching stock-level row. Called ONLY
    * by {@code ProductEventListener}, in reaction to a consumed {@code PRODUCT_UPDATED} event
-   * (docs/architecture/design/HLD-catalog-enrichment-and-saga.md S2, closing Phase 2 Open Question #4) - never by
-   * {@code InventoryController}.
+   * (docs/architecture/design/HLD-catalog-enrichment-and-saga.md S2, closing Phase 2 Open Question
+   * #4) - never by {@code InventoryController}.
    *
    * <p>Does NOT call {@link InventoryEventPublisher} - quantity did not change, so publishing
    * {@code INVENTORY_QUANTITY_CHANGED} here would be both incorrect and would restart the ping-pong
@@ -358,14 +368,6 @@ public class InventoryService {
         .ifPresent(row -> row.applyProductSnapshot(name, sku, timeProvider.now()));
   }
 
-  /**
-   * Publishes {@code INVENTORY_LOW_STOCK} when the row's current quantity is at or below its
-   * low-stock threshold. No edge-detection/hysteresis (docs/architecture/design/HLD-catalog-enrichment-and-saga.md S11
-   * Open Question #3) - a quantity that stays at or below the threshold across repeated writes
-   * publishes repeatedly; accepted for this slice.
-   *
-   * @param row the just-saved stock-level row
-   */
   /** Admin platform-stock write: moves the legacy platform totals by delta and publishes. */
   @Transactional
   public void shiftLegacyTotals(UUID productId, UUID variantId, int delta) {
@@ -385,7 +387,13 @@ public class InventoryService {
     Instant now = timeProvider.now();
     Inventory row = inventory.findByProductId(productId).orElse(null);
     if (row == null) {
-      row = Inventory.builder().productId(productId).quantity(0).createdAt(now).updatedAt(now).build();
+      row =
+          Inventory.builder()
+              .productId(productId)
+              .quantity(0)
+              .createdAt(now)
+              .updatedAt(now)
+              .build();
     }
     row.adjustQuantity(Math.max(0, row.getQuantity() + delta), now);
     Inventory saved = inventory.saveAndFlush(row);
@@ -393,6 +401,15 @@ public class InventoryService {
     maybePublishLowStock(saved);
   }
 
+  /**
+   * Publishes {@code INVENTORY_LOW_STOCK} when the row's current quantity is at or below its
+   * low-stock threshold. No edge-detection/hysteresis
+   * (docs/architecture/design/HLD-catalog-enrichment-and-saga.md S11 Open Question #3) - a quantity
+   * that stays at or below the threshold across repeated writes publishes repeatedly; accepted for
+   * this slice.
+   *
+   * @param row the just-saved stock-level row
+   */
   private void maybePublishLowStock(Inventory row) {
     if (row.getQuantity() <= row.getLowStockThreshold()) {
       events.publishAfterCommit(InventoryEventType.INVENTORY_LOW_STOCK, row);

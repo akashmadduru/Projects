@@ -1,0 +1,13 @@
+{
+ "product_id": "e9877399-da1e-476f-f595-1b08592f616c",
+ "name": "Taloex Omega-3 Pro",
+ "prompt": "studio packshot photo of a Navy Blue Taloex Omega-3 Pro, made of ceramic, supplements, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 566766320,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:13:13",
+ "file_path": "product-images/images/e9877399-da1e-476f-f595-1b08592f616c.jpg",
+ "file_size": 45710
+}

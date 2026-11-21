@@ -1,0 +1,13 @@
+{
+ "product_id": "d99f98d7-0869-4579-5398-8b769cfe9260",
+ "name": "Tano Colour Pencil Set Edition",
+ "prompt": "studio packshot photo of a White Tano Colour Pencil Set Edition, made of nylon, art supplies, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 507386626,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:50:06",
+ "file_path": "product-images/images/d99f98d7-0869-4579-5398-8b769cfe9260.jpg",
+ "file_size": 45687
+}

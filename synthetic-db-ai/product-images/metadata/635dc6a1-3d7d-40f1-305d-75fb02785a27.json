@@ -1,0 +1,13 @@
+{
+ "product_id": "635dc6a1-3d7d-40f1-305d-75fb02785a27",
+ "name": "Mimitra Wall Clock Lite",
+ "prompt": "studio packshot photo of a Green Mimitra Wall Clock Lite, made of ceramic, home decor, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1530133297,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:24:53",
+ "file_path": "product-images/images/635dc6a1-3d7d-40f1-305d-75fb02785a27.jpg",
+ "file_size": 44549
+}

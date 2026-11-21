@@ -1,0 +1,15 @@
+{
+ "product_id": "682992c7-d477-42e3-dd2e-5ad06ec04566",
+ "name": "Mifyor Trolley Bag Prime",
+ "prompt": "studio packshot photo of a Olive Mifyor Trolley Bag Prime, made of bamboo, bags & luggage, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 669486983,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T01:31:03",
+ "file_path": "static/images/682992c7-d477-42e3-dd2e-5ad06ec04566.jpg",
+ "file_size": 64843,
+ "uploaded": false,
+ "s3_url": null
+}

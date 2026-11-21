@@ -1,0 +1,15 @@
+{
+ "product_id": "85a2d876-be4e-4b80-8900-dc849385e417",
+ "name": "Ionmi Flash Drive Elite",
+ "prompt": "studio packshot photo of a Green Ionmi Flash Drive Elite, made of bamboo, storage, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2706250625,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:54:29",
+ "file_path": "static/images/85a2d876-be4e-4b80-8900-dc849385e417.jpg",
+ "file_size": 39962,
+ "uploaded": false,
+ "s3_url": null
+}

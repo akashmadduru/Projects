@@ -1,0 +1,15 @@
+{
+ "product_id": "25bad7d4-7ca1-4db5-777d-bf897146693c",
+ "name": "Linu Jeans Lite",
+ "prompt": "studio packshot photo of a Midnight Linu Jeans Lite, made of aluminium, men's clothing, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3871679715,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-15T23:40:20",
+ "file_path": "static/images/25bad7d4-7ca1-4db5-777d-bf897146693c.jpg",
+ "file_size": 32365,
+ "uploaded": false,
+ "s3_url": null
+}

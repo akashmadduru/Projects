@@ -1,0 +1,13 @@
+{
+ "product_id": "ab900159-29d0-4e09-89cb-a01b6e99bbb1",
+ "name": "Liexdex Thermometer Pro",
+ "prompt": "studio packshot photo of a White Liexdex Thermometer Pro, made of bamboo, medical devices, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 216554348,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:19:11",
+ "file_path": "product-images/images/ab900159-29d0-4e09-89cb-a01b6e99bbb1.jpg",
+ "file_size": 88517
+}

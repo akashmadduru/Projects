@@ -1,0 +1,13 @@
+{
+ "product_id": "76ede316-e531-4254-5c4b-37b20e5123f4",
+ "name": "Voion Hair Dryer Edition",
+ "prompt": "studio packshot photo of a Green Voion Hair Dryer Edition, made of nylon, hair care, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 470827819,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T00:34:41",
+ "file_path": "product-images/images/76ede316-e531-4254-5c4b-37b20e5123f4.jpg",
+ "file_size": 53311
+}

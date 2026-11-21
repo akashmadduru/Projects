@@ -1,0 +1,13 @@
+{
+ "product_id": "d6762446-6081-4ff4-1695-629e2e0b85a6",
+ "name": "Dexba Box Set Pro",
+ "prompt": "studio packshot photo of a Navy Blue Dexba Box Set Pro, made of glass, books, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2138386691,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:12:07",
+ "file_path": "product-images/images/d6762446-6081-4ff4-1695-629e2e0b85a6.jpg",
+ "file_size": 68836
+}

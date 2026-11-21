@@ -1,0 +1,13 @@
+{
+ "product_id": "bacf9909-458a-4520-f0c5-e20f0c24e675",
+ "name": "Notaba Notebook Pack Edition",
+ "prompt": "studio packshot photo of a Midnight Notaba Notebook Pack Edition, made of ceramic, stationery, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3549414269,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:40:42",
+ "file_path": "product-images/images/bacf9909-458a-4520-f0c5-e20f0c24e675.jpg",
+ "file_size": 39662
+}

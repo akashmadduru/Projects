@@ -1,0 +1,13 @@
+{
+ "product_id": "0cbc7f7f-98bd-4eac-6b58-6e39f70246a5",
+ "name": "Artaar Mesh System Series 2",
+ "prompt": "studio packshot photo of a Black Artaar Mesh System Series 2, made of wood, networking, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3317324443,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 768,
+ "created_at": "2026-11-15T22:45:19",
+ "file_path": "product-images/images/0cbc7f7f-98bd-4eac-6b58-6e39f70246a5.jpg",
+ "file_size": 149111
+}

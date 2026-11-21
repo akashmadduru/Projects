@@ -1,0 +1,13 @@
+{
+ "product_id": "a93ea1e2-2ab2-4c80-f3a5-c9260c20d6ab",
+ "name": "Zemidex Mirrorless Camera Essential",
+ "prompt": "studio packshot photo of a Rose Gold Zemidex Mirrorless Camera Essential, made of leather, cameras, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3020565125,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:17:10",
+ "file_path": "product-images/images/a93ea1e2-2ab2-4c80-f3a5-c9260c20d6ab.jpg",
+ "file_size": 61219
+}

@@ -1,0 +1,13 @@
+{
+ "product_id": "d51b85a4-4ca1-449a-e7d4-fa0c7e59d1c8",
+ "name": "Taven RC Car Lite",
+ "prompt": "studio packshot photo of a Navy Blue Taven RC Car Lite, made of silicone, remote control, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1690298591,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:47:05",
+ "file_path": "product-images/images/d51b85a4-4ca1-449a-e7d4-fa0c7e59d1c8.jpg",
+ "file_size": 31695
+}

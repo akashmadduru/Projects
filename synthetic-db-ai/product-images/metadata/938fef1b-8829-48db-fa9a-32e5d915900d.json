@@ -1,0 +1,13 @@
+{
+ "product_id": "938fef1b-8829-48db-fa9a-32e5d915900d",
+ "name": "Zeion RC Helicopter Plus",
+ "prompt": "studio packshot photo of a Space Grey Zeion RC Helicopter Plus, made of nylon, remote control, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 868265131,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:30:59",
+ "file_path": "product-images/images/938fef1b-8829-48db-fa9a-32e5d915900d.jpg",
+ "file_size": 97567
+}

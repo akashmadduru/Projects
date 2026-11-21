@@ -46,13 +46,26 @@ public class AdminRatingController {
     return new PagedModel<>(ratings.adminSearch(productId, stars, q, flagged, pageable));
   }
 
+  /**
+   * Deletes any review. Same effect as an admin calling {@code DELETE /api/ratings/{id}}, but under
+   * {@code /api/admin/**}, so the shared audit interceptor records who deleted it (TD-ADM-05).
+   */
+  @org.springframework.web.bind.annotation.DeleteMapping("/{id}")
+  @org.springframework.web.bind.annotation.ResponseStatus(
+      org.springframework.http.HttpStatus.NO_CONTENT)
+  @PreAuthorize("hasRole('ADMIN')")
+  public void delete(@org.springframework.web.bind.annotation.PathVariable UUID id) {
+    ratings.delete(id, null, true);
+  }
+
   public record ModerateRequest(@jakarta.validation.constraints.NotNull Boolean approve) {}
 
   /** approve=true keeps the review (counted again); approve=false deletes it. */
   @org.springframework.web.bind.annotation.PostMapping("/{id}/moderate")
   public RatingResponse moderate(
       @org.springframework.web.bind.annotation.PathVariable UUID id,
-      @jakarta.validation.Valid @org.springframework.web.bind.annotation.RequestBody ModerateRequest r) {
+      @jakarta.validation.Valid @org.springframework.web.bind.annotation.RequestBody
+          ModerateRequest r) {
     return ratings.moderate(id, r.approve());
   }
 }

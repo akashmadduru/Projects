@@ -1,0 +1,13 @@
+{
+ "product_id": "1b4cdd1e-21de-4800-e664-b5be459f37fe",
+ "name": "Quabaka Glucometer Essential",
+ "prompt": "studio packshot photo of a Rose Gold Quabaka Glucometer Essential, made of stainless steel, medical devices, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 968272795,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 768,
+ "created_at": "2026-11-15T23:11:52",
+ "file_path": "product-images/images/1b4cdd1e-21de-4800-e664-b5be459f37fe.jpg",
+ "file_size": 96257
+}

@@ -1,0 +1,15 @@
+{
+ "product_id": "2f27a082-60a5-49a7-9fbc-89b86bb8dac3",
+ "name": "Tralum Laptop Ultra",
+ "prompt": "studio packshot photo of a Green Tralum Laptop Ultra, made of polyester, laptops, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2316657349,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T01:48:53",
+ "file_path": "static/images/2f27a082-60a5-49a7-9fbc-89b86bb8dac3.jpg",
+ "file_size": 70127,
+ "uploaded": false,
+ "s3_url": null
+}

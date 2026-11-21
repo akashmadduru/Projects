@@ -1,0 +1,15 @@
+{
+ "product_id": "712927c3-6f87-4367-2509-1fa048ebe522",
+ "name": "Dextafy Construction Set Prime",
+ "prompt": "studio packshot photo of a Rose Gold Dextafy Construction Set Prime, made of aluminium, building toys, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2351760950,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:39:05",
+ "file_path": "static/images/712927c3-6f87-4367-2509-1fa048ebe522.jpg",
+ "file_size": 73067,
+ "uploaded": false,
+ "s3_url": null
+}

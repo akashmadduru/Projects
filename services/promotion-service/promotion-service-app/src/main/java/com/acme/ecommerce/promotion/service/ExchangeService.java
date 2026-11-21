@@ -134,7 +134,8 @@ public class ExchangeService {
             .query(ExchangeService::program)
             .optional()
             .orElseThrow(
-                () -> new CodedException(ErrorCode.RESOURCE_NOT_FOUND, "Exchange program not found"));
+                () ->
+                    new CodedException(ErrorCode.RESOURCE_NOT_FOUND, "Exchange program not found"));
     if (p.brand() != null && !p.brand().equalsIgnoreCase(brand.trim())) {
       throw new CodedException(
           ErrorCode.VALIDATION_FAILED, "This program accepts only " + p.brand() + " devices");
@@ -163,7 +164,8 @@ public class ExchangeService {
         .param("id", id)
         .query(ExchangeService::quote)
         .optional()
-        .orElseThrow(() -> new CodedException(ErrorCode.RESOURCE_NOT_FOUND, "Exchange quote not found"));
+        .orElseThrow(
+            () -> new CodedException(ErrorCode.RESOURCE_NOT_FOUND, "Exchange quote not found"));
   }
 
   /** Owner-checked read for order-service (404 for someone else's quote). */
@@ -224,11 +226,14 @@ public class ExchangeService {
     Quote q = find(quoteId);
     if (!"APPLIED".equals(q.status())) {
       throw new CodedException(
-          ErrorCode.INVALID_STATUS_TRANSITION, "Only an exchange applied to an order can be verified");
+          ErrorCode.INVALID_STATUS_TRANSITION,
+          "Only an exchange applied to an order can be verified");
     }
     BigDecimal fin =
         accepted
-            ? (finalValue == null ? q.quotedValue() : finalValue.min(q.quotedValue()).max(BigDecimal.ZERO))
+            ? (finalValue == null
+                ? q.quotedValue()
+                : finalValue.min(q.quotedValue()).max(BigDecimal.ZERO))
             : BigDecimal.ZERO;
     BigDecimal shortfall = q.quotedValue().subtract(fin);
     String status = accepted ? "PICKED_UP" : "REJECTED";

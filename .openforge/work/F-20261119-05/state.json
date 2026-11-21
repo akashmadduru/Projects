@@ -1,0 +1,12 @@
+{
+ "id": "F-20261119-05",
+ "slug": "seller-stock-integrity",
+ "step": "pr-ready-owner-push",
+ "branch": "forge/F-20261119-05-seller-stock-integrity",
+ "worktree": ".openforge/worktrees/F-20261119-05",
+ "base_sha": "fcf6f2a2b93ae497b67244260fba86f3cb8aa29f",
+ "implementer": "forge-backend-engineer",
+ "head_sha": "64fdb21d414b2d5b7b6f9d63dc7e4b9a409ec338",
+ "portfolio": "O-10",
+ "owner_push_approved": "2026-11-20 (AskUserQuestion)"
+}

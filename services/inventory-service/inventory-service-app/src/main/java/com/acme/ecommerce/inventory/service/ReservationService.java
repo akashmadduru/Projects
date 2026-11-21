@@ -1,6 +1,7 @@
 package com.acme.ecommerce.inventory.service;
 
 import com.acme.ecommerce.common.core.time.TimeProvider;
+import com.acme.ecommerce.inventory.config.InventoryProperties;
 import com.acme.ecommerce.inventory.domain.Inventory;
 import com.acme.ecommerce.inventory.domain.Platform;
 import com.acme.ecommerce.inventory.domain.Reservation;
@@ -35,8 +36,10 @@ import org.springframework.transaction.annotation.Transactional;
  * Order stock reservations. Lines are keyed by (productId, variantId nullable, offerId nullable).
  * Stock lives per warehouse in warehouse_stock; a line is routed to the warehouse nearest to the
  * ship-to pincode that has enough stock, and split across warehouses when none has enough. A line
- * with no stock rows at all is unlimited (as before). Platform stock additionally keeps the legacy
- * stock_levels / variant_stock totals in step (they back events and availableQuantity).
+ * with no stock rows at all is out of stock (inventory.stock.missing-rows=REJECT, the default); the
+ * catalog sync gives every product and variant a row (TD-P6-04, TD-P7-07). Platform stock
+ * additionally keeps the legacy stock_levels / variant_stock totals in step (they back events and
+ * availableQuantity).
  */
 @Service
 public class ReservationService {
@@ -65,6 +68,7 @@ public class ReservationService {
   private final ReservationReleaseRepository releases;
   private final TimeProvider timeProvider;
   private final InventoryEventPublisher events;
+  private final InventoryProperties properties;
 
   public ReservationService(
       InventoryRepository inventory,
@@ -74,7 +78,9 @@ public class ReservationService {
       ReservationRepository reservations,
       ReservationReleaseRepository releases,
       TimeProvider timeProvider,
-      InventoryEventPublisher events) {
+      InventoryEventPublisher events,
+      InventoryProperties properties) {
+    this.properties = properties;
     this.inventory = inventory;
     this.variants = variants;
     this.stock = stock;
@@ -105,7 +111,13 @@ public class ReservationService {
         rows = stock.lockForLine(k.productId(), k.variantId(), null);
       }
       if (rows.isEmpty()) {
-        log.info("No stock rows for {}; treating as unlimited", k);
+        if (properties.getStock().getMissingRows() == InventoryProperties.MissingRows.UNLIMITED) {
+          log.info("No stock rows for {}; treating as unlimited", k);
+          continue;
+        }
+        // Fail closed: an item nobody has stocked cannot be sold.
+        log.warn("No stock rows for {}; rejecting as out of stock", k);
+        shortfalls.add(new Shortfall(k.productId(), wanted.get(k), 0));
         continue;
       }
       int total = rows.stream().mapToInt(Row::quantity).sum();
@@ -257,9 +269,13 @@ public class ReservationService {
         }
       }
       if (!matched) {
-        // No reservation was recorded (unlimited line): keep the old behaviour of crediting the
-        // platform totals so counts do not drift.
-        mirrorLegacy(k.productId(), k.variantId(), e.getValue(), now);
+        // Nothing was reserved for this line, so there is nothing to give back. Crediting the
+        // caller's quantity here would let a release create stock out of thin air (TD-P6-04).
+        log.warn(
+            "Release for order {} names {} x{} with no reservation; ignored",
+            orderId,
+            k,
+            e.getValue());
       }
       releases.save(
           ReservationRelease.of(orderId, key, k.productId(), k.variantId(), e.getValue(), now));
@@ -269,11 +285,13 @@ public class ReservationService {
   private void addBack(Reservation r, int amount, Instant now) {
     if (r.getWarehouseId() != null) {
       UUID seller = r.getSellerId() == null ? Platform.SELLER_ID : r.getSellerId();
-      Row row = stock.find(r.getProductId(), r.getVariantId(), seller, r.getWarehouseId()).orElse(null);
+      Row row =
+          stock.find(r.getProductId(), r.getVariantId(), seller, r.getWarehouseId()).orElse(null);
       if (row != null) {
         stock.add(row.id(), amount);
       } else {
-        stock.upsert(r.getProductId(), r.getVariantId(), seller, r.getOfferId(), r.getWarehouseId(), amount);
+        stock.upsert(
+            r.getProductId(), r.getVariantId(), seller, r.getOfferId(), r.getWarehouseId(), amount);
       }
       if (!Platform.SELLER_ID.equals(seller)) {
         return;

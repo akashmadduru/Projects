@@ -1,0 +1,13 @@
+{
+ "product_id": "68e9804f-e539-4275-703a-16b579735e58",
+ "name": "Rivenor Laptop Lite",
+ "prompt": "studio packshot photo of a Blue Rivenor Laptop Lite, made of nylon, laptops, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1668295,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:41:21",
+ "file_path": "product-images/images/68e9804f-e539-4275-703a-16b579735e58.jpg",
+ "file_size": 84747
+}

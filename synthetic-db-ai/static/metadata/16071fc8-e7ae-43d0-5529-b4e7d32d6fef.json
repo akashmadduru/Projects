@@ -1,0 +1,15 @@
+{
+ "product_id": "16071fc8-e7ae-43d0-5529-b4e7d32d6fef",
+ "name": "Losu Phone Series 2",
+ "prompt": "studio packshot photo of a Black Losu Phone Series 2, made of bamboo, mobiles & smartphones, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1872407425,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:11:35",
+ "file_path": "static/images/16071fc8-e7ae-43d0-5529-b4e7d32d6fef.jpg",
+ "file_size": 70900,
+ "uploaded": false,
+ "s3_url": null
+}

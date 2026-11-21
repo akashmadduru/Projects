@@ -1,0 +1,13 @@
+{
+ "product_id": "f3a77a50-3022-4d18-a098-a0f8d26ff8c3",
+ "name": "Nuka Smartphone Plus",
+ "prompt": "studio packshot photo of a Olive Nuka Smartphone Plus, made of bamboo, mobiles & smartphones, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2270784937,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:59:25",
+ "file_path": "product-images/images/f3a77a50-3022-4d18-a098-a0f8d26ff8c3.jpg",
+ "file_size": 48711
+}

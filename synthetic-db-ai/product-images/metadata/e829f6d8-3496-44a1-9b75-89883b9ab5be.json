@@ -1,0 +1,13 @@
+{
+ "product_id": "e829f6d8-3496-44a1-9b75-89883b9ab5be",
+ "name": "Exnuion Puzzle Gen 3",
+ "prompt": "studio packshot photo of a Navy Blue Exnuion Puzzle Gen 3, made of abs plastic, board games, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 999240922,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:58:49",
+ "file_path": "product-images/images/e829f6d8-3496-44a1-9b75-89883b9ab5be.jpg",
+ "file_size": 90222
+}

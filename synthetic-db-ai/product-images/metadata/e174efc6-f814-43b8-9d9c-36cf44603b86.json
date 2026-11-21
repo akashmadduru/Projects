@@ -1,0 +1,13 @@
+{
+ "product_id": "e174efc6-f814-43b8-9d9c-36cf44603b86",
+ "name": "Quavenka Smart TV Max",
+ "prompt": "studio packshot photo of a White Quavenka Smart TV Max, made of stainless steel, televisions, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 599725238,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:32:31",
+ "file_path": "product-images/images/e174efc6-f814-43b8-9d9c-36cf44603b86.jpg",
+ "file_size": 32634
+}

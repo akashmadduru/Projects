@@ -73,7 +73,9 @@ public class RefreshCookieWriter {
   /** Expires the refresh cookie. Used by logout and by reuse detection. */
   public static final String PENDING_COOKIE = "mfa_pending";
 
-  /** Short-lived HttpOnly cookie carrying the mfaToken of a Google login that needs a second factor. */
+  /**
+   * Short-lived HttpOnly cookie carrying the mfaToken of a Google login that needs a second factor.
+   */
   public void writePending(HttpServletResponse response, String mfaToken, Duration ttl) {
     CookieSupport.write(
         response,

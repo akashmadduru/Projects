@@ -1,0 +1,13 @@
+{
+ "product_id": "dfcaa6f1-3eca-47f2-d1f8-2f651f11e337",
+ "name": "Orba Jacket Series 2",
+ "prompt": "studio packshot photo of a Black Orba Jacket Series 2, made of stainless steel, men's clothing, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2616030134,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T00:31:54",
+ "file_path": "product-images/images/dfcaa6f1-3eca-47f2-d1f8-2f651f11e337.jpg",
+ "file_size": 58236
+}

@@ -1,0 +1,13 @@
+{
+ "product_id": "67c87ff6-c2a1-4723-a5bf-53a29d19a8a3",
+ "name": "Ritaco Building Blocks Classic",
+ "prompt": "studio packshot photo of a Blue Ritaco Building Blocks Classic, made of wood, building toys, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3707920483,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:32:58",
+ "file_path": "product-images/images/67c87ff6-c2a1-4723-a5bf-53a29d19a8a3.jpg",
+ "file_size": 38067
+}

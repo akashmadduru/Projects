@@ -16,8 +16,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Multiple + shareable lists. The default list ("Wishlist") stores its items in
- * cart.wishlist_items (so /api/wishlist/** keeps working); other lists use cart.list_items.
+ * Multiple + shareable lists. The default list ("Wishlist") stores its items in cart.wishlist_items
+ * (so /api/wishlist/** keeps working); other lists use cart.list_items.
  */
 @Service
 public class ListService {
@@ -82,7 +82,8 @@ public class ListService {
   @Transactional
   public List<ListView> list(UUID userId) {
     ensureDefault(userId);
-    return jdbc.sql("SELECT * FROM cart.lists WHERE user_id = :u ORDER BY is_default DESC, created_at")
+    return jdbc
+        .sql("SELECT * FROM cart.lists WHERE user_id = :u ORDER BY is_default DESC, created_at")
         .param("u", userId)
         .query(ListService::row)
         .list()
@@ -122,7 +123,8 @@ public class ListService {
   public ListView rename(UUID userId, UUID id, String name) {
     Row r = owned(userId, id);
     if (r.isDefault()) {
-      throw new CodedException(ErrorCode.DOMAIN_RULE_VIOLATION, "The default list cannot be renamed");
+      throw new CodedException(
+          ErrorCode.DOMAIN_RULE_VIOLATION, "The default list cannot be renamed");
     }
     jdbc.sql("UPDATE cart.lists SET name = :n WHERE id = :id")
         .param("n", cleanName(name))
@@ -135,7 +137,8 @@ public class ListService {
   public void delete(UUID userId, UUID id) {
     Row r = owned(userId, id);
     if (r.isDefault()) {
-      throw new CodedException(ErrorCode.DOMAIN_RULE_VIOLATION, "The default list cannot be deleted");
+      throw new CodedException(
+          ErrorCode.DOMAIN_RULE_VIOLATION, "The default list cannot be deleted");
     }
     jdbc.sql("DELETE FROM cart.lists WHERE id = :id").param("id", id).update();
   }
@@ -390,6 +393,7 @@ public class ListService {
     if (local.length() < 2) {
       return null;
     }
-    return local.substring(0, 1).toUpperCase(Locale.ROOT) + local.substring(1).toLowerCase(Locale.ROOT);
+    return local.substring(0, 1).toUpperCase(Locale.ROOT)
+        + local.substring(1).toLowerCase(Locale.ROOT);
   }
 }

@@ -1,0 +1,13 @@
+{
+ "product_id": "b3e46ea1-21f8-4449-a184-6690e530ee96",
+ "name": "Colo RC Helicopter Series 2",
+ "prompt": "studio packshot photo of a Navy Blue Colo RC Helicopter Series 2, made of stainless steel, remote control, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 598804527,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:24:53",
+ "file_path": "product-images/images/b3e46ea1-21f8-4449-a184-6690e530ee96.jpg",
+ "file_size": 38117
+}

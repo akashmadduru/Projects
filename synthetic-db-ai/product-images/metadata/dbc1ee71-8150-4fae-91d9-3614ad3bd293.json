@@ -1,0 +1,13 @@
+{
+ "product_id": "dbc1ee71-8150-4fae-91d9-3614ad3bd293",
+ "name": "Bakata Deodorant Prime",
+ "prompt": "studio packshot photo of a Olive Bakata Deodorant Prime, made of bamboo, fragrances, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 955531948,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:43:54",
+ "file_path": "product-images/images/dbc1ee71-8150-4fae-91d9-3614ad3bd293.jpg",
+ "file_size": 53970
+}

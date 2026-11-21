@@ -1,0 +1,13 @@
+{
+ "product_id": "4a58a00f-3cb7-4feb-553f-79fbeec97134",
+ "name": "Taco Sketch Pad Pro",
+ "prompt": "studio packshot photo of a Olive Taco Sketch Pad Pro, made of nylon, art supplies, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 227390851,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:27:35",
+ "file_path": "product-images/images/4a58a00f-3cb7-4feb-553f-79fbeec97134.jpg",
+ "file_size": 50832
+}

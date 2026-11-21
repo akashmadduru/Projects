@@ -1,0 +1,1017 @@
+diff --git a/services/payment-service/payment-service-app/src/main/java/com/acme/ecommerce/payment/repository/AdminPaymentQueries.java b/services/payment-service/payment-service-app/src/main/java/com/acme/ecommerce/payment/repository/AdminPaymentQueries.java
+index 08f9529..c77284a 100644
+--- a/services/payment-service/payment-service-app/src/main/java/com/acme/ecommerce/payment/repository/AdminPaymentQueries.java
++++ b/services/payment-service/payment-service-app/src/main/java/com/acme/ecommerce/payment/repository/AdminPaymentQueries.java
+@@ -54,7 +54,12 @@ public class AdminPaymentQueries {
+       String purpose) {}
+ 
+   public record RefundRow(
+-      UUID id, BigDecimal amount, String reason, Instant createdAt, String providerRefundId) {}
++      UUID id,
++      BigDecimal amount,
++      String reason,
++      Instant createdAt,
++      String providerRefundId,
++      String status) {}
+ 
+   private static final String COLS =
+       "id, order_id, user_id, method, mode, amount, currency, status, refunded_amount,"
+@@ -100,7 +105,7 @@ public class AdminPaymentQueries {
+ 
+   public List<RefundRow> refunds(UUID paymentId) {
+     return jdbc.sql(
+-            "SELECT id, amount, reason, created_at, provider_refund_id FROM payment.refunds"
++            "SELECT id, amount, reason, created_at, provider_refund_id, status FROM payment.refunds"
+                 + " WHERE payment_id = :p ORDER BY created_at")
+         .param("p", paymentId)
+         .query(
+@@ -110,7 +115,8 @@ public class AdminPaymentQueries {
+                     rs.getBigDecimal("amount"),
+                     rs.getString("reason"),
+                     instant(rs, "created_at"),
+-                    rs.getString("provider_refund_id")))
++                    rs.getString("provider_refund_id"),
++                    rs.getString("status")))
+         .list();
+   }
+ 
+diff --git a/services/payment-service/payment-service-app/src/main/java/com/acme/ecommerce/payment/repository/PaymentRepository.java b/services/payment-service/payment-service-app/src/main/java/com/acme/ecommerce/payment/repository/PaymentRepository.java
+index cb08647..391f847 100644
+--- a/services/payment-service/payment-service-app/src/main/java/com/acme/ecommerce/payment/repository/PaymentRepository.java
++++ b/services/payment-service/payment-service-app/src/main/java/com/acme/ecommerce/payment/repository/PaymentRepository.java
+@@ -238,25 +238,118 @@ public class PaymentRepository {
+         .single();
+   }
+ 
++  /** A refund row. Status is PENDING until Razorpay confirms, then SUCCEEDED or FAILED. */
++  public record Refund(
++      UUID id, UUID paymentId, BigDecimal amount, String status, String providerRefundId) {}
++
++  /** A refund event that arrived before its refund row existed. */
++  public record ParkedRefundEvent(
++      String status, String providerPaymentId, long amountMinor, String currency) {}
++
++  private static Refund mapRefund(ResultSet rs, int n) throws SQLException {
++    return new Refund(
++        rs.getObject("id", UUID.class),
++        rs.getObject("payment_id", UUID.class),
++        rs.getBigDecimal("amount"),
++        rs.getString("status"),
++        rs.getString("provider_refund_id"));
++  }
++
+   public void insertRefund(
+       UUID paymentId,
+       BigDecimal amount,
+       String reason,
+       String stripeRefundId,
+       String providerRefundId,
+-      String key) {
++      String key,
++      String status) {
+     jdbc.sql(
+             "INSERT INTO payment.refunds (payment_id, amount, reason, stripe_refund_id, "
+-                + "provider_refund_id, idempotency_key) VALUES (:p, :a, :r, :s, :pr, :k)")
++                + "provider_refund_id, idempotency_key, status) "
++                + "VALUES (:p, :a, :r, :s, :pr, :k, :st)")
+         .param("p", paymentId)
+         .param("a", amount)
+         .param("r", reason)
+         .param("s", stripeRefundId)
+         .param("pr", providerRefundId)
+         .param("k", key)
++        .param("st", status)
++        .update();
++  }
++
++  /** Row lock on the refund; call after the payment lock (same order as refund()). */
++  public Optional<Refund> findRefundByProviderRefundId(String providerRefundId) {
++    return jdbc.sql(
++            "SELECT id, payment_id, amount, status, provider_refund_id FROM payment.refunds "
++                + "WHERE provider_refund_id = :r ORDER BY created_at LIMIT 1 FOR UPDATE")
++        .param("r", providerRefundId)
++        .query(PaymentRepository::mapRefund)
++        .optional();
++  }
++
++  public Optional<Payment> findByProviderPaymentIdForUpdate(String providerPaymentId) {
++    return jdbc.sql(
++            "SELECT "
++                + COLS
++                + " FROM payment.payments WHERE provider_payment_id = :p LIMIT 1 FOR UPDATE")
++        .param("p", providerPaymentId)
++        .query(PaymentRepository::map)
++        .optional();
++  }
++
++  /** PENDING to a terminal status, once. Returns rows changed (0: already settled). */
++  public int settleRefundRow(UUID id, String status) {
++    return jdbc.sql(
++            "UPDATE payment.refunds SET status = :s, settled_at = now() "
++                + "WHERE id = :i AND status = 'PENDING'")
++        .param("s", status)
++        .param("i", id)
+         .update();
+   }
+ 
++  public String refundStatus(UUID id) {
++    return jdbc.sql("SELECT status FROM payment.refunds WHERE id = :i")
++        .param("i", id)
++        .query(String.class)
++        .single();
++  }
++
++  public void parkRefundEvent(
++      String providerRefundId,
++      String status,
++      String providerPaymentId,
++      long amountMinor,
++      String currency) {
++    jdbc.sql(
++            "INSERT INTO payment.razorpay_refund_parked (provider_refund_id, status, "
++                + "provider_payment_id, amount_minor, currency) VALUES (:r, :s, :p, :a, :c) "
++                + "ON CONFLICT DO NOTHING")
++        .param("r", providerRefundId)
++        .param("s", status)
++        .param("p", providerPaymentId)
++        .param("a", amountMinor)
++        .param("c", currency)
++        .update();
++  }
++
++  /** Removes and returns the parked events of a refund, oldest first. */
++  public List<ParkedRefundEvent> takeParkedRefundEvents(String providerRefundId) {
++    return jdbc.sql(
++            "WITH d AS (DELETE FROM payment.razorpay_refund_parked WHERE provider_refund_id = :r "
++                + "RETURNING status, provider_payment_id, amount_minor, currency, received_at) "
++                + "SELECT status, provider_payment_id, amount_minor, currency FROM d "
++                + "ORDER BY received_at")
++        .param("r", providerRefundId)
++        .query(
++            (rs, n) ->
++                new ParkedRefundEvent(
++                    rs.getString("status"),
++                    rs.getString("provider_payment_id"),
++                    rs.getLong("amount_minor"),
++                    rs.getString("currency")))
++        .list();
++  }
++
+   public boolean eventProcessed(String eventId) {
+     return jdbc.sql("SELECT EXISTS (SELECT 1 FROM payment.processed_events WHERE event_id = :e)")
+         .param("e", eventId)
+diff --git a/services/payment-service/payment-service-app/src/main/java/com/acme/ecommerce/payment/service/PaymentService.java b/services/payment-service/payment-service-app/src/main/java/com/acme/ecommerce/payment/service/PaymentService.java
+index ab117dd..6cb843f 100644
+--- a/services/payment-service/payment-service-app/src/main/java/com/acme/ecommerce/payment/service/PaymentService.java
++++ b/services/payment-service/payment-service-app/src/main/java/com/acme/ecommerce/payment/service/PaymentService.java
+@@ -519,6 +519,10 @@ public class PaymentService {
+       throw new CodedException(ErrorCode.VALIDATION_FAILED, "Unreadable webhook payload");
+     }
+     String type = root.path("event").asText("");
++    if (type.startsWith("refund.")) {
++      handleRazorpayRefund(root, type, eventId);
++      return;
++    }
+     if (!"payment.captured".equals(type) && !"order.paid".equals(type)) {
+       return;
+     }
+@@ -603,13 +607,15 @@ public class PaymentService {
+             throw new CodedException(
+                 ErrorCode.DOMAIN_RULE_VIOLATION, "Refund amount exceeds the refundable balance");
+           }
++          // A Razorpay refund is only accepted, not done: PENDING until a webhook confirms it.
+           payments.insertRefund(
+               locked.id(),
+               amount,
+               req.reason(),
+               stripeRefund,
+               providerRefund,
+-              req.idempotencyKey());
++              req.idempotencyKey(),
++              providerRefund != null ? "PENDING" : "SUCCEEDED");
+           if (toWallet) {
+             wallet.credit(
+                 locked.userId(),
+@@ -622,10 +628,127 @@ public class PaymentService {
+           String newStatus =
+               total.compareTo(locked.amount()) == 0 ? "REFUNDED" : "PARTIALLY_REFUNDED";
+           payments.applyRefund(locked.id(), total, newStatus);
++          if (providerRefund != null && applyParkedRefundEvents(locked.id(), providerRefund)) {
++            return refundView(payments.findById(locked.id()).orElseThrow());
++          }
+           return new RefundResponse(newStatus, total);
+         });
+   }
+ 
++  /**
++   * Razorpay refund webhook (processed / failed); other refund.* events are a 200 no-op. One tx:
++   * the event id is recorded, then the payment row and the refund row are locked (payment first, as
++   * refund() does). An event whose refund row is not committed yet is parked and applied by
++   * refund(); both sides lock the payment row, so one of them always sees the other's row.
++   */
++  private void handleRazorpayRefund(JsonNode root, String type, String eventId) {
++    if (!"refund.processed".equals(type) && !"refund.failed".equals(type)) {
++      return;
++    }
++    JsonNode e = root.path("payload").path("refund").path("entity");
++    String refundId = e.path("id").asText(null);
++    String paymentId = e.path("payment_id").asText(null);
++    String currency = e.path("currency").asText("").toUpperCase(Locale.ROOT);
++    if (refundId == null || paymentId == null || !e.has("amount") || currency.length() != 3) {
++      log.warn("Razorpay {} event has no usable payload.refund.entity; ignored", type);
++      return;
++    }
++    String target = "refund.processed".equals(type) ? "SUCCEEDED" : "FAILED";
++    long minor = e.path("amount").asLong();
++    String dedupeKey =
++        "rzp:" + (eventId != null && !eventId.isBlank() ? eventId : type + ":" + refundId);
++    tx.executeWithoutResult(
++        status -> {
++          if (!payments.recordEvent(dedupeKey)) {
++            log.info("Duplicate Razorpay event {} ignored", dedupeKey);
++            return;
++          }
++          Payment p = payments.findByProviderPaymentIdForUpdate(paymentId).orElse(null);
++          if (p == null) {
++            log.warn("Razorpay {} for refund {} of unknown payment {}", type, refundId, paymentId);
++            return;
++          }
++          var r = payments.findRefundByProviderRefundId(refundId).orElse(null);
++          if (r == null) {
++            log.warn(
++                "Razorpay {} for unknown refund {}; parked until it is recorded", type, refundId);
++            payments.parkRefundEvent(refundId, target, paymentId, minor, currency);
++            return;
++          }
++          applyRefundEvent(p, r, target, paymentId, minor, currency);
++        });
++  }
++
++  /** Applies events parked before the refund row existed. Returns true if any were found. */
++  private boolean applyParkedRefundEvents(UUID paymentId, String providerRefundId) {
++    var parked = payments.takeParkedRefundEvents(providerRefundId);
++    if (parked.isEmpty()) {
++      return false;
++    }
++    Payment p = payments.lockById(paymentId).orElseThrow();
++    var r = payments.findRefundByProviderRefundId(providerRefundId).orElseThrow();
++    for (var e : parked) {
++      applyRefundEvent(p, r, e.status(), e.providerPaymentId(), e.amountMinor(), e.currency());
++    }
++    return true;
++  }
++
++  private void applyRefundEvent(
++      Payment p,
++      PaymentRepository.Refund r,
++      String target,
++      String providerPaymentId,
++      long minor,
++      String currency) {
++    if (!r.paymentId().equals(p.id())
++        || !providerPaymentId.equals(p.providerPaymentId())
++        || minor != toMinor(r.amount())
++        || !p.currency().equalsIgnoreCase(currency)) {
++      log.warn(
++          "Razorpay refund {} ({} {}) does not match refund row {} of payment {}; not applying",
++          r.providerRefundId(),
++          minor,
++          currency,
++          r.id(),
++          p.id());
++      return;
++    }
++    settleRefund(p, r, target);
++  }
++
++  /**
++   * PENDING to SUCCEEDED or FAILED, once. SUCCEEDED leaves the payment as it is (the amount was
++   * reserved at acceptance). FAILED releases the reserved amount and does not credit the wallet.
++   * Caller holds the payment row lock. A terminal state is never overwritten.
++   */
++  private void settleRefund(Payment p, PaymentRepository.Refund r, String target) {
++    if (payments.settleRefundRow(r.id(), target) == 0) {
++      String current = payments.refundStatus(r.id());
++      if (target.equals(current)) {
++        log.info("Refund {} is already {}; duplicate ignored", r.providerRefundId(), current);
++      } else {
++        log.warn(
++            "Refund {} is already {}; conflicting {} ignored",
++            r.providerRefundId(),
++            current,
++            target);
++      }
++      return;
++    }
++    if ("FAILED".equals(target)) {
++      BigDecimal left = p.refundedAmount().subtract(r.amount()).max(BigDecimal.ZERO);
++      payments.applyRefund(p.id(), left, left.signum() == 0 ? "SUCCEEDED" : "PARTIALLY_REFUNDED");
++      log.error(
++          "REFUND FAILED: Razorpay refund {} of {} {} for order {} (refund row {}) failed; "
++              + "balance released, customer NOT refunded",
++          r.providerRefundId(),
++          r.amount(),
++          p.currency(),
++          p.orderId(),
++          r.id());
++    }
++  }
++
+   private String refundRazorpay(Payment p, BigDecimal amount, RefundRequest req) {
+     String rzpPaymentId = p.providerPaymentId();
+     if (rzpPaymentId == null) {
+diff --git a/services/payment-service/payment-service-app/src/main/resources/db/migration/V7__razorpay_refund_states.sql b/services/payment-service/payment-service-app/src/main/resources/db/migration/V7__razorpay_refund_states.sql
+new file mode 100644
+index 0000000..fc3546b
+--- /dev/null
++++ b/services/payment-service/payment-service-app/src/main/resources/db/migration/V7__razorpay_refund_states.sql
+@@ -0,0 +1,29 @@
++-- Razorpay refund lifecycle (F-20261119-04). Forward-only and additive: old pods ignore the new
++-- columns and table. Every existing refund becomes SUCCEEDED through the constant default (it is
++-- already counted in payments.refunded_amount); the default stays so a pod still on the previous
++-- version inserts rows with today's meaning during a rolling deploy.
++ALTER TABLE payment.refunds
++    ADD COLUMN status            varchar(10) NOT NULL DEFAULT 'SUCCEEDED'
++        CONSTRAINT ck_refunds_status CHECK (status IN ('PENDING', 'SUCCEEDED', 'FAILED')),
++    ADD COLUMN settled_at        timestamptz,
++    ADD COLUMN pending_alerted_at timestamptz;
++
++-- Non-unique on purpose: the migration must not fail on unexpected duplicates; the webhook warns.
++CREATE INDEX ix_refunds_provider_refund ON payment.refunds (provider_refund_id)
++    WHERE provider_refund_id IS NOT NULL;
++CREATE INDEX ix_refunds_pending ON payment.refunds (created_at) WHERE status = 'PENDING';
++CREATE INDEX ix_payments_provider_payment ON payment.payments (provider_payment_id)
++    WHERE provider_payment_id IS NOT NULL;
++
++-- Refund events that arrived before their refund row was committed. Applied and deleted by
++-- refund(); rows for refunds made outside this service (dashboard) stay (retention is backlog).
++CREATE TABLE payment.razorpay_refund_parked
++(
++    provider_refund_id  varchar(100) NOT NULL,
++    status              varchar(10)  NOT NULL,
++    provider_payment_id varchar(100) NOT NULL,
++    amount_minor        bigint       NOT NULL,
++    currency            char(3)      NOT NULL,
++    received_at         timestamptz  NOT NULL DEFAULT now(),
++    PRIMARY KEY (provider_refund_id, status)
++);
+diff --git a/services/payment-service/payment-service-app/src/test/java/com/acme/ecommerce/payment/service/PaymentServiceRazorpayTest.java b/services/payment-service/payment-service-app/src/test/java/com/acme/ecommerce/payment/service/PaymentServiceRazorpayTest.java
+index 5e4ffaa..87ea266 100644
+--- a/services/payment-service/payment-service-app/src/test/java/com/acme/ecommerce/payment/service/PaymentServiceRazorpayTest.java
++++ b/services/payment-service/payment-service-app/src/test/java/com/acme/ecommerce/payment/service/PaymentServiceRazorpayTest.java
+@@ -309,7 +309,14 @@ class PaymentServiceRazorpayTest {
+     assertThat(res.status()).isEqualTo("PARTIALLY_REFUNDED");
+     ArgumentCaptor<String> providerRefund = ArgumentCaptor.forClass(String.class);
+     verify(repo)
+-        .insertRefund(eq(paymentId), any(), any(), eq(null), providerRefund.capture(), eq("k1"));
++        .insertRefund(
++            eq(paymentId),
++            any(),
++            any(),
++            eq(null),
++            providerRefund.capture(),
++            eq("k1"),
++            eq("PENDING"));
+     assertThat(providerRefund.getValue()).isEqualTo("rfnd_1");
+   }
+ 
+diff --git a/services/payment-service/payment-service-app/src/test/java/com/acme/ecommerce/payment/service/RazorpayRefundStatesIntegrationTest.java b/services/payment-service/payment-service-app/src/test/java/com/acme/ecommerce/payment/service/RazorpayRefundStatesIntegrationTest.java
+new file mode 100644
+index 0000000..57de1dc
+--- /dev/null
++++ b/services/payment-service/payment-service-app/src/test/java/com/acme/ecommerce/payment/service/RazorpayRefundStatesIntegrationTest.java
+@@ -0,0 +1,451 @@
++package com.acme.ecommerce.payment.service;
++
++import static org.assertj.core.api.Assertions.assertThat;
++import static org.assertj.core.api.Assertions.assertThatThrownBy;
++import static org.mockito.ArgumentMatchers.any;
++import static org.mockito.ArgumentMatchers.anyLong;
++import static org.mockito.ArgumentMatchers.anyString;
++import static org.mockito.ArgumentMatchers.eq;
++import static org.mockito.Mockito.doReturn;
++import static org.mockito.Mockito.never;
++import static org.mockito.Mockito.times;
++import static org.mockito.Mockito.verify;
++
++import ch.qos.logback.classic.Level;
++import ch.qos.logback.classic.Logger;
++import ch.qos.logback.classic.spi.ILoggingEvent;
++import ch.qos.logback.core.read.ListAppender;
++import com.acme.ecommerce.common.core.error.CodedException;
++import com.acme.ecommerce.common.core.error.ErrorCode;
++import com.acme.ecommerce.payment.api.dto.RefundRequest;
++import com.acme.ecommerce.payment.repository.AdminPaymentQueries;
++import com.acme.ecommerce.payment.support.AbstractPaymentIntegrationTest;
++import java.math.BigDecimal;
++import java.util.ArrayList;
++import java.util.List;
++import java.util.UUID;
++import java.util.concurrent.CountDownLatch;
++import java.util.concurrent.ExecutorService;
++import java.util.concurrent.Executors;
++import java.util.concurrent.Future;
++import org.junit.jupiter.api.AfterEach;
++import org.junit.jupiter.api.BeforeEach;
++import org.junit.jupiter.api.DisplayName;
++import org.junit.jupiter.api.Test;
++import org.slf4j.LoggerFactory;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.jdbc.core.simple.JdbcClient;
++import org.springframework.test.context.TestPropertySource;
++import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
++
++/**
++ * Razorpay refund lifecycle on a real database: PENDING at acceptance, settled by signed webhooks,
++ * never overwritten, parked when the event beats the refund row (CTO condition 3). Razorpay HTTP is
++ * stubbed through the gateway seam; the signature check is the real one.
++ */
++@TestPropertySource(
++    properties = {
++      "payment.razorpay.key-id=rzp_test_id",
++      "payment.razorpay.key-secret=rzp_secret",
++      "payment.razorpay.webhook-secret=whsec_test"
++    })
++class RazorpayRefundStatesIntegrationTest extends AbstractPaymentIntegrationTest {
++
++  @Autowired private PaymentService service;
++  @Autowired private JdbcClient jdbc;
++  @Autowired private WalletService wallet;
++  @Autowired private AdminPaymentQueries admin;
++  @MockitoSpyBean private RazorpayGateway razorpay;
++
++  private ListAppender<ILoggingEvent> logs;
++  private UUID orderId;
++  private UUID userId;
++  private UUID paymentId;
++  private String rzpPayment;
++
++  @BeforeEach
++  void setUp() {
++    logs = new ListAppender<>();
++    logs.start();
++    ((Logger) LoggerFactory.getLogger(PaymentService.class)).addAppender(logs);
++    orderId = UUID.randomUUID();
++    userId = UUID.randomUUID();
++    rzpPayment = "pay_" + UUID.randomUUID().toString().substring(0, 12);
++    paymentId =
++        jdbc.sql(
++                "INSERT INTO payment.payments (order_id, user_id, method, mode, amount, currency, "
++                    + "status, provider_order_id, provider_payment_id, purpose, reference_id) "
++                    + "VALUES (:o, :u, 'CARD', 'RAZORPAY', 500.00, 'INR', 'SUCCEEDED', :po, :pp, "
++                    + "'ORDER', :o) RETURNING id")
++            .param("o", orderId)
++            .param("u", userId)
++            .param("po", "order_" + orderId)
++            .param("pp", rzpPayment)
++            .query(UUID.class)
++            .single();
++  }
++
++  @AfterEach
++  void tearDown() {
++    ((Logger) LoggerFactory.getLogger(PaymentService.class)).detachAppender(logs);
++  }
++
++  // ---- helpers ----------------------------------------------------------------------------
++
++  private void providerAccepts(String refundId) {
++    doReturn(refundId).when(razorpay).refund(eq(rzpPayment), anyLong(), anyString(), any());
++  }
++
++  private void refund(String amount, String key) {
++    service.refund(orderId, new RefundRequest(new BigDecimal(amount), "test", key, "SOURCE"));
++  }
++
++  private static String refundBody(
++      String event, String refundId, String paymentId, long minor, String currency) {
++    return "{\"event\":\""
++        + event
++        + "\",\"payload\":{\"refund\":{\"entity\":{\"id\":\""
++        + refundId
++        + "\",\"payment_id\":\""
++        + paymentId
++        + "\",\"amount\":"
++        + minor
++        + ",\"currency\":\""
++        + currency
++        + "\",\"status\":\"x\"}}}}";
++  }
++
++  private void send(String body, String eventId) {
++    service.handleRazorpayWebhook(body, RazorpayGateway.hmacHex("whsec_test", body), eventId);
++  }
++
++  private String refundStatus(String refundId) {
++    return jdbc.sql("SELECT status FROM payment.refunds WHERE provider_refund_id = :r")
++        .param("r", refundId)
++        .query(String.class)
++        .single();
++  }
++
++  private String paymentState() {
++    return jdbc.sql(
++            "SELECT status || ' ' || refunded_amount::numeric(19,2) FROM payment.payments "
++                + "WHERE id = :i")
++        .param("i", paymentId)
++        .query(String.class)
++        .single();
++  }
++
++  private long count(Level level, String fragment) {
++    return logs.list.stream()
++        .filter(e -> e.getLevel() == level && e.getFormattedMessage().contains(fragment))
++        .count();
++  }
++
++  // ---- AC-1 -------------------------------------------------------------------------------
++
++  @Test
++  @DisplayName(
++      "AC-1: an accepted refund is PENDING, reserves the balance, and a second refund over the rest is 422")
++  void acceptedRefundIsPending() {
++    providerAccepts("rfnd_a1");
++
++    refund("200.00", "k-a1");
++
++    assertThat(refundStatus("rfnd_a1")).isEqualTo("PENDING");
++    assertThat(paymentState()).isEqualTo("PARTIALLY_REFUNDED 200.00");
++    assertThatThrownBy(() -> refund("400.00", "k-a1b"))
++        .isInstanceOfSatisfying(
++            CodedException.class,
++            e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.DOMAIN_RULE_VIOLATION));
++    assertThat(admin.refunds(paymentId))
++        .singleElement()
++        .satisfies(
++            r -> {
++              assertThat(r.status()).isEqualTo("PENDING");
++              assertThat(r.providerRefundId()).isEqualTo("rfnd_a1");
++            });
++  }
++
++  @Test
++  @DisplayName(
++      "AC-1: two refunds can be pending at once, and replaying a key makes no provider call")
++  void twoPendingAndReplay() {
++    providerAccepts("rfnd_a2");
++    refund("100.00", "k-a2");
++    providerAccepts("rfnd_a3");
++    refund("150.00", "k-a3");
++    refund("100.00", "k-a2");
++
++    assertThat(refundStatus("rfnd_a2")).isEqualTo("PENDING");
++    assertThat(refundStatus("rfnd_a3")).isEqualTo("PENDING");
++    assertThat(paymentState()).isEqualTo("PARTIALLY_REFUNDED 250.00");
++    verify(razorpay, times(2)).refund(eq(rzpPayment), anyLong(), anyString(), any());
++  }
++
++  // ---- AC-2 / AC-3 / AC-4 -----------------------------------------------------------------
++
++  @Test
++  @DisplayName("AC-2: refund.processed settles SUCCEEDED and leaves the payment unchanged")
++  void processed() {
++    providerAccepts("rfnd_p1");
++    refund("500.00", "k-p1");
++
++    send(refundBody("refund.processed", "rfnd_p1", rzpPayment, 50000, "INR"), "evt-p1");
++
++    assertThat(refundStatus("rfnd_p1")).isEqualTo("SUCCEEDED");
++    assertThat(paymentState()).isEqualTo("REFUNDED 500.00");
++    assertThat(count(Level.ERROR, "REFUND FAILED")).isZero();
++  }
++
++  @Test
++  @DisplayName("AC-3: refund.failed releases the amount, restores status, no wallet credit, alerts")
++  void failed() {
++    providerAccepts("rfnd_f1");
++    refund("500.00", "k-f1");
++
++    send(refundBody("refund.failed", "rfnd_f1", rzpPayment, 50000, "INR"), "evt-f1");
++
++    assertThat(refundStatus("rfnd_f1")).isEqualTo("FAILED");
++    assertThat(paymentState()).isEqualTo("SUCCEEDED 0.00");
++    assertThat(wallet.balance(userId).balance()).isEqualByComparingTo("0");
++    assertThat(logs.list)
++        .filteredOn(e -> e.getFormattedMessage().contains("REFUND FAILED"))
++        .singleElement()
++        .satisfies(
++            e ->
++                assertThat(e.getFormattedMessage()).contains(orderId.toString(), "rfnd_f1", "500"));
++  }
++
++  @Test
++  @DisplayName(
++      "AC-4: after FAILED a new key can refund again; the old key returns the stored outcome")
++  void retryAfterFailed() {
++    providerAccepts("rfnd_r1");
++    refund("500.00", "k-r1");
++    send(refundBody("refund.failed", "rfnd_r1", rzpPayment, 50000, "INR"), "evt-r1");
++
++    providerAccepts("rfnd_r2");
++    refund("500.00", "k-r2");
++    refund("500.00", "k-r1");
++
++    assertThat(refundStatus("rfnd_r1")).isEqualTo("FAILED");
++    assertThat(refundStatus("rfnd_r2")).isEqualTo("PENDING");
++    assertThat(paymentState()).isEqualTo("REFUNDED 500.00");
++    verify(razorpay, times(2)).refund(eq(rzpPayment), anyLong(), anyString(), any());
++  }
++
++  @Test
++  @DisplayName("two pending refunds: one failing releases only its own amount")
++  void onlyOwnAmountReleased() {
++    providerAccepts("rfnd_t1");
++    refund("100.00", "k-t1");
++    providerAccepts("rfnd_t2");
++    refund("150.00", "k-t2");
++
++    send(refundBody("refund.failed", "rfnd_t2", rzpPayment, 15000, "INR"), "evt-t2");
++
++    assertThat(paymentState()).isEqualTo("PARTIALLY_REFUNDED 100.00");
++    assertThat(refundStatus("rfnd_t1")).isEqualTo("PENDING");
++  }
++
++  // ---- AC-5 / AC-6 ------------------------------------------------------------------------
++
++  @Test
++  @DisplayName(
++      "AC-5: duplicate delivery (same event id, or same refund and state) releases and alerts once")
++  void duplicates() {
++    providerAccepts("rfnd_d1");
++    refund("500.00", "k-d1");
++    String body = refundBody("refund.failed", "rfnd_d1", rzpPayment, 50000, "INR");
++
++    send(body, "evt-d1");
++    send(body, "evt-d1");
++    send(body, "evt-d1-other");
++    providerAccepts("rfnd_d2");
++    refund("200.00", "k-d2");
++    send(body, "evt-d1-third");
++
++    assertThat(count(Level.ERROR, "REFUND FAILED")).isEqualTo(1);
++    assertThat(paymentState()).isEqualTo("PARTIALLY_REFUNDED 200.00");
++  }
++
++  @Test
++  @DisplayName("AC-5: concurrent deliveries of one event release once")
++  void concurrentDuplicates() throws Exception {
++    providerAccepts("rfnd_c1");
++    refund("500.00", "k-c1");
++    String body = refundBody("refund.failed", "rfnd_c1", rzpPayment, 50000, "INR");
++    int n = 6;
++    ExecutorService pool = Executors.newFixedThreadPool(n);
++    CountDownLatch go = new CountDownLatch(1);
++    List<Future<?>> fs = new ArrayList<>();
++    for (int i = 0; i < n; i++) {
++      fs.add(
++          pool.submit(
++              () -> {
++                go.await();
++                send(body, "evt-c1");
++                return null;
++              }));
++    }
++    go.countDown();
++    for (Future<?> f : fs) {
++      f.get();
++    }
++    pool.shutdown();
++
++    assertThat(count(Level.ERROR, "REFUND FAILED")).isEqualTo(1);
++    assertThat(paymentState()).isEqualTo("SUCCEEDED 0.00");
++  }
++
++  @Test
++  @DisplayName(
++      "AC-6: failed then processed, and processed then failed, never overwrite (warn, 200)")
++  void terminalNeverOverwritten() {
++    providerAccepts("rfnd_o1");
++    refund("100.00", "k-o1");
++    providerAccepts("rfnd_o2");
++    refund("150.00", "k-o2");
++
++    send(refundBody("refund.failed", "rfnd_o1", rzpPayment, 10000, "INR"), "evt-o1a");
++    send(refundBody("refund.processed", "rfnd_o1", rzpPayment, 10000, "INR"), "evt-o1b");
++    send(refundBody("refund.processed", "rfnd_o2", rzpPayment, 15000, "INR"), "evt-o2a");
++    send(refundBody("refund.failed", "rfnd_o2", rzpPayment, 15000, "INR"), "evt-o2b");
++
++    assertThat(refundStatus("rfnd_o1")).isEqualTo("FAILED");
++    assertThat(refundStatus("rfnd_o2")).isEqualTo("SUCCEEDED");
++    assertThat(paymentState()).isEqualTo("PARTIALLY_REFUNDED 150.00");
++    assertThat(count(Level.WARN, "conflicting")).isEqualTo(2);
++    assertThat(count(Level.ERROR, "REFUND FAILED")).isEqualTo(1);
++  }
++
++  // ---- AC-7 -------------------------------------------------------------------------------
++
++  @Test
++  @DisplayName(
++      "AC-7: unknown payment, payment/amount/currency mismatch and missing entity change nothing")
++  void mismatchesAreIgnored() {
++    providerAccepts("rfnd_m1");
++    refund("500.00", "k-m1");
++    String before = paymentState();
++
++    send(refundBody("refund.failed", "rfnd_m1", "pay_unknown", 50000, "INR"), "evt-m1");
++    send(refundBody("refund.failed", "rfnd_m1", rzpPayment, 49900, "INR"), "evt-m2");
++    send(refundBody("refund.failed", "rfnd_m1", rzpPayment, 50000, "USD"), "evt-m3");
++    send("{\"event\":\"refund.failed\",\"payload\":{}}", "evt-m4");
++    send(refundBody("refund.created", "rfnd_m1", rzpPayment, 50000, "INR"), "evt-m5");
++    send(refundBody("refund.speed_changed", "rfnd_m1", rzpPayment, 50000, "INR"), "evt-m6");
++
++    assertThat(refundStatus("rfnd_m1")).isEqualTo("PENDING");
++    assertThat(paymentState()).isEqualTo(before);
++    assertThat(count(Level.ERROR, "REFUND FAILED")).isZero();
++  }
++
++  @Test
++  @DisplayName("AC-7: a refund id owned by another payment is not applied through this payment")
++  void refundOfAnotherPayment() {
++    providerAccepts("rfnd_x1");
++    refund("500.00", "k-x1");
++    String other = "pay_other_" + UUID.randomUUID().toString().substring(0, 8);
++    jdbc.sql(
++            "INSERT INTO payment.payments (order_id, user_id, method, mode, amount, currency, "
++                + "status, provider_payment_id, purpose, reference_id) VALUES (:o, :u, 'CARD', "
++                + "'RAZORPAY', 500.00, 'INR', 'SUCCEEDED', :pp, 'ORDER', :o)")
++        .param("o", UUID.randomUUID())
++        .param("u", UUID.randomUUID())
++        .param("pp", other)
++        .update();
++
++    send(refundBody("refund.failed", "rfnd_x1", other, 50000, "INR"), "evt-x1");
++
++    assertThat(refundStatus("rfnd_x1")).isEqualTo("PENDING");
++    assertThat(paymentState()).isEqualTo("REFUNDED 500.00");
++  }
++
++  // ---- AC-8 -------------------------------------------------------------------------------
++
++  @Test
++  @DisplayName("AC-8: a bad or missing signature is 400 VALIDATION_FAILED and changes nothing")
++  void badSignature() {
++    providerAccepts("rfnd_s1");
++    refund("500.00", "k-s1");
++    String body = refundBody("refund.failed", "rfnd_s1", rzpPayment, 50000, "INR");
++
++    for (String sig : new String[] {"deadbeef", null}) {
++      assertThatThrownBy(() -> service.handleRazorpayWebhook(body, sig, "evt-s1"))
++          .isInstanceOfSatisfying(
++              CodedException.class,
++              e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.VALIDATION_FAILED));
++    }
++    assertThat(refundStatus("rfnd_s1")).isEqualTo("PENDING");
++    assertThat(paymentState()).isEqualTo("REFUNDED 500.00");
++    assertThat(
++            jdbc.sql("SELECT count(*) FROM payment.processed_events WHERE event_id = 'rzp:evt-s1'")
++                .query(Long.class)
++                .single())
++        .isZero();
++  }
++
++  // ---- CTO 3: race, event before the refund row ---------------------------------------------
++
++  @Test
++  @DisplayName("CTO 3: an event that beats the refund row is parked, then applied by refund()")
++  void parkedThenApplied() {
++    send(refundBody("refund.failed", "rfnd_race", rzpPayment, 50000, "INR"), "evt-race");
++    assertThat(parkedCount("rfnd_race")).isEqualTo(1);
++    assertThat(paymentState()).isEqualTo("SUCCEEDED 0.00");
++
++    providerAccepts("rfnd_race");
++    refund("500.00", "k-race");
++
++    assertThat(refundStatus("rfnd_race")).isEqualTo("FAILED");
++    assertThat(paymentState()).isEqualTo("SUCCEEDED 0.00");
++    assertThat(parkedCount("rfnd_race")).isZero();
++    assertThat(count(Level.ERROR, "REFUND FAILED")).isEqualTo(1);
++  }
++
++  @Test
++  @DisplayName(
++      "CTO 3: a parked processed event settles the new refund without touching the payment")
++  void parkedProcessedApplied() {
++    send(refundBody("refund.processed", "rfnd_race2", rzpPayment, 20000, "INR"), "evt-race2");
++
++    providerAccepts("rfnd_race2");
++    refund("200.00", "k-race2");
++
++    assertThat(refundStatus("rfnd_race2")).isEqualTo("SUCCEEDED");
++    assertThat(paymentState()).isEqualTo("PARTIALLY_REFUNDED 200.00");
++  }
++
++  @Test
++  @DisplayName("CTO 3: a parked event that does not match the new refund is dropped, not applied")
++  void parkedMismatchDropped() {
++    send(refundBody("refund.failed", "rfnd_race3", rzpPayment, 1, "INR"), "evt-race3");
++
++    providerAccepts("rfnd_race3");
++    refund("200.00", "k-race3");
++
++    assertThat(refundStatus("rfnd_race3")).isEqualTo("PENDING");
++    assertThat(paymentState()).isEqualTo("PARTIALLY_REFUNDED 200.00");
++    assertThat(parkedCount("rfnd_race3")).isZero();
++  }
++
++  private long parkedCount(String refundId) {
++    return jdbc.sql(
++            "SELECT count(*) FROM payment.razorpay_refund_parked WHERE provider_refund_id = :r")
++        .param("r", refundId)
++        .query(Long.class)
++        .single();
++  }
++
++  @Test
++  @DisplayName("the signature gate is first: nothing is read for a bad signature")
++  void gateIsFirst() {
++    assertThatThrownBy(
++            () ->
++                service.handleRazorpayWebhook(
++                    refundBody("refund.failed", "r", rzpPayment, 1, "INR"), "bad", "e"))
++        .isInstanceOf(CodedException.class);
++    verify(razorpay, never()).refund(anyString(), anyLong(), anyString(), any());
++  }
++}
+diff --git a/services/payment-service/payment-service-app/src/test/java/com/acme/ecommerce/payment/service/RefundMigrationIntegrationTest.java b/services/payment-service/payment-service-app/src/test/java/com/acme/ecommerce/payment/service/RefundMigrationIntegrationTest.java
+new file mode 100644
+index 0000000..192cad3
+--- /dev/null
++++ b/services/payment-service/payment-service-app/src/test/java/com/acme/ecommerce/payment/service/RefundMigrationIntegrationTest.java
+@@ -0,0 +1,85 @@
++package com.acme.ecommerce.payment.service;
++
++import static org.assertj.core.api.Assertions.assertThat;
++import static org.assertj.core.api.Assertions.assertThatThrownBy;
++
++import com.acme.ecommerce.payment.repository.PaymentRepository;
++import com.acme.ecommerce.payment.support.AbstractPaymentIntegrationTest;
++import java.math.BigDecimal;
++import java.util.UUID;
++import org.junit.jupiter.api.DisplayName;
++import org.junit.jupiter.api.Test;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.jdbc.core.simple.JdbcClient;
++
++/** V7: refund status column, its default for existing rows, and the parked-event table. */
++class RefundMigrationIntegrationTest extends AbstractPaymentIntegrationTest {
++
++  @Autowired private JdbcClient jdbc;
++  @Autowired private PaymentRepository repo;
++
++  private UUID payment() {
++    UUID order = UUID.randomUUID();
++    return jdbc.sql(
++            "INSERT INTO payment.payments (order_id, user_id, method, mode, amount, currency, "
++                + "status, purpose, reference_id) VALUES (:o, :u, 'CARD', 'RAZORPAY', 100, 'INR', "
++                + "'SUCCEEDED', 'ORDER', :o) RETURNING id")
++        .param("o", order)
++        .param("u", UUID.randomUUID())
++        .query(UUID.class)
++        .single();
++  }
++
++  @Test
++  @DisplayName("a refund inserted without a status (old pod, existing row) reads as SUCCEEDED")
++  void defaultIsSucceeded() {
++    UUID p = payment();
++    UUID id =
++        jdbc.sql(
++                "INSERT INTO payment.refunds (payment_id, amount, idempotency_key) "
++                    + "VALUES (:p, 10, :k) RETURNING id")
++            .param("p", p)
++            .param("k", "k-" + UUID.randomUUID())
++            .query(UUID.class)
++            .single();
++
++    assertThat(repo.refundStatus(id)).isEqualTo("SUCCEEDED");
++  }
++
++  @Test
++  @DisplayName("the CHECK constraint rejects any other status")
++  void checkRejectsOthers() {
++    UUID p = payment();
++    assertThatThrownBy(
++            () ->
++                jdbc.sql(
++                        "INSERT INTO payment.refunds (payment_id, amount, idempotency_key, status) "
++                            + "VALUES (:p, 10, :k, 'DONE')")
++                    .param("p", p)
++                    .param("k", "k-" + UUID.randomUUID())
++                    .update())
++        .hasMessageContaining("ck_refunds_status");
++  }
++
++  @Test
++  @DisplayName("the conditional settle changes a PENDING row once, then returns 0")
++  void settleIsOnce() {
++    UUID p = payment();
++    repo.insertRefund(p, new BigDecimal("10.00"), null, null, "rfnd_m1", "k-" + p, "PENDING");
++    UUID id = repo.findRefundByProviderRefundId("rfnd_m1").orElseThrow().id();
++
++    assertThat(repo.settleRefundRow(id, "FAILED")).isEqualTo(1);
++    assertThat(repo.settleRefundRow(id, "SUCCEEDED")).isZero();
++    assertThat(repo.refundStatus(id)).isEqualTo("FAILED");
++  }
++
++  @Test
++  @DisplayName("parking the same event twice is idempotent, and taking it removes it")
++  void parkedIsIdempotent() {
++    repo.parkRefundEvent("rfnd_pk", "FAILED", "pay_1", 1000, "INR");
++    repo.parkRefundEvent("rfnd_pk", "FAILED", "pay_1", 1000, "INR");
++
++    assertThat(repo.takeParkedRefundEvents("rfnd_pk")).hasSize(1);
++    assertThat(repo.takeParkedRefundEvents("rfnd_pk")).isEmpty();
++  }
++}
+diff --git a/services/payment-service/payment-service-app/src/test/java/com/acme/ecommerce/payment/service/RefundNonRazorpayRegressionTest.java b/services/payment-service/payment-service-app/src/test/java/com/acme/ecommerce/payment/service/RefundNonRazorpayRegressionTest.java
+new file mode 100644
+index 0000000..af7c870
+--- /dev/null
++++ b/services/payment-service/payment-service-app/src/test/java/com/acme/ecommerce/payment/service/RefundNonRazorpayRegressionTest.java
+@@ -0,0 +1,86 @@
++package com.acme.ecommerce.payment.service;
++
++import static org.assertj.core.api.Assertions.assertThat;
++
++import com.acme.ecommerce.payment.api.dto.RefundRequest;
++import com.acme.ecommerce.payment.support.AbstractPaymentIntegrationTest;
++import java.math.BigDecimal;
++import java.util.UUID;
++import org.junit.jupiter.api.DisplayName;
++import org.junit.jupiter.api.Test;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.jdbc.core.simple.JdbcClient;
++
++/** AC-12: COD and wallet-destination refunds stay immediately final (SUCCEEDED), as before. */
++class RefundNonRazorpayRegressionTest extends AbstractPaymentIntegrationTest {
++
++  @Autowired private PaymentService service;
++  @Autowired private JdbcClient jdbc;
++  @Autowired private WalletService wallet;
++
++  private UUID payment(String method, String mode) {
++    UUID order = UUID.randomUUID();
++    jdbc.sql(
++            "INSERT INTO payment.payments (order_id, user_id, method, mode, amount, currency, "
++                + "status, provider_order_id, provider_payment_id, purpose, reference_id) "
++                + "VALUES (:o, :u, :m, :mode, 300.00, 'INR', 'SUCCEEDED', 'order_x', 'pay_x', "
++                + "'ORDER', :o)")
++        .param("o", order)
++        .param("u", UUID.randomUUID())
++        .param("m", method)
++        .param("mode", mode)
++        .update();
++    return order;
++  }
++
++  private String refundStatus(UUID order, String key) {
++    return jdbc.sql(
++            "SELECT r.status FROM payment.refunds r JOIN payment.payments p ON p.id = r.payment_id "
++                + "WHERE p.order_id = :o AND r.idempotency_key = :k")
++        .param("o", order)
++        .param("k", key)
++        .query(String.class)
++        .single();
++  }
++
++  @Test
++  @DisplayName("a COD refund is SUCCEEDED and the payment is REFUNDED immediately")
++  void codRefund() {
++    UUID order = payment("COD", "SIMULATED");
++
++    var res = service.refund(order, new RefundRequest(null, "r", "k-cod", "SOURCE"));
++
++    assertThat(res.status()).isEqualTo("REFUNDED");
++    assertThat(res.refundedAmount()).isEqualByComparingTo("300");
++    assertThat(refundStatus(order, "k-cod")).isEqualTo("SUCCEEDED");
++  }
++
++  @Test
++  @DisplayName("a wallet-destination refund on a Razorpay payment is SUCCEEDED and credits at once")
++  void walletRefund() {
++    UUID order = payment("CARD", "RAZORPAY");
++    UUID user =
++        jdbc.sql("SELECT user_id FROM payment.payments WHERE order_id = :o")
++            .param("o", order)
++            .query(UUID.class)
++            .single();
++
++    var res =
++        service.refund(order, new RefundRequest(new BigDecimal("100.00"), "r", "k-wal", "WALLET"));
++
++    assertThat(res.status()).isEqualTo("PARTIALLY_REFUNDED");
++    assertThat(refundStatus(order, "k-wal")).isEqualTo("SUCCEEDED");
++    assertThat(wallet.balance(user).balance()).isEqualByComparingTo("100.00");
++  }
++
++  @Test
++  @DisplayName("a Stripe-mode payment without a Stripe intent refunds as SUCCEEDED, as before")
++  void stripeRefund() {
++    UUID order = payment("CARD", "STRIPE");
++
++    var res = service.refund(order, new RefundRequest(null, "r", "k-str", "SOURCE"));
++
++    assertThat(res.status()).isEqualTo("REFUNDED");
++    assertThat(refundStatus(order, "k-str")).isEqualTo("SUCCEEDED");
++  }
++}

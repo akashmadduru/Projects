@@ -1,10 +1,10 @@
 package com.acme.ecommerce.order.service;
 
+import com.acme.ecommerce.order.api.dto.OrderResponse;
 import com.acme.ecommerce.order.client.PromotionFeignClient;
 import com.acme.ecommerce.order.client.PromotionFeignClient.ExchangeVerifyRequest;
 import com.acme.ecommerce.order.client.PromotionFeignClient.ExchangeVerifyResponse;
 import com.acme.ecommerce.order.client.RemoteCalls;
-import com.acme.ecommerce.order.api.dto.OrderResponse;
 import feign.FeignException;
 import java.math.BigDecimal;
 import java.util.UUID;
@@ -66,12 +66,22 @@ public class ExchangeService {
             o.userId(), r.shortfall(), o.currency(), o.id(), "exchange-shortfall-" + quoteId);
         charged = true;
       } catch (RuntimeException e) {
-        log.warn("Exchange shortfall {} for order {} not charged: {}", r.shortfall(), o.id(), e.toString());
+        log.warn(
+            "Exchange shortfall {} for order {} not charged: {}",
+            r.shortfall(),
+            o.id(),
+            e.toString());
         followUp = true;
       }
     }
     return new VerifyResult(
-        quoteId, r.orderId(), r.status(), r.quotedValue(), r.finalValue(), r.shortfall(), charged, followUp);
+        quoteId,
+        r.orderId(),
+        r.status(),
+        r.quotedValue(),
+        r.finalValue(),
+        r.shortfall(),
+        charged,
+        followUp);
   }
-
 }

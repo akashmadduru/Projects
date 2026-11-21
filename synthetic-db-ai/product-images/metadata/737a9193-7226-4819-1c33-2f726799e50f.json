@@ -1,0 +1,13 @@
+{
+ "product_id": "737a9193-7226-4819-1c33-2f726799e50f",
+ "name": "Lopiar Jeans Gen 3",
+ "prompt": "studio packshot photo of a Space Grey Lopiar Jeans Gen 3, made of cotton, men's clothing, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 559317148,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:41:29",
+ "file_path": "product-images/images/737a9193-7226-4819-1c33-2f726799e50f.jpg",
+ "file_size": 47749
+}

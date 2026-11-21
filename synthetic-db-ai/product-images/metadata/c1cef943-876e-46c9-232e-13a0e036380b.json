@@ -1,0 +1,13 @@
+{
+ "product_id": "c1cef943-876e-46c9-232e-13a0e036380b",
+ "name": "Kanu Fitness Band Lite",
+ "prompt": "studio packshot photo of a Black Kanu Fitness Band Lite, made of cotton, smart watches, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3611851698,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:33:42",
+ "file_path": "product-images/images/c1cef943-876e-46c9-232e-13a0e036380b.jpg",
+ "file_size": 47043
+}

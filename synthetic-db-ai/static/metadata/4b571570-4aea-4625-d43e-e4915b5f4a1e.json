@@ -1,0 +1,15 @@
+{
+ "product_id": "4b571570-4aea-4625-d43e-e4915b5f4a1e",
+ "name": "Liion Action Camera Gen 3",
+ "prompt": "studio packshot photo of a Navy Blue Liion Action Camera Gen 3, made of aluminium, cameras, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2581359239,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:22:30",
+ "file_path": "static/images/4b571570-4aea-4625-d43e-e4915b5f4a1e.jpg",
+ "file_size": 42427,
+ "uploaded": false,
+ "s3_url": null
+}

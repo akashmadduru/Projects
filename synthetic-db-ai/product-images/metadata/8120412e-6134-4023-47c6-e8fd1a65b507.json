@@ -1,0 +1,13 @@
+{
+ "product_id": "8120412e-6134-4023-47c6-e8fd1a65b507",
+ "name": "Voionnu Construction Set Classic",
+ "prompt": "studio packshot photo of a Grey Voionnu Construction Set Classic, made of wood, building toys, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3047068143,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:51:43",
+ "file_path": "product-images/images/8120412e-6134-4023-47c6-e8fd1a65b507.jpg",
+ "file_size": 64926
+}

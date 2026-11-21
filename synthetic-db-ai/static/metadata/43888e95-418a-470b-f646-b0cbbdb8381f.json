@@ -1,0 +1,15 @@
+{
+ "product_id": "43888e95-418a-470b-f646-b0cbbdb8381f",
+ "name": "Milumka Granola Edition",
+ "prompt": "studio packshot photo of a Grey Milumka Granola Edition, made of bamboo, snacks, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3488502617,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:10:07",
+ "file_path": "static/images/43888e95-418a-470b-f646-b0cbbdb8381f.jpg",
+ "file_size": 66884,
+ "uploaded": false,
+ "s3_url": null
+}

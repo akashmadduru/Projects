@@ -1,0 +1,13 @@
+{
+ "product_id": "cbf93e9a-46ec-4851-316b-f047dc70eff2",
+ "name": "Kaex Trolley Bag Series 2",
+ "prompt": "studio packshot photo of a Red Kaex Trolley Bag Series 2, made of polyester, bags & luggage, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3824415145,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T01:18:02",
+ "file_path": "product-images/images/cbf93e9a-46ec-4851-316b-f047dc70eff2.jpg",
+ "file_size": 38958
+}

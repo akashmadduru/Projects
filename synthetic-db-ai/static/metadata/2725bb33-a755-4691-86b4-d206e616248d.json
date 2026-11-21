@@ -1,0 +1,15 @@
+{
+ "product_id": "2725bb33-a755-4691-86b4-d206e616248d",
+ "name": "Arqualo Thermometer Plus",
+ "prompt": "studio packshot photo of a Navy Blue Arqualo Thermometer Plus, made of nylon, medical devices, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 386208746,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-15T23:41:41",
+ "file_path": "static/images/2725bb33-a755-4691-86b4-d206e616248d.jpg",
+ "file_size": 53491,
+ "uploaded": false,
+ "s3_url": null
+}

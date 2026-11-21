@@ -1,0 +1,13 @@
+{
+ "product_id": "f64a99bf-a2d0-4391-88c0-85f5cd42c44f",
+ "name": "Traquanu Cold Brew Pro",
+ "prompt": "studio packshot photo of a White Traquanu Cold Brew Pro, made of aluminium, beverages, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3651149641,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T22:07:19",
+ "file_path": "product-images/images/f64a99bf-a2d0-4391-88c0-85f5cd42c44f.jpg",
+ "file_size": 29255
+}

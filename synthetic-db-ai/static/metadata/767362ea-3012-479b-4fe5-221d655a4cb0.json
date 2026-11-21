@@ -1,0 +1,15 @@
+{
+ "product_id": "767362ea-3012-479b-4fe5-221d655a4cb0",
+ "name": "Dextari Sketch Pad Classic",
+ "prompt": "studio packshot photo of a Midnight Dextari Sketch Pad Classic, made of nylon, art supplies, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2257922442,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:43:07",
+ "file_path": "static/images/767362ea-3012-479b-4fe5-221d655a4cb0.jpg",
+ "file_size": 63183,
+ "uploaded": false,
+ "s3_url": null
+}

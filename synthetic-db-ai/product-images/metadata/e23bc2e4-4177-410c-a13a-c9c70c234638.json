@@ -1,0 +1,13 @@
+{
+ "product_id": "e23bc2e4-4177-410c-a13a-c9c70c234638",
+ "name": "Lolumex Necklace Max",
+ "prompt": "studio packshot photo of a Silver Lolumex Necklace Max, made of wood, watches & jewellery, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 348299841,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:51:32",
+ "file_path": "product-images/images/e23bc2e4-4177-410c-a13a-c9c70c234638.jpg",
+ "file_size": 45808
+}

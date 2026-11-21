@@ -3,6 +3,7 @@ package com.acme.ecommerce.payment.config;
 import com.acme.ecommerce.common.core.error.ErrorCode;
 import com.acme.ecommerce.common.security.AudienceValidator;
 import com.acme.ecommerce.common.security.PlatformJwtAuthenticationConverter;
+import com.acme.ecommerce.common.security.UuidSubjectValidator;
 import com.acme.ecommerce.payment.error.ProblemResponseWriter;
 import java.util.ArrayList;
 import java.util.List;
@@ -141,6 +142,7 @@ public class SecurityConfig {
     validators.add(new JwtTimestampValidator(PaymentProperties.Jwt.CLOCK_SKEW));
     validators.add(new JwtIssuerValidator(jwt.getIssuer()));
     validators.add(new AudienceValidator(jwt.getAudience()));
+    validators.add(new UuidSubjectValidator());
     return new DelegatingOAuth2TokenValidator<>(validators);
   }
 

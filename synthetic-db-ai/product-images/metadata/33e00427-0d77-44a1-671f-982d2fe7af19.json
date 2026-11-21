@@ -1,0 +1,13 @@
+{
+ "product_id": "33e00427-0d77-44a1-671f-982d2fe7af19",
+ "name": "Voqua Smartwatch Pro",
+ "prompt": "studio packshot photo of a Blue Voqua Smartwatch Pro, made of stainless steel, smart watches, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2021570016,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-15T23:57:06",
+ "file_path": "product-images/images/33e00427-0d77-44a1-671f-982d2fe7af19.jpg",
+ "file_size": 38610
+}

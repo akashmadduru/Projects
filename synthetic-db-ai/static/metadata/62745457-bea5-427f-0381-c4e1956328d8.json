@@ -1,0 +1,15 @@
+{
+ "product_id": "62745457-bea5-427f-0381-c4e1956328d8",
+ "name": "Vensumi Granola Plus",
+ "prompt": "studio packshot photo of a Green Vensumi Granola Plus, made of abs plastic, snacks, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 796405496,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:29:01",
+ "file_path": "static/images/62745457-bea5-427f-0381-c4e1956328d8.jpg",
+ "file_size": 45662,
+ "uploaded": false,
+ "s3_url": null
+}

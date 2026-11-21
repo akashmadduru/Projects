@@ -1,0 +1,15 @@
+{
+ "product_id": "4bfbdb05-9358-4980-b509-67124eaeccbb",
+ "name": "Vensuri SSD Gen 3",
+ "prompt": "studio packshot photo of a Midnight Vensuri SSD Gen 3, made of glass, storage, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 990647440,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:14:14",
+ "file_path": "static/images/4bfbdb05-9358-4980-b509-67124eaeccbb.jpg",
+ "file_size": 84477,
+ "uploaded": false,
+ "s3_url": null
+}

@@ -37,7 +37,8 @@ public class SubscriptionController {
   @PostMapping
   @ResponseStatus(HttpStatus.CREATED)
   public Subscription create(@AuthenticationPrincipal Jwt jwt, @RequestBody CreateRequest request) {
-    return service.create(UUID.fromString(jwt.getSubject()), jwt.getClaimAsString("email"), request);
+    return service.create(
+        UUID.fromString(jwt.getSubject()), jwt.getClaimAsString("email"), request);
   }
 
   @PutMapping("/{id}")

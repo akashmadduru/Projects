@@ -53,7 +53,8 @@ public class AdController {
 
   @PutMapping("/api/seller/ads/{id}")
   @PreAuthorize("hasRole('SELLER')")
-  public Campaign update(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id, @RequestBody AdRequest request) {
+  public Campaign update(
+      @AuthenticationPrincipal Jwt jwt, @PathVariable UUID id, @RequestBody AdRequest request) {
     return ads.update(seller(jwt).id(), id, request);
   }
 

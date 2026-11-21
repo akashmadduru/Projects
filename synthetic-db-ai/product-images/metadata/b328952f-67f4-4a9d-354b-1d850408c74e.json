@@ -1,0 +1,13 @@
+{
+ "product_id": "b328952f-67f4-4a9d-354b-1d850408c74e",
+ "name": "Quataar Massager Max",
+ "prompt": "studio packshot photo of a Silver Quataar Massager Max, made of cotton, personal wellness, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3717916721,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:13:55",
+ "file_path": "product-images/images/b328952f-67f4-4a9d-354b-1d850408c74e.jpg",
+ "file_size": 25630
+}

@@ -1,0 +1,15 @@
+{
+ "product_id": "0ff9dcc0-550c-41d6-8eb4-8caa0a55a178",
+ "name": "Quanono Helmet Pro",
+ "prompt": "studio packshot photo of a Green Quanono Helmet Pro, made of abs plastic, cycling, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1857924678,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:32:05",
+ "file_path": "static/images/0ff9dcc0-550c-41d6-8eb4-8caa0a55a178.jpg",
+ "file_size": 53109,
+ "uploaded": false,
+ "s3_url": null
+}

@@ -7,7 +7,6 @@ import com.acme.ecommerce.payment.service.GiftCardService.GiftCardView;
 import com.acme.ecommerce.payment.service.GiftCardService.Pending;
 import com.acme.ecommerce.payment.service.PaymentService;
 import com.acme.ecommerce.payment.service.WalletService;
-import com.acme.ecommerce.payment.service.WalletService.Balance;
 import com.acme.ecommerce.payment.service.WalletService.WalletView;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
@@ -22,6 +21,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -94,10 +94,22 @@ public class WalletController {
 
   @PostMapping("/api/gift-cards/redeem")
   public WalletView redeem(
-      @AuthenticationPrincipal Jwt jwt, @Valid @RequestBody RedeemRequest req) {
+      @AuthenticationPrincipal Jwt jwt,
+      @Valid @RequestBody RedeemRequest req,
+      jakarta.servlet.http.HttpServletRequest http) {
     UUID userId = UUID.fromString(jwt.getSubject());
-    Balance b = giftCards.redeem(userId, req.code());
+    // The gateway sets X-Forwarded-For; its first entry is the client (TD-P8-21 per-IP limit).
+    String xff = http.getHeader("X-Forwarded-For");
+    String ip = xff != null && !xff.isBlank() ? xff.split(",")[0].trim() : http.getRemoteAddr();
+    giftCards.redeem(userId, req.code(), ip);
     return wallet.view(userId);
+  }
+
+  /** Emails the recipient a new code (the old one stops working). Purchaser only, rate limited. */
+  @PostMapping("/api/gift-cards/{id}/resend")
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  public void resend(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id) {
+    giftCards.resend(UUID.fromString(jwt.getSubject()), id);
   }
 
   @GetMapping("/api/gift-cards")

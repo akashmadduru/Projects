@@ -1,0 +1,13 @@
+{
+ "product_id": "724aada8-8ec1-45ff-efe3-bdb6c0163080",
+ "name": "Trabanu Flash Drive Elite",
+ "prompt": "studio packshot photo of a Blue Trabanu Flash Drive Elite, made of nylon, storage, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2791470395,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:40:37",
+ "file_path": "product-images/images/724aada8-8ec1-45ff-efe3-bdb6c0163080.jpg",
+ "file_size": 37596
+}

@@ -1,0 +1,15 @@
+{
+ "product_id": "7c46bb3f-b117-4c05-ecd8-8c867037e688",
+ "name": "Trarili T-Shirt Prime",
+ "prompt": "studio packshot photo of a White Trarili T-Shirt Prime, made of ceramic, men's clothing, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1038693977,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:47:49",
+ "file_path": "static/images/7c46bb3f-b117-4c05-ecd8-8c867037e688.jpg",
+ "file_size": 42096,
+ "uploaded": false,
+ "s3_url": null
+}

@@ -1,0 +1,13 @@
+{
+ "product_id": "387f97ed-09c7-4eb2-61f2-2bb74ad1a912",
+ "name": "Arnu Mirrorless Camera Essential",
+ "prompt": "studio packshot photo of a Blue Arnu Mirrorless Camera Essential, made of stainless steel, cameras, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1230309347,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:22:00",
+ "file_path": "product-images/images/387f97ed-09c7-4eb2-61f2-2bb74ad1a912.jpg",
+ "file_size": 86080
+}

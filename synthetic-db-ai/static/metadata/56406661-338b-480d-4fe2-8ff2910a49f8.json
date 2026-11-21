@@ -1,0 +1,15 @@
+{
+ "product_id": "56406661-338b-480d-4fe2-8ff2910a49f8",
+ "name": "Arfyta 5G Phone Plus",
+ "prompt": "studio packshot photo of a Blue Arfyta 5G Phone Plus, made of stainless steel, mobiles & smartphones, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 34930016,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:29:41",
+ "file_path": "static/images/56406661-338b-480d-4fe2-8ff2910a49f8.jpg",
+ "file_size": 39970,
+ "uploaded": false,
+ "s3_url": null
+}

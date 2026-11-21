@@ -1,0 +1,15 @@
+{
+ "product_id": "24d2a027-168f-415f-e325-995b11474393",
+ "name": "Suliven Granola Ultra",
+ "prompt": "studio packshot photo of a Blue Suliven Granola Ultra, made of ceramic, snacks, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2686002323,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-15T23:39:52",
+ "file_path": "static/images/24d2a027-168f-415f-e325-995b11474393.jpg",
+ "file_size": 57744,
+ "uploaded": false,
+ "s3_url": null
+}

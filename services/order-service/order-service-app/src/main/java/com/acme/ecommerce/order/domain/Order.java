@@ -32,7 +32,9 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-/** An order: an immutable snapshot of lines, prices and the shipping address, plus its lifecycle. */
+/**
+ * An order: an immutable snapshot of lines, prices and the shipping address, plus its lifecycle.
+ */
 @Entity
 @Table(name = "orders")
 @Getter
@@ -40,7 +42,8 @@ import lombok.NoArgsConstructor;
 public class Order {
 
   /** The platform seller that owns every pre-marketplace product, offer and stock row. */
-  public static final UUID PLATFORM_SELLER = UUID.fromString("00000000-0000-0000-0000-00000000a11e");
+  public static final UUID PLATFORM_SELLER =
+      UUID.fromString("00000000-0000-0000-0000-00000000a11e");
 
   public static final String PLATFORM_SELLER_NAME = "Acme Retail";
   public static final String DEFAULT_WAREHOUSE_CODE = "WH-BLR";
@@ -180,6 +183,10 @@ public class Order {
   @Column(name = "risk_hold", nullable = false)
   private boolean riskHold;
 
+  /** Fingerprint of the cart this order consumed (null for buy-now and subscription orders). */
+  @Column(name = "cart_fingerprint", updatable = false, length = 64)
+  private String cartFingerprint;
+
   @Column(name = "exchange_quote_id")
   private UUID exchangeQuoteId;
 
@@ -280,7 +287,8 @@ public class Order {
       BigDecimal unitPrice,
       int quantity,
       String imageUrl) {
-    addItem(productId, variantId, variantLabel, sku, name, unitPrice, quantity, imageUrl, null, null);
+    addItem(
+        productId, variantId, variantLabel, sku, name, unitPrice, quantity, imageUrl, null, null);
   }
 
   public void addItem(
@@ -294,7 +302,8 @@ public class Order {
       String imageUrl,
       UUID offerId,
       UUID sellerId) {
-    OrderItem item = OrderItem.of(
+    OrderItem item =
+        OrderItem.of(
             this, productId, variantId, variantLabel, sku, name, unitPrice, quantity, imageUrl);
     item.tagOffer(offerId, sellerId);
     items.add(item);
@@ -302,8 +311,7 @@ public class Order {
   }
 
   /** Applies the computed pricing and sets the initial status (CARD pending, COD placed). */
-  public void begin(
-      Pricing pricing, String couponCode, LocalDate estimatedDelivery, Instant now) {
+  public void begin(Pricing pricing, String couponCode, LocalDate estimatedDelivery, Instant now) {
     this.subtotalAmount = pricing.subtotal();
     this.discountAmount = pricing.discount();
     this.couponCode = couponCode;
@@ -346,6 +354,15 @@ public class Order {
   }
 
   /** Phase 10: risk assessment at placement (hold = needs admin release before fulfilment). */
+  /** Records the cart this order is made from (TD-BE-15: one cart, one order). */
+  public void consumeCart(String fingerprint) {
+    this.cartFingerprint = fingerprint;
+  }
+
+  public String getCartFingerprint() {
+    return cartFingerprint;
+  }
+
   public void applyRisk(int score, List<String> reasons, boolean hold) {
     this.riskScore = score;
     this.riskReasons =
@@ -444,7 +461,8 @@ public class Order {
           "This order has several shipments; update each shipment instead");
     }
     if (shipments.size() == 1) {
-      advanceShipment(shipments.get(0).getId(), target, note, tracking, carrierName, HistoryActor.ADMIN, now);
+      advanceShipment(
+          shipments.get(0).getId(), target, note, tracking, carrierName, HistoryActor.ADMIN, now);
       return;
     }
     if (!target.isFulfilmentStep() || !status.isFulfilmentStep()) {
@@ -536,7 +554,8 @@ public class Order {
       if (shipment != null && !shipment.getId().equals(i.getShipmentId())) {
         continue;
       }
-      remaining.merge(new LineKey(i.getProductId(), i.getVariantId()), i.getQuantity(), Integer::sum);
+      remaining.merge(
+          new LineKey(i.getProductId(), i.getVariantId()), i.getQuantity(), Integer::sum);
     }
     for (OrderReturn r : returns) {
       if (r.getStatus() == ReturnStatus.REJECTED) {
@@ -548,7 +567,8 @@ public class Order {
         continue;
       }
       for (OrderReturnItem ri : r.getItems()) {
-        remaining.merge(new LineKey(ri.getProductId(), ri.getVariantId()), -ri.getQuantity(), Integer::sum);
+        remaining.merge(
+            new LineKey(ri.getProductId(), ri.getVariantId()), -ri.getQuantity(), Integer::sum);
       }
     }
     return remaining;
@@ -572,8 +592,7 @@ public class Order {
       }
       if (now.isAfter(target.getDeliveredAt().plus(Duration.ofDays(windowDays)))) {
         throw new CodedException(
-            ErrorCode.RETURN_WINDOW_EXPIRED,
-            "The " + windowDays + "-day return window has passed");
+            ErrorCode.RETURN_WINDOW_EXPIRED, "The " + windowDays + "-day return window has passed");
       }
     } else {
       if (status != OrderStatus.DELIVERED || deliveredAt == null) {
@@ -582,8 +601,7 @@ public class Order {
       }
       if (now.isAfter(returnWindowEndsAt(windowDays))) {
         throw new CodedException(
-            ErrorCode.RETURN_WINDOW_EXPIRED,
-            "The " + windowDays + "-day return window has passed");
+            ErrorCode.RETURN_WINDOW_EXPIRED, "The " + windowDays + "-day return window has passed");
       }
     }
     final OrderShipment scope = target;
@@ -685,8 +703,8 @@ public class Order {
 
   /**
    * Groups the lines by (seller, warehouse) using the reservation result and creates one shipment
-   * per group. Lines the reservation did not report on (older inventory-service) go to the
-   * default platform warehouse. A line stocked in several warehouses is split. Idempotent.
+   * per group. Lines the reservation did not report on (older inventory-service) go to the default
+   * platform warehouse. A line stocked in several warehouses is split. Idempotent.
    */
   public void assignShipments(
       List<Allocation> allocations,
@@ -813,7 +831,9 @@ public class Order {
     return s;
   }
 
-  /** Order status = DELIVERED when all live shipments are, else the minimum live shipment status. */
+  /**
+   * Order status = DELIVERED when all live shipments are, else the minimum live shipment status.
+   */
   private void syncFromShipments(Instant now) {
     List<OrderShipment> live =
         shipments.stream().filter(s -> s.getStatus() != OrderStatus.CANCELLED).toList();

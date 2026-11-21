@@ -1,0 +1,17 @@
+[
+ {
+  "id": "S1",
+  "desc": "S1 security/major: right-hand N-hop rule turned into left-hand (forgeable XFF)",
+  "injected": "ClientAddress.parse(parts[trustedProxyHops - 1]);"
+ },
+ {
+  "id": "S2",
+  "desc": "S2 correctness/major: IPv4:port keeps the port instead of the address",
+  "injected": "s = s.substring(firstColon + 1); // IPv4:port"
+ },
+ {
+  "id": "S3",
+  "desc": "S3 security/minor: dotted-quad guard weakened, shorthand like 127.1 accepted",
+  "injected": ".filter(c -> c == '.').count() > 3))"
+ }
+]

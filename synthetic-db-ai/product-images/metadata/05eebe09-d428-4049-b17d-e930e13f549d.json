@@ -1,0 +1,13 @@
+{
+ "product_id": "05eebe09-d428-4049-b17d-e930e13f549d",
+ "name": "Arrili Air Fryer Max",
+ "prompt": "studio packshot photo of a Black Arrili Air Fryer Max, made of leather, small appliances, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1031302704,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 768,
+ "created_at": "2026-11-15T22:35:12",
+ "file_path": "product-images/images/05eebe09-d428-4049-b17d-e930e13f549d.jpg",
+ "file_size": 88155
+}

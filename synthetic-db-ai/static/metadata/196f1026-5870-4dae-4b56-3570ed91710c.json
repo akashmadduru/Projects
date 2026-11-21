@@ -1,0 +1,15 @@
+{
+ "product_id": "196f1026-5870-4dae-4b56-3570ed91710c",
+ "name": "Lotra Smartphone Elite",
+ "prompt": "studio packshot photo of a Midnight Lotra Smartphone Elite, made of leather, mobiles & smartphones, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1070430398,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 768,
+ "created_at": "2026-11-15T23:09:30",
+ "file_path": "static/images/196f1026-5870-4dae-4b56-3570ed91710c.jpg",
+ "file_size": 75739,
+ "uploaded": false,
+ "s3_url": null
+}

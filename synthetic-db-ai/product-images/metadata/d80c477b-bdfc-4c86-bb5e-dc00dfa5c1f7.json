@@ -1,0 +1,13 @@
+{
+ "product_id": "d80c477b-bdfc-4c86-bb5e-dc00dfa5c1f7",
+ "name": "Venardex Sketch Pad Essential",
+ "prompt": "studio packshot photo of a Space Grey Venardex Sketch Pad Essential, made of aluminium, art supplies, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 140256670,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:14:31",
+ "file_path": "product-images/images/d80c477b-bdfc-4c86-bb5e-dc00dfa5c1f7.jpg",
+ "file_size": 41420
+}

@@ -1,0 +1,13 @@
+{
+ "product_id": "46d99158-eda5-4bc4-bdf7-6fe6534c3295",
+ "name": "Lumta Glucometer Pro",
+ "prompt": "studio packshot photo of a Silver Lumta Glucometer Pro, made of ceramic, medical devices, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 39866531,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:11:55",
+ "file_path": "product-images/images/46d99158-eda5-4bc4-bdf7-6fe6534c3295.jpg",
+ "file_size": 31563
+}

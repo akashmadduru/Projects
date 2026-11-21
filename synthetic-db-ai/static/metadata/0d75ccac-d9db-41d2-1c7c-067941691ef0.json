@@ -1,0 +1,15 @@
+{
+ "product_id": "0d75ccac-d9db-41d2-1c7c-067941691ef0",
+ "name": "Dexnoze Kurta Edition",
+ "prompt": "studio packshot photo of a Navy Blue Dexnoze Kurta Edition, made of abs plastic, women's clothing, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1769594990,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T01:59:53",
+ "file_path": "static/images/0d75ccac-d9db-41d2-1c7c-067941691ef0.jpg",
+ "file_size": 66450,
+ "uploaded": false,
+ "s3_url": null
+}

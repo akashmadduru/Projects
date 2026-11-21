@@ -1,0 +1,13 @@
+{
+ "product_id": "17822fff-060e-4197-d864-c3abb5922ea1",
+ "name": "Loven Massager Elite",
+ "prompt": "studio packshot photo of a Silver Loven Massager Elite, made of wood, personal wellness, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2747032895,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 768,
+ "created_at": "2026-11-15T23:06:41",
+ "file_path": "product-images/images/17822fff-060e-4197-d864-c3abb5922ea1.jpg",
+ "file_size": 64618
+}

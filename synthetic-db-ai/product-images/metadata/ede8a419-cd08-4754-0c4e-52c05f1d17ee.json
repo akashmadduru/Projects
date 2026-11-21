@@ -1,0 +1,13 @@
+{
+ "product_id": "ede8a419-cd08-4754-0c4e-52c05f1d17ee",
+ "name": "Exqua Tent Prime",
+ "prompt": "studio packshot photo of a Midnight Exqua Tent Prime, made of aluminium, camping, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1953223006,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:56:16",
+ "file_path": "product-images/images/ede8a419-cd08-4754-0c4e-52c05f1d17ee.jpg",
+ "file_size": 32680
+}

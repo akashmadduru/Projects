@@ -1,0 +1,13 @@
+{
+ "product_id": "ff86d0d8-409b-4ffc-74d0-2682ffcb9c6f",
+ "name": "Kami Multivitamin Ultra",
+ "prompt": "studio packshot photo of a Blue Kami Multivitamin Ultra, made of ceramic, supplements, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1302717767,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T01:54:40",
+ "file_path": "product-images/images/ff86d0d8-409b-4ffc-74d0-2682ffcb9c6f.jpg",
+ "file_size": 47283
+}

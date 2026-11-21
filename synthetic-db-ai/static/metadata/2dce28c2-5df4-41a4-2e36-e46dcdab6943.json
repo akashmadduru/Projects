@@ -1,0 +1,15 @@
+{
+ "product_id": "2dce28c2-5df4-41a4-2e36-e46dcdab6943",
+ "name": "Ormiar RC Helicopter Series 2",
+ "prompt": "studio packshot photo of a Red Ormiar RC Helicopter Series 2, made of polyester, remote control, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2333990823,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-15T23:49:23",
+ "file_path": "static/images/2dce28c2-5df4-41a4-2e36-e46dcdab6943.jpg",
+ "file_size": 46978,
+ "uploaded": false,
+ "s3_url": null
+}

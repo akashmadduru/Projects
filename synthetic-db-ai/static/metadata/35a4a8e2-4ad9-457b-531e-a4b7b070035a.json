@@ -1,0 +1,15 @@
+{
+ "product_id": "35a4a8e2-4ad9-457b-531e-a4b7b070035a",
+ "name": "Dexexta Mirrorless Camera Max",
+ "prompt": "studio packshot photo of a Red Dexexta Mirrorless Camera Max, made of stainless steel, cameras, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2786932979,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:30:03",
+ "file_path": "static/images/35a4a8e2-4ad9-457b-531e-a4b7b070035a.jpg",
+ "file_size": 83802,
+ "uploaded": false,
+ "s3_url": null
+}

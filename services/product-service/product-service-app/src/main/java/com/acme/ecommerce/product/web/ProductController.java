@@ -264,7 +264,10 @@ public class ProductController {
 
   private static final int MAX_BATCH = 50;
 
-  /** List filters plus the dynamic {@code attr.<Key>=v1,v2} parameters. */
+  /**
+   * List filters plus the dynamic {@code attr.<Key>=value} parameters. Multi-values are REPEATED
+   * parameters ({@code brand=A&brand=B}), each taken literally, so a value may contain a comma.
+   */
   private static ProductFilter filterOf(ProductListParams params, HttpServletRequest request) {
     Map<String, List<String>> attrs = new LinkedHashMap<>();
     request
@@ -272,10 +275,7 @@ public class ProductController {
         .forEach(
             (name, values) -> {
               if (name.startsWith("attr.") && name.length() > 5) {
-                List<String> collected = new ArrayList<>();
-                for (String value : values) {
-                  collected.addAll(ProductListParams.splitCsv(value));
-                }
+                List<String> collected = ProductListParams.literalValues(values);
                 if (!collected.isEmpty()) {
                   attrs
                       .computeIfAbsent(name.substring(5), k -> new ArrayList<>())
@@ -283,7 +283,10 @@ public class ProductController {
                 }
               }
             });
-    return params.toFilter().withBrandsAndAttributes(params.toFilter().brands(), attrs);
+    return params
+        .toFilter()
+        .withBrandsAndAttributes(
+            ProductListParams.literalValues(request.getParameterValues("brand")), attrs);
   }
 
   /** Autocomplete: products, categories and a spelling suggestion. Public. */

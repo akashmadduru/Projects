@@ -16,8 +16,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 public interface ProductFeignClient {
 
   @GetMapping("/api/products")
-  Map<String, Object> list(
-      @RequestParam("sellerId") UUID sellerId, @RequestParam("size") int size);
+  Map<String, Object> list(@RequestParam("sellerId") UUID sellerId, @RequestParam("size") int size);
 
   @GetMapping("/api/products/{id}")
   Map<String, Object> get(@PathVariable("id") UUID id);

@@ -1,5 +1,7 @@
 package com.acme.ecommerce.order.service;
 
+import com.acme.ecommerce.common.core.error.CodedException;
+import com.acme.ecommerce.common.core.error.ErrorCode;
 import com.acme.ecommerce.order.api.dto.CreateReturnRequest;
 import com.acme.ecommerce.order.api.dto.ReturnResponse;
 import com.acme.ecommerce.order.domain.Order.ReturnLine;
@@ -9,8 +11,6 @@ import com.acme.ecommerce.order.event.OrderEventPublisher;
 import com.acme.ecommerce.order.event.OrderEventType;
 import com.acme.ecommerce.order.service.OrderStore.ReturnOutcome;
 import com.acme.ecommerce.order.service.OrderStore.ReturnRefundPlan;
-import com.acme.ecommerce.common.core.error.CodedException;
-import com.acme.ecommerce.common.core.error.ErrorCode;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
@@ -35,7 +35,9 @@ public class ReturnService {
 
   public ReturnResponse request(UUID userId, UUID orderId, CreateReturnRequest req) {
     List<ReturnLine> lines =
-        req.items().stream().map(i -> new ReturnLine(i.productId(), i.variantId(), i.quantity())).toList();
+        req.items().stream()
+            .map(i -> new ReturnLine(i.productId(), i.variantId(), i.quantity()))
+            .toList();
     ReturnOutcome outcome =
         store.requestReturn(
             userId,
@@ -121,7 +123,8 @@ public class ReturnService {
       if (e.errorCode() == ErrorCode.DEPENDENCY_UNAVAILABLE) {
         throw e;
       }
-      remote.creditWallet(plan.userId(), rest, plan.currency(), plan.orderId(), "return-rest-" + returnId);
+      remote.creditWallet(
+          plan.userId(), rest, plan.currency(), plan.orderId(), "return-rest-" + returnId);
     }
   }
 }

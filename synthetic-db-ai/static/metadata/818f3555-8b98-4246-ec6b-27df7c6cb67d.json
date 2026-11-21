@@ -1,0 +1,15 @@
+{
+ "product_id": "818f3555-8b98-4246-ec6b-27df7c6cb67d",
+ "name": "Exlo Box Set Essential",
+ "prompt": "studio packshot photo of a Grey Exlo Box Set Essential, made of aluminium, books, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1324775822,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T01:35:02",
+ "file_path": "static/images/818f3555-8b98-4246-ec6b-27df7c6cb67d.jpg",
+ "file_size": 30685,
+ "uploaded": false,
+ "s3_url": null
+}

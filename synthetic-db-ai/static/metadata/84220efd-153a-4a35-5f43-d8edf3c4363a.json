@@ -1,0 +1,15 @@
+{
+ "product_id": "84220efd-153a-4a35-5f43-d8edf3c4363a",
+ "name": "Quasu Toaster Gen 3",
+ "prompt": "studio packshot photo of a Rose Gold Quasu Toaster Gen 3, made of aluminium, small appliances, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 191717742,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:18:34",
+ "file_path": "static/images/84220efd-153a-4a35-5f43-d8edf3c4363a.jpg",
+ "file_size": 46083,
+ "uploaded": false,
+ "s3_url": null
+}

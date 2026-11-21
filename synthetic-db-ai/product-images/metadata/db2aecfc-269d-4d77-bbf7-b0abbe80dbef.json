@@ -1,0 +1,13 @@
+{
+ "product_id": "db2aecfc-269d-4d77-bbf7-b0abbe80dbef",
+ "name": "Lumloor Keyboard Essential",
+ "prompt": "studio packshot photo of a Blue Lumloor Keyboard Essential, made of abs plastic, keyboards & mice, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3904612289,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:50:51",
+ "file_path": "product-images/images/db2aecfc-269d-4d77-bbf7-b0abbe80dbef.jpg",
+ "file_size": 70587
+}

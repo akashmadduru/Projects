@@ -1,0 +1,13 @@
+{
+ "product_id": "658c5e38-494b-4a00-22fb-a5d7f65d071f",
+ "name": "Exvoka Soundbar Elite",
+ "prompt": "studio packshot photo of a Grey Exvoka Soundbar Elite, made of bamboo, speakers, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1811305467,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:19:27",
+ "file_path": "product-images/images/658c5e38-494b-4a00-22fb-a5d7f65d071f.jpg",
+ "file_size": 41920
+}

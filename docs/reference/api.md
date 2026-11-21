@@ -51,7 +51,8 @@ paths explicitly opened to `SUPPORT` / `FINANCE`, and each service checks again.
 | `POST`/`PUT`/`DELETE /api/inventory/**` | `CATALOG_MANAGER` or `ADMIN` |
 | `GET /api/ratings/products/{id}`, `…/summary`, questions, answers, media | Anyone |
 | `POST /api/ratings/products/{id}` (write a review) | A signed-in user with an order for the product that is not `CANCELLED` or `PENDING_PAYMENT` (else 403 `REVIEW_NOT_ELIGIBLE`; 503 `DEPENDENCY_UNAVAILABLE` if order-service cannot be reached), one review per product (else 409 `REVIEW_ALREADY_EXISTS`) |
-| `PUT`/`DELETE /api/ratings/{id}` | The author or `ADMIN` |
+| `PUT`/`DELETE /api/ratings/{id}` | The author only |
+| `DELETE /api/admin/ratings/{id}` | `ADMIN` (audited) |
 | `POST /api/ratings/{id}/votes/{voteType}` | A signed-in user, not on their own review (409 `CANNOT_VOTE_OWN_REVIEW`) |
 
 ### Errors
@@ -602,13 +603,13 @@ Content-Type: application/json
 }
 ```
 
-**Authorization:** Author of the rating OR `ADMIN` role
+**Authorization:** Author of the rating only (since 2026-11-17; staff no longer edit reviews)
 
 **Response (200 OK):** Updated RatingResponse
 
 **Errors:**
 - 400 — validation failed
-- 403 — not the author and not admin
+- 403 — not the author
 - 404 — rating not found
 - 409 — version mismatch
 
@@ -621,12 +622,13 @@ DELETE /api/ratings/{ratingId}
 Authorization: Bearer <jwt>
 ```
 
-**Authorization:** Author of the rating OR `ADMIN` role
+**Authorization:** Author of the rating only. Admins use `DELETE /api/admin/ratings/{ratingId}`
+(`ADMIN`), which does the same and is recorded in the audit log (`GET /api/admin/audit`).
 
 **Response (204 No Content)**
 
 **Errors:**
-- 403 — not the author and not admin
+- 403 — not the author
 - 404 — rating not found
 
 **Side Effect:** Publishes `RatingEvent(RATING_DELETED)` to Kafka. Associated votes are cascaded-deleted.
@@ -730,5 +732,6 @@ applied. Placement reserves stock and runs the risk score: a score of 70 or more
 order and all of its shipments are still cancellable, which ends at `PACKED`; later states return 409
 `ORDER_NOT_CANCELLABLE`. An already-cancelled order returns 200 unchanged. On cancel:
 a captured payment is refunded, then stock is restored and the coupon, coins and wallet amount are
-released. The release steps are best-effort, so a failure is logged and not retried
-([TD-P6-01](../techdebt/phase6.md#td-p6-01)).
+released. The release steps are recorded in order-service's transactional outbox with the
+cancellation and delivered with retries (since 2026-11-17); wallet amounts go through their own
+durable retry table.

@@ -1,0 +1,13 @@
+{
+ "product_id": "bc4e741d-3688-45df-5bb0-df04f497151d",
+ "name": "Linu Office Chair Edition",
+ "prompt": "studio packshot photo of a Navy Blue Linu Office Chair Edition, made of ceramic, furniture, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1111257555,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:25:08",
+ "file_path": "product-images/images/bc4e741d-3688-45df-5bb0-df04f497151d.jpg",
+ "file_size": 53801
+}

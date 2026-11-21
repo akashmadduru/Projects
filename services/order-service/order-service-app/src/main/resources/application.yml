@@ -22,12 +22,6 @@ spring:
     # anywhere pointing at the cause.
     name: order-service
 
-  jackson:
-    deserialization:
-      # product-service returns nulls for some primitive-typed fields of ProductResponse;
-      # tolerate them instead of failing the whole checkout.
-      fail-on-null-for-primitives: false
-
   # Blocking MVC on virtual threads (see the application class).
   threads:
     virtual:

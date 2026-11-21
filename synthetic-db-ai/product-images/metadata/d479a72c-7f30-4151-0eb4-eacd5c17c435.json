@@ -1,0 +1,13 @@
+{
+ "product_id": "d479a72c-7f30-4151-0eb4-eacd5c17c435",
+ "name": "Dexvoven Notebook Pack Series 2",
+ "prompt": "studio packshot photo of a Rose Gold Dexvoven Notebook Pack Series 2, made of cotton, stationery, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1062549662,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:29:49",
+ "file_path": "product-images/images/d479a72c-7f30-4151-0eb4-eacd5c17c435.jpg",
+ "file_size": 32559
+}

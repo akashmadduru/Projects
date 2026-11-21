@@ -1,0 +1,243 @@
+diff --git a/docs/guides/operations.md b/docs/guides/operations.md
+index 2f4a0b7..a232df5 100644
+--- a/docs/guides/operations.md
++++ b/docs/guides/operations.md
+@@ -360,8 +360,10 @@ Each refunded return gives back its pro-rata share of the order's redeemed coins
+ - **Deploy order:** deploy promotion-service BEFORE order-service. Old order-service events still work (legacy path); the new event fields are ignored by an old promotion-service.
+ - **Rollback:** an old promotion-service runs `onFullyRefunded` on a completing return even when per-return reversals exist. That is an over-reversal, clamped to the balance. Roll back only before any completing return is refunded, or accept the clamped over-reversal.
+ - **Shortfall:** when the user already spent the coins, the reversal is clamped to the balance and the log carries `COIN REVERSAL SHORTFALL order=... return=... earnDue=... taken=...`. `promotion.coin_return_reversals` records `earn_due` and `earn_taken` for every return, also when `earn_taken` is 0 (a ledger row cannot hold 0). Shortfall is `earn_due - earn_taken`; it is not recovered later.
+-- **Replaying a DLT:** safe. Each return is applied once (primary key `return_id`, checked under the per-user lock). `RETURN_REFUNDED` events with a `returnId` are not dropped by the 2-day age gate, so a late replay still applies.
+-- **Privacy:** `coin_return_reversals` is retained on USER_DELETED like the coin ledger and is not part of `PrivacyExportController`. Backlog: add it to the export.
++- **Replaying a DLT:** safe. Each return is applied once (primary key `return_id`, checked under the per-user lock). `RETURN_REFUNDED` events with a `returnId` with both `returnId` and `returnItemsValue` are not dropped by the 2-day age gate, so a late replay still applies.
++- **Give-back does not expire:** redeemed coins given back on a return carry no expiry, the same as the existing cancel give-back (`releaseRedeem`). Accepted.
++- **Legacy paths:** after per-return reversals exist, the legacy full-refund path (`onFullyRefunded`) and `releaseRedeem` subtract what the returns were already due, so an order never reverses or gives back more than N or E.
++- **Privacy:** `coin_return_reversals` is retained on USER_DELETED like the coin ledger and is not part of `PrivacyExportController`. Follow-up: add it to the export (kept here, not in the tech-debt register).
+ 
+ ---
+ 
+diff --git a/docs/reference/events.md b/docs/reference/events.md
+index 372cb23..a9508e4 100644
+--- a/docs/reference/events.md
++++ b/docs/reference/events.md
+@@ -36,7 +36,7 @@ Each topic `X` also has a dead-letter topic `X.DLT` (see [failure handling](#fai
+ | `inventory.events` | `cart-alerts-inventory` | cart-service `AlertEventConsumers` (back-in-stock alerts) | **latest** |
+ | `rating.events` | `product-service-rating-listener` | product-service `RatingEventListener` | earliest |
+ | `order.events` | `notification-service-order-listener` | notification-service `OrderEventListener` | earliest |
+-| `order.events` | `promotion-service-order-listener` | promotion-service `OrderEventListener` (coins on `DELIVERED`; per-return coin reversal on `RETURN_REFUNDED`, which skips the 2-day age gate when it carries `returnId`) | earliest |
++| `order.events` | `promotion-service-order-listener` | promotion-service `OrderEventListener` (coins on `DELIVERED`; per-return coin reversal on `RETURN_REFUNDED`, which skips the 2-day age gate only when it carries `returnId` AND `returnItemsValue`) | earliest |
+ | `order.events` | `seller-service-ledger` | seller-service `OrderEventConsumer` (settlement ledger) | **earliest** (since 2026-11-17; the ledger is idempotent, so a replay books nothing twice) |
+ | `user.events` | `<service>-privacy` | `UserDeletedListener` in auth, cart, notification, order, payment, promotion, rating, seller, support | earliest |
+ | `audit.events` | `support-service-audit` | support-service `AuditConsumer` | earliest |
+diff --git a/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/ReturnRefundIntegrationTest.java b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/ReturnRefundIntegrationTest.java
+index 491a40d..74518ea 100644
+--- a/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/ReturnRefundIntegrationTest.java
++++ b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/ReturnRefundIntegrationTest.java
+@@ -307,6 +307,32 @@ class ReturnRefundIntegrationTest extends AbstractOrderIntegrationTest {
+     verifyNoInteractions(promotions);
+   }
+ 
++  @Test
++  @DisplayName("AC-16: the completing return's event carries REFUNDED with the coin feed")
++  void completingReturnEvent() {
++    UUID first = pickedUpReturn("0");
++    UUID second = siblingOf(first);
++    UUID third = siblingOf(first);
++    paymentReplies("SUCCEEDED");
++
++    returns.refund(first);
++    returns.refund(second);
++    returns.refund(third);
++
++    String last = payloadOf(third);
++    assertThat(last).contains("\"paymentStatus\":\"REFUNDED\"");
++    assertThat(last).containsPattern("\"returnItemsValue\":100([.]0+)?[,}]");
++    assertThat(payloadOf(second)).doesNotContain("\"paymentStatus\":\"REFUNDED\"");
++  }
++
++  private String payloadOf(UUID returnId) {
++    return jdbc.queryForObject(
++        "select replace(payload::text, ' ', '') from orders.outbox"
++            + " where kind = 'ORDER_EVENT' and payload::jsonb->>'returnId' = ?",
++        String.class,
++        returnId.toString());
++  }
++
+   @Test
+   @DisplayName("AC-9: calling refund again on a REFUNDED return adds no call, ledger or outbox row")
+   void refundedIsNoOp() {
+diff --git a/services/promotion-service/promotion-service-app/src/main/java/com/acme/ecommerce/promotion/service/CoinService.java b/services/promotion-service/promotion-service-app/src/main/java/com/acme/ecommerce/promotion/service/CoinService.java
+index faf113f..8ab6557 100644
+--- a/services/promotion-service/promotion-service-app/src/main/java/com/acme/ecommerce/promotion/service/CoinService.java
++++ b/services/promotion-service/promotion-service-app/src/main/java/com/acme/ecommerce/promotion/service/CoinService.java
+@@ -133,7 +133,10 @@ public class CoinService {
+     }
+     UUID userId = (UUID) row[0];
+     lock(userId);
+-    insert(userId, -((Integer) row[1]), "REVERSE_ORDER", "redeem-" + orderId, null);
++    int give = -((Integer) row[1]) - priorDue(orderId, true);
++    if (give > 0) {
++      insert(userId, give, "REVERSE_ORDER", "redeem-" + orderId, null);
++    }
+   }
+ 
+   // ---- order events --------------------------------------------------------------------------
+@@ -172,6 +175,7 @@ public class CoinService {
+       return;
+     }
+     lock(userId);
++    earned -= priorDue(orderId, false); // per-return reversals already took their share
+     int take = Math.min(earned, Math.max(0, balance(userId)));
+     if (take > 0) {
+       insert(userId, -take, "REVERSE_ORDER", "earn-" + orderId, null);
+@@ -201,6 +205,9 @@ public class CoinService {
+       return;
+     }
+     String order = orderId.toString();
++    if (!completes && (orderValue == null || orderValue.signum() <= 0)) {
++      log.warn("Return {} of order {} has no usable order value; no coin share", returnId, order);
++    }
+     int redeemDue = dueFor(userId, orderId, value, orderValue, completes, true);
+     int earnDue = dueFor(userId, orderId, value, orderValue, completes, false);
+     if (redeemDue > 0) {
+@@ -251,15 +258,7 @@ public class CoinService {
+                 .param("u", userId)
+                 .query(Integer.class)
+                 .single());
+-    int prior =
+-        jdbc.sql(
+-                "SELECT COALESCE(SUM("
+-                    + (redeem ? "redeem_due" : "earn_due")
+-                    + "), 0)"
+-                    + " FROM promotion.coin_return_reversals WHERE order_id = :o")
+-            .param("o", orderId)
+-            .query(Integer.class)
+-            .single();
++    int prior = priorDue(orderId, redeem);
+     if (exists("REVERSE_ORDER", (redeem ? "redeem-" : "earn-") + order, userId)) {
+       prior += total;
+     }
+@@ -267,15 +266,27 @@ public class CoinService {
+     if (completes) {
+       return remaining;
+     }
+-    if (orderValue == null || value == null || orderValue.signum() <= 0) {
++    if (orderValue == null || value == null || orderValue.signum() <= 0 || value.signum() <= 0) {
+       return 0;
+     }
+     int share =
+         BigDecimal.valueOf(total)
+-            .multiply(value)
++            .multiply(value.min(orderValue))
+             .divide(orderValue, 0, RoundingMode.DOWN)
+-            .intValue();
+-    return Math.min(share, remaining);
++            .intValueExact();
++    return Math.max(0, Math.min(share, remaining));
++  }
++
++  /** Coins already due for this order through per-return reversals. */
++  private int priorDue(UUID orderId, boolean redeem) {
++    return jdbc.sql(
++            "SELECT COALESCE(SUM("
++                + (redeem ? "redeem_due" : "earn_due")
++                + "), 0)"
++                + " FROM promotion.coin_return_reversals WHERE order_id = :o")
++        .param("o", orderId)
++        .query(Integer.class)
++        .single();
+   }
+ 
+   private void referralReward(UUID refereeId) {
+diff --git a/services/promotion-service/promotion-service-app/src/main/resources/db/migration/V5__coin_return_reversals.sql b/services/promotion-service/promotion-service-app/src/main/resources/db/migration/V5__coin_return_reversals.sql
+index 28748d6..74fb034 100644
+--- a/services/promotion-service/promotion-service-app/src/main/resources/db/migration/V5__coin_return_reversals.sql
++++ b/services/promotion-service/promotion-service-app/src/main/resources/db/migration/V5__coin_return_reversals.sql
+@@ -8,6 +8,7 @@ CREATE TABLE promotion.coin_return_reversals
+     earn_due    integer     NOT NULL,
+     earn_taken  integer     NOT NULL,
+     completes   boolean     NOT NULL,
+-    created_at  timestamptz NOT NULL DEFAULT now()
++    created_at  timestamptz NOT NULL DEFAULT now(),
++    CHECK (redeem_due >= 0 AND earn_due >= 0 AND earn_taken >= 0 AND earn_taken <= earn_due)
+ );
+ CREATE INDEX ix_coin_return_reversals_order ON promotion.coin_return_reversals (order_id);
+diff --git a/services/promotion-service/promotion-service-app/src/test/java/com/acme/ecommerce/promotion/event/OrderEventListenerReturnTest.java b/services/promotion-service/promotion-service-app/src/test/java/com/acme/ecommerce/promotion/event/OrderEventListenerReturnTest.java
+index 4ffffb7..2a215bf 100644
+--- a/services/promotion-service/promotion-service-app/src/test/java/com/acme/ecommerce/promotion/event/OrderEventListenerReturnTest.java
++++ b/services/promotion-service/promotion-service-app/src/test/java/com/acme/ecommerce/promotion/event/OrderEventListenerReturnTest.java
+@@ -9,6 +9,7 @@ import static org.mockito.Mockito.never;
+ import static org.mockito.Mockito.verify;
+ import static org.mockito.Mockito.verifyNoInteractions;
+ 
++import com.acme.ecommerce.common.web.kafka.KafkaJson;
+ import com.acme.ecommerce.promotion.config.PromotionProperties;
+ import com.acme.ecommerce.promotion.service.CoinService;
+ import java.math.BigDecimal;
+@@ -110,7 +111,8 @@ class OrderEventListenerReturnTest {
+         "{\"type\":\"RETURN_REFUNDED\",\"orderId\":\"o\",\"returnId\":\"r1\","
+             + "\"returnItemsValue\":100.50,\"orderItemsValue\":300,\"somethingNew\":1}";
+     OrderEvent e =
+-        new com.fasterxml.jackson.databind.ObjectMapper().readValue(json, OrderEvent.class);
++        KafkaJson.eventDeserializer(OrderEvent.class, "com.acme.ecommerce.promotion.event")
++            .deserialize("order.events", json.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+ 
+     assertThat(e.returnId()).isEqualTo("r1");
+     assertThat(e.returnItemsValue()).isEqualByComparingTo("100.50");
+diff --git a/services/promotion-service/promotion-service-app/src/test/java/com/acme/ecommerce/promotion/service/CoinReturnReversalIntegrationTest.java b/services/promotion-service/promotion-service-app/src/test/java/com/acme/ecommerce/promotion/service/CoinReturnReversalIntegrationTest.java
+index adeae9e..e131ada 100644
+--- a/services/promotion-service/promotion-service-app/src/test/java/com/acme/ecommerce/promotion/service/CoinReturnReversalIntegrationTest.java
++++ b/services/promotion-service/promotion-service-app/src/test/java/com/acme/ecommerce/promotion/service/CoinReturnReversalIntegrationTest.java
+@@ -284,4 +284,53 @@ class CoinReturnReversalIntegrationTest extends AbstractPromotionIntegrationTest
+     assertThat(sum(user, "return-earn-")).isEqualTo(-10);
+     assertThat(reversalRows(order)).isEqualTo(1);
+   }
++
++  @Test
++  @DisplayName("a negative value gives no coins and a zero due; an oversized value is capped")
++  void negativeAndOversizedValues() {
++    UUID user = UUID.randomUUID();
++    UUID order = UUID.randomUUID();
++    UUID neg = UUID.randomUUID();
++    seed(user, order, 30, 30, 100);
++
++    coins.onReturnRefunded(order, user, neg, new BigDecimal("-100"), ORDER_VALUE, false);
++
++    assertThat(rows(user, "return-%-" + neg)).isZero();
++    assertThat(((Number) reversal(neg).get("redeem_due")).intValue()).isZero();
++    assertThat(((Number) reversal(neg).get("earn_due")).intValue()).isZero();
++
++    coins.onReturnRefunded(
++        order, user, UUID.randomUUID(), new BigDecimal("900"), ORDER_VALUE, false);
++
++    assertThat(sum(user, "return-redeem-")).isEqualTo(30); // capped at N, never more
++    assertThat(sum(user, "return-earn-")).isEqualTo(-30);
++  }
++
++  @Test
++  @DisplayName("a per-return partial followed by the legacy full refund totals at most N and E")
++  void legacyAfterPerReturn() {
++    UUID user = UUID.randomUUID();
++    UUID order = UUID.randomUUID();
++    seed(user, order, 30, 30, 100);
++
++    coins.onReturnRefunded(order, user, UUID.randomUUID(), THIRD, ORDER_VALUE, false);
++    coins.onFullyRefunded(order, user);
++    coins.releaseRedeem(order);
++
++    assertThat(sum(user, "return-earn-") + sum(user, "earn-")).isEqualTo(-30);
++    assertThat(sum(user, "return-redeem-") + sum(user, "redeem-")).isEqualTo(30);
++  }
++
++  @Test
++  @DisplayName("shares round down: 26 coins of a third is 8, not 9")
++  void roundsDown() {
++    UUID user = UUID.randomUUID();
++    UUID order = UUID.randomUUID();
++    seed(user, order, 26, 26, 100);
++
++    coins.onReturnRefunded(order, user, UUID.randomUUID(), THIRD, ORDER_VALUE, false);
++
++    assertThat(sum(user, "return-redeem-")).isEqualTo(8);
++    assertThat(sum(user, "return-earn-")).isEqualTo(-8);
++  }
+ }

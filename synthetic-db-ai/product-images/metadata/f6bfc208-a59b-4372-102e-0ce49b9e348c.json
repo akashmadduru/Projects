@@ -1,0 +1,13 @@
+{
+ "product_id": "f6bfc208-a59b-4372-102e-0ce49b9e348c",
+ "name": "Kasu Mixed Nuts Gen 3",
+ "prompt": "studio packshot photo of a Blue Kasu Mixed Nuts Gen 3, made of bamboo, snacks, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2353350250,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:20:02",
+ "file_path": "product-images/images/f6bfc208-a59b-4372-102e-0ce49b9e348c.jpg",
+ "file_size": 57240
+}

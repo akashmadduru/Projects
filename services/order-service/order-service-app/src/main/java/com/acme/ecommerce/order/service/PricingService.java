@@ -70,13 +70,22 @@ public class PricingService {
           freeShipping);
     }
     BigDecimal rate = props.getTax().getGstPercent();
-    BigDecimal tax =
-        total.multiply(rate).divide(HUNDRED.add(rate), 2, RoundingMode.HALF_UP);
+    BigDecimal tax = total.multiply(rate).divide(HUNDRED.add(rate), 2, RoundingMode.HALF_UP);
     String label = "GST " + rate.stripTrailingZeros().toPlainString() + "% (incl.)";
     if (isWarehouseState(shipState)) {
       BigDecimal cgst = tax.divide(new BigDecimal("2"), 2, RoundingMode.HALF_UP);
       return new Pricing(
-          sub, disc, shipping, total, tax, label, cgst, tax.subtract(cgst), null, coins, freeShipping);
+          sub,
+          disc,
+          shipping,
+          total,
+          tax,
+          label,
+          cgst,
+          tax.subtract(cgst),
+          null,
+          coins,
+          freeShipping);
     }
     return new Pricing(
         sub, disc, shipping, total, tax, label, null, null, tax, coins, freeShipping);
@@ -116,21 +125,16 @@ public class PricingService {
     BigDecimal sub = subtotal == null ? BigDecimal.ZERO : subtotal;
     boolean inr = isInr(cur);
     BigDecimal threshold =
-        inr ? props.getShipping().getInrFreeThreshold() : props.getShipping().getOtherFreeThreshold();
+        inr
+            ? props.getShipping().getInrFreeThreshold()
+            : props.getShipping().getOtherFreeThreshold();
     return new DeliveryEstimateResponse(
-        pin,
-        true,
-        days,
-        today().plusDays(days),
-        shippingFee(sub, cur),
-        threshold,
-        cur,
-        cod);
+        pin, true, days, today().plusDays(days), shippingFee(sub, cur), threshold, cur, cod);
   }
 
   /**
-   * Delivery date from a specific warehouse: same 3-digit pincode prefix 2 days, same first digit
-   * 3 days, else 5 (non-Indian destinations 7).
+   * Delivery date from a specific warehouse: same 3-digit pincode prefix 2 days, same first digit 3
+   * days, else 5 (non-Indian destinations 7).
    */
   public LocalDate estimateDate(String shipPincode, String warehousePincode) {
     String pin = shipPincode == null ? "" : shipPincode.trim();
@@ -154,7 +158,9 @@ public class PricingService {
   /** COD allowed: the pincode supports it and the total is within the per-currency limit. */
   public boolean codAllowed(DeliveryEstimateResponse estimate, BigDecimal total, String currency) {
     BigDecimal limit =
-        isInr(currency) ? props.getDelivery().getCodLimitInr() : props.getDelivery().getCodLimitOther();
+        isInr(currency)
+            ? props.getDelivery().getCodLimitInr()
+            : props.getDelivery().getCodLimitOther();
     return estimate.codAvailable() && total.compareTo(limit) <= 0;
   }
 

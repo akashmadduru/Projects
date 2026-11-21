@@ -1,0 +1,13 @@
+{
+ "product_id": "7882cc02-27a4-482d-7615-f8ef77dcbd40",
+ "name": "Ortaor Shampoo Series 2",
+ "prompt": "studio packshot photo of a White Ortaor Shampoo Series 2, made of abs plastic, hair care, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 4164690608,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:57:41",
+ "file_path": "product-images/images/7882cc02-27a4-482d-7615-f8ef77dcbd40.jpg",
+ "file_size": 28838
+}

@@ -1,0 +1,13 @@
+{
+ "product_id": "4bd4a5a4-9133-4351-8060-6e8c20e4ea5b",
+ "name": "Zeba Sleeping Bag Gen 3",
+ "prompt": "studio packshot photo of a White Zeba Sleeping Bag Gen 3, made of leather, camping, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3360411949,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:14:05",
+ "file_path": "product-images/images/4bd4a5a4-9133-4351-8060-6e8c20e4ea5b.jpg",
+ "file_size": 39848
+}

@@ -1,0 +1,15 @@
+{
+ "product_id": "5b1e0187-f84d-4040-5da0-98a8bf227cc0",
+ "name": "Fyvenco Fountain Pen Prime",
+ "prompt": "studio packshot photo of a Black Fyvenco Fountain Pen Prime, made of leather, stationery, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1492339495,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:25:19",
+ "file_path": "static/images/5b1e0187-f84d-4040-5da0-98a8bf227cc0.jpg",
+ "file_size": 54094,
+ "uploaded": false,
+ "s3_url": null
+}

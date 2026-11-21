@@ -1,0 +1,13 @@
+{
+ "product_id": "95cdcad3-fe28-49ae-7527-4b76dad4417b",
+ "name": "Ordexlo Box Set Edition",
+ "prompt": "studio packshot photo of a Silver Ordexlo Box Set Edition, made of polyester, books, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2646168928,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:44:20",
+ "file_path": "product-images/images/95cdcad3-fe28-49ae-7527-4b76dad4417b.jpg",
+ "file_size": 41460
+}

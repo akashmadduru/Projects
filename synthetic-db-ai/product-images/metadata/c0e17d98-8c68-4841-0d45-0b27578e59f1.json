@@ -1,0 +1,13 @@
+{
+ "product_id": "c0e17d98-8c68-4841-0d45-0b27578e59f1",
+ "name": "Quakaba Bookshelf Essential",
+ "prompt": "studio packshot photo of a Rose Gold Quakaba Bookshelf Essential, made of stainless steel, furniture, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1784142368,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:23:50",
+ "file_path": "product-images/images/c0e17d98-8c68-4841-0d45-0b27578e59f1.jpg",
+ "file_size": 50973
+}

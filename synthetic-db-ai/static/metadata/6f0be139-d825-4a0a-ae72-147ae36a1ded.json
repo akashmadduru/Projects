@@ -1,0 +1,15 @@
+{
+ "product_id": "6f0be139-d825-4a0a-ae72-147ae36a1ded",
+ "name": "Coarno Hair Dryer Ultra",
+ "prompt": "studio packshot photo of a Blue Coarno Hair Dryer Ultra, made of silicone, hair care, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2416775725,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:38:12",
+ "file_path": "static/images/6f0be139-d825-4a0a-ae72-147ae36a1ded.jpg",
+ "file_size": 76570,
+ "uploaded": false,
+ "s3_url": null
+}

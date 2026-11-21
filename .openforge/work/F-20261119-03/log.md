@@ -1,0 +1,24 @@
+- 2026-11-19 CEO: discover — objective.md written; runtime facts proved from the 5.0.2 jar bytecode and repo grep. Worktree to be created from F-20261119-01's final head (A2) once round 4 commits.
+- 2026-11-19 CEO: requirements PASS (CPO, 13 ACs, 20k tokens). Notes: resolver must serve reactive gateway + servlet services; 'unknown' peer must not be forwarded.
+- 2026-11-19 CEO: complexity — CTO total 6, class L (services 2, API 1, security 2, lines 1). L: design needs Owner approval before implementation.
+- 2026-11-19 CEO: design — Architect (86k tokens) design.md + ADR 0002 (Proposed); CTO ACCEPT with 6 conditions. Class L: BLOCKED on Owner design approval (CLAUDE.md rule; Owner delegation does not waive it). No worktree yet.
+- 2026-11-19T06:51:48Z CEO: design approved under standing approval (run R-20261119-01). Worktree created from F-20261119-01 head fcf6f2a2 (stacked branch: merge order 01 then 03).
+- 2026-11-19T06:52:43Z CEO: plan PASS (EM: 15 tasks, slice1 T1-T6, slice2 T7-T15; all ACs + 6 CTO conditions placed).
+- 2026-11-19T06:59:11Z CEO: slice 1 commit f9a070b (90k tokens). Boundary breach: engineer edited ADR 0002 and wrote verify-slice1.md via Bash (logged recovery; G-6 filed).
+- 2026-11-19T07:00:49Z CEO: slice 1 verify PASS (73 tests, 0 skipped). Review s1 opened on f9a070ba (review-input.diff, 1,047 lines). Seeded-defect benchmark: review-input-b.diff carries 3 injected defects (key held outside the repo until scoring); given to a second reviewer pair without disclosure.
+- CEO: review s1r1 — security REQUEST_CHANGES (major: only first XFF line read), reviewer REQUEST_CHANGES (major x2 process: verify output not visible — CEO had run it but logged it only in log.md → now in evidence.md; size: CTO cond. 1 written before G-3 — CEO ruling: constitution (production lines only) governs, slice 1 = 230 prod lines). Lesson: rule changes mid-run need conditions restated.
+- 2026-11-19T07:04:19Z CEO: ADR 0002 corrected by architect (status Accepted). Finding: deployment precondition only partly holds (ALB public, prefix list optional/fail-open, NetworkPolicy VPC-wide) → backlog B-4 HIGH, known issue for the Owner package; slice 2 security review must be told.
+- 2026-11-19T07:11:13Z CEO: s1 round 2 commit d195a937 (32k); verify PASS 74 tests (lock waited for O-04 build: lock works). Delta review s1r2.
+- 2026-11-19T07:12:29Z CEO: slice 1 APPROVED by both at d195a937 (2 nits → slice 2: zone-guard '1.1.1.1%x:80', ADR trailing-comma bullet). Security: B-4 is a release gate for slice-2 consumers (Owner decision). Slice 2 started.
+- 2026-11-19T15:44:14Z s2 engineer interim: work uncommitted; auth+payment build queued on host lock (held by F-05 build pid 3427); user-service not yet built. CEO checked: SecurityConfig.java not deleted; remediation-plan/phase-08 edits are in T-scope (tasks.md:91-92).
+- 2026-11-19T16:02:32Z s2 committed b4abf17 (worktree clean). CEO verify queued.
+- 2026-11-19T16:24:19Z s2 security: APPROVE @ b4abf171 (0B/0M/3 minor). Reviewer is read-only; CEO saved verdict verbatim to security.json (brief error: told it to write).
+- 2026-11-19T16:25:10Z s2 reviewer: APPROVE @ b4abf171 (0B/0M/1 minor/4 nits, ACs 13/13 met). Saved verbatim. CEO: fix round s2r2 for sec minors 1-3 + reviewer minor + nits 1-3 (nit 4 -> PR text).
+- 2026-11-19T16:25:45Z ADR 0002 updated by architect (B-4 gates all 4 consumers; trailing-comma deviation; peer-fallback trust note).
+- 2026-11-19T16:37:49Z fix round 1 committed 690f934. CEO proved Boot back-off from 4.0.7 source (evidence.md). Verify running.
+- 2026-11-19T16:49:17Z s2r2 both APPROVE @ 690f934a. Both independently found the RFC 7239 Forwarded: for= gap. Fix round 2: restore socket peer after super-wrap, conditional on framework, pin none default for non-auth services.
+- 2026-11-19T17:04:55Z fix round 2 committed a04ad61 (5 expected files; prod 572 < 600). Engineer restored spotless side-effects + stale index.lock in own worktree. Verify running.
+- 2026-11-19T17:05:34Z ADR 0002 trust bullet rewritten by architect (all 7 sections intact, CEO-checked). Wording came from CEO brief, not the code: reviewers to verify it against a04ad61.
+- 2026-11-19T17:27:16Z s2r3 security APPROVE @ a04ad610 (1 minor: pin auth yml default none). Waiting on reviewer.
+- 2026-11-19T17:27:44Z s2r3 both APPROVE @ a04ad610 (security 1 minor -> backlog + PR known issue; reviewer 4 nits). CEO ruling: no 4th round for a non-reachable hardening line, because any commit invalidates SHA-bound reviews. Next: QA step 7.
+- 2026-11-19T17:30:47Z QA re-done against JUnit XML (13/13 PASS; CEO spot-checked 5 classes). forge-gate PASS at a04ad610. Writing pr.md.

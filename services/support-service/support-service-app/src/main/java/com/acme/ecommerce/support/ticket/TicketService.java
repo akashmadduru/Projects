@@ -51,7 +51,12 @@ public class TicketService {
   public record CsatRequest(int score) {}
 
   public record Message(
-      UUID id, String authorType, UUID authorId, String body, boolean internal, Instant createdAt) {}
+      UUID id,
+      String authorType,
+      UUID authorId,
+      String body,
+      boolean internal,
+      Instant createdAt) {}
 
   public record Ticket(
       UUID id,
@@ -210,7 +215,13 @@ public class TicketService {
   // ------------------------------------------------------------------- agent
 
   public Paged<Ticket> queue(
-      String status, String priority, String assignee, String q, UUID callerId, int page, int size) {
+      String status,
+      String priority,
+      String assignee,
+      String q,
+      UUID callerId,
+      int page,
+      int size) {
     int sz = Paged.clampSize(size);
     List<Object> args = new ArrayList<>();
     StringBuilder where = new StringBuilder(" where 1=1");
@@ -256,7 +267,8 @@ public class TicketService {
         userIdOrMe == null || userIdOrMe.isBlank() || "me".equalsIgnoreCase(userIdOrMe)
             ? callerId
             : parseUuid(userIdOrMe, "userId");
-    jdbc.update("update tickets set assignee_user_id = ?, updated_at = now() where id = ?", assignee, id);
+    jdbc.update(
+        "update tickets set assignee_user_id = ?, updated_at = now() where id = ?", assignee, id);
     addMessage(id, "SYSTEM", callerId, "Ticket assigned to agent " + assignee + ".", true);
     return agentGet(id);
   }
@@ -305,7 +317,8 @@ public class TicketService {
             s,
             s,
             id);
-        addMessage(id, "SYSTEM", agentId, "Status changed from " + t.status() + " to " + s + ".", true);
+        addMessage(
+            id, "SYSTEM", agentId, "Status changed from " + t.status() + " to " + s + ".", true);
         notify(t, "SUPPORT_STATUS", Map.of("status", pretty(s)));
       }
     }
@@ -341,10 +354,26 @@ public class TicketService {
                     rs.getTimestamp("created_at").toInstant()),
             t.id());
     return new Ticket(
-        t.id(), t.ref(), t.userId(), t.email(), t.orderId(), t.shipmentId(), t.category(),
-        t.subject(), t.status(), t.priority(), t.assigneeUserId(), t.createdAt(), t.updatedAt(),
-        t.firstResponseAt(), t.resolvedAt(), t.firstResponseDueAt(), t.resolutionDueAt(),
-        t.slaBreached(), t.csat(), msgs);
+        t.id(),
+        t.ref(),
+        t.userId(),
+        t.email(),
+        t.orderId(),
+        t.shipmentId(),
+        t.category(),
+        t.subject(),
+        t.status(),
+        t.priority(),
+        t.assigneeUserId(),
+        t.createdAt(),
+        t.updatedAt(),
+        t.firstResponseAt(),
+        t.resolvedAt(),
+        t.firstResponseDueAt(),
+        t.resolutionDueAt(),
+        t.slaBreached(),
+        t.csat(),
+        msgs);
   }
 
   private final RowMapper<Ticket> TICKET =
@@ -357,7 +386,8 @@ public class TicketService {
         Instant now = Instant.now();
         boolean open = !"RESOLVED".equals(status) && !"CLOSED".equals(status);
         boolean breached =
-            (fr == null && open && now.isAfter(frDue)) || (res == null && open && now.isAfter(resDue));
+            (fr == null && open && now.isAfter(frDue))
+                || (res == null && open && now.isAfter(resDue));
         UUID id = rs.getObject("id", UUID.class);
         Number csat = (Number) rs.getObject("csat");
         return new Ticket(
@@ -384,7 +414,8 @@ public class TicketService {
       };
 
   private Paged<Ticket> page(String where, List<Object> args, String order, int page, int size) {
-    Long total = jdbc.queryForObject("select count(*) from tickets" + where, Long.class, args.toArray());
+    Long total =
+        jdbc.queryForObject("select count(*) from tickets" + where, Long.class, args.toArray());
     List<Object> a = new ArrayList<>(args);
     a.add(size);
     a.add((long) Math.max(0, page) * size);
@@ -396,7 +427,8 @@ public class TicketService {
     return Paged.of(rows, Math.max(0, page), size, total == null ? 0 : total);
   }
 
-  private void addMessage(UUID ticketId, String type, UUID authorId, String body, boolean internal) {
+  private void addMessage(
+      UUID ticketId, String type, UUID authorId, String body, boolean internal) {
     jdbc.update(
         "insert into ticket_messages (ticket_id, author_type, author_id, body, internal) values (?,?,?,?,?)",
         ticketId,
@@ -439,7 +471,9 @@ public class TicketService {
   private void notify(Ticket t, String template, Map<String, String> extra) {
     try {
       Map<String, String> data = new java.util.HashMap<>(extra);
-      data.put("name", t.email().contains("@") ? t.email().substring(0, t.email().indexOf('@')) : "there");
+      data.put(
+          "name",
+          t.email().contains("@") ? t.email().substring(0, t.email().indexOf('@')) : "there");
       data.put("ticketRef", t.ref());
       data.put("subject", t.subject());
       data.put("link", storefrontUrl + "/account/support/" + t.id());

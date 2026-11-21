@@ -1,0 +1,15 @@
+{
+ "product_id": "604a919e-6520-4f39-9ef7-eda5f0b23bf0",
+ "name": "Tamior Toaster Ultra",
+ "prompt": "studio packshot photo of a White Tamior Toaster Ultra, made of abs plastic, small appliances, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1356352597,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:27:17",
+ "file_path": "static/images/604a919e-6520-4f39-9ef7-eda5f0b23bf0.jpg",
+ "file_size": 65773,
+ "uploaded": false,
+ "s3_url": null
+}

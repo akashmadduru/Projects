@@ -1,0 +1,13 @@
+{
+ "product_id": "3604aaaa-b015-4784-0636-5f4489a5b392",
+ "name": "Fyze Fitness Band Edition",
+ "prompt": "studio packshot photo of a Green Fyze Fitness Band Edition, made of silicone, smart watches, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3742134879,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T00:56:26",
+ "file_path": "product-images/images/3604aaaa-b015-4784-0636-5f4489a5b392.jpg",
+ "file_size": 33233
+}

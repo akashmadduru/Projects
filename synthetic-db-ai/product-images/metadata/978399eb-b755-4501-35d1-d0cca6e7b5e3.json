@@ -1,0 +1,13 @@
+{
+ "product_id": "978399eb-b755-4501-35d1-d0cca6e7b5e3",
+ "name": "Cokano Acrylic Paint Kit Elite",
+ "prompt": "studio packshot photo of a Midnight Cokano Acrylic Paint Kit Elite, made of polyester, art supplies, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 941087552,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:06:34",
+ "file_path": "product-images/images/978399eb-b755-4501-35d1-d0cca6e7b5e3.jpg",
+ "file_size": 57602
+}

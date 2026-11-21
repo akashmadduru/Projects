@@ -1,0 +1,15 @@
+{
+ "product_id": "214280f6-0bed-49a0-28a5-2288a2369070",
+ "name": "Bami Planner Series 2",
+ "prompt": "studio packshot photo of a Green Bami Planner Series 2, made of stainless steel, stationery, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3150344222,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:21:57",
+ "file_path": "static/images/214280f6-0bed-49a0-28a5-2288a2369070.jpg",
+ "file_size": 62448,
+ "uploaded": false,
+ "s3_url": null
+}

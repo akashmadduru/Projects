@@ -64,6 +64,8 @@ const router = useRouter();
 
 const catalog = ref<Panel<{ total: number }>>({ status: 'loading' });
 const stock = ref<Panel<readonly Inventory[]>>({ status: 'loading' });
+/** Server-side count of rows at or below their own threshold (TD-ADM-04). */
+const lowStockTotal = ref(0);
 const orders = ref<Panel<AdminOrderStats>>({ status: 'loading' });
 const recent = ref<Panel<readonly AdminOrderSummary[]>>({ status: 'loading' });
 const customers = ref<Panel<AdminUserStats>>({ status: 'loading' });
@@ -93,9 +95,11 @@ function load(): void {
     const res = await apiFetch<PagedModel<Product>>('/api/products', { query: { page: 0, size: 1 } });
     return { total: res.page.totalElements };
   });
-  void into(stock, async () =>
-    (await lowestStock(50)).content.filter((r) => r.quantity <= r.lowStockThreshold).slice(0, 8),
-  );
+  void into(stock, async () => {
+    const res = await lowestStock(50);
+    lowStockTotal.value = res.page.totalElements;
+    return res.content;
+  });
   if (auth.isAdmin) {
     void into(orders, orderStats);
     void into(recent, async () => (await listOrders({ page: 0, size: 5 })).content);
@@ -394,11 +398,11 @@ function openOrder(id: string): void {
         <p class="mt-3 text-xs uppercase tracking-wide opacity-60">Low / out of stock</p>
         <p
           class="mt-1 text-3xl font-bold"
-          :class="{ 'text-warning': stock.status === 'ok' && stock.data.length > 0 }"
+          :class="{ 'text-warning': stock.status === 'ok' && lowStockTotal > 0 }"
         >
-          <CountUp v-if="stock.status === 'ok'" :value="stock.data.length" /><template v-else>–</template>
+          <CountUp v-if="stock.status === 'ok'" :value="lowStockTotal" /><template v-else>–</template>
         </p>
-        <p class="mt-1 text-xs opacity-70">{{ outOfStock }} out of stock · of the 50 lowest rows</p>
+        <p class="mt-1 text-xs opacity-70">{{ outOfStock }}{{ lowStockTotal > 50 ? '+' : '' }} out of stock</p>
         <ChevronRight class="chev" aria-hidden="true" />
       </RouterLink>
 
@@ -500,7 +504,7 @@ function openOrder(id: string): void {
           <CircleCheck class="h-4 w-4 text-success" aria-hidden="true" /> Every product is above its low-stock threshold.
         </p>
         <ul v-else-if="stock.status === 'ok'" class="flex flex-col px-2 pb-2">
-          <li v-for="r in stock.data" :key="r.id">
+          <li v-for="r in stock.data.slice(0, 8)" :key="r.id">
             <RouterLink to="/inventory" class="row-link flex items-center gap-3 rounded-xl px-2 py-2 text-sm">
               <component
                 :is="r.quantity === 0 ? PackageX : TriangleAlert"

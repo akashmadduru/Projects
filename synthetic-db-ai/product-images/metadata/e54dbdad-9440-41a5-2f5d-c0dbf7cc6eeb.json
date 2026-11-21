@@ -1,0 +1,13 @@
+{
+ "product_id": "e54dbdad-9440-41a5-2f5d-c0dbf7cc6eeb",
+ "name": "Quaven Building Blocks Pro",
+ "prompt": "studio packshot photo of a Silver Quaven Building Blocks Pro, made of wood, building toys, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2413356003,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:57:17",
+ "file_path": "product-images/images/e54dbdad-9440-41a5-2f5d-c0dbf7cc6eeb.jpg",
+ "file_size": 80178
+}

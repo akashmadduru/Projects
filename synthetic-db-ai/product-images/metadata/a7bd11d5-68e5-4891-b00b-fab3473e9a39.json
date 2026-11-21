@@ -1,0 +1,13 @@
+{
+ "product_id": "a7bd11d5-68e5-4891-b00b-fab3473e9a39",
+ "name": "Tano Handbag Edition",
+ "prompt": "studio packshot photo of a Silver Tano Handbag Edition, made of nylon, bags & luggage, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2309678395,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:30:12",
+ "file_path": "product-images/images/a7bd11d5-68e5-4891-b00b-fab3473e9a39.jpg",
+ "file_size": 35479
+}

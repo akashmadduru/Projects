@@ -1,0 +1,13 @@
+{
+ "product_id": "9439d655-a2fe-48c6-3189-9203dac581f6",
+ "name": "Lumpi Headset Classic",
+ "prompt": "studio packshot photo of a Olive Lumpi Headset Classic, made of glass, headphones & earbuds, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2358942225,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:13:40",
+ "file_path": "product-images/images/9439d655-a2fe-48c6-3189-9203dac581f6.jpg",
+ "file_size": 39177
+}

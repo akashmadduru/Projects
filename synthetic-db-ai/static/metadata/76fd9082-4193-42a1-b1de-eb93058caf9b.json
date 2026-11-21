@@ -1,0 +1,15 @@
+{
+ "product_id": "76fd9082-4193-42a1-b1de-eb93058caf9b",
+ "name": "Ornu Perfume Elite",
+ "prompt": "studio packshot photo of a Red Ornu Perfume Elite, made of abs plastic, fragrances, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 679903794,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:43:37",
+ "file_path": "static/images/76fd9082-4193-42a1-b1de-eb93058caf9b.jpg",
+ "file_size": 29565,
+ "uploaded": false,
+ "s3_url": null
+}

@@ -17,7 +17,7 @@ Reciprocal Rank Fusion. A new endpoint, `GET /api/products/search`, serves it. T
 
 | Choice | Why |
 |---|---|
-| Vectors in `product_db`, not a new search service | One query can combine full-text, trigram, vector and the catalog filters with consistent facets. A search service fed by `product.events` would drift: there is no outbox (TD-P6-01) and some listeners swallow errors (TD-BE-17). |
+| Vectors in `product_db`, not a new search service | One query can combine full-text, trigram, vector and the catalog filters with consistent facets. A search service fed by `product.events` would drift: product-service has no outbox (TD-P6-33) and some listeners swallowed errors (TD-BE-17, fixed 2026-11-17). |
 | A separate table, not a column on `products` | Keeps the 4 KB vector out of every catalog read; re-embedding never bumps `products.version` or `updated_at`. |
 | A polling reconciler (under `JobLock`), not Kafka | Covers every write path (catalog, seller, seed) with no event to lose. A content hash skips unchanged products; a daily full sweep catches category renames that do not touch `updated_at`. |
 | AWS Bedrock, Amazon Titan Text Embeddings V2 at 1024 dimensions | Fits EKS with IRSA (no API key) and keeps data in-region. 1024 is fixed in the column type: a different model or width is a new table plus a cutover, never an `ALTER`. |

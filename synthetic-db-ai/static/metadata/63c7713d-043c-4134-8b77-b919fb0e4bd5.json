@@ -1,0 +1,15 @@
+{
+ "product_id": "63c7713d-043c-4134-8b77-b919fb0e4bd5",
+ "name": "Orlum Mixed Nuts Ultra",
+ "prompt": "studio packshot photo of a Green Orlum Mixed Nuts Ultra, made of nylon, snacks, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3626983526,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:50:28",
+ "file_path": "static/images/63c7713d-043c-4134-8b77-b919fb0e4bd5.jpg",
+ "file_size": 71749,
+ "uploaded": false,
+ "s3_url": null
+}

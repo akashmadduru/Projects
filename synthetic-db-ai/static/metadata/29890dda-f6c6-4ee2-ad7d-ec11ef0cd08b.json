@@ -1,0 +1,15 @@
+{
+ "product_id": "29890dda-f6c6-4ee2-ad7d-ec11ef0cd08b",
+ "name": "Volo Perfume Ultra",
+ "prompt": "studio packshot photo of a Rose Gold Volo Perfume Ultra, made of abs plastic, fragrances, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2189068330,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-15T23:43:20",
+ "file_path": "static/images/29890dda-f6c6-4ee2-ad7d-ec11ef0cd08b.jpg",
+ "file_size": 35344,
+ "uploaded": false,
+ "s3_url": null
+}

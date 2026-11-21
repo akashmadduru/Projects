@@ -1,0 +1,15 @@
+{
+ "product_id": "898322e7-90bf-4bc4-232f-3e1be8aa409a",
+ "name": "Novo Sandals Plus",
+ "prompt": "studio packshot photo of a Olive Novo Sandals Plus, made of glass, footwear, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3600185735,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:11:20",
+ "file_path": "static/images/898322e7-90bf-4bc4-232f-3e1be8aa409a.jpg",
+ "file_size": 29186,
+ "uploaded": false,
+ "s3_url": null
+}

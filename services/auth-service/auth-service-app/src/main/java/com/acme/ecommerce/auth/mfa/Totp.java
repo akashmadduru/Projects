@@ -53,7 +53,8 @@ public final class Totp {
     long found = -1;
     for (long step = nowStep - 1; step <= nowStep + 1; step++) {
       String expected = code(secret, step);
-      boolean equal = java.security.MessageDigest.isEqual(expected.getBytes(), submitted.getBytes());
+      boolean equal =
+          java.security.MessageDigest.isEqual(expected.getBytes(), submitted.getBytes());
       if (equal && step > lastUsedStep) {
         found = step;
       }

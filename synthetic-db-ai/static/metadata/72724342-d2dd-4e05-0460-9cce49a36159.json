@@ -1,0 +1,15 @@
+{
+ "product_id": "72724342-d2dd-4e05-0460-9cce49a36159",
+ "name": "Kaion Box Set Essential",
+ "prompt": "studio packshot photo of a Silver Kaion Box Set Essential, made of silicone, books, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3477030689,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:23:44",
+ "file_path": "static/images/72724342-d2dd-4e05-0460-9cce49a36159.jpg",
+ "file_size": 30261,
+ "uploaded": false,
+ "s3_url": null
+}

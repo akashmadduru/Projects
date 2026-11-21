@@ -1,9 +1,10 @@
 package com.acme.ecommerce.seller.config;
 
-import com.acme.ecommerce.seller.error.ProblemResponseWriter;
 import com.acme.ecommerce.common.core.error.ErrorCode;
 import com.acme.ecommerce.common.security.AudienceValidator;
 import com.acme.ecommerce.common.security.PlatformJwtAuthenticationConverter;
+import com.acme.ecommerce.common.security.UuidSubjectValidator;
+import com.acme.ecommerce.seller.error.ProblemResponseWriter;
 import java.util.ArrayList;
 import java.util.List;
 import org.springframework.cloud.client.loadbalancer.LoadBalanced;
@@ -150,8 +151,8 @@ public class SecurityConfig {
    * be pinned to whichever instance happened to be registered at that moment - quite possibly none
    * at all, given compose bring-up order.
    *
-   * <p>An absolute {@code seller.jwt.jwks-uri} bypasses this bean entirely (see {@link #jwtDecoder});
-   * the load balancer would otherwise treat the URL's hostname as a service id.
+   * <p>An absolute {@code seller.jwt.jwks-uri} bypasses this bean entirely (see {@link
+   * #jwtDecoder}); the load balancer would otherwise treat the URL's hostname as a service id.
    *
    * <p>Timeouts are mandatory, not defensive: {@code RestTemplate}'s defaults are INFINITE, so a
    * hung auth-service would park the fetching thread forever and, with Nimbus' cache expired, take
@@ -208,6 +209,7 @@ public class SecurityConfig {
     validators.add(new JwtTimestampValidator(SellerProperties.Jwt.CLOCK_SKEW));
     validators.add(new JwtIssuerValidator(jwt.getIssuer()));
     validators.add(new AudienceValidator(jwt.getAudience()));
+    validators.add(new UuidSubjectValidator());
     return new DelegatingOAuth2TokenValidator<>(validators);
   }
 

@@ -1,0 +1,13 @@
+{
+ "product_id": "f37b8ee8-6abf-40b9-e9ad-0277eba7bd74",
+ "name": "Zefyex Sketch Pad Gen 3",
+ "prompt": "studio packshot photo of a White Zefyex Sketch Pad Gen 3, made of cotton, art supplies, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2129921057,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T22:05:34",
+ "file_path": "product-images/images/f37b8ee8-6abf-40b9-e9ad-0277eba7bd74.jpg",
+ "file_size": 56911
+}

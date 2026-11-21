@@ -1,0 +1,10 @@
+- 2026-11-19T19:31:43Z step1-2: split from F-06 (O-01) on the CTO's 3-PR recommendation; requirements copied verbatim from the CPO's text.
+- 2026-11-19T19:32:42Z step3 CTO: ## Class: M. Step4 architect started.
+- 2026-11-19T19:37:45Z step4 architect: design.md + ADR 0005 (deny-list key access-deny:{sub}, Lua max, fail-open; ~230 prod lines). CEO proved BadJwtException->401 from 7.0.6 sources (evidence.md). Downstream replay gap filed as B-8.
+- 2026-11-19T19:38:25Z step4 CTO ACCEPT (7 conditions), transcribed into design.md. ADR status to architect. Step5 EM next.
+- 2026-11-19T19:38:53Z ADR 0005 Accepted + B-8 residual risk (CEO-checked sections).
+- 2026-11-19T19:39:23Z step5 EM: tasks.md T1-T9, coverage AC-13..17 + C1..C7 (CEO-checked; :services:gateway:test path confirmed by earlier verify runs). Step6 engineer started.
+- 2026-11-20T17:21:21Z impl committed 48847f8f (33 new tests). CEO verify running.
+- 2026-11-20T17:27:48Z security APPROVE @ 48847f8f (3 minor: clock skew, silent fail-open on eviction, WARN flood).
+- 2026-11-20T17:28:17Z both APPROVE @ 48847f8f on first review (reviewer 1 minor/4 nits, security 3 minor). CEO ruling: minors become PR known issues and backlog; no extra round. QA next.
+- 2026-11-20T17:29:10Z QA PASS 5/5 (JUnit-confirmed). forge-gate PASS at 48847f8f. pr.md written.

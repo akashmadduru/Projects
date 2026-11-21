@@ -1,0 +1,13 @@
+{
+ "product_id": "6eaab5c5-b873-4306-d8a0-b31da11cc48f",
+ "name": "Dexvo Blender Series 2",
+ "prompt": "studio packshot photo of a Grey Dexvo Blender Series 2, made of ceramic, small appliances, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2141885423,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:10:57",
+ "file_path": "product-images/images/6eaab5c5-b873-4306-d8a0-b31da11cc48f.jpg",
+ "file_size": 46059
+}

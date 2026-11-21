@@ -1,0 +1,11 @@
+- 2026-11-20T18:31:23Z split from F-09 per CTO; requirements AC-14..18 copied unchanged. Waits for F-09 (shared ReturnService).
+- 2026-11-20T21:08:10Z worktree created on F-09 head b3cda340. Step4 architect.
+- 2026-11-20T21:13:11Z step4 architect: design + ADR 0009 (coins via the RETURN_REFUNDED event; per-return record table for idempotency; exempts RETURN_REFUNDED from the 2-day event-age filter; ~145 prod). Unproven: no event-id dedupe in promotion (the per-return table covers it).
+- 2026-11-20T21:14:02Z CTO ACCEPT (6 conditions), transcribed; CEO verified the age-gate premise from the source. Architect: ADR 0009 Accepted. EM next.
+- 2026-11-20T21:14:39Z ADR 0009 Accepted (CEO-checked).
+- 2026-11-20T21:15:04Z step5 EM: T1-T8. Engineer started.
+- 2026-11-20T22:20:55Z security APPROVE @ 7b5297d1 (4 minor: unclamped event amounts plus a CHECK on V5; legacy releaseRedeem asymmetry; non-expiring give-backs; privacy export). Waiting on reviewer.
+- 2026-11-20T22:21:28Z both APPROVE @ 7b5297d1 on first review. Both independently flagged the legacy-path asymmetry. CEO: one small fix round for coin-ledger integrity (clamp + CHECK, legacy guards, rounding test, e2e REFUNDED), consistent with F-09 money minors.
+- 2026-11-21 CEO: fix round 820e5a8 received (164 prod lines); delta re-review + verify started
+- 2026-11-21 CEO: delta re-reviews approve 820e5a8 (reviewer, security); CEO verify PASS; QA mapping launched
+- 2026-11-21 CEO: QA PASS AC-14..18 at 820e5a8; forge-gate PASS (164 prod lines, L); pr.md written. Awaiting Owner push approval.

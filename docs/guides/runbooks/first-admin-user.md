@@ -35,3 +35,16 @@ approval and every `/api/admin/**` endpoint need `ROLE_ADMIN`.
 **Verify:** `https://admin.<your-domain>` loads the dashboard instead of a permission error.
 
 **If it fails:** `INSERT 0 0` means no account has that email: list them with `SELECT email FROM auth.users;` and match the stored spelling exactly. A connection timeout usually means RDS cannot be reached from the cluster: check that the database security group allows port 5432 from the cluster node security group.
+
+## Local development (docker compose)
+
+Self-registration is on in `deploy/local/.env`, so register at http://localhost:3000 (or the admin app
+at http://localhost:5173), then grant the role from the Postgres container:
+
+```bash
+docker exec -it ecommerce-postgres psql -U postgres -d auth_db -c \
+  "INSERT INTO auth.user_roles (user_id, role_id) SELECT u.id, 1 FROM auth.users u WHERE u.email='you@example.com' ON CONFLICT DO NOTHING;"
+```
+
+Sign out and in again. This replaces the old SQL seed, which inserted into `auth.users` before Flyway
+had created the table (TD-SEC-06).

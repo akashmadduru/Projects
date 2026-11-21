@@ -1,0 +1,13 @@
+{
+ "product_id": "91ed2606-5bd7-4d58-4552-501d7e97ae79",
+ "name": "Nuvoion Vacuum Cleaner Edition",
+ "prompt": "studio packshot photo of a Red Nuvoion Vacuum Cleaner Edition, made of aluminium, cleaning, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1294052986,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T01:24:50",
+ "file_path": "product-images/images/91ed2606-5bd7-4d58-4552-501d7e97ae79.jpg",
+ "file_size": 35759
+}

@@ -1,0 +1,15 @@
+{
+ "product_id": "3279fae6-3aad-4fc3-970d-cb4b15047a91",
+ "name": "Tapi Keyboard Pro",
+ "prompt": "studio packshot photo of a Midnight Tapi Keyboard Pro, made of silicone, keyboards & mice, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2968474797,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-15T23:55:49",
+ "file_path": "static/images/3279fae6-3aad-4fc3-970d-cb4b15047a91.jpg",
+ "file_size": 65482,
+ "uploaded": false,
+ "s3_url": null
+}

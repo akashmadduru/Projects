@@ -1,0 +1,15 @@
+{
+ "product_id": "8048c166-8e66-473a-7326-0a28fa6d276b",
+ "name": "Kaorlum Hair Oil Pro",
+ "prompt": "studio packshot photo of a Grey Kaorlum Hair Oil Pro, made of polyester, hair care, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1809678298,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:29:41",
+ "file_path": "static/images/8048c166-8e66-473a-7326-0a28fa6d276b.jpg",
+ "file_size": 52891,
+ "uploaded": false,
+ "s3_url": null
+}

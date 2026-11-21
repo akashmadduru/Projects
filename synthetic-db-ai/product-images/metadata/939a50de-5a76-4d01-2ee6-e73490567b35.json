@@ -1,0 +1,13 @@
+{
+ "product_id": "939a50de-5a76-4d01-2ee6-e73490567b35",
+ "name": "Arze Mixed Nuts Lite",
+ "prompt": "studio packshot photo of a Green Arze Mixed Nuts Lite, made of glass, snacks, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3955649951,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:03:49",
+ "file_path": "product-images/images/939a50de-5a76-4d01-2ee6-e73490567b35.jpg",
+ "file_size": 40157
+}

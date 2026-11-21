@@ -1,0 +1,13 @@
+{
+ "product_id": "ed7f6888-0a3c-4d5a-e538-d3ed5647c922",
+ "name": "Ionnoqua 4K TV Ultra",
+ "prompt": "studio packshot photo of a Silver Ionnoqua 4K TV Ultra, made of aluminium, televisions, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 765256157,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:28:40",
+ "file_path": "product-images/images/ed7f6888-0a3c-4d5a-e538-d3ed5647c922.jpg",
+ "file_size": 35424
+}

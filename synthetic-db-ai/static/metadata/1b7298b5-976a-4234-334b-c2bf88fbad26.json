@@ -1,0 +1,15 @@
+{
+ "product_id": "1b7298b5-976a-4234-334b-c2bf88fbad26",
+ "name": "Pisuri Dress Gen 3",
+ "prompt": "studio packshot photo of a Midnight Pisuri Dress Gen 3, made of nylon, women's clothing, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3537051690,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 768,
+ "created_at": "2026-11-15T23:12:32",
+ "file_path": "static/images/1b7298b5-976a-4234-334b-c2bf88fbad26.jpg",
+ "file_size": 108679,
+ "uploaded": false,
+ "s3_url": null
+}

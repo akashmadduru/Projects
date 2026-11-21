@@ -7,7 +7,7 @@ import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 
 /**
- * {@code firstOrder} optional: null means "unknown", first-order-only is then enforced at redeem.
+ * {@code firstOrder} optional: null means "unknown", and promotion-service then asks order-service.
  */
 public record ValidateCouponRequest(
     @NotBlank @Size(max = 40) String code,

@@ -1,0 +1,13 @@
+{
+ "product_id": "68f423dc-8632-4804-2081-3ec92889780d",
+ "name": "Lize Handbag Ultra",
+ "prompt": "studio packshot photo of a Rose Gold Lize Handbag Ultra, made of polyester, bags & luggage, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3310822306,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:17:29",
+ "file_path": "product-images/images/68f423dc-8632-4804-2081-3ec92889780d.jpg",
+ "file_size": 43685
+}

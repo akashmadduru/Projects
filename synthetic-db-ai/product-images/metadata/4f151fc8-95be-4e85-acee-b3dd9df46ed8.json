@@ -1,0 +1,13 @@
+{
+ "product_id": "4f151fc8-95be-4e85-acee-b3dd9df46ed8",
+ "name": "Nuor Hair Oil Ultra",
+ "prompt": "studio packshot photo of a Space Grey Nuor Hair Oil Ultra, made of nylon, hair care, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 98660599,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:16:08",
+ "file_path": "product-images/images/4f151fc8-95be-4e85-acee-b3dd9df46ed8.jpg",
+ "file_size": 23657
+}

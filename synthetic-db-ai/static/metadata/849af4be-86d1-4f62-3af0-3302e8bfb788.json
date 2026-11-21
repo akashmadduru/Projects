@@ -1,0 +1,15 @@
+{
+ "product_id": "849af4be-86d1-4f62-3af0-3302e8bfb788",
+ "name": "Venri Granola Plus",
+ "prompt": "studio packshot photo of a Red Venri Granola Plus, made of aluminium, snacks, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 707118023,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:53:44",
+ "file_path": "static/images/849af4be-86d1-4f62-3af0-3302e8bfb788.jpg",
+ "file_size": 55524,
+ "uploaded": false,
+ "s3_url": null
+}

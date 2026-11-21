@@ -1,0 +1,13 @@
+{
+ "product_id": "c40b2e7d-cf3b-4ecc-75e7-7b5937c3cffd",
+ "name": "Vensuno Running Shoes Series 2",
+ "prompt": "studio packshot photo of a Grey Vensuno Running Shoes Series 2, made of aluminium, footwear, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 849928909,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:29:34",
+ "file_path": "product-images/images/c40b2e7d-cf3b-4ecc-75e7-7b5937c3cffd.jpg",
+ "file_size": 45453
+}

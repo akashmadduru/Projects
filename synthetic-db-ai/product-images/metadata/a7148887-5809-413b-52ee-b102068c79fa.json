@@ -1,0 +1,13 @@
+{
+ "product_id": "a7148887-5809-413b-52ee-b102068c79fa",
+ "name": "Ionloor Analog Watch Elite",
+ "prompt": "studio packshot photo of a Silver Ionloor Analog Watch Elite, made of glass, watches & jewellery, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1894455801,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:46:39",
+ "file_path": "product-images/images/a7148887-5809-413b-52ee-b102068c79fa.jpg",
+ "file_size": 39999
+}

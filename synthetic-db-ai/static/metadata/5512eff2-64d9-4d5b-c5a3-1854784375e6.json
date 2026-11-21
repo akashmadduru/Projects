@@ -1,0 +1,15 @@
+{
+ "product_id": "5512eff2-64d9-4d5b-c5a3-1854784375e6",
+ "name": "Nunuba Cold Brew Lite",
+ "prompt": "studio packshot photo of a Midnight Nunuba Cold Brew Lite, made of nylon, beverages, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3450638218,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:21:01",
+ "file_path": "static/images/5512eff2-64d9-4d5b-c5a3-1854784375e6.jpg",
+ "file_size": 41205,
+ "uploaded": false,
+ "s3_url": null
+}

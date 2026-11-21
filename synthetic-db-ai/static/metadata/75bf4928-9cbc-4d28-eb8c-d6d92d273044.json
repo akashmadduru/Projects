@@ -1,0 +1,15 @@
+{
+ "product_id": "75bf4928-9cbc-4d28-eb8c-d6d92d273044",
+ "name": "Dexlum Green Tea Gen 3",
+ "prompt": "studio packshot photo of a Grey Dexlum Green Tea Gen 3, made of wood, beverages, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1015032686,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:42:22",
+ "file_path": "static/images/75bf4928-9cbc-4d28-eb8c-d6d92d273044.jpg",
+ "file_size": 63625,
+ "uploaded": false,
+ "s3_url": null
+}

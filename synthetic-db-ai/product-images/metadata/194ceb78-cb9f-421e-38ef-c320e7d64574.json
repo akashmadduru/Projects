@@ -1,0 +1,13 @@
+{
+ "product_id": "194ceb78-cb9f-421e-38ef-c320e7d64574",
+ "name": "Fyion Air Fryer Edition",
+ "prompt": "studio packshot photo of a Olive Fyion Air Fryer Edition, made of wood, small appliances, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3678352875,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 768,
+ "created_at": "2026-11-15T23:08:59",
+ "file_path": "product-images/images/194ceb78-cb9f-421e-38ef-c320e7d64574.jpg",
+ "file_size": 96192
+}

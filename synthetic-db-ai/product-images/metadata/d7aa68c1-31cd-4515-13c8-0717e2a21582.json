@@ -1,0 +1,13 @@
+{
+ "product_id": "d7aa68c1-31cd-4515-13c8-0717e2a21582",
+ "name": "Ritasu Notebook Prime",
+ "prompt": "studio packshot photo of a Rose Gold Ritasu Notebook Prime, made of aluminium, laptops, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1546796876,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:07:39",
+ "file_path": "product-images/images/d7aa68c1-31cd-4515-13c8-0717e2a21582.jpg",
+ "file_size": 52553
+}

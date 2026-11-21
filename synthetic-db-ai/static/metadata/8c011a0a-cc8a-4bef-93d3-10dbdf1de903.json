@@ -1,0 +1,15 @@
+{
+ "product_id": "8c011a0a-cc8a-4bef-93d3-10dbdf1de903",
+ "name": "Ornu Handbag Ultra",
+ "prompt": "studio packshot photo of a Black Ornu Handbag Ultra, made of stainless steel, bags & luggage, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1220065554,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:57:46",
+ "file_path": "static/images/8c011a0a-cc8a-4bef-93d3-10dbdf1de903.jpg",
+ "file_size": 45081,
+ "uploaded": false,
+ "s3_url": null
+}

@@ -1,0 +1,13 @@
+{
+ "product_id": "873745b2-1b59-4ac6-2341-37931283d9c6",
+ "name": "Quasu Jacket Classic",
+ "prompt": "studio packshot photo of a Silver Quasu Jacket Classic, made of abs plastic, men's clothing, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 773386791,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:20:23",
+ "file_path": "product-images/images/873745b2-1b59-4ac6-2341-37931283d9c6.jpg",
+ "file_size": 48315
+}

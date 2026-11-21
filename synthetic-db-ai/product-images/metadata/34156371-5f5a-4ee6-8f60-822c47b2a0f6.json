@@ -1,0 +1,13 @@
+{
+ "product_id": "34156371-5f5a-4ee6-8f60-822c47b2a0f6",
+ "name": "Orsuven Action Camera Pro",
+ "prompt": "studio packshot photo of a Red Orsuven Action Camera Pro, made of silicone, cameras, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 415292665,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-15T23:57:34",
+ "file_path": "product-images/images/34156371-5f5a-4ee6-8f60-822c47b2a0f6.jpg",
+ "file_size": 46288
+}

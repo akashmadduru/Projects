@@ -1,0 +1,15 @@
+{
+ "product_id": "30d6c046-64f9-4444-ddd9-04414e1482f1",
+ "name": "Cori Board Game Prime",
+ "prompt": "studio packshot photo of a Midnight Cori Board Game Prime, made of bamboo, board games, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2177971308,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:38:47",
+ "file_path": "static/images/30d6c046-64f9-4444-ddd9-04414e1482f1.jpg",
+ "file_size": 67951,
+ "uploaded": false,
+ "s3_url": null
+}

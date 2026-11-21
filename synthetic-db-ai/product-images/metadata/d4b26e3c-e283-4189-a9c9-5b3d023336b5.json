@@ -1,0 +1,13 @@
+{
+ "product_id": "d4b26e3c-e283-4189-a9c9-5b3d023336b5",
+ "name": "Losuven Paperback Classic",
+ "prompt": "studio packshot photo of a Olive Losuven Paperback Classic, made of ceramic, books, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 4203792114,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:46:50",
+ "file_path": "product-images/images/d4b26e3c-e283-4189-a9c9-5b3d023336b5.jpg",
+ "file_size": 35761
+}

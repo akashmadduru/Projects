@@ -1,0 +1,13 @@
+{
+ "product_id": "4067df4f-672f-49a2-4a0f-d63e8d736e9f",
+ "name": "Nunuba Colour Pencil Set Prime",
+ "prompt": "studio packshot photo of a Midnight Nunuba Colour Pencil Set Prime, made of polyester, art supplies, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 479966014,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:35:02",
+ "file_path": "product-images/images/4067df4f-672f-49a2-4a0f-d63e8d736e9f.jpg",
+ "file_size": 44859
+}

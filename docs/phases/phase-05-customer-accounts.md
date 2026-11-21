@@ -49,7 +49,7 @@ Not included: payment, inventory reservation, shipping/tax, order events. See [t
    ```
    docker compose -f deploy/local/docker-compose.yml up -d --build auth-service user-service cart-service order-service
    ```
-   Allow ~30-40 seconds after a restart before the gateway stops answering 503 (TD-BE-08).
+   Allow ~10 seconds after a restart before the gateway stops answering 503 (was 30-40 s until the load-balancer cache TTL was cut, TD-BE-08).
 4. **Start the storefront.** `npm run dev` inside `apps/product-catalog` serves http://localhost:3000 (pinned with `strictPort`; 3000 is the allow-listed Google callback origin).
 5. **Google console.** The authorized redirect URI must be `http://localhost:8081/login/oauth2/code/google`. auth-service allows storefront redirects to `http://localhost:5173/auth/callback` and `http://localhost:3000/auth/callback` (`AUTH_ALLOWED_REDIRECT_URIS`); the default is the 5173 one (`AUTH_DEFAULT_REDIRECT_URI`).
 
@@ -57,7 +57,7 @@ Config knobs: `VITE_AUTH_BASE_URL` (default `http://localhost:8081`), `VITE_GOOG
 
 ## Known gaps
 
-See [techdebt/README.md](../techdebt/README.md). Highest: oversell (TD-BE-01), no payment (TD-BE-02), no tests (TD-TEST-01/02), secret rotation (TD-SEC-01), admin SPA Google login broken (TD-SEC-02).
+See [techdebt/README.md](../techdebt/README.md). Highest: oversell (TD-BE-01), no payment (TD-BE-02), no tests (TD-TEST-01/02), secret rotation (TD-SEC-01), admin SPA Google login broken (TD-SEC-02, fixed 2026-11-17).
 
 ## Changes
 
@@ -93,7 +93,7 @@ See [techdebt/README.md](../techdebt/README.md). Highest: oversell (TD-BE-01), n
 | `src/lib/redirect.ts` | `safeNext` plus sessionStorage-backed post-login destination. |
 | `src/router/index.tsx` | Routes `/login`, `/register`, `/auth/callback`, `/checkout`, `/orders/:id`, `/account`, `/account/addresses`, `/account/orders`. |
 | `vite.config.ts` | Port pinned to 3000 with `strictPort` (matches `npm run dev` and the Docker image). |
-| `tsconfig.build.json` | New; `npm run build` type-checks without test files. |
+| `tsconfig.build.json` | New; `npm run build` type-checked without test files. Removed 2026-11-17 once the tests type-checked again (TD-TEST-05). |
 
 ### Contract deviations from the approved plan
 
@@ -107,7 +107,7 @@ See [techdebt/README.md](../techdebt/README.md). Highest: oversell (TD-BE-01), n
 
 ### Breaking / behaviour notes
 
-- Any code importing `setAuthToken`/`getAuthToken` from `lib/http` breaks. `http.test.ts` still does, so `npm run type-check` fails ([TD-TEST-03](../techdebt/testing.md#td-test-03)).
+- Any code importing `setAuthToken`/`getAuthToken` from `lib/http` breaks. `http.test.ts` was rewritten for the in-memory token client on 2026-11-17 (TD-TEST-03).
 - The old `localStorage` `auth_token` is no longer read or written.
 - Tests were intentionally not written or updated. Backend builds use `-x test`.
 
@@ -136,7 +136,7 @@ See [techdebt/README.md](../techdebt/README.md). Highest: oversell (TD-BE-01), n
 **Decision:** `GoogleSignInButton` navigates to `http://localhost:8081/oauth2/authorization/google?redirect_uri=<origin>/auth/callback` (`VITE_AUTH_BASE_URL`).  
 **Why:** Spring builds Google's `redirect_uri` from the request host. Via the gateway this became `http://<container-ip>:8081/login/oauth2/code/google`, which Google rejects. Directly it is `http://localhost:8081/login/oauth2/code/google`, the URI registered in the console. Cookies ignore ports, so the refresh cookie set by auth-service is still sent to the SPA's `/api/auth/refresh`.  
 **Alternatives:** Forwarded-headers handling in auth-service plus gateway routing (rejected for this pass: needs auth-service changes, and none were wanted); registering the container IP in Google (not viable, it changes).  
-**Consequence:** The admin SPA still uses the gateway and is affected: [TD-SEC-02](../techdebt/infra-security.md#td-sec-02).
+**Consequence:** The admin SPA was affected until 2026-11-17, when it got the same `VITE_AUTH_BASE_URL` setting (TD-SEC-02, fixed).
 
 ### D3: Google SSO reuses auth-service's existing OIDC leg; token never in the URL
 

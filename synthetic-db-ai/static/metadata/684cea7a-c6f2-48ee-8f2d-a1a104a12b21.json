@@ -1,0 +1,15 @@
+{
+ "product_id": "684cea7a-c6f2-48ee-8f2d-a1a104a12b21",
+ "name": "Arorex Handbag Pro",
+ "prompt": "studio packshot photo of a Green Arorex Handbag Pro, made of polyester, bags & luggage, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2157692928,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:33:42",
+ "file_path": "static/images/684cea7a-c6f2-48ee-8f2d-a1a104a12b21.jpg",
+ "file_size": 52428,
+ "uploaded": false,
+ "s3_url": null
+}

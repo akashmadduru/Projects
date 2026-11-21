@@ -50,10 +50,51 @@ public class CorrelationAndAuthForwardingInterceptor implements RequestIntercept
     if (hasHeader(template, AUTHORIZATION_HEADER)) {
       return;
     }
+    if (!isInternalTarget(template)) {
+      // A `services.*.url` override pointing outside the cluster must never receive a user's
+      // token (TD-SEC-10). Internal tokens set explicitly by the call site are unaffected.
+      return;
+    }
     currentRequestAttributes()
         .map(attributes -> attributes.getRequest().getHeader(AUTHORIZATION_HEADER))
         .filter(header -> !header.isBlank())
         .ifPresent(header -> template.header(AUTHORIZATION_HEADER, header));
+  }
+
+  /**
+   * In-cluster targets only: discovery names and compose/Kubernetes service names (no dot, or a
+   * {@code .svc}, {@code .cluster.local}, {@code .internal} or {@code .local} suffix), localhost
+   * and private-range IP literals. A template without a target (unit use) counts as internal.
+   */
+  static boolean isInternalTarget(RequestTemplate template) {
+    feign.Target<?> target = template.feignTarget();
+    if (target == null || target.url() == null || target.url().isBlank()) {
+      return true;
+    }
+    String host;
+    try {
+      host = java.net.URI.create(target.url()).getHost();
+    } catch (IllegalArgumentException e) {
+      return false;
+    }
+    if (host == null) {
+      return false;
+    }
+    host = host.toLowerCase(java.util.Locale.ROOT);
+    if (host.startsWith("[")) {
+      return host.equals("[::1]");
+    }
+    if (host.matches("\\d{1,3}(\\.\\d{1,3}){3}")) {
+      return host.startsWith("10.")
+          || host.startsWith("127.")
+          || host.startsWith("192.168.")
+          || host.matches("172\\.(1[6-9]|2\\d|3[01])\\..*");
+    }
+    return !host.contains(".")
+        || host.endsWith(".svc")
+        || host.endsWith(".cluster.local")
+        || host.endsWith(".internal")
+        || host.endsWith(".local");
   }
 
   private static java.util.Optional<ServletRequestAttributes> currentRequestAttributes() {

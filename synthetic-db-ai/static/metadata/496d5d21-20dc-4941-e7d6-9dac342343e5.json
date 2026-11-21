@@ -1,0 +1,15 @@
+{
+ "product_id": "496d5d21-20dc-4941-e7d6-9dac342343e5",
+ "name": "Rimi Office Chair Ultra",
+ "prompt": "studio packshot photo of a Space Grey Rimi Office Chair Ultra, made of glass, furniture, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 652160847,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:29:26",
+ "file_path": "static/images/496d5d21-20dc-4941-e7d6-9dac342343e5.jpg",
+ "file_size": 33003,
+ "uploaded": false,
+ "s3_url": null
+}

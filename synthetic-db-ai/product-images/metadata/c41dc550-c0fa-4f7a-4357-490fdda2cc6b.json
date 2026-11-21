@@ -1,0 +1,13 @@
+{
+ "product_id": "c41dc550-c0fa-4f7a-4357-490fdda2cc6b",
+ "name": "Quanoqua Necklace Prime",
+ "prompt": "studio packshot photo of a Rose Gold Quanoqua Necklace Prime, made of leather, watches & jewellery, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2998947035,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:09:58",
+ "file_path": "product-images/images/c41dc550-c0fa-4f7a-4357-490fdda2cc6b.jpg",
+ "file_size": 61197
+}

@@ -66,7 +66,11 @@ public class FxRateController {
     jdbc.update("DELETE FROM product.fx_rates");
     rates.forEach(
         (c, r) ->
-            jdbc.update("INSERT INTO product.fx_rates (currency, base, rate) VALUES (?, ?, ?)", c, base, r));
+            jdbc.update(
+                "INSERT INTO product.fx_rates (currency, base, rate) VALUES (?, ?, ?)",
+                c,
+                base,
+                r));
     return load();
   }
 

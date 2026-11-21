@@ -1,0 +1,13 @@
+{
+ "product_id": "8d8e08e4-17cf-4044-2c30-1453b91436cc",
+ "name": "Loarex Frying Pan Edition",
+ "prompt": "studio packshot photo of a Navy Blue Loarex Frying Pan Edition, made of abs plastic, cookware, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2607510344,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:59:10",
+ "file_path": "product-images/images/8d8e08e4-17cf-4044-2c30-1453b91436cc.jpg",
+ "file_size": 76595
+}

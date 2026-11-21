@@ -1,0 +1,13 @@
+{
+ "product_id": "86443054-52c2-4997-3812-18b51017fc33",
+ "name": "Lumar Massager Gen 3",
+ "prompt": "studio packshot photo of a Black Lumar Massager Gen 3, made of aluminium, personal wellness, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3788888472,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:31:49",
+ "file_path": "product-images/images/86443054-52c2-4997-3812-18b51017fc33.jpg",
+ "file_size": 60180
+}

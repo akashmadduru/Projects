@@ -1,0 +1,13 @@
+{
+ "product_id": "e28ca049-db2b-435a-4d43-dca7af01d34b",
+ "name": "Dextaex Handbag Edition",
+ "prompt": "studio packshot photo of a Midnight Dextaex Handbag Edition, made of cotton, bags & luggage, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3224327425,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:20:08",
+ "file_path": "product-images/images/e28ca049-db2b-435a-4d43-dca7af01d34b.jpg",
+ "file_size": 38981
+}

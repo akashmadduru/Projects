@@ -260,9 +260,9 @@ Secrets via `amazon.aws.secretsmanager_secret` lookups, never vaulted copies. Do
 13. Postgres (`docker-compose.yml:38`) and ZooKeeper (`:74`) published on 0.0.0.0 in compose.
 
 ### Low
-14. Dev DB passwords committed in init SQL (documented as throwaway, TD-SEC-03).
-15. Non-UUID `sub` claim gives 500 (TD-SEC-12).
-16. `CONNECT` not revoked from PUBLIC (TD-SEC-13).
+14. Dev DB passwords committed in init SQL (TD-SEC-03, accepted 2026-11-18: local-only throwaway values; AWS generates random per-environment passwords).
+15. ~~Non-UUID `sub` claim gives 500 (TD-SEC-12).~~ Fixed 2026-11-17: every decoder rejects it with 401.
+16. `CONNECT` not revoked from PUBLIC (TD-SEC-13, fixed 2026-11-18).
 
 ### Strengths (keep)
 - No SQL injection found: every dynamic WHERE/ORDER fragment is a constant with bound parameters (seller, payment-admin, inventory, support ticket queries checked).

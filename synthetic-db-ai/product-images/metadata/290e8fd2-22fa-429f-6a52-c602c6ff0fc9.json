@@ -1,0 +1,13 @@
+{
+ "product_id": "290e8fd2-22fa-429f-6a52-c602c6ff0fc9",
+ "name": "Ionkadex Frying Pan Ultra",
+ "prompt": "studio packshot photo of a Green Ionkadex Frying Pan Ultra, made of leather, cookware, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 282104152,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:06:26",
+ "file_path": "product-images/images/290e8fd2-22fa-429f-6a52-c602c6ff0fc9.jpg",
+ "file_size": 54203
+}

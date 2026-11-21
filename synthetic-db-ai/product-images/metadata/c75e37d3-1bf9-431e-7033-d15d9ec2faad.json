@@ -1,0 +1,13 @@
+{
+ "product_id": "c75e37d3-1bf9-431e-7033-d15d9ec2faad",
+ "name": "Lonovo Running Shoes Pro",
+ "prompt": "studio packshot photo of a Red Lonovo Running Shoes Pro, made of polyester, footwear, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2719755553,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:01:11",
+ "file_path": "product-images/images/c75e37d3-1bf9-431e-7033-d15d9ec2faad.jpg",
+ "file_size": 72950
+}

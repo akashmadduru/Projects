@@ -2,7 +2,6 @@ package com.acme.ecommerce.auth.service;
 
 import com.acme.ecommerce.auth.api.AuthErrorCode;
 import com.acme.ecommerce.auth.api.dto.AuthMethod;
-import com.acme.ecommerce.auth.cache.UserSnapshotFactory;
 import com.acme.ecommerce.auth.domain.UserAccount;
 import com.acme.ecommerce.auth.error.AuthException;
 import com.acme.ecommerce.auth.metrics.AuthMetrics;
@@ -10,7 +9,6 @@ import com.acme.ecommerce.auth.repository.UserAccountRepository;
 import com.acme.ecommerce.auth.service.OneTimeTokenService.Purpose;
 import com.acme.ecommerce.auth.token.AuthenticatedPrincipal;
 import com.acme.ecommerce.auth.token.DeviceContext;
-import com.acme.ecommerce.auth.token.TokenPair;
 import com.acme.ecommerce.auth.token.TokenService;
 import java.time.Duration;
 import java.util.Optional;
@@ -23,9 +21,9 @@ import org.springframework.stereotype.Service;
  *
  * <p>NO ENUMERATION: {@link #request} returns normally for unknown / unverified numbers and the SMS
  * is queued asynchronously. {@link #verify} answers every failure (unknown number, wrong, expired
- * or exhausted code) with the same {@code AUTH_OTP_INVALID}. Only a phone that was VERIFIED by
- * its owner can receive a login code, so typing someone else's number into the add-phone form
- * never grants anything. Not {@code @Transactional}, for the same attempt-counter reason as phone
+ * or exhausted code) with the same {@code AUTH_OTP_INVALID}. Only a phone that was VERIFIED by its
+ * owner can receive a login code, so typing someone else's number into the add-phone form never
+ * grants anything. Not {@code @Transactional}, for the same attempt-counter reason as phone
  * verification.
  */
 @Service
@@ -37,27 +35,22 @@ public class OtpLoginService {
   private final UserAccountRepository users;
   private final OneTimeTokenService tokens;
   private final NotificationGateway notifications;
-  private final TokenService tokenService;
   private final UserPrincipalService principals;
-  private final UserSnapshotFactory snapshots;
   private final TwoFactorService twoFactor;
   private final AuthMetrics metrics;
 
+  /** Tokens are issued (or a second factor demanded) by {@link TwoFactorService}. */
   public OtpLoginService(
       UserAccountRepository users,
       OneTimeTokenService tokens,
       NotificationGateway notifications,
-      TokenService tokenService,
       UserPrincipalService principals,
-      UserSnapshotFactory snapshots,
       AuthMetrics metrics,
       TwoFactorService twoFactor) {
     this.users = users;
     this.tokens = tokens;
     this.notifications = notifications;
-    this.tokenService = tokenService;
     this.principals = principals;
-    this.snapshots = snapshots;
     this.metrics = metrics;
     this.twoFactor = twoFactor;
   }
@@ -95,9 +88,7 @@ public class OtpLoginService {
   public LoginResult verify(String rawPhone, String code, DeviceContext device) {
     String phone = PhoneNumbers.normalise(rawPhone).orElse(null);
     UserAccount user =
-        phone == null
-            ? null
-            : users.findWithRolesByPhoneAndPhoneVerifiedTrue(phone).orElse(null);
+        phone == null ? null : users.findWithRolesByPhoneAndPhoneVerifiedTrue(phone).orElse(null);
     if (user == null
         || !tokens.verifyCode(
             user.getId(), Purpose.OTP_LOGIN, phone, code, PhoneVerificationService.MAX_ATTEMPTS)) {

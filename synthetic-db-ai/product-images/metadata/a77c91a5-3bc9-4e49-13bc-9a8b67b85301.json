@@ -1,0 +1,13 @@
+{
+ "product_id": "a77c91a5-3bc9-4e49-13bc-9a8b67b85301",
+ "name": "Dexnu Green Tea Edition",
+ "prompt": "studio packshot photo of a Black Dexnu Green Tea Edition, made of glass, beverages, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1446453982,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T00:32:11",
+ "file_path": "product-images/images/a77c91a5-3bc9-4e49-13bc-9a8b67b85301.jpg",
+ "file_size": 37846
+}

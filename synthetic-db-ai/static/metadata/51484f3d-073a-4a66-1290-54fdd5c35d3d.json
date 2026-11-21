@@ -1,0 +1,15 @@
+{
+ "product_id": "51484f3d-073a-4a66-1290-54fdd5c35d3d",
+ "name": "Quanoqua Hardcover Lite",
+ "prompt": "studio packshot photo of a White Quanoqua Hardcover Lite, made of aluminium, books, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3377271861,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:18:29",
+ "file_path": "static/images/51484f3d-073a-4a66-1290-54fdd5c35d3d.jpg",
+ "file_size": 45970,
+ "uploaded": false,
+ "s3_url": null
+}

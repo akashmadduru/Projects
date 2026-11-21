@@ -37,7 +37,8 @@ public class SecretCipher {
       Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
       cipher.init(Cipher.ENCRYPT_MODE, key, new GCMParameterSpec(128, iv));
       byte[] ct = cipher.doFinal(plain);
-      return Base64.getEncoder().encodeToString(ByteBuffer.allocate(12 + ct.length).put(iv).put(ct).array());
+      return Base64.getEncoder()
+          .encodeToString(ByteBuffer.allocate(12 + ct.length).put(iv).put(ct).array());
     } catch (GeneralSecurityException e) {
       throw new IllegalStateException("Encryption failed", e);
     }

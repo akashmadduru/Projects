@@ -36,7 +36,9 @@ public class EmbeddingRepository {
       String attributesJson,
       String specificationsJson,
       String storedHash,
-      String storedModel) {}
+      String storedModel,
+      /* products.updated_at as read: stored on the row as source_updated_at once processed. */
+      Instant updatedAt) {}
 
   /** Coverage figures for the admin badge. */
   public record Coverage(
@@ -53,10 +55,10 @@ public class EmbeddingRepository {
    * Active products needing work, never-embedded first, then least recently verified.
    *
    * <p>A product is a candidate when it has no embedding, was embedded with another model, was
-   * edited after it was last verified ({@code updated_at > checked_at} - the cheap prefilter), or
-   * has not been verified since {@code sweepBefore} (the daily full sweep: category renames do not
-   * bump {@code products.updated_at}). Products whose last attempt failed are skipped until their
-   * backoff elapses.
+   * edited after the version last verified ({@code updated_at > source_updated_at} - the cheap
+   * prefilter), or has not been verified since {@code sweepBefore} (the daily full sweep: category
+   * renames do not bump {@code products.updated_at}). Products whose last attempt failed are
+   * skipped until their backoff elapses.
    */
   @SuppressWarnings("unchecked")
   public List<Candidate> findCandidates(String model, Instant now, Instant sweepBefore, int limit) {
@@ -64,13 +66,13 @@ public class EmbeddingRepository {
         em.createNativeQuery(
                 "select p.id, p.name, p.brand, c.name, p.description, "
                     + "cast(p.attributes as text), cast(p.specifications as text), "
-                    + "e.content_hash, e.model "
+                    + "e.content_hash, e.model, p.updated_at "
                     + "from product.products p "
                     + "left join product.categories c on c.id = p.category_id "
                     + "left join product.product_embeddings e on e.product_id = p.id "
                     + "where p.active "
                     + "and (e.product_id is null or e.model <> :model "
-                    + "     or p.updated_at > e.checked_at or e.checked_at < :sweepBefore) "
+                    + "     or p.updated_at > e.source_updated_at or e.checked_at < :sweepBefore) "
                     + "and not exists (select 1 from product.embedding_failures f "
                     + "                where f.product_id = p.id and f.next_attempt_at > :now) "
                     + "order by coalesce(e.checked_at, timestamptz 'epoch'), p.id "
@@ -92,7 +94,8 @@ public class EmbeddingRepository {
               (String) r[5],
               (String) r[6],
               r[7] == null ? null : ((String) r[7]).strip(),
-              (String) r[8]));
+              (String) r[8],
+              asInstant(r[9])));
     }
     return out;
   }
@@ -101,9 +104,9 @@ public class EmbeddingRepository {
    * Inserts or replaces the vector. A product deleted since it was read simply inserts nothing
    * (INSERT ... SELECT), instead of failing the whole batch on the foreign key.
    *
-   * @param checkedAt the SNAPSHOT time taken before the product was read, not "now": an edit
-   *     landing between read and write then still satisfies {@code updated_at > checked_at} and is
-   *     picked up next run.
+   * @param checkedAt when the product was verified (drives the full sweep only)
+   * @param sourceUpdatedAt the {@code products.updated_at} that was read: an edit landing between
+   *     read and write is newer and is picked up next run
    */
   public void upsert(
       UUID productId,
@@ -111,15 +114,19 @@ public class EmbeddingRepository {
       String model,
       String contentHash,
       Instant embeddedAt,
-      Instant checkedAt) {
+      Instant checkedAt,
+      Instant sourceUpdatedAt) {
     em.createNativeQuery(
             "insert into product.product_embeddings "
-                + "(product_id, embedding, model, dims, content_hash, embedded_at, checked_at) "
-                + "select p.id, cast(:vec as public.vector), :model, :dims, :hash, :embeddedAt, :checkedAt "
+                + "(product_id, embedding, model, dims, content_hash, embedded_at, checked_at,"
+                + " source_updated_at) "
+                + "select p.id, cast(:vec as public.vector), :model, :dims, :hash, :embeddedAt,"
+                + " :checkedAt, :sourceUpdatedAt "
                 + "from product.products p where p.id = :id "
                 + "on conflict (product_id) do update set embedding = excluded.embedding, "
                 + "model = excluded.model, dims = excluded.dims, content_hash = excluded.content_hash, "
-                + "embedded_at = excluded.embedded_at, checked_at = excluded.checked_at")
+                + "embedded_at = excluded.embedded_at, checked_at = excluded.checked_at, "
+                + "source_updated_at = excluded.source_updated_at")
         .setParameter("id", productId)
         .setParameter("vec", toLiteral(vector))
         .setParameter("model", model)
@@ -127,20 +134,24 @@ public class EmbeddingRepository {
         .setParameter("hash", contentHash)
         .setParameter("embeddedAt", embeddedAt)
         .setParameter("checkedAt", checkedAt)
+        .setParameter("sourceUpdatedAt", sourceUpdatedAt)
         .executeUpdate();
   }
 
-  /** Marks unchanged products as verified without any provider call. */
-  public void touchChecked(Collection<UUID> productIds, Instant checkedAt) {
-    if (productIds.isEmpty()) {
-      return;
+  /**
+   * Marks unchanged products as verified without any provider call, each at the product version
+   * that was read (at most one batch, so one statement per row is fine).
+   */
+  public void touchChecked(java.util.Map<UUID, Instant> sourceVersions, Instant checkedAt) {
+    for (var entry : sourceVersions.entrySet()) {
+      em.createNativeQuery(
+              "update product.product_embeddings set checked_at = :checkedAt, "
+                  + "source_updated_at = :sourceUpdatedAt where product_id = :id")
+          .setParameter("checkedAt", checkedAt)
+          .setParameter("sourceUpdatedAt", entry.getValue())
+          .setParameter("id", entry.getKey())
+          .executeUpdate();
     }
-    em.createNativeQuery(
-            "update product.product_embeddings set checked_at = :checkedAt "
-                + "where product_id in (:ids)")
-        .setParameter("checkedAt", checkedAt)
-        .setParameter("ids", productIds)
-        .executeUpdate();
   }
 
   public void clearFailures(Collection<UUID> productIds) {
@@ -185,7 +196,7 @@ public class EmbeddingRepository {
   public int invalidate(UUID productId) {
     String sql =
         "update product.product_embeddings set content_hash = repeat('0', 64), "
-            + "checked_at = timestamptz 'epoch'";
+            + "checked_at = timestamptz 'epoch', source_updated_at = timestamptz 'epoch'";
     if (productId == null) {
       em.createNativeQuery("delete from product.embedding_failures").executeUpdate();
       return em.createNativeQuery(sql).executeUpdate();
@@ -209,13 +220,13 @@ public class EmbeddingRepository {
                         + "   on e.product_id = p.id where p.active and e.model = :model), "
                         + "(select count(*) from product.products p left join product.product_embeddings e "
                         + "   on e.product_id = p.id and e.model = :model "
-                        + "   where p.active and (e.product_id is null or p.updated_at > e.checked_at)), "
+                        + "   where p.active and (e.product_id is null or p.updated_at > e.source_updated_at)), "
                         + "(select count(*) from product.embedding_failures f join product.products p "
                         + "   on p.id = f.product_id where p.active), "
                         + "(select max(checked_at) from product.product_embeddings), "
                         + "(select min(p.updated_at) from product.products p left join "
                         + "   product.product_embeddings e on e.product_id = p.id and e.model = :model "
-                        + "   where p.active and (e.product_id is null or p.updated_at > e.checked_at))")
+                        + "   where p.active and (e.product_id is null or p.updated_at > e.source_updated_at))")
                 .setParameter("model", model)
                 .getSingleResult();
     return new Coverage(

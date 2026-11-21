@@ -1,0 +1,15 @@
+{
+ "product_id": "5d368ce5-5827-493d-9337-4d986ae57194",
+ "name": "Loor Shampoo Max",
+ "prompt": "studio packshot photo of a Silver Loor Shampoo Max, made of leather, hair care, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 4168084099,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:25:32",
+ "file_path": "static/images/5d368ce5-5827-493d-9337-4d986ae57194.jpg",
+ "file_size": 29096,
+ "uploaded": false,
+ "s3_url": null
+}

@@ -1,0 +1,13 @@
+{
+ "product_id": "f41c2296-d5c7-4c5d-1cca-b5012789afa3",
+ "name": "Dexpitra Puzzle Elite",
+ "prompt": "studio packshot photo of a White Dexpitra Puzzle Elite, made of bamboo, board games, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2042612930,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:16:35",
+ "file_path": "product-images/images/f41c2296-d5c7-4c5d-1cca-b5012789afa3.jpg",
+ "file_size": 59414
+}

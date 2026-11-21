@@ -47,6 +47,8 @@ function useShelf(load: () => Promise<Product[]>, key: string): Product[] {
     return () => {
       live = false
     }
+    // `key` identifies the shelf; `load` is an inline closure recreated on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key])
   return products
 }

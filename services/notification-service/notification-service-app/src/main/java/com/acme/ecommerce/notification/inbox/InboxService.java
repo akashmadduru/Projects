@@ -29,7 +29,9 @@ public class InboxService {
     this.jdbc = jdbc;
   }
 
-  /** @return true when a row was inserted (false = duplicate dedupeKey). */
+  /**
+   * @return true when a row was inserted (false = duplicate dedupeKey).
+   */
   public boolean add(
       UUID userId, String type, String title, String body, String link, String dedupeKey) {
     return jdbc.sql(

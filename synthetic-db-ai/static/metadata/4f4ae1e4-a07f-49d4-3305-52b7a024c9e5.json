@@ -1,0 +1,15 @@
+{
+ "product_id": "4f4ae1e4-a07f-49d4-3305-52b7a024c9e5",
+ "name": "Arvenion 4K TV Lite",
+ "prompt": "studio packshot photo of a White Arvenion 4K TV Lite, made of bamboo, televisions, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1492999397,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:05:13",
+ "file_path": "static/images/4f4ae1e4-a07f-49d4-3305-52b7a024c9e5.jpg",
+ "file_size": 45721,
+ "uploaded": false,
+ "s3_url": null
+}

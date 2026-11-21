@@ -1,0 +1,15 @@
+{
+ "product_id": "364ad8f9-b3a3-47fc-d1d7-babdcdd93a86",
+ "name": "Tano WiFi Router Gen 3",
+ "prompt": "studio packshot photo of a Red Tano WiFi Router Gen 3, made of glass, networking, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3668871919,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T00:56:43",
+ "file_path": "static/images/364ad8f9-b3a3-47fc-d1d7-babdcdd93a86.jpg",
+ "file_size": 23038,
+ "uploaded": false,
+ "s3_url": null
+}

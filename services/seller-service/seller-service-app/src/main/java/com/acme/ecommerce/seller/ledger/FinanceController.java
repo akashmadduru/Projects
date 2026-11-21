@@ -30,26 +30,37 @@ public class FinanceController {
 
   @GetMapping("/api/seller/ledger")
   @PreAuthorize("hasRole('SELLER')")
-  public Paged<LedgerEntry> ledger(@AuthenticationPrincipal Jwt jwt, @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
+  public Paged<LedgerEntry> ledger(
+      @AuthenticationPrincipal Jwt jwt,
+      @RequestParam(defaultValue = "0") int page,
+      @RequestParam(defaultValue = "20") int size) {
     return ledger.ledger(sellers.requireByUser(UUID.fromString(jwt.getSubject())).id(), page, size);
   }
 
   @GetMapping("/api/seller/payouts")
   @PreAuthorize("hasRole('SELLER')")
-  public Paged<Payout> payouts(@AuthenticationPrincipal Jwt jwt, @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
-    return ledger.payouts(sellers.requireByUser(UUID.fromString(jwt.getSubject())).id(), page, size);
+  public Paged<Payout> payouts(
+      @AuthenticationPrincipal Jwt jwt,
+      @RequestParam(defaultValue = "0") int page,
+      @RequestParam(defaultValue = "20") int size) {
+    return ledger.payouts(
+        sellers.requireByUser(UUID.fromString(jwt.getSubject())).id(), page, size);
   }
 
   @GetMapping("/api/admin/payouts")
   @PreAuthorize("hasAnyRole('ADMIN','FINANCE')")
-  public Paged<Payout> adminPayouts(@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
+  public Paged<Payout> adminPayouts(
+      @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
     return ledger.payouts(null, page, size);
   }
 
   @PostMapping("/api/admin/payouts/run")
   @PreAuthorize("hasAnyRole('ADMIN','FINANCE')")
-  public PayoutRun run(@RequestBody(required = false) RunRequest request, @RequestParam(required = false) Integer minAgeDays) {
-    Integer days = request != null && request.minAgeDays() != null ? request.minAgeDays() : minAgeDays;
+  public PayoutRun run(
+      @RequestBody(required = false) RunRequest request,
+      @RequestParam(required = false) Integer minAgeDays) {
+    Integer days =
+        request != null && request.minAgeDays() != null ? request.minAgeDays() : minAgeDays;
     return ledger.run(days);
   }
 }

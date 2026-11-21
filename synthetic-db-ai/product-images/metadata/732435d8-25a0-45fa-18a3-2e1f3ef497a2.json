@@ -1,0 +1,13 @@
+{
+ "product_id": "732435d8-25a0-45fa-18a3-2e1f3ef497a2",
+ "name": "Lumar Jeans Essential",
+ "prompt": "studio packshot photo of a Silver Lumar Jeans Essential, made of leather, men's clothing, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3521990629,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:14:28",
+ "file_path": "product-images/images/732435d8-25a0-45fa-18a3-2e1f3ef497a2.jpg",
+ "file_size": 76404
+}

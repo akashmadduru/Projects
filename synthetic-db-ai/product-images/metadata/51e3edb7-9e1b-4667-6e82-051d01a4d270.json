@@ -1,0 +1,13 @@
+{
+ "product_id": "51e3edb7-9e1b-4667-6e82-051d01a4d270",
+ "name": "Arkaqua Sneakers Series 2",
+ "prompt": "studio packshot photo of a Blue Arkaqua Sneakers Series 2, made of ceramic, footwear, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 821595594,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:20:30",
+ "file_path": "product-images/images/51e3edb7-9e1b-4667-6e82-051d01a4d270.jpg",
+ "file_size": 52899
+}

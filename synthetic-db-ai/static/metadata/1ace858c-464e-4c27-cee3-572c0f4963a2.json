@@ -1,0 +1,15 @@
+{
+ "product_id": "1ace858c-464e-4c27-cee3-572c0f4963a2",
+ "name": "Lumrior Speaker Ultra",
+ "prompt": "studio packshot photo of a Olive Lumrior Speaker Ultra, made of bamboo, speakers, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 800238189,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 768,
+ "created_at": "2026-11-15T23:11:25",
+ "file_path": "static/images/1ace858c-464e-4c27-cee3-572c0f4963a2.jpg",
+ "file_size": 70107,
+ "uploaded": false,
+ "s3_url": null
+}

@@ -1,0 +1,13 @@
+{
+ "product_id": "f832ea8d-0855-43df-a7f3-9af98a10351c",
+ "name": "Orvenmi Green Tea Ultra",
+ "prompt": "studio packshot photo of a Olive Orvenmi Green Tea Ultra, made of wood, beverages, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3445908817,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T22:08:42",
+ "file_path": "product-images/images/f832ea8d-0855-43df-a7f3-9af98a10351c.jpg",
+ "file_size": 52514
+}

@@ -1,0 +1,13 @@
+{
+ "product_id": "6fd1d8dc-02d1-4928-127e-5fd9f46de4e5",
+ "name": "Lumri Table Lamp Plus",
+ "prompt": "studio packshot photo of a Blue Lumri Table Lamp Plus, made of cotton, home decor, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2458879418,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T01:49:39",
+ "file_path": "product-images/images/6fd1d8dc-02d1-4928-127e-5fd9f46de4e5.jpg",
+ "file_size": 27587
+}

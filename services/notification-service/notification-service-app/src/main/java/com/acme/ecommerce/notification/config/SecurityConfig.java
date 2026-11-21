@@ -3,6 +3,7 @@ package com.acme.ecommerce.notification.config;
 import com.acme.ecommerce.common.core.error.ErrorCode;
 import com.acme.ecommerce.common.security.AudienceValidator;
 import com.acme.ecommerce.common.security.PlatformJwtAuthenticationConverter;
+import com.acme.ecommerce.common.security.UuidSubjectValidator;
 import com.acme.ecommerce.notification.error.ProblemResponseWriter;
 import java.time.Duration;
 import java.util.List;
@@ -60,7 +61,10 @@ public class SecurityConfig {
                 rs.authenticationEntryPoint(
                         (req, res, ex) ->
                             problems.write(
-                                req, res, ErrorCode.UNAUTHENTICATED, "A valid bearer token is required"))
+                                req,
+                                res,
+                                ErrorCode.UNAUTHENTICATED,
+                                "A valid bearer token is required"))
                     .accessDeniedHandler(
                         (req, res, ex) ->
                             problems.write(req, res, ErrorCode.FORBIDDEN, "Permission denied"))
@@ -106,7 +110,8 @@ public class SecurityConfig {
             List.of(
                 new JwtTimestampValidator(Duration.ofSeconds(30)),
                 new JwtIssuerValidator(issuer),
-                new AudienceValidator(audience))));
+                new AudienceValidator(audience),
+                new UuidSubjectValidator())));
     return decoder;
   }
 

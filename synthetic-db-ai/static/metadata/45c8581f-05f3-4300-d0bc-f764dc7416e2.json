@@ -1,0 +1,15 @@
+{
+ "product_id": "45c8581f-05f3-4300-d0bc-f764dc7416e2",
+ "name": "Dexexta Frying Pan Series 2",
+ "prompt": "studio packshot photo of a Red Dexexta Frying Pan Series 2, made of aluminium, cookware, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2412545848,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:33:41",
+ "file_path": "static/images/45c8581f-05f3-4300-d0bc-f764dc7416e2.jpg",
+ "file_size": 68348,
+ "uploaded": false,
+ "s3_url": null
+}

@@ -1,0 +1,13 @@
+{
+ "product_id": "613ff347-ba83-434d-8cd9-107eac6fe062",
+ "name": "Bakata Brick Set Essential",
+ "prompt": "studio packshot photo of a Red Bakata Brick Set Essential, made of nylon, building toys, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1905115318,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:36:09",
+ "file_path": "product-images/images/613ff347-ba83-434d-8cd9-107eac6fe062.jpg",
+ "file_size": 66030
+}

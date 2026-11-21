@@ -1,0 +1,15 @@
+{
+ "product_id": "30a47e25-2dfd-4a79-65df-33791306cf47",
+ "name": "Fynulo Mixed Nuts Max",
+ "prompt": "studio packshot photo of a Red Fynulo Mixed Nuts Max, made of glass, snacks, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2419321402,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-15T23:52:10",
+ "file_path": "static/images/30a47e25-2dfd-4a79-65df-33791306cf47.jpg",
+ "file_size": 24994,
+ "uploaded": false,
+ "s3_url": null
+}

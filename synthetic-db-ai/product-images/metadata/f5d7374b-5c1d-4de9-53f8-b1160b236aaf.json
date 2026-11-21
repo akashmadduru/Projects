@@ -1,0 +1,13 @@
+{
+ "product_id": "f5d7374b-5c1d-4de9-53f8-b1160b236aaf",
+ "name": "Arsuno Monitor Lite",
+ "prompt": "studio packshot photo of a Black Arsuno Monitor Lite, made of polyester, monitors, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1081393882,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:57:14",
+ "file_path": "product-images/images/f5d7374b-5c1d-4de9-53f8-b1160b236aaf.jpg",
+ "file_size": 25239
+}

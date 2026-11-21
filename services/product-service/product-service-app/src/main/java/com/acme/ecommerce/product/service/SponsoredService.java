@@ -31,7 +31,8 @@ public class SponsoredService {
       return organic;
     }
     Map<UUID, ProductResponse> products = new HashMap<>();
-    catalog.findByIds(ads.stream().map(AdRef::productId).distinct().toList())
+    catalog
+        .findByIds(ads.stream().map(AdRef::productId).distinct().toList())
         .forEach(p -> products.put(p.getId(), p));
     List<ProductResponse> out = new ArrayList<>();
     Set<UUID> used = new HashSet<>();

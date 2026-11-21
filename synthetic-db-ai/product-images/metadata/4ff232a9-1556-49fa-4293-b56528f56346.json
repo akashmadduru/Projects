@@ -1,0 +1,13 @@
+{
+ "product_id": "4ff232a9-1556-49fa-4293-b56528f56346",
+ "name": "Midex Fountain Pen Elite",
+ "prompt": "studio packshot photo of a Silver Midex Fountain Pen Elite, made of ceramic, stationery, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2626445074,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:18:52",
+ "file_path": "product-images/images/4ff232a9-1556-49fa-4293-b56528f56346.jpg",
+ "file_size": 28885
+}

@@ -1,0 +1,13 @@
+{
+ "product_id": "42817fb2-8166-4adc-559f-054afe10a2b6",
+ "name": "Piri Vacuum Cleaner Elite",
+ "prompt": "studio packshot photo of a Red Piri Vacuum Cleaner Elite, made of aluminium, cleaning, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1096670061,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:05:37",
+ "file_path": "product-images/images/42817fb2-8166-4adc-559f-054afe10a2b6.jpg",
+ "file_size": 41615
+}

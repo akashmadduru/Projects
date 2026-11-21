@@ -66,7 +66,8 @@ public final class JobLock {
       locked = tryLock(connection, key);
     } catch (SQLException e) {
       closeQuietly(connection);
-      log.warn("Job lock '{}' could not be attempted ({}); running without it", name, e.getMessage());
+      log.warn(
+          "Job lock '{}' could not be attempted ({}); running without it", name, e.getMessage());
       job.run();
       return true;
     }
@@ -100,7 +101,10 @@ public final class JobLock {
     } catch (SQLException | RuntimeException e) {
       // An unlock that failed must not return this session to the pool still holding the lock,
       // or the job would never run again until the connection is recycled. Abort it instead.
-      log.warn("Job lock '{}' could not be released cleanly ({}); discarding connection", name, e.getMessage());
+      log.warn(
+          "Job lock '{}' could not be released cleanly ({}); discarding connection",
+          name,
+          e.getMessage());
       try {
         connection.abort(Runnable::run);
       } catch (SQLException | RuntimeException ignored) {

@@ -1,0 +1,13 @@
+{
+ "product_id": "fe3561a8-d055-4f1d-4dd3-c6f3211d45d4",
+ "name": "Kaexri Wireless Mouse Ultra",
+ "prompt": "studio packshot photo of a Silver Kaexri Wireless Mouse Ultra, made of cotton, keyboards & mice, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3400866798,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:16:22",
+ "file_path": "product-images/images/fe3561a8-d055-4f1d-4dd3-c6f3211d45d4.jpg",
+ "file_size": 27343
+}

@@ -54,8 +54,10 @@ public class EmailVerificationService {
           email,
           EmailTemplate.EMAIL_VERIFICATION,
           Map.of(
-              "link", storefrontBaseUrl + "/verify-email?token=" + token,
-              "name", displayName == null ? "there" : displayName));
+              "link",
+              storefrontBaseUrl + "/verify-email?token=" + token,
+              "name",
+              displayName == null ? "there" : displayName));
     } catch (RuntimeException e) {
       log.warn("Could not queue verification email for userId={}: {}", userId, e.toString());
     }

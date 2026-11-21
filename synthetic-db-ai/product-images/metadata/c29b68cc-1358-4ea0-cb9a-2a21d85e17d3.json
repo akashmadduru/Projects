@@ -1,0 +1,13 @@
+{
+ "product_id": "c29b68cc-1358-4ea0-cb9a-2a21d85e17d3",
+ "name": "Livoli Mesh System Classic",
+ "prompt": "studio packshot photo of a Red Livoli Mesh System Classic, made of wood, networking, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3360144184,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:34:35",
+ "file_path": "product-images/images/c29b68cc-1358-4ea0-cb9a-2a21d85e17d3.jpg",
+ "file_size": 94095
+}

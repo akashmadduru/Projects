@@ -94,7 +94,7 @@ describe('toSearchParams', () => {
   it('maps the query to hybrid search parameters', () => {
     expect(
       toSearchParams(2, 20, { q: ' travel laptop ', brand: ['Acme', 'Zed'], sort: 'newest', maxPrice: 60000 }),
-    ).toEqual({ q: 'travel laptop', mode: 'hybrid', page: 2, size: 20, brand: 'Acme,Zed', sort: 'newest', maxPrice: 60000 })
+    ).toEqual({ q: 'travel laptop', mode: 'hybrid', page: 2, size: 20, brand: ['Acme', 'Zed'], sort: 'newest', maxPrice: 60000 })
   })
 })
 

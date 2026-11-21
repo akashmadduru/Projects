@@ -1,0 +1,13 @@
+{
+ "product_id": "af05815f-0122-4866-d25b-cce71fd4e41f",
+ "name": "Exqualum Granola Elite",
+ "prompt": "studio packshot photo of a Green Exqualum Granola Elite, made of glass, snacks, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 4222435938,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:22:01",
+ "file_path": "product-images/images/af05815f-0122-4866-d25b-cce71fd4e41f.jpg",
+ "file_size": 56631
+}

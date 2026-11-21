@@ -40,5 +40,4 @@ public class InternalOrderController {
       @PathVariable UUID id, @Valid @RequestBody PaymentResultRequest request) {
     return lifecycle.paymentResult(id, request.status(), request.paymentId());
   }
-
 }

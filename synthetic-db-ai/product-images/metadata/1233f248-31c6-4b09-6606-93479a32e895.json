@@ -1,0 +1,13 @@
+{
+ "product_id": "1233f248-31c6-4b09-6606-93479a32e895",
+ "name": "Venarco Tent Prime",
+ "prompt": "studio packshot photo of a Black Venarco Tent Prime, made of aluminium, camping, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3434810245,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:24:14",
+ "file_path": "product-images/images/1233f248-31c6-4b09-6606-93479a32e895.jpg",
+ "file_size": 62364
+}

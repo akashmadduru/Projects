@@ -1,0 +1,13 @@
+{
+ "product_id": "d73f2405-b586-4bc2-861c-ce7ae75de9f9",
+ "name": "Ionba Smart TV Series 2",
+ "prompt": "studio packshot photo of a Navy Blue Ionba Smart TV Series 2, made of silicone, televisions, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2326137766,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T01:34:44",
+ "file_path": "product-images/images/d73f2405-b586-4bc2-861c-ce7ae75de9f9.jpg",
+ "file_size": 47779
+}

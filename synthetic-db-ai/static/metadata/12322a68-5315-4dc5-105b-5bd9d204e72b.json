@@ -1,0 +1,15 @@
+{
+ "product_id": "12322a68-5315-4dc5-105b-5bd9d204e72b",
+ "name": "Artaar Cold Brew Edition",
+ "prompt": "studio packshot photo of a Silver Artaar Cold Brew Edition, made of polyester, beverages, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 509543530,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 768,
+ "created_at": "2026-11-15T23:00:10",
+ "file_path": "static/images/12322a68-5315-4dc5-105b-5bd9d204e72b.jpg",
+ "file_size": 58009,
+ "uploaded": false,
+ "s3_url": null
+}

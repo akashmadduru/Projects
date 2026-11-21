@@ -1,0 +1,15 @@
+{
+ "product_id": "6938cff9-220d-4ebd-b56c-c1e58cf74ff0",
+ "name": "Orba Monitor Gen 3",
+ "prompt": "studio packshot photo of a Red Orba Monitor Gen 3, made of aluminium, monitors, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3822323938,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:34:27",
+ "file_path": "static/images/6938cff9-220d-4ebd-b56c-c1e58cf74ff0.jpg",
+ "file_size": 81794,
+ "uploaded": false,
+ "s3_url": null
+}

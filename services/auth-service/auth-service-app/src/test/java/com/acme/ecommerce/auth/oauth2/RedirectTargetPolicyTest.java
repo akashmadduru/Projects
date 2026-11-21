@@ -82,6 +82,7 @@ class RedirectTargetPolicyTest {
         new AuthProperties.Lockout(5, Duration.ofMinutes(1), Duration.ofMinutes(15)),
         new AuthProperties.RateLimit(true, 10, 60, Duration.ofMinutes(1), false, 1000),
         new AuthProperties.Oauth2("", "", allowed, defaultTarget, ""),
-        new AuthProperties.Housekeeping(false, Duration.ofDays(30), Duration.ofHours(1)));
+        new AuthProperties.Housekeeping(false, Duration.ofDays(30), Duration.ofHours(1)),
+        new AuthProperties.Storefront("http://localhost:3000"));
   }
 }

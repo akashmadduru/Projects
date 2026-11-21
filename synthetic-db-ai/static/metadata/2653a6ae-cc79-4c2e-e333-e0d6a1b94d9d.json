@@ -1,0 +1,15 @@
+{
+ "product_id": "2653a6ae-cc79-4c2e-e333-e0d6a1b94d9d",
+ "name": "Lumvenar Table Lamp Prime",
+ "prompt": "studio packshot photo of a Black Lumvenar Table Lamp Prime, made of silicone, home decor, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3845761340,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:31:24",
+ "file_path": "static/images/2653a6ae-cc79-4c2e-e333-e0d6a1b94d9d.jpg",
+ "file_size": 21609,
+ "uploaded": false,
+ "s3_url": null
+}

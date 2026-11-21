@@ -1,0 +1,13 @@
+{
+ "product_id": "5b097e83-00cb-4b30-ee82-ac81caddbb05",
+ "name": "Quaco Cushion Cover Classic",
+ "prompt": "studio packshot photo of a Black Quaco Cushion Cover Classic, made of stainless steel, home decor, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 288871997,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:24:25",
+ "file_path": "product-images/images/5b097e83-00cb-4b30-ee82-ac81caddbb05.jpg",
+ "file_size": 80120
+}

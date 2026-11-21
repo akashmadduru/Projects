@@ -1,0 +1,13 @@
+{
+ "product_id": "48b4da4f-56a1-4fd4-828d-be135fb289c6",
+ "name": "Ritalum Building Blocks Lite",
+ "prompt": "studio packshot photo of a Silver Ritalum Building Blocks Lite, made of glass, building toys, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2003739738,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T00:32:59",
+ "file_path": "product-images/images/48b4da4f-56a1-4fd4-828d-be135fb289c6.jpg",
+ "file_size": 92484
+}

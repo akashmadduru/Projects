@@ -1,0 +1,13 @@
+{
+ "product_id": "eae5be5c-60e9-44bf-4283-ad182648c4f9",
+ "name": "Vonulum Face Serum Gen 3",
+ "prompt": "studio packshot photo of a Olive Vonulum Face Serum Gen 3, made of nylon, skin care, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3742694050,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T22:00:27",
+ "file_path": "product-images/images/eae5be5c-60e9-44bf-4283-ad182648c4f9.jpg",
+ "file_size": 53647
+}

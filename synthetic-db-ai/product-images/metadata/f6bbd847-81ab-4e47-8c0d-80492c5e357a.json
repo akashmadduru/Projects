@@ -1,0 +1,13 @@
+{
+ "product_id": "f6bbd847-81ab-4e47-8c0d-80492c5e357a",
+ "name": "Exmi Speaker Ultra",
+ "prompt": "studio packshot photo of a Silver Exmi Speaker Ultra, made of polyester, speakers, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3016027762,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T22:07:49",
+ "file_path": "product-images/images/f6bbd847-81ab-4e47-8c0d-80492c5e357a.jpg",
+ "file_size": 82368
+}

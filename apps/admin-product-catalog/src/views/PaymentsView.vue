@@ -3,7 +3,7 @@ import { onMounted, ref } from 'vue';
 
 import ProblemAlert from '@/components/ProblemAlert.vue';
 import { errorInfo, fmtDate, getPayment, listPayments, money, statusBadge } from '@/lib/adminApi';
-import { PAYMENT_STATUSES, type AdminPayment, type AdminPaymentDetail } from '@/types/commerce';
+import { PAYMENT_MODES, PAYMENT_STATUSES, type AdminPayment, type AdminPaymentDetail } from '@/types/commerce';
 
 /**
  * Read-only payment ledger. Refunds are issued from the Returns screen
@@ -22,6 +22,7 @@ const totalPages = ref(1);
 const totalElements = ref(0);
 const status = ref('');
 const method = ref('');
+const mode = ref('');
 const orderId = ref('');
 const orderIdInvalid = ref(false);
 
@@ -39,6 +40,7 @@ async function load(): Promise<void> {
     const res = await listPayments({
       status: status.value || undefined,
       method: method.value || undefined,
+      mode: mode.value || undefined,
       orderId: oid || undefined,
       page: page.value,
       size: PAGE_SIZE,
@@ -77,6 +79,15 @@ async function open(p: AdminPayment): Promise<void> {
   }
 }
 
+/** Provider reference rows for the detail dialog; only the ones the payment has. */
+function references(p: AdminPayment): { label: string; value: string }[] {
+  const out: { label: string; value: string }[] = [];
+  if (p.stripePaymentIntentId) out.push({ label: 'Stripe intent', value: p.stripePaymentIntentId });
+  if (p.providerOrderId) out.push({ label: 'Razorpay order', value: p.providerOrderId });
+  if (p.providerPaymentId) out.push({ label: 'Razorpay payment', value: p.providerPaymentId });
+  return out;
+}
+
 onMounted(load);
 </script>
 
@@ -100,6 +111,10 @@ onMounted(load);
           <option value="">All methods</option>
           <option value="CARD">CARD</option>
           <option value="COD">COD</option>
+        </select>
+        <select v-model="mode" class="select select-bordered select-sm" aria-label="Filter by provider" @change="applyFilter">
+          <option value="">All providers</option>
+          <option v-for="m in PAYMENT_MODES" :key="m" :value="m">{{ m }}</option>
         </select>
         <button class="btn btn-sm" type="submit">Search</button>
       </form>
@@ -127,7 +142,7 @@ onMounted(load);
           <thead>
             <tr>
               <th scope="col">Payment</th>
-              <th scope="col">Order</th>
+              <th scope="col">For</th>
               <th scope="col">Method</th>
               <th scope="col">Status</th>
               <th scope="col" class="text-right">Amount</th>
@@ -146,7 +161,7 @@ onMounted(load);
               @keydown.enter="open(p)"
             >
               <td class="font-mono text-xs">{{ p.id.slice(0, 8) }}</td>
-              <td class="font-mono text-xs">{{ p.orderId.slice(0, 8) }}</td>
+              <td class="text-xs"><span v-if="p.purpose && p.purpose !== 'ORDER'" class="badge badge-ghost badge-xs mr-1">{{ p.purpose === 'GIFT_CARD' ? 'gift card' : 'membership' }}</span><span class="font-mono">{{ p.orderId.slice(0, 8) }}</span></td>
               <td class="text-sm">{{ p.method }}<span v-if="p.method === 'CARD' || p.mode === 'SIMULATED'" class="badge badge-ghost badge-xs ml-1">{{ p.mode === 'SIMULATED' ? 'sim' : p.mode.toLowerCase() }}</span></td>
               <td><span class="badge badge-sm" :class="statusBadge(p.status)">{{ p.status }}</span></td>
               <td class="text-right tabular-nums">{{ money(p.amount, p.currency) }}</td>
@@ -181,13 +196,19 @@ onMounted(load);
           <dt class="opacity-70">Refunded</dt><dd class="tabular-nums">{{ money(detail.payment.refundedAmount, detail.payment.currency) }}</dd>
           <dt class="opacity-70">Created</dt><dd>{{ fmtDate(detail.payment.createdAt) }}</dd>
           <dt class="opacity-70">Updated</dt><dd>{{ fmtDate(detail.payment.updatedAt) }}</dd>
+          <template v-for="r in references(detail.payment)" :key="r.label">
+            <dt class="opacity-70">{{ r.label }}</dt><dd class="font-mono text-xs break-all">{{ r.value }}</dd>
+          </template>
         </dl>
         <h4 class="mt-4 text-sm font-medium uppercase tracking-wide opacity-60">Refunds</h4>
         <div v-if="detailLoading" class="py-3"><span class="loading loading-dots loading-sm" /></div>
         <p v-else-if="detail.refunds.length === 0" class="text-sm opacity-70">None.</p>
         <ul v-else class="mt-1 flex flex-col gap-1 text-sm">
           <li v-for="r in detail.refunds" :key="r.id" class="flex justify-between gap-3">
-            <span>{{ fmtDate(r.createdAt) }} <span class="opacity-70">{{ r.reason ?? '' }}</span></span>
+            <span>
+              {{ fmtDate(r.createdAt) }} <span class="opacity-70">{{ r.reason ?? '' }}</span>
+              <span v-if="r.providerRefundId" class="block font-mono text-xs opacity-70">{{ r.providerRefundId }}</span>
+            </span>
             <span class="tabular-nums">{{ money(r.amount, detail.payment.currency) }}</span>
           </li>
         </ul>

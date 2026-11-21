@@ -22,7 +22,6 @@ public record CreateReturnRequest(
     WALLET
   }
 
-
   public record ReturnItemRequest(
       @NotNull UUID productId, UUID variantId, @Min(1) @Max(99) int quantity) {}
 

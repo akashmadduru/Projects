@@ -11,6 +11,7 @@ environment variables at start-up, so **a rotated value only takes effect after 
 | Google client secret | `<project>-<env>/app` | same as Stripe | Google sign-in only |
 | `jwt-keystore` (signing key) | `<project>-<env>/jwt-keystore` | **do not replace casually** | replacing it signs everybody out |
 | `auth_data_key`, `seller_data_key` | `<project>-<env>/app` | **do not rotate** | existing 2FA secrets / bank numbers become unreadable |
+| `vapid_public_key`, `vapid_private_key` | `<project>-<env>/app` | rarely; set them as a pair | every browser push subscription stops working until the customer re-enables notifications |
 
 ## Common case: a password or token
 

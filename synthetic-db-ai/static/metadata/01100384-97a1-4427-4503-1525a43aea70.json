@@ -1,0 +1,15 @@
+{
+ "product_id": "01100384-97a1-4427-4503-1525a43aea70",
+ "name": "Lumloba Switch Prime",
+ "prompt": "studio packshot photo of a Grey Lumloba Switch Prime, made of leather, networking, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 992936136,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:25:33",
+ "file_path": "static/images/01100384-97a1-4427-4503-1525a43aea70.jpg",
+ "file_size": 45314,
+ "uploaded": false,
+ "s3_url": null
+}

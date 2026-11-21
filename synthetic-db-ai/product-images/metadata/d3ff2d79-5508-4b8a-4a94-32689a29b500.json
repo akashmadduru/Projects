@@ -1,0 +1,13 @@
+{
+ "product_id": "d3ff2d79-5508-4b8a-4a94-32689a29b500",
+ "name": "Quakaor Camera Ultra",
+ "prompt": "studio packshot photo of a Space Grey Quakaor Camera Ultra, made of polyester, cameras, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 400378457,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:46:20",
+ "file_path": "product-images/images/d3ff2d79-5508-4b8a-4a94-32689a29b500.jpg",
+ "file_size": 59447
+}

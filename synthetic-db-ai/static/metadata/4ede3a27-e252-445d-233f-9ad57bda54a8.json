@@ -1,0 +1,15 @@
+{
+ "product_id": "4ede3a27-e252-445d-233f-9ad57bda54a8",
+ "name": "Nuexri Mesh System Essential",
+ "prompt": "studio packshot photo of a Silver Nuexri Mesh System Essential, made of leather, networking, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3610768160,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T01:28:17",
+ "file_path": "static/images/4ede3a27-e252-445d-233f-9ad57bda54a8.jpg",
+ "file_size": 77363,
+ "uploaded": false,
+ "s3_url": null
+}

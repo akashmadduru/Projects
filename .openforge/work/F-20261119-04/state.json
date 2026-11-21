@@ -1,0 +1,16 @@
+{
+ "id": "F-20261119-04",
+ "slug": "razorpay-refund-states",
+ "step": "done-gate-pass",
+ "branch": "forge/F-20261119-04-razorpay-refund-states",
+ "worktree": ".openforge/worktrees/F-20261119-04",
+ "base_sha": "fcf6f2a2b93ae497b67244260fba86f3cb8aa29f",
+ "implementer": "forge-backend-engineer",
+ "head_sha": "218998b1b0ec3bb70e2e207eec0fa342b8bc6414",
+ "portfolio": "O-04",
+ "slice1_approved_sha": "4e5fb6d0da4315409a7b873eb141137bc15e35ca",
+ "pr_split": [
+  "fcf6f2a2b93ae497b67244260fba86f3cb8aa29f..4e5fb6d0da4315409a7b873eb141137bc15e35ca",
+  "4e5fb6d0da4315409a7b873eb141137bc15e35ca..218998b1b0ec3bb70e2e207eec0fa342b8bc6414"
+ ]
+}

@@ -1,0 +1,15 @@
+{
+ "product_id": "4c266f26-5e82-4a95-83b0-f08c80f64664",
+ "name": "Nuion RC Helicopter Series 2",
+ "prompt": "studio packshot photo of a Space Grey Nuion RC Helicopter Series 2, made of wood, remote control, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 276057311,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:14:28",
+ "file_path": "static/images/4c266f26-5e82-4a95-83b0-f08c80f64664.jpg",
+ "file_size": 92951,
+ "uploaded": false,
+ "s3_url": null
+}

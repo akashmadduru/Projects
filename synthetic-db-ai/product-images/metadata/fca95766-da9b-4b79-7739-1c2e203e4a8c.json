@@ -1,0 +1,13 @@
+{
+ "product_id": "fca95766-da9b-4b79-7739-1c2e203e4a8c",
+ "name": "Dexvo Smart TV Essential",
+ "prompt": "studio packshot photo of a White Dexvo Smart TV Essential, made of ceramic, televisions, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2602072533,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T00:29:01",
+ "file_path": "product-images/images/fca95766-da9b-4b79-7739-1c2e203e4a8c.jpg",
+ "file_size": 33951
+}

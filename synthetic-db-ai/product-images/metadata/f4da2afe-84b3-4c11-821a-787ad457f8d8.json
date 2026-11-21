@@ -1,0 +1,13 @@
+{
+ "product_id": "f4da2afe-84b3-4c11-821a-787ad457f8d8",
+ "name": "Rilum Shampoo Lite",
+ "prompt": "studio packshot photo of a White Rilum Shampoo Lite, made of cotton, hair care, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2171753190,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T22:06:04",
+ "file_path": "product-images/images/f4da2afe-84b3-4c11-821a-787ad457f8d8.jpg",
+ "file_size": 17813
+}

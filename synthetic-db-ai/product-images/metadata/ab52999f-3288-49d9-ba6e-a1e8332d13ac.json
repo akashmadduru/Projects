@@ -1,0 +1,13 @@
+{
+ "product_id": "ab52999f-3288-49d9-ba6e-a1e8332d13ac",
+ "name": "Arquadex Eau de Toilette Plus",
+ "prompt": "studio packshot photo of a Red Arquadex Eau de Toilette Plus, made of abs plastic, fragrances, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1831640769,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:18:56",
+ "file_path": "product-images/images/ab52999f-3288-49d9-ba6e-a1e8332d13ac.jpg",
+ "file_size": 101038
+}

@@ -1,0 +1,13 @@
+{
+ "product_id": "0b933f87-4b76-498d-4586-7ac5e3872712",
+ "name": "Batra Mop Edition",
+ "prompt": "studio packshot photo of a Midnight Batra Mop Edition, made of glass, cleaning, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2393231502,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:09:06",
+ "file_path": "product-images/images/0b933f87-4b76-498d-4586-7ac5e3872712.jpg",
+ "file_size": 64881
+}

@@ -1,0 +1,15 @@
+{
+ "product_id": "85f994af-1d17-406c-7590-017631679aca",
+ "name": "Bami Cookware Set Edition",
+ "prompt": "studio packshot photo of a Grey Bami Cookware Set Edition, made of abs plastic, cookware, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 4246133764,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:33:57",
+ "file_path": "static/images/85f994af-1d17-406c-7590-017631679aca.jpg",
+ "file_size": 46527,
+ "uploaded": false,
+ "s3_url": null
+}

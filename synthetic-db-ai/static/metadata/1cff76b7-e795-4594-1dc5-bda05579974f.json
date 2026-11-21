@@ -1,0 +1,15 @@
+{
+ "product_id": "1cff76b7-e795-4594-1dc5-bda05579974f",
+ "name": "Kaba Bike Lock Elite",
+ "prompt": "studio packshot photo of a Rose Gold Kaba Bike Lock Elite, made of cotton, cycling, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 710688596,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:06:56",
+ "file_path": "static/images/1cff76b7-e795-4594-1dc5-bda05579974f.jpg",
+ "file_size": 41987,
+ "uploaded": false,
+ "s3_url": null
+}

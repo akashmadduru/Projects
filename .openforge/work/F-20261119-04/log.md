@@ -1,0 +1,21 @@
+- 2026-11-19T06:55:03Z CEO: discover — objective.md with 3 proved runtime facts (repo grep + Razorpay docs); worktree from fcf6f2a2.
+- 2026-11-19T06:56:05Z CEO: requirements PASS (CPO, 12 ACs). A1: no refund status column; PaymentService:606-624 sets REFUNDED at acceptance. A2: readers = order-service OrderStore:360/595 + events. CEO decision: order-service showing REFUNDED after a later refund.failed stays a non-goal here (would add a 2nd service); filed as backlog B-3, alert covers ops.
+- 2026-11-19T06:56:28Z CEO: complexity — CTO 6, class L (data 2 backfill, API 1, money 2, lines 1). Architect started.
+- 2026-11-19T07:01:20Z CEO: design (Architect 82k): PENDING refunds + backfill SUCCEEDED, parked early webhooks, insert-first lease for one order, payment.authorized + JobLock capture alert. CEO proved payment.authorized (fact 4: may arrive captured, order not fixed).
+- 2026-11-19T07:02:27Z CEO: CTO ACCEPT with 6 conditions; standing Owner approval applied. Plan next.
+- 2026-11-19T07:03:29Z CEO: plan PASS (EM 7 tasks; all 12 ACs + 6 conditions). Slice 1 implementation started.
+- 2026-11-19T07:12:56Z CEO: slice 1 commit 4e5fb6d0 (98.6k); CEO verify PASS 74 tests (evidence.md). Review s1r1 + seeded test 2 (2 seeds in untested lines, key outside repo).
+- 2026-11-19T07:15:00Z CEO: security s1r1 APPROVE (5 minors: ERROR alert on failed-after-succeeded, dup provider_refund_id, clamp hides ledger error, V7 lock profile, parked mismatch dropped quietly).
+- 2026-11-19T07:15:37Z CEO: slice 1 APPROVED first round by both at 4e5fb6d0 (reviewer 3 minor/3 nit; security 5 minor). Minors folded into slice 2.
+- 2026-11-19T15:53:46Z s2 committed d17de77 by engineer. Cumulative prod lines 672 > 600: split into stacked PRs A (s1) / B (s2). Register edits TD-P6-30/31 are in T7 scope (tasks.md:93). CEO verify started.
+- 2026-11-19T16:28:36Z s2 reviews: reviewer APPROVE (1 minor/4 nits, ACs 12/12), security APPROVE (5 minor) @ d17de779; saved verbatim. Both accept stacked-PR split. Fix round s2r2 started: sec minors 1-5, reviewer minor (lease release; CTO cond 6 scope), nits 2-3.
+- 2026-11-19T16:29:19Z CTO ruling cond-6: approve a-d (SET LOCAL lock_timeout). Transcribed by CEO.
+- 2026-11-19T16:40:19Z fix round committed bc21668 (slice-2 prod lines 501 < 600, CEO-counted). Backlog line added. Verify running.
+- 2026-11-19T16:49:39Z s2r2 reviewer APPROVE @ bc216685 (1 minor: release not holder-scoped; 5 nits). Waiting on security.
+- 2026-11-19T16:50:04Z s2r2 security APPROVE @ bc216685 (2 minor). Both reviewers independently flagged the release not being holder-scoped. Sent to CTO (cond 6) before fix round 3.
+- 2026-11-19T16:50:22Z CTO approved holder-scoped release (fix round 3); transcribed. Engineer resumed.
+- 2026-11-19T16:57:56Z fix round 3 committed 218998b (slice-2 prod 520, CEO-counted). Verify running.
+- 2026-11-19T17:25:13Z s2r3: reviewer APPROVE (0 minor, 6 nits), security APPROVE (1 minor: V8 checksum PR note) @ 218998b1. Review step passed. Uncached test rerun running (reviewer nit 6). Next: QA (step 7) over all 12 ACs.
+- 2026-11-19T17:26:28Z step7 QA PASS: 12/12 ACs mapped to tests (no tests added; gaps: AC-1/4 service-level, Stripe webhook untested pre-existing, CARD predicate). Waiting on uncached rerun, then gate.
+- 2026-11-19T17:29:48Z gate FAIL only on size (733 > 600 from base). All other checks ok. Blocked on Owner: override line or G-8. Queued for Owner package.
+- 2026-11-20T18:25:30Z G-8 gate fix applied (Owner-approved); forge-gate PASS with 2 parts (263 / 520). pr.md written for stacked PRs A and B.

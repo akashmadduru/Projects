@@ -35,7 +35,7 @@ Each topic `X` also has a dead-letter topic `X.DLT` (see [failure handling](#fai
 | `rating.events` | `product-service-rating-listener` | product-service `RatingEventListener` | earliest |
 | `order.events` | `notification-service-order-listener` | notification-service `OrderEventListener` | earliest |
 | `order.events` | `promotion-service-order-listener` | promotion-service `OrderEventListener` (coins on `DELIVERED`) | earliest |
-| `order.events` | `seller-service-ledger` | seller-service `OrderEventConsumer` (settlement ledger) | **latest** ([TD-P9-07](../techdebt/phase9.md#td-p9-07)) |
+| `order.events` | `seller-service-ledger` | seller-service `OrderEventConsumer` (settlement ledger) | **earliest** (since 2026-11-17; the ledger is idempotent, so a replay books nothing twice) |
 | `user.events` | `<service>-privacy` | `UserDeletedListener` in auth, cart, notification, order, payment, promotion, rating, seller, support | earliest |
 | `audit.events` | `support-service-audit` | support-service `AuditConsumer` | earliest |
 
@@ -75,9 +75,10 @@ product-service and inventory-service.
 
 ## Delivery guarantees
 
-- **Publish after commit.** Producers send after the database transaction commits. There is **no
-  transactional outbox**, so if the process dies or Kafka is down between commit and send, the event
-  is lost and nothing retries it ([TD-P6-01](../techdebt/phase6.md#td-p6-01)).
+- **Publishing.** order-service writes `order.events` to a transactional outbox in the same
+  transaction as the order change; `OutboxRelay` sends them in order per order and retries until Kafka
+  acknowledges (TD-P6-01, fixed 2026-11-17). The other producers still send after commit, so a crash
+  or Kafka outage between commit and send loses that event ([TD-P6-33](../techdebt/phase6.md#td-p6-33)).
 - **At-least-once consumption.** A redelivered event is processed again. There is no
   processed-event table; idempotency comes from each consumer's own data: unique keys (inventory
   `product_id`), `INSERT … ON CONFLICT` upserts, or re-reading the source of truth (ratings).
@@ -95,12 +96,11 @@ Every listener container factory uses `DlqErrorHandlers.create(...)`:
    its deserializer in `ErrorHandlingDeserializer`: cart alerts, notification, product rating listener,
    promotion and seller ledger. The other consumers do not, so a malformed record never reaches the handler.
 
-**Six listeners bypass this.** They catch `Exception` and only log it, so the error handler never sees
-the failure and the record is not retried or dead-lettered: inventory-service `ProductEventListener`,
-product-service `InventoryEventListener` and `RatingEventListener`, notification-service
-`OrderEventListener`, promotion-service `OrderEventListener`, seller-service `OrderEventConsumer`
-([TD-BE-17](../techdebt/backend.md#td-be-17)). The `UserDeletedListener`s, cart alerts and the audit
-consumer do throw, so they are covered.
+**Every listener lets failures reach the error handler** (since 2026-11-17; before, six listeners caught
+and logged everything, so their events were lost). Only "safe to skip" cases are swallowed, for example
+an event for a product that no longer exists. Malformed data (`IllegalArgumentException`, bad
+timestamps) skips the retries and goes straight to the DLT. Alert on any message arriving in a `*.DLT`
+topic.
 
 ## Operating it
 
@@ -119,8 +119,7 @@ Logs carry the request's correlation id, and traces go to Jaeger (http://127.0.0
 
 | Gap | Tracked as |
 |---|---|
-| No outbox: post-commit events can be lost | [TD-P6-01](../techdebt/phase6.md#td-p6-01) |
-| Six listeners swallow errors, so no retry or DLT for them | [TD-BE-17](../techdebt/backend.md#td-be-17) |
+| Only order-service has an outbox; other publishers can lose an event | [TD-P6-33](../techdebt/phase6.md#td-p6-33) |
 | Single broker, replication factor 1, PLAINTEXT | [technical audit](../audit/technical-audit.md#8-security-audit) |
-| Three consumer groups start at `latest` | [TD-P7-11](../techdebt/phase7.md#td-p7-11), [TD-P9-07](../techdebt/phase9.md#td-p9-07) |
+| Two consumer groups start at `latest` | [TD-P7-11](../techdebt/phase7.md#td-p7-11) |
 | Duplicated event classes, no schema registry | [ADR 0002](../architecture/adr/0002-event-driven-inventory-kafka-kraft-and-event-contract-duplication.md) |

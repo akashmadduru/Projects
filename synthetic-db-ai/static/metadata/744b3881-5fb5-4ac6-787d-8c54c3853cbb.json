@@ -1,0 +1,15 @@
+{
+ "product_id": "744b3881-5fb5-4ac6-787d-8c54c3853cbb",
+ "name": "Lomiven Mop Lite",
+ "prompt": "studio packshot photo of a Green Lomiven Mop Lite, made of abs plastic, cleaning, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 4157071344,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:41:59",
+ "file_path": "static/images/744b3881-5fb5-4ac6-787d-8c54c3853cbb.jpg",
+ "file_size": 35056,
+ "uploaded": false,
+ "s3_url": null
+}

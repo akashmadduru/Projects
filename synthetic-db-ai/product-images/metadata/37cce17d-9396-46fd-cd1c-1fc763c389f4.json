@@ -1,0 +1,13 @@
+{
+ "product_id": "37cce17d-9396-46fd-cd1c-1fc763c389f4",
+ "name": "Arqualo Spice Box Classic",
+ "prompt": "studio packshot photo of a Grey Arqualo Spice Box Classic, made of leather, pantry, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3571481844,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:43:47",
+ "file_path": "product-images/images/37cce17d-9396-46fd-cd1c-1fc763c389f4.jpg",
+ "file_size": 35649
+}

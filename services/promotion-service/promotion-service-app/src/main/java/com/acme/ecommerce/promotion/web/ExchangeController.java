@@ -48,7 +48,12 @@ public class ExchangeController {
   @ResponseStatus(HttpStatus.CREATED)
   public Quote quote(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody QuoteRequest r) {
     return service.createQuote(
-        UUID.fromString(jwt.getSubject()), r.programId(), r.brand(), r.model(), r.condition(), r.ageYears());
+        UUID.fromString(jwt.getSubject()),
+        r.programId(),
+        r.brand(),
+        r.model(),
+        r.condition(),
+        r.ageYears());
   }
 
   @GetMapping("/quotes")

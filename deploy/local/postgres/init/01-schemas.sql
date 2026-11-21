@@ -153,3 +153,13 @@ COMMENT ON DATABASE support_db IS 'support-service: help centre, tickets, chatbo
 REVOKE ALL ON SCHEMA public FROM PUBLIC;
 GRANT ALL ON SCHEMA public TO support_service;
 ALTER DATABASE support_db SET search_path TO public;
+
+-- TD-SEC-13: only each database's owner (and superusers) may connect, as on AWS (db-bootstrap.yaml).
+-- Idempotent; covers every service database that exists when this runs.
+DO $$
+DECLARE d text;
+BEGIN
+  FOR d IN SELECT datname FROM pg_database WHERE datname LIKE '%\_db' LOOP
+    EXECUTE format('REVOKE CONNECT ON DATABASE %I FROM PUBLIC', d);
+  END LOOP;
+END $$;

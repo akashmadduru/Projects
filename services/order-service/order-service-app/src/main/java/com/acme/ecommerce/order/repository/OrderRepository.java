@@ -20,6 +20,13 @@ public interface OrderRepository
 
   Optional<Order> findByIdAndUserId(UUID id, UUID userId);
 
+  /** The live order made from this cart (TD-BE-15); mirrors the partial unique index. */
+  @Query(
+      "select o.id from Order o where o.userId = :userId and o.cartFingerprint = :fingerprint"
+          + " and o.status <> com.acme.ecommerce.order.domain.OrderStatus.CANCELLED")
+  Optional<UUID> findActiveIdByCartFingerprint(
+      @Param("userId") UUID userId, @Param("fingerprint") String fingerprint);
+
   Optional<Order> findByUserIdAndIdempotencyKey(UUID userId, String idempotencyKey);
 
   long countByUserIdAndStatusNot(UUID userId, OrderStatus status);
@@ -70,7 +77,9 @@ public interface OrderRepository
       countQuery = "select count(o) from Order o where o.userId = :userId")
   Page<OrderSummaryResponse> findSummaries(@Param("userId") UUID userId, Pageable pageable);
 
-  /** Rows of [product_id (UUID), orders together (Long)] for orders that also contain the product. */
+  /**
+   * Rows of [product_id (UUID), orders together (Long)] for orders that also contain the product.
+   */
   @Query(
       value =
           "select i2.product_id, count(distinct o.id) as score from orders.order_items i1"
@@ -79,8 +88,13 @@ public interface OrderRepository
               + " where i1.product_id = :productId and o.status <> 'CANCELLED'"
               + " group by i2.product_id order by score desc, i2.product_id limit :lim",
       nativeQuery = true)
-  List<Object[]> boughtTogether(
-      @Param("productId") UUID productId, @Param("lim") int limit);
+  List<Object[]> boughtTogether(@Param("productId") UUID productId, @Param("lim") int limit);
+
+  /** Rows of [orderId, total quantity (Long)] for one page of the admin list (TD-P6-27). */
+  @Query(
+      "select i.order.id, sum(i.quantity) from OrderItem i where i.order.id in :ids"
+          + " group by i.order.id")
+  List<Object[]> itemCounts(@Param("ids") Collection<UUID> ids);
 
   /** Rows of [OrderStatus, Long] for the admin dashboard. */
   @Query("select o.status, count(o) from Order o group by o.status")
@@ -98,7 +112,10 @@ public interface OrderRepository
   List<Object[]> revenueSince(
       @Param("since") Instant since, @Param("excluded") Collection<OrderStatus> excluded);
 
-  /** Rows of [product_id, variant_id, last ordered (Timestamp), times ordered] from DELIVERED orders. */
+  /**
+   * Rows of [product_id, variant_id, last ordered (Timestamp), times ordered] from DELIVERED
+   * orders.
+   */
   @Query(
       value =
           "select i.product_id, i.variant_id, max(o.placed_at) as last_at, count(distinct o.id) as times"

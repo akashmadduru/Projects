@@ -1,0 +1,13 @@
+{
+ "product_id": "c2f55571-927e-45be-d926-5cea9ce4e44e",
+ "name": "Miionfy Office Chair Max",
+ "prompt": "studio packshot photo of a Green Miionfy Office Chair Max, made of cotton, furniture, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 4257717783,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:34:58",
+ "file_path": "product-images/images/c2f55571-927e-45be-d926-5cea9ce4e44e.jpg",
+ "file_size": 27371
+}

@@ -1,0 +1,13 @@
+{
+ "product_id": "c7f18502-c78e-4655-e513-9fc86b2b1a21",
+ "name": "Rikaqua Jacket Prime",
+ "prompt": "studio packshot photo of a Olive Rikaqua Jacket Prime, made of ceramic, men's clothing, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1115781790,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:37:52",
+ "file_path": "product-images/images/c7f18502-c78e-4655-e513-9fc86b2b1a21.jpg",
+ "file_size": 34630
+}

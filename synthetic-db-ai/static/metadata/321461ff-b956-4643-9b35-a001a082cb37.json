@@ -1,0 +1,15 @@
+{
+ "product_id": "321461ff-b956-4643-9b35-a001a082cb37",
+ "name": "Venardex Building Blocks Ultra",
+ "prompt": "studio packshot photo of a Blue Venardex Building Blocks Ultra, made of bamboo, building toys, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3096226759,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-15T23:55:23",
+ "file_path": "static/images/321461ff-b956-4643-9b35-a001a082cb37.jpg",
+ "file_size": 38043,
+ "uploaded": false,
+ "s3_url": null
+}

@@ -1,0 +1,13 @@
+{
+ "product_id": "c4c8d655-072a-4c70-97fc-4ba224f9d986",
+ "name": "Zenoar Moisturiser Classic",
+ "prompt": "studio packshot photo of a Rose Gold Zenoar Moisturiser Classic, made of bamboo, skin care, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1163824252,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T01:39:13",
+ "file_path": "product-images/images/c4c8d655-072a-4c70-97fc-4ba224f9d986.jpg",
+ "file_size": 34794
+}

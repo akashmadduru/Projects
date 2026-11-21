@@ -1,0 +1,15 @@
+{
+ "product_id": "64e29f27-585b-4b0c-4ccc-6d2ae440f2a4",
+ "name": "Vennuze Watch Lite",
+ "prompt": "studio packshot photo of a Red Vennuze Watch Lite, made of nylon, smart watches, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1055574813,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:40:05",
+ "file_path": "static/images/64e29f27-585b-4b0c-4ccc-6d2ae440f2a4.jpg",
+ "file_size": 51987,
+ "uploaded": false,
+ "s3_url": null
+}

@@ -1,7 +1,21 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 
-import { DEFAULT_THEME, STYLE_FX, deriveTokens, type ShadowStyle, type ThemeConfig } from '@/lib/themeEngine';
+import {
+  DEFAULT_THEME,
+  STYLE_FX,
+  deriveTokens,
+  PREVIEW_BORDER_WIDTH,
+  PREVIEW_CARD_RADIUS,
+  PREVIEW_RADIUS,
+  PREVIEW_BUTTON_RADIUS,
+  previewButtonStyle,
+  previewCardBackground,
+  previewOutline,
+  previewPattern,
+  previewShadows,
+  type ThemeConfig,
+} from '@/lib/themeEngine';
 
 /**
  * Live mock of the storefront and the admin console, driven by scoped `--p-*` variables so it can
@@ -104,24 +118,29 @@ const frames = computed<Frame[]>(() => {
 /** The scoped variables one frame renders with. Mirrors themeEngine's derivations. */
 function frameStyle(cfg: ThemeConfig, mode: 'light' | 'dark'): Record<string, string> {
   const t = deriveTokens(cfg[mode], mode);
-  const radius = cfg.border.radius;
-  const r = radius === 'sharp' ? '4px' : radius === 'round' ? '22px' : '12px';
-  const bw = { thin: '1px', standard: '2px', bold: '3px' }[cfg.border.width];
-  const shadows: Record<ShadowStyle, string> = {
-    none: 'none',
-    soft: '0 2px 8px rgba(0,0,0,.16)',
-    crisp: `2px 2px 0 ${t.ink}`,
-    retro: `4px 4px 0 ${t.ink}`,
-    lifted: '0 10px 26px -8px rgba(0,0,0,.4)',
-  };
+  const r = PREVIEW_RADIUS[cfg.border.radius];
+  const bw = PREVIEW_BORDER_WIDTH[cfg.border.width];
+  const sh = previewShadows(cfg, mode);
   const scale = { small: '0.94', default: '1', large: '1.09' }[cfg.options.textScale];
+  const hWeight = { default: '700', medium: '500', semibold: '600', bold: '700' }[cfg.fonts.headingWeight];
+  const hTrack = { tight: '-0.025em', default: 'normal', wide: '0.04em' }[cfg.fonts.tracking];
+  const lh = { compact: '1.4', default: '1.5', relaxed: '1.75' }[cfg.fonts.lineHeight];
   return {
+    '--p-card-bg': previewCardBackground(cfg, mode),
+    '--p-card-radius': PREVIEW_CARD_RADIUS[cfg.card.shape] ?? r,
+    '--p-card-style': cfg.border.style,
+    '--p-shadow-hover': cfg.card.fill === 'outline' ? 'none' : sh.hover,
+    '--p-shadow-cta': sh.cta,
+    '--p-btn-radius': cfg.button.shape === 'default' ? r : PREVIEW_BUTTON_RADIUS[cfg.button.shape],
+    '--p-h-weight': hWeight,
+    '--p-h-track': hTrack,
+    '--p-lh': lh,
     '--p-bg': t.background,
     '--p-surface': t.surface,
     '--p-surface-2': t.surfaceVariant,
     '--p-text': t.onSurface,
     '--p-muted': t.muted,
-    '--p-outline': t.outline,
+    '--p-outline': previewOutline(cfg, mode),
     '--p-primary': t.primary,
     '--p-on-primary': t.onPrimary,
     '--p-accent': t.accent,
@@ -131,7 +150,7 @@ function frameStyle(cfg: ThemeConfig, mode: 'light' | 'dark'): Record<string, st
     '--p-ink': t.ink,
     '--p-radius': r,
     '--p-bw': bw,
-    '--p-shadow': shadows[cfg.shadow.style],
+    '--p-shadow': cfg.card.fill === 'outline' ? 'none' : sh.card,
     '--p-scale': scale,
     '--p-hi': mode === 'dark' ? 'rgba(255,255,255,.07)' : 'rgba(255,255,255,.85)',
     '--p-lo': mode === 'dark' ? 'rgba(0,0,0,.6)' : 'rgba(30,40,70,.18)',
@@ -140,9 +159,14 @@ function frameStyle(cfg: ThemeConfig, mode: 'light' | 'dark'): Record<string, st
   };
 }
 
+/** The CTA mock button mirrors the button settings exactly (fill, label colour, frame, shape, label style). */
+function ctaStyle(cfg: ThemeConfig, mode: 'light' | 'dark'): Record<string, string> {
+  return previewButtonStyle(cfg, mode);
+}
+
 function fxClasses(cfg: ThemeConfig): string {
   const f = STYLE_FX[cfg.style.id];
-  return `pb-${f.backdrop} ph-${f.heading} pbtn-${f.button} pv-${f.surface}`;
+  return `pb-${f.backdrop} ph-${f.heading} pbtn-${f.button} pv-${f.surface} pch-${cfg.card.hover} pbh-${cfg.button.hover}${cfg.card.fill === 'glass' ? ' pcf-glass' : ''}`;
 }
 
 const visionFilter = computed(() => (prefs.value.vision === 'none' ? undefined : `url(#cw-cvd-${prefs.value.vision})`));
@@ -202,6 +226,7 @@ const PRODUCTS = [
         <div class="device" :class="`device-${prefs.device}`">
           <!-- ===== Storefront ===== -->
           <div v-if="prefs.surface === 'storefront'" class="mock" :class="fxClasses(f.config)" :style="frameStyle(f.config, f.mode)">
+            <div class="mock-pattern" aria-hidden="true" data-test="preview-pattern" :style="previewPattern(f.config, f.mode)" />
             <div class="mock-header">
               <img v-if="f.config.brand.logoUrl" :src="f.config.brand.logoUrl" alt="" class="mock-logo" />
               <span v-else class="mock-dot" aria-hidden="true" />
@@ -221,7 +246,7 @@ const PRODUCTS = [
               <p class="mock-copy">Honest deals on the things you actually use, delivered fast.</p>
               <div class="mock-row">
                 <button type="button" class="mock-btn mock-btn-primary" tabindex="-1">Shop now</button>
-                <button type="button" class="mock-btn mock-btn-accent" tabindex="-1">Deals</button>
+                <button type="button" class="mock-btn mock-btn-accent" tabindex="-1" :style="ctaStyle(f.config, f.mode)">Deals</button>
                 <a class="mock-link" tabindex="-1">Learn more →</a>
               </div>
               <div class="mock-grid">
@@ -245,6 +270,7 @@ const PRODUCTS = [
 
           <!-- ===== Admin console ===== -->
           <div v-else class="mock mock-admin" :class="fxClasses(f.config)" :style="frameStyle(f.config, f.mode)">
+            <div class="mock-pattern" aria-hidden="true" :style="previewPattern(f.config, f.mode)" />
             <aside class="mock-side">
               <div class="mock-side-brand">
                 <img v-if="f.config.brand.logoUrl" :src="f.config.brand.logoUrl" alt="" class="mock-logo" />
@@ -345,6 +371,8 @@ const PRODUCTS = [
 /* ===== Mock frame: everything reads the --p-* variables set inline ===== */
 .mock {
   --fs: calc(0.78rem * var(--p-scale));
+  position: relative;
+  isolation: isolate;
   background: var(--p-bg);
   color: var(--p-text);
   font-family: var(--p-body);
@@ -393,6 +421,13 @@ const PRODUCTS = [
   border: 2px solid var(--p-ink);
   flex: none;
 }
+/* Page background pattern: behind everything in the mock, above its background colour. */
+.mock-pattern {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
 .mock-nav {
   display: flex;
   gap: 0.35rem;
@@ -422,7 +457,8 @@ const PRODUCTS = [
 .mock-title {
   font-family: var(--p-display);
   font-size: 1.5em;
-  font-weight: 700;
+  font-weight: var(--p-h-weight, 700);
+  letter-spacing: var(--p-h-track, normal);
   margin: 0.1rem 0 0.2rem;
 }
 .mock-copy {
@@ -437,12 +473,27 @@ const PRODUCTS = [
   margin-bottom: 0.75rem;
 }
 .mock-btn {
-  border-radius: var(--p-radius);
+  border-radius: var(--p-btn-radius, var(--p-radius));
   padding: 0.3rem 0.75rem;
   font-weight: 600;
   font-size: 0.95em;
   border: var(--p-bw) solid var(--p-ink);
-  box-shadow: var(--p-shadow);
+  box-shadow: var(--p-shadow-cta, var(--p-shadow));
+}
+.mock-btn {
+  transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+}
+.pbh-lift .mock-btn:hover {
+  transform: translateY(-2px);
+}
+.pbh-grow .mock-btn:hover {
+  transform: scale(1.04);
+}
+.pbh-glow .mock-btn:hover {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--p-accent) 35%, transparent), 0 6px 18px color-mix(in srgb, var(--p-accent) 45%, transparent);
+}
+.pbh-darken .mock-btn:hover {
+  filter: brightness(0.92);
 }
 .mock-btn-primary {
   background: var(--p-primary);
@@ -476,10 +527,58 @@ const PRODUCTS = [
   padding: 0.55rem;
 }
 .mock-surface {
-  background: var(--p-surface);
-  border: var(--p-bw) solid var(--p-outline);
-  border-radius: var(--p-radius);
+  background: var(--p-card-bg, var(--p-surface));
+  border: var(--p-bw) var(--p-card-style, solid) var(--p-outline);
+  border-radius: var(--p-card-radius, var(--p-radius));
   box-shadow: var(--p-shadow);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+/* Card hover, so admins can feel the setting in the preview. */
+.mock-card:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: var(--p-shadow-hover, var(--p-shadow));
+}
+.pch-none .mock-card:hover {
+  transform: none;
+  box-shadow: var(--p-shadow);
+}
+.pch-lift .mock-card:hover {
+  transform: translateY(-5px);
+}
+.pch-scale .mock-card:hover {
+  transform: scale(1.03);
+}
+.pch-float .mock-card:hover {
+  transform: translateY(-10px) scale(1.01);
+}
+.pch-pop .mock-card:hover {
+  transform: translateY(-4px) scale(1.05);
+}
+.pch-tilt .mock-card:hover {
+  transform: translateY(-3px) rotate(-1.2deg);
+}
+.pch-press .mock-card:hover {
+  transform: translateY(2px) scale(0.99);
+  box-shadow: none;
+}
+.pch-border .mock-card:hover {
+  transform: none;
+  box-shadow: var(--p-shadow), 0 0 0 2px var(--p-primary);
+}
+.pch-dim .mock-card:hover {
+  transform: none;
+  box-shadow: var(--p-shadow);
+  filter: brightness(0.96);
+}
+.pcf-glass .mock-surface {
+  backdrop-filter: blur(14px) saturate(140%);
+}
+.pch-glow .mock-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 0 2px var(--p-primary), 0 12px 32px -6px color-mix(in srgb, var(--p-primary) 45%, transparent);
+}
+.mock-body {
+  line-height: var(--p-lh, 1.5);
 }
 .mock-img {
   width: 2.9rem;

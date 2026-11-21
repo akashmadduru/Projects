@@ -1,0 +1,13 @@
+{
+ "product_id": "22ee722c-75cb-45c4-1f52-f104ac8615dc",
+ "name": "Fynofy Cushion Cover Edition",
+ "prompt": "studio packshot photo of a Grey Fynofy Cushion Cover Edition, made of nylon, home decor, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1787711929,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-15T23:38:30",
+ "file_path": "product-images/images/22ee722c-75cb-45c4-1f52-f104ac8615dc.jpg",
+ "file_size": 38092
+}

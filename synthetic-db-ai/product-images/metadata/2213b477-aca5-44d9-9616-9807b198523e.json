@@ -1,0 +1,13 @@
+{
+ "product_id": "2213b477-aca5-44d9-9616-9807b198523e",
+ "name": "Exquano Colour Pencil Set Plus",
+ "prompt": "studio packshot photo of a Blue Exquano Colour Pencil Set Plus, made of aluminium, art supplies, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1742867512,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:12:52",
+ "file_path": "product-images/images/2213b477-aca5-44d9-9616-9807b198523e.jpg",
+ "file_size": 51071
+}

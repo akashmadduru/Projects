@@ -1,0 +1,13 @@
+{
+ "product_id": "03d5cb8a-bbb4-4fdc-68d4-67bf405e8207",
+ "name": "Sulipi 5G Phone Classic",
+ "prompt": "studio packshot photo of a Rose Gold Sulipi 5G Phone Classic, made of silicone, mobiles & smartphones, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3896668235,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:39:25",
+ "file_path": "product-images/images/03d5cb8a-bbb4-4fdc-68d4-67bf405e8207.jpg",
+ "file_size": 28144
+}

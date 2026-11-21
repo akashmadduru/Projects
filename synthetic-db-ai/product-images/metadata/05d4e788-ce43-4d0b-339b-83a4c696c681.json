@@ -1,0 +1,13 @@
+{
+ "product_id": "05d4e788-ce43-4d0b-339b-83a4c696c681",
+ "name": "Ventalum Multivitamin Edition",
+ "prompt": "studio packshot photo of a Green Ventalum Multivitamin Edition, made of silicone, supplements, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2252203736,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:40:05",
+ "file_path": "product-images/images/05d4e788-ce43-4d0b-339b-83a4c696c681.jpg",
+ "file_size": 77634
+}

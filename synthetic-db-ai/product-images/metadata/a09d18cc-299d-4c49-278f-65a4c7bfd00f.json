@@ -1,0 +1,13 @@
+{
+ "product_id": "a09d18cc-299d-4c49-278f-65a4c7bfd00f",
+ "name": "Tatra 5G Phone Pro",
+ "prompt": "studio packshot photo of a Navy Blue Tatra 5G Phone Pro, made of stainless steel, mobiles & smartphones, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3746882364,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:44:38",
+ "file_path": "product-images/images/a09d18cc-299d-4c49-278f-65a4c7bfd00f.jpg",
+ "file_size": 62179
+}

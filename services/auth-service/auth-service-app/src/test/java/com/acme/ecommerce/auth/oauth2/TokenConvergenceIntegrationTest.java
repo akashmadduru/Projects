@@ -61,7 +61,7 @@ class TokenConvergenceIntegrationTest extends AbstractAuthIntegrationTest {
   void bothPathsProduceTheSameTokenShape() throws Exception {
     // --- front door 1: password ---
     TokenPair passwordPair =
-        loginService.login(new LoginRequest(PASSWORD_EMAIL, PASSWORD), device());
+        loginService.login(new LoginRequest(PASSWORD_EMAIL, PASSWORD), device()).tokens();
 
     // --- front door 2: Google (provisions a brand-new social-only user) ---
     AuthenticatedPrincipal googlePrincipal =

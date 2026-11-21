@@ -1,0 +1,15 @@
+{
+ "product_id": "10c9146d-fee9-4cf8-ac81-765ca44e331b",
+ "name": "Arli SSD Classic",
+ "prompt": "studio packshot photo of a White Arli SSD Classic, made of cotton, storage, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 479416134,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:22:22",
+ "file_path": "static/images/10c9146d-fee9-4cf8-ac81-765ca44e331b.jpg",
+ "file_size": 79754,
+ "uploaded": false,
+ "s3_url": null
+}

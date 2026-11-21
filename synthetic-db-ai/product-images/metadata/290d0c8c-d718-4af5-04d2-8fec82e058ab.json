@@ -1,0 +1,13 @@
+{
+ "product_id": "290d0c8c-d718-4af5-04d2-8fec82e058ab",
+ "name": "Taloex Cold Brew Max",
+ "prompt": "studio packshot photo of a Red Taloex Cold Brew Max, made of leather, beverages, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 4146666389,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-15T23:42:35",
+ "file_path": "product-images/images/290d0c8c-d718-4af5-04d2-8fec82e058ab.jpg",
+ "file_size": 61238
+}

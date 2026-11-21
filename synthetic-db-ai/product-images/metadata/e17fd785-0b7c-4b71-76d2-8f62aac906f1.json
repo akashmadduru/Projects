@@ -1,0 +1,13 @@
+{
+ "product_id": "e17fd785-0b7c-4b71-76d2-8f62aac906f1",
+ "name": "Arta Perfume Ultra",
+ "prompt": "studio packshot photo of a Silver Arta Perfume Ultra, made of abs plastic, fragrances, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 835037528,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:10:08",
+ "file_path": "product-images/images/e17fd785-0b7c-4b71-76d2-8f62aac906f1.jpg",
+ "file_size": 36184
+}

@@ -1,0 +1,13 @@
+{
+ "product_id": "8fffd343-856e-4453-bd5b-1463424b7da5",
+ "name": "Lumfysu Puzzle Elite",
+ "prompt": "studio packshot photo of a Black Lumfysu Puzzle Elite, made of cotton, board games, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 45629156,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:00:41",
+ "file_path": "product-images/images/8fffd343-856e-4453-bd5b-1463424b7da5.jpg",
+ "file_size": 61647
+}

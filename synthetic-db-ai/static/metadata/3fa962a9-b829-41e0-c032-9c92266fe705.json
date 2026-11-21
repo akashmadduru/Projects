@@ -1,0 +1,15 @@
+{
+ "product_id": "3fa962a9-b829-41e0-c032-9c92266fe705",
+ "name": "Nono Smartwatch Ultra",
+ "prompt": "studio packshot photo of a Red Nono Smartwatch Ultra, made of aluminium, smart watches, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2242517012,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:17:44",
+ "file_path": "static/images/3fa962a9-b829-41e0-c032-9c92266fe705.jpg",
+ "file_size": 64978,
+ "uploaded": false,
+ "s3_url": null
+}

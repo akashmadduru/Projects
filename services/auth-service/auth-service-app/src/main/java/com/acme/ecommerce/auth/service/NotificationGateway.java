@@ -15,10 +15,10 @@ import org.springframework.stereotype.Service;
 /**
  * Fire-and-forget bridge to notification-service.
  *
- * <p>ASYNC AND FAIL-OPEN, on purpose: a slow or dead notification-service must never break
- * register / forgot-password, and the send must not be on the request's critical path (otherwise
- * the response time of "forgot password" would reveal whether an account exists). Failures are
- * logged WITHOUT payloads (they contain tokens/codes). Tech debt: no retry or outbox.
+ * <p>ASYNC AND FAIL-OPEN, on purpose: a slow or dead notification-service must never break register
+ * / forgot-password, and the send must not be on the request's critical path (otherwise the
+ * response time of "forgot password" would reveal whether an account exists). Failures are logged
+ * WITHOUT payloads (they contain tokens/codes). Tech debt: no retry or outbox.
  */
 @Service
 public class NotificationGateway {

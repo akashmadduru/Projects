@@ -1,0 +1,13 @@
+{
+ "product_id": "c8dadb5c-caee-47f7-bda5-196559322c5f",
+ "name": "Miexno Trekking Backpack Lite",
+ "prompt": "studio packshot photo of a Red Miexno Trekking Backpack Lite, made of glass, camping, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 137762188,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:38:14",
+ "file_path": "product-images/images/c8dadb5c-caee-47f7-bda5-196559322c5f.jpg",
+ "file_size": 41549
+}

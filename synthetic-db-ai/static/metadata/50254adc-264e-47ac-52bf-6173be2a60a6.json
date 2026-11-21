@@ -1,0 +1,15 @@
+{
+ "product_id": "50254adc-264e-47ac-52bf-6173be2a60a6",
+ "name": "Vonoco Air Purifier Plus",
+ "prompt": "studio packshot photo of a Red Vonoco Air Purifier Plus, made of wood, personal wellness, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3449769573,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T01:53:53",
+ "file_path": "static/images/50254adc-264e-47ac-52bf-6173be2a60a6.jpg",
+ "file_size": 57920,
+ "uploaded": false,
+ "s3_url": null
+}

@@ -1,0 +1,13 @@
+{
+ "product_id": "9038df11-5019-44d6-e399-8321f726045e",
+ "name": "Riexsu Headset Prime",
+ "prompt": "studio packshot photo of a Grey Riexsu Headset Prime, made of ceramic, headphones & earbuds, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3951950337,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:00:48",
+ "file_path": "product-images/images/9038df11-5019-44d6-e399-8321f726045e.jpg",
+ "file_size": 36691
+}

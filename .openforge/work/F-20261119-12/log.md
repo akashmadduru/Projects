@@ -1,0 +1,7 @@
+- 2026-11-21 CEO: discover; worktree forge/F-20261119-12-outbox-publishers at F-10 head 820e5a8 (stacked: order/payment/promotion chain unmerged)
+- 2026-11-21 CEO: objective.md written; CPO requirements launched
+- 2026-11-21 CEO: requirements.md accepted; CTO complexity launched
+- 2026-11-21 CEO: complexity M (4) transcribed; V6 free on all user-service branches; architect launched
+- 2026-11-21 Architect: design.md + ADR 0011 (Proposed), est ~320 prod lines; CTO acceptance launched
+- 2026-11-21 CTO: design accepted with 11 conditions (transcribed); ADR 0011 Accepted; EM launched
+- 2026-11-21 EM: tasks.md T1..T10, all ACs and C1..C11 covered; backend engineer launched

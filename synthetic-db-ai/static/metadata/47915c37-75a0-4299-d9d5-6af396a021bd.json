@@ -1,0 +1,15 @@
+{
+ "product_id": "47915c37-75a0-4299-d9d5-6af396a021bd",
+ "name": "Sudex Paperback Plus",
+ "prompt": "studio packshot photo of a Silver Sudex Paperback Plus, made of abs plastic, books, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2815201949,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:12:10",
+ "file_path": "static/images/47915c37-75a0-4299-d9d5-6af396a021bd.jpg",
+ "file_size": 49257,
+ "uploaded": false,
+ "s3_url": null
+}

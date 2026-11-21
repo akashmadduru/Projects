@@ -1,0 +1,13 @@
+{
+ "product_id": "5c630b4d-9b26-4783-245e-fe80a753380c",
+ "name": "Fysudex Sneakers Pro",
+ "prompt": "studio packshot photo of a Red Fysudex Sneakers Pro, made of stainless steel, footwear, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3891388447,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:25:17",
+ "file_path": "product-images/images/5c630b4d-9b26-4783-245e-fe80a753380c.jpg",
+ "file_size": 35074
+}

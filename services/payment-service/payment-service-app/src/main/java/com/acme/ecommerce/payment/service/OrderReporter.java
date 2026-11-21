@@ -57,7 +57,20 @@ public class OrderReporter {
       payments.markReported(p.id());
       log.info("Reported payment {} ({}) to order-service", p.id(), p.status());
     } catch (Exception e) {
-      payments.bumpAttempts(p.id());
+      int attempts = payments.bumpAttempts(p.id());
+      if (attempts >= PaymentRepository.MAX_REPORT_ATTEMPTS) {
+        // The reporter stops retrying this payment; the order stays in its pre-payment state
+        // until someone reconciles it by hand. Alert on this message.
+        log.error(
+            "PAYMENT REPORT STUCK: giving up on payment {} ({}) for {} {} after {} attempts: {}",
+            p.id(),
+            p.status(),
+            p.purpose() == null ? "ORDER" : p.purpose(),
+            p.referenceId() != null ? p.referenceId() : p.orderId(),
+            attempts,
+            e.getMessage());
+        return;
+      }
       log.warn(
           "Could not report payment {} for order {} to order-service (will retry): {}",
           p.id(),

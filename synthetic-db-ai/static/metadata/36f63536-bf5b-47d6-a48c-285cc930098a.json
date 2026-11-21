@@ -1,0 +1,15 @@
+{
+ "product_id": "36f63536-bf5b-47d6-a48c-285cc930098a",
+ "name": "Dexno Helmet Max",
+ "prompt": "studio packshot photo of a Midnight Dexno Helmet Max, made of leather, cycling, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3626279270,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:32:24",
+ "file_path": "static/images/36f63536-bf5b-47d6-a48c-285cc930098a.jpg",
+ "file_size": 49696,
+ "uploaded": false,
+ "s3_url": null
+}
