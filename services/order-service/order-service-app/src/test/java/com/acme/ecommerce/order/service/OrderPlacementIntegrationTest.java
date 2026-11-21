@@ -26,6 +26,7 @@ import com.acme.ecommerce.order.client.PaymentFeignClient.PaymentResult;
 import com.acme.ecommerce.order.client.ProductViewFeignClient;
 import com.acme.ecommerce.order.client.ProductViewFeignClient.ProductView;
 import com.acme.ecommerce.order.client.PromotionFeignClient;
+import com.acme.ecommerce.order.client.RemoteCalls;
 import com.acme.ecommerce.order.client.UserFeignClient;
 import com.acme.ecommerce.order.event.OrderEventPublisher;
 import com.acme.ecommerce.order.support.AbstractOrderIntegrationTest;
@@ -521,7 +522,17 @@ class OrderPlacementIntegrationTest extends AbstractOrderIntegrationTest {
   private static com.acme.ecommerce.cart.api.dto.CartItemResponse item(
       UUID productId, int qty, Instant addedAt) {
     return new com.acme.ecommerce.cart.api.dto.CartItemResponse(
-        productId, qty, "x", BigDecimal.ONE, "INR", null, BigDecimal.ONE, addedAt, null, null, null,
+        productId,
+        qty,
+        "x",
+        BigDecimal.ONE,
+        "INR",
+        null,
+        BigDecimal.ONE,
+        addedAt,
+        null,
+        null,
+        null,
         null);
   }
 
@@ -545,6 +556,7 @@ class OrderPlacementIntegrationTest extends AbstractOrderIntegrationTest {
   @Test
   @DisplayName("two different-key placements of a cart without addedAt both get 503; no order row")
   void racingCartsWithoutAddedAtCreateNoOrder() throws Exception {
+    couponAndPartialWalletAvailable();
     cartHolds(null);
     PlaceOrderRequest withEverything =
         new PlaceOrderRequest(addressId, PaymentMethodRequest.CARD, "SAVE50", null, true, 10, null);
@@ -797,6 +809,11 @@ class OrderPlacementIntegrationTest extends AbstractOrderIntegrationTest {
   }
 
   private void assertFailsFast(Runnable placement, StubHost host) {
+    assertFailsFast(placement, host, false);
+  }
+
+  /** cancelled: the failure came after the order row was saved, so it must end CANCELLED. */
+  private void assertFailsFast(Runnable placement, StubHost host, boolean cancelled) {
     int before = host.requests.get();
     long t0 = System.nanoTime();
     assertThatThrownBy(placement::run)
@@ -807,7 +824,15 @@ class OrderPlacementIntegrationTest extends AbstractOrderIntegrationTest {
     assertThat(java.time.Duration.ofNanos(System.nanoTime() - t0))
         .as("no read-timeout wait")
         .isLessThan(java.time.Duration.ofSeconds(1));
-    assertThat(orderCount()).isZero();
+    if (cancelled) {
+      assertThat(orderCount()).isEqualTo(1);
+      assertThat(
+              jdbc.queryForObject(
+                  "select status from orders.orders where user_id = ?", String.class, user))
+          .isEqualTo("CANCELLED");
+    } else {
+      assertThat(orderCount()).isZero();
+    }
   }
 
   @Test
@@ -854,6 +879,119 @@ class OrderPlacementIntegrationTest extends AbstractOrderIntegrationTest {
     trip(() -> real.findAddress(addressId), registry, "user-service");
 
     assertFailsFast(() -> orders.place(user, "c@example.com", "open-user", buyNow(shirt, 1)), host);
+  }
+
+  @Test
+  @DisplayName("AC-8: an open inventory-service breaker gives 503 at once; the order is CANCELLED")
+  void openInventoryBreaker() {
+    var registry = DependencyBreakerCapability.defaultRegistry();
+    var host = new StubHost(503);
+    InventoryFeignClient real =
+        realClient(
+            InventoryFeignClient.class,
+            "inventory-service",
+            new DependencyBreakerCapability(registry),
+            host);
+    when(remote.reserveStock(any(), any(), anyString()))
+        .thenAnswer(
+            inv -> {
+              try {
+                return real.reserve(
+                        new InventoryFeignClient.ReserveRequest(
+                            inv.getArgument(0), List.of(), inv.getArgument(2)))
+                    .allocations();
+              } catch (feign.FeignException e) {
+                throw RemoteCalls.translate("inventory-service", e);
+              }
+            });
+    trip(
+        () ->
+            real.reserve(
+                new InventoryFeignClient.ReserveRequest(UUID.randomUUID(), List.of(), "560001")),
+        registry,
+        "inventory-service");
+
+    assertFailsFast(
+        () -> orders.place(user, "c@example.com", "open-inventory", buyNow(shirt, 1)), host, true);
+  }
+
+  @Test
+  @DisplayName("AC-8: an open promotion-service breaker gives 503 at once, with no host call")
+  void openPromotionBreaker() {
+    var registry = DependencyBreakerCapability.defaultRegistry();
+    var host = new StubHost(503);
+    PromotionFeignClient real =
+        realClient(
+            PromotionFeignClient.class,
+            "promotion-service",
+            new DependencyBreakerCapability(registry),
+            host);
+    when(remote.validateCoupon(eq("SAVE50"), any(), anyString(), anyBoolean()))
+        .thenAnswer(
+            inv -> {
+              try {
+                return real.validate(
+                    new PromotionFeignClient.ValidateRequest(
+                        inv.getArgument(0), inv.getArgument(1), inv.getArgument(2), false));
+              } catch (feign.FeignException e) {
+                throw RemoteCalls.translate("promotion-service", e);
+              }
+            });
+    trip(
+        () ->
+            real.validate(
+                new PromotionFeignClient.ValidateRequest("SAVE50", BigDecimal.TEN, "INR", false)),
+        registry,
+        "promotion-service");
+    PlaceOrderRequest withCoupon =
+        new PlaceOrderRequest(
+            addressId,
+            PaymentMethodRequest.CARD,
+            "SAVE50",
+            List.of(new OrderLineRequest(shirt, 1, null, null)),
+            null,
+            null,
+            null);
+
+    assertFailsFast(() -> orders.place(user, "c@example.com", "open-promo", withCoupon), host);
+  }
+
+  @Test
+  @DisplayName("AC-8: an open payment-service breaker gives 503 at once; the order is CANCELLED")
+  void openPaymentBreaker() {
+    var registry = DependencyBreakerCapability.defaultRegistry();
+    var host = new StubHost(503);
+    PaymentFeignClient real =
+        realClient(
+            PaymentFeignClient.class,
+            "payment-service",
+            new DependencyBreakerCapability(registry),
+            host);
+    when(remote.createPayment(any(), eq(user), any(), anyString(), anyString()))
+        .thenAnswer(
+            inv -> {
+              try {
+                return real.create(
+                    new PaymentFeignClient.CreatePayment(
+                        inv.getArgument(0),
+                        inv.getArgument(1),
+                        inv.getArgument(2),
+                        inv.getArgument(3),
+                        inv.getArgument(4)));
+              } catch (feign.FeignException e) {
+                throw RemoteCalls.translate("payment-service", e);
+              }
+            });
+    trip(
+        () ->
+            real.create(
+                new PaymentFeignClient.CreatePayment(
+                    UUID.randomUUID(), user, BigDecimal.TEN, "INR", "CARD")),
+        registry,
+        "payment-service");
+
+    assertFailsFast(
+        () -> orders.place(user, "c@example.com", "open-payment", buyNow(shirt, 1)), host, true);
   }
 
   @Test
