@@ -11,13 +11,6 @@ TD-BE-01, TD-BE-02, TD-BE-04 and TD-BE-05 were resolved by Phase 6; residual ris
 - **Risk:** If cart-service is down after commit, the order exists and the cart is not cleared (only a log warning), so the cart still shows the ordered items. Since 2026-11-18 (TD-BE-15) checking out that same cart again is refused with 409 and retries the clear, so it can no longer become a second order; what remains is the stale cart until the next checkout attempt.
 - **Fix:** Outbox row in the order transaction, relayed to cart-service or consumed from `order.events`.
 
-<a id="td-be-06"></a>
-## TD-BE-06 Sequential product lookups in checkout
-- **Severity / Effort:** Med / M
-- **Where:** `OrderService.build` (one `ProductFeignClient.findById` per line, max 50 lines, 3s read timeout each).
-- **Risk:** Up to 50 serial calls; slow checkouts and gateway `orderCb` slow-call trips. Kept sequential because the token-relay interceptor reads the request thread context.
-- **Fix:** Batch endpoint in product-service (`POST /api/products/batch`), or explicit token propagation to a bounded executor.
-
 <a id="td-be-07"></a>
 ## TD-BE-07 No Feign circuit breakers in order-service
 - **Severity / Effort:** Med / S
@@ -58,3 +51,17 @@ TD-BE-01, TD-BE-02, TD-BE-04 and TD-BE-05 were resolved by Phase 6; residual ris
 - **Where:** Gradle runs in an `eclipse-temurin:25-jdk` container (no host JDK). Spotless fails on the Windows bind mount ("Could not read build/spotless-clean"), so the build was copied into the container's `/tmp` and formatted sources copied back. Those Java files now have LF endings while siblings are CRLF. `docker compose up --build` needed `BUILDX_BAKE_ENTITLEMENTS_FS=0`.
 - **Fix:** Add `.gitattributes` (`*.java text eol=lf` or `crlf`, pick one) and renormalize; install a host JDK 25 or document the container build; document the buildx variable.
 
+
+<a id="td-be-17"></a>
+## TD-BE-17 Inactive products are readable by anonymous callers
+- **Severity / Effort:** Low / S
+- **Where:** `GET /api/products/{id}` and `GET /api/products/batch?detail=true` (`ProductCatalogService.detail`, `findDetailsByIds`).
+- **Risk:** Both return the detail view of inactive products to anyone, because order-service needs to refuse them with a clear error. `detail=true` is not a new exposure (it is the same view `/{id}` already serves) but it adds a bulk path. The Owner decides whether inactive products should be hidden from anonymous callers or only readable with a token.
+- **Fix:** If hidden: require a service or admin token for inactive products and let order-service use it. Raised by F-20261119-11 (CTO condition 4).
+
+<a id="td-be-18"></a>
+## TD-BE-18 Detail batch still makes one stock-rows call per product
+- **Severity / Effort:** Low / M
+- **Where:** `OfferService.enrich` (called from `ProductCatalogService.detail`), per product, through `InventoryServiceClient.stockRows`.
+- **Risk:** `GET /api/products/batch?detail=true` skips variant stock but still makes about one inventory request per product, so a 50-product checkout costs up to 50 inventory calls inside one 5 s order-service read budget (`ORDER_PRODUCT_BATCH_READ_TIMEOUT_MS`). It is still far fewer calls than before, and checkout traffic stays the same shape. The unaffected backlog item B-4 is not changed by this.
+- **Fix:** Add a batched stock-rows endpoint to inventory-service (`/internal/inventory/stock/by-products`) and make `OfferService.enrich` take the rows for all products at once. Raised by F-20261119-11 (CTO condition 6).
