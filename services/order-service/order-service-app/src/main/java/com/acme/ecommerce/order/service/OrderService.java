@@ -471,7 +471,7 @@ public class OrderService {
         p.paymentId(), p.status(), p.mode(), p.clientSecret(), p.publishableKey());
   }
 
-  /** The cart's lines and its fingerprint (null when a line has no added-at instant). */
+  /** The cart's lines and its fingerprint (never null: a cart without one is refused). */
   private record CartSnapshot(List<Line> lines, String fingerprint) {}
 
   private CartSnapshot cartSnapshot() {
@@ -488,7 +488,16 @@ public class OrderService {
       lines.add(
           new Line(i.productId(), i.variantId(), i.variantLabel(), i.quantity(), i.offerId()));
     }
-    return new CartSnapshot(lines, cartFingerprint(cart.items()));
+    String fingerprint = cartFingerprint(cart.items());
+    if (fingerprint == null) {
+      // Fail closed: a cart without a fingerprint has no double-order guard (TD-BE-15).
+      log.warn(
+          "Cart read refused: a CartResponse line has no addedAt, which breaks the cart-service"
+              + " contract (cart_items.added_at is NOT NULL); not placing an unguarded order");
+      throw new CodedException(
+          ErrorCode.DEPENDENCY_UNAVAILABLE, "Your cart could not be read, please try again");
+    }
+    return new CartSnapshot(lines, fingerprint);
   }
 
   /**

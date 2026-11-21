@@ -3,6 +3,7 @@ package com.acme.ecommerce.order.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -519,5 +520,74 @@ class OrderPlacementIntegrationTest extends AbstractOrderIntegrationTest {
     return new com.acme.ecommerce.cart.api.dto.CartItemResponse(
         productId, qty, "x", BigDecimal.ONE, "INR", null, BigDecimal.ONE, addedAt, null, null, null,
         null);
+  }
+
+  // --- AC-2: a cart whose lines lack addedAt is refused, never placed unguarded ------------------
+
+  @Test
+  @DisplayName("a cart line without addedAt gives 503 and no order row, before any other call")
+  void cartWithoutAddedAtIsRefused() {
+    cartHolds(null);
+
+    assertThatThrownBy(() -> orders.place(user, "c@example.com", "no-added-at", fromCart()))
+        .isInstanceOf(CodedException.class)
+        .hasMessage("Your cart could not be read, please try again")
+        .extracting(e -> ((CodedException) e).errorCode())
+        .isEqualTo(ErrorCode.DEPENDENCY_UNAVAILABLE);
+
+    assertThat(orderCount()).isZero();
+    verify(remote, never()).reserveStock(any(), any(), anyString());
+  }
+
+  @Test
+  @DisplayName("two different-key placements of a cart without addedAt both get 503; no order row")
+  void racingCartsWithoutAddedAtCreateNoOrder() throws Exception {
+    cartHolds(null);
+    PlaceOrderRequest withEverything =
+        new PlaceOrderRequest(addressId, PaymentMethodRequest.CARD, "SAVE50", null, true, 10, null);
+    var pool = java.util.concurrent.Executors.newFixedThreadPool(2);
+    var start = new java.util.concurrent.CountDownLatch(1);
+    try {
+      List<java.util.concurrent.Future<ErrorCode>> results = new java.util.ArrayList<>();
+      for (String key : List.of("nat-a", "nat-b")) {
+        results.add(
+            pool.submit(
+                () -> {
+                  start.await();
+                  try {
+                    orders.place(user, "c@example.com", key, withEverything);
+                    return null;
+                  } catch (CodedException e) {
+                    return e.errorCode();
+                  }
+                }));
+      }
+      start.countDown();
+      for (var r : results) {
+        assertThat(r.get(30, java.util.concurrent.TimeUnit.SECONDS))
+            .isEqualTo(ErrorCode.DEPENDENCY_UNAVAILABLE);
+      }
+    } finally {
+      pool.shutdownNow();
+    }
+
+    assertThat(orderCount()).isZero();
+    verify(remote, never()).validateCoupon(anyString(), any(), anyString(), anyBoolean());
+    verify(remote, never()).reserveStock(any(), any(), anyString());
+    verify(remote, never()).redeemCoupon(any(), any(), any(), any(), anyString(), anyBoolean());
+    verify(remote, never()).redeemCoins(any(), anyInt(), any());
+    verify(remote, never()).debitWallet(any(), any(), anyString(), any());
+    verify(remote, never()).createPayment(any(), any(), any(), anyString(), anyString());
+  }
+
+  @Test
+  @DisplayName("buy-now never reads the cart, so a broken cart contract does not affect it")
+  void buyNowIgnoresCartContract() {
+    cartHolds(null);
+
+    OrderService.Placement p = orders.place(user, "c@example.com", "buy-now-ok", buyNow(shirt, 1));
+
+    assertThat(p.created()).isTrue();
+    verify(carts, never()).getCart();
   }
 }
