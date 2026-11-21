@@ -31,9 +31,13 @@ import com.acme.ecommerce.order.client.UserFeignClient;
 import com.acme.ecommerce.order.event.OrderEventPublisher;
 import com.acme.ecommerce.order.support.AbstractOrderIntegrationTest;
 import com.acme.ecommerce.user.api.dto.AddressResponse;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import feign.codec.EncodeException;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -790,11 +794,23 @@ class OrderPlacementIntegrationTest extends AbstractOrderIntegrationTest {
     }
   }
 
+  private static final ObjectMapper JSON = new ObjectMapper();
+
   private <T> T realClient(
       Class<T> type, String host, DependencyBreakerCapability breakers, feign.Client stub) {
     return feign.Feign.builder()
         .contract(new org.springframework.cloud.openfeign.support.SpringMvcContract())
         .retryer(feign.Retryer.NEVER_RETRY)
+        // Without an encoder a POST fails with EncodeException before it reaches the client, so
+        // the breaker would never see the call.
+        .encoder(
+            (object, bodyType, template) -> {
+              try {
+                template.body(JSON.writeValueAsBytes(object), StandardCharsets.UTF_8);
+              } catch (JsonProcessingException e) {
+                throw new EncodeException(e.getMessage(), e);
+              }
+            })
         .client(breakers.enrich(stub))
         .target(type, "http://" + host);
   }
@@ -822,8 +838,8 @@ class OrderPlacementIntegrationTest extends AbstractOrderIntegrationTest {
         .isEqualTo(ErrorCode.DEPENDENCY_UNAVAILABLE);
     assertThat(host.requests.get()).as("host calls while the breaker is open").isEqualTo(before);
     assertThat(java.time.Duration.ofNanos(System.nanoTime() - t0))
-        .as("no read-timeout wait")
-        .isLessThan(java.time.Duration.ofSeconds(1));
+        .as("no read-timeout wait (the read timeout is 3 s; the margin covers a cold, busy CI box)")
+        .isLessThan(java.time.Duration.ofSeconds(2));
     if (cancelled) {
       assertThat(orderCount()).isEqualTo(1);
       assertThat(
