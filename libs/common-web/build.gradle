@@ -26,6 +26,8 @@ dependencies {
     // DlqErrorHandlers serialises dead-lettered payload objects with spring-kafka JsonSerializer (Jackson 2).
     compileOnly "com.fasterxml.jackson.core:jackson-databind"
 
+    testImplementation libs.spring.kafka
+    testImplementation "com.fasterxml.jackson.core:jackson-databind"
     testImplementation libs.spring.web
     testImplementation libs.spring.webmvc
     testImplementation libs.jakarta.servlet.api
