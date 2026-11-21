@@ -132,7 +132,8 @@ class LedgerIntegrationTest extends AbstractSellerIntegrationTest {
 
     ledger.run(7);
 
-    assertThat(balance(s)).isLessThanOrEqualTo(BigDecimal.ZERO);
+    // sale 100 - commission 10 - fee 10 + commission back 10 + fee back 10 (fully reversed)
+    assertThat(balance(s)).isEqualByComparingTo("0.00");
     assertThat(paidTo(s)).isEmpty();
   }
 

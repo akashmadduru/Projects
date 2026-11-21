@@ -111,81 +111,144 @@ public class LedgerService {
     }
   }
 
-  /** Reverses SALE (+ its commission) of the given shipments, or of the whole order when null. */
+  /**
+   * Whole-shipment reversal of the given shipments (or of the whole order when null): books the
+   * remainder of each SALE on the shared cap. No event caller until part B; part B must use it or
+   * delete it (F-20261119-13 CTO ruling d).
+   */
   @Transactional
   public void reverseRefund(UUID orderId, List<UUID> shipmentIds) {
-    var rows =
+    List<UUID> sales =
         jdbc.sql(
-                "SELECT seller_id, shipment_id, amount, currency FROM ledger_entries WHERE order_id = :o AND type = 'SALE'")
+                "SELECT shipment_id FROM ledger_entries WHERE order_id = :o AND type = 'SALE'"
+                    + " AND return_id IS NULL ORDER BY shipment_id")
             .param("o", orderId)
-            .query(
-                (rs, n) ->
-                    new Object[] {
-                      rs.getObject(1, UUID.class),
-                      rs.getObject(2, UUID.class),
-                      rs.getBigDecimal(3),
-                      rs.getString(4)
-                    })
+            .query(UUID.class)
             .list();
-    for (Object[] r : rows) {
-      UUID sellerId = (UUID) r[0];
-      UUID shipmentId = (UUID) r[1];
-      if (shipmentIds != null && !shipmentIds.contains(shipmentId)) {
-        continue;
-      }
-      BigDecimal sale = (BigDecimal) r[2];
-      String cur = (String) r[3];
-      if (post(sellerId, "REFUND_REVERSAL", sale.negate(), cur, orderId, shipmentId) == 0) {
-        continue;
-      }
-      BigDecimal commission =
-          jdbc.sql(
-                  "SELECT amount FROM ledger_entries WHERE shipment_id = :s AND type = 'COMMISSION' AND return_id IS NULL")
-              .param("s", shipmentId)
-              .query(BigDecimal.class)
-              .optional()
-              .orElse(BigDecimal.ZERO);
-      if (commission.signum() != 0) {
-        post(sellerId, "COMMISSION_REVERSAL", commission.negate(), cur, orderId, shipmentId);
+    for (UUID shipmentId : sales) {
+      if (shipmentIds == null || shipmentIds.contains(shipmentId)) {
+        reverse(orderId, shipmentId, null, Optional.empty(), null);
       }
     }
   }
 
   /**
-   * Partial/full refund of one return (RETURN_REFUNDED with returnShipmentId + refundAmount):
-   * REFUND_REVERSAL = -refundAmount and COMMISSION_REVERSAL = +refundAmount * commission%.
+   * One return of a shipment (RETURN_REFUNDED): REFUND_REVERSAL = -returnItemsValue (never the
+   * customer refund, which includes shipping and discounts), capped at what is left of the SALE.
    * Idempotent per return.
    */
   @Transactional
   public void reverseReturn(
-      UUID orderId, UUID shipmentId, UUID returnId, BigDecimal refundAmount, String currency) {
+      UUID orderId, UUID shipmentId, UUID returnId, BigDecimal returnItemsValue, String currency) {
+    reverse(orderId, shipmentId, returnId, Optional.of(returnItemsValue), currency);
+  }
+
+  /**
+   * The one reversal core. The SALE row lock serialises every reversal of a shipment, so the
+   * remainder read below stays valid until commit. It holds one row and only inserts, so it cannot
+   * deadlock with a payout run (which locks rows in one statement and updates them).
+   */
+  private void reverse(
+      UUID orderId, UUID shipmentId, UUID returnId, Optional<BigDecimal> basis, String currency) {
     var sale =
         jdbc.sql(
-                "SELECT seller_id, currency FROM ledger_entries WHERE shipment_id = :s AND type = 'SALE'")
+                "SELECT seller_id, amount, currency FROM ledger_entries WHERE shipment_id = :s"
+                    + " AND type = 'SALE' AND return_id IS NULL FOR UPDATE")
             .param("s", shipmentId)
-            .query((rs, n) -> new Object[] {rs.getObject(1, UUID.class), rs.getString(2)})
+            .query(
+                (rs, n) ->
+                    new Object[] {
+                      rs.getObject(1, UUID.class), rs.getBigDecimal(2), rs.getString(3)
+                    })
             .optional();
     if (sale.isEmpty()) {
-      log.warn("Refund for shipment {} without a booked SALE - skipped", shipmentId);
+      log.warn(
+          "Reversal for shipment {} without a booked SALE - reported, nothing posted", shipmentId);
+      jdbc.sql(
+              "INSERT INTO ledger_discrepancies (shipment_id, order_id, kind, ref, expected, detail)"
+                  + " VALUES (:sh, :o, 'UNMATCHED_REVERSAL', :r, :e, 'reversal arrived without a SALE')"
+                  + " ON CONFLICT (shipment_id, kind, ref) DO UPDATE SET expected = EXCLUDED.expected,"
+                  + " last_seen_at = now()")
+          .param("sh", shipmentId)
+          .param("o", orderId)
+          .param("r", returnId)
+          .param("e", basis.orElse(null))
+          .update();
       return;
     }
+    if (returnId != null
+        && jdbc.sql(
+                    "SELECT count(*) FROM ledger_entries WHERE return_id = :r AND type = 'REFUND_REVERSAL'")
+                .param("r", returnId)
+                .query(Long.class)
+                .single()
+            > 0) {
+      return; // replay of this return
+    }
     UUID sellerId = (UUID) sale.get()[0];
-    String cur = sale.get()[1] == null ? currency : (String) sale.get()[1];
-    BigDecimal pct =
-        jdbc.sql("SELECT commission_percent FROM sellers WHERE id = :i")
-            .param("i", sellerId)
-            .query(BigDecimal.class)
-            .optional()
-            .orElse(BigDecimal.ZERO);
-    BigDecimal amt = refundAmount.setScale(2, RoundingMode.HALF_UP);
+    BigDecimal saleAmount = (BigDecimal) sale.get()[1];
+    String cur = sale.get()[2] == null ? currency : (String) sale.get()[2];
+    var sums =
+        jdbc.sql(
+                "SELECT COALESCE(-SUM(amount) FILTER (WHERE type = 'REFUND_REVERSAL'), 0),"
+                    + " COALESCE(-SUM(amount) FILTER (WHERE type = 'COMMISSION'), 0),"
+                    + " COALESCE(SUM(amount) FILTER (WHERE type = 'COMMISSION_REVERSAL'), 0)"
+                    + " FROM ledger_entries WHERE shipment_id = :s")
+            .param("s", shipmentId)
+            .query(
+                (rs, n) ->
+                    new BigDecimal[] {
+                      rs.getBigDecimal(1), rs.getBigDecimal(2), rs.getBigDecimal(3)
+                    })
+            .single();
+    BigDecimal commission = sums[1];
+    BigDecimal commissionLeft = commission.subtract(sums[2]).max(BigDecimal.ZERO);
+    BigDecimal remaining = saleAmount.subtract(sums[0]);
+    BigDecimal wanted = basis.map(b -> b.setScale(2, RoundingMode.HALF_UP)).orElse(remaining);
+    if (wanted.compareTo(remaining) > 0) {
+      log.warn(
+          "Reversal of {} on shipment {} capped to the remaining {} (return {})",
+          wanted,
+          shipmentId,
+          remaining,
+          returnId);
+    }
+    BigDecimal amt = wanted.min(remaining);
+    if (amt.signum() <= 0) {
+      return;
+    }
     if (postReturn(sellerId, "REFUND_REVERSAL", amt.negate(), cur, orderId, shipmentId, returnId)
         == 0) {
       return;
     }
-    BigDecimal commission = amt.multiply(pct).divide(HUNDRED, 2, RoundingMode.HALF_UP);
-    if (commission.signum() != 0) {
-      postReturn(sellerId, "COMMISSION_REVERSAL", commission, cur, orderId, shipmentId, returnId);
+    boolean completing = amt.compareTo(remaining) == 0;
+    BigDecimal back =
+        completing
+            ? commissionLeft
+            : amt.multiply(commission)
+                .divide(saleAmount, 2, RoundingMode.HALF_UP)
+                .min(commissionLeft);
+    if (back.signum() > 0) {
+      postReturn(sellerId, "COMMISSION_REVERSAL", back, cur, orderId, shipmentId, returnId);
     }
+    if (feeReversible(completing)) {
+      jdbc.sql(
+              "INSERT INTO ledger_entries (seller_id, type, amount, currency, order_id, shipment_id)"
+                  + " SELECT seller_id, 'FEE_REVERSAL', -amount, currency, order_id, shipment_id"
+                  + " FROM ledger_entries WHERE shipment_id = :s AND type = 'FEE' AND return_id IS NULL"
+                  + " ON CONFLICT DO NOTHING")
+          .param("s", shipmentId)
+          .update();
+    }
+  }
+
+  /**
+   * Fee policy, the single decision point. PROVISIONAL (Q1 = B, awaiting Owner confirmation): the
+   * booked per-shipment fee is given back once, when the shipment becomes fully reversed. Policy A
+   * (never) or C (pro rata) change only this method.
+   */
+  private boolean feeReversible(boolean completing) {
+    return completing;
   }
 
   private int post(
