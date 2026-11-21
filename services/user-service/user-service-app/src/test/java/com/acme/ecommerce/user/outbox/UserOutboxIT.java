@@ -12,9 +12,13 @@ import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
+@ExtendWith(OutputCaptureExtension.class)
 class UserOutboxIT extends AbstractUserIntegrationTest {
 
   @Autowired private UserOutbox outbox;
@@ -27,10 +31,15 @@ class UserOutboxIT extends AbstractUserIntegrationTest {
 
   @Test
   @DisplayName("AC-5: enqueue twice for one user gives one row")
-  void enqueueIsIdempotent() {
+  void enqueueIsIdempotent(CapturedOutput output) {
     UUID user = UUID.randomUUID();
     outbox.enqueue(user, event(user));
+    assertThat(output.getOut()).doesNotContain("duplicate suppressed: userId=" + user);
     outbox.enqueue(user, event(user));
+    assertThat(output.getOut())
+        .contains("WARN")
+        .contains("duplicate suppressed: userId=" + user)
+        .doesNotContain("@example.com");
     assertThat(
             jdbc.sql("SELECT count(*) FROM users.outbox WHERE aggregate_id = :u")
                 .param("u", user)

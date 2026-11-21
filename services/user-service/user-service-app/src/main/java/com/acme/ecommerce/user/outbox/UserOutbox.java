@@ -3,6 +3,8 @@ package com.acme.ecommerce.user.outbox;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Component;
 
@@ -17,6 +19,8 @@ public class UserOutbox {
   /** Jackson 2, no java.time module: the event has String fields only (legacy wire format). */
   static final ObjectMapper JSON = new ObjectMapper();
 
+  private static final Logger log = LoggerFactory.getLogger(UserOutbox.class);
+
   static final String KIND = "USER_DELETED";
 
   /** Wire format of {@code user.events}; field order is part of the contract. */
@@ -29,7 +33,8 @@ public class UserOutbox {
   }
 
   public void enqueue(UUID userId, UserDeletedEvent event) {
-    jdbc.sql(
+    int inserted =
+        jdbc.sql(
             "INSERT INTO users.outbox (aggregate_id, kind, payload, idem_key)"
                 + " VALUES (:a, :k, CAST(:p AS jsonb), :i) ON CONFLICT (idem_key) DO NOTHING")
         .param("a", userId)
@@ -37,6 +42,9 @@ public class UserOutbox {
         .param("p", toJson(event))
         .param("i", KIND + ":" + userId)
         .update();
+    if (inserted == 0) {
+      log.warn("USER_DELETED outbox row already exists, duplicate suppressed: userId={}", userId);
+    }
   }
 
   static String toJson(UserDeletedEvent event) {
