@@ -355,7 +355,7 @@ Request and response shapes for Phases 1–5 are in [api.md](api.md); later phas
 | POST | `/api/admin/support/tickets/{id}/status` | TicketController |
 | GET | `/internal/privacy/users/{userId}/export` | PrivacyExportController |
 
-## user-service (32)
+## user-service (34)
 
 | Method | Path | Controller |
 |---|---|---|
@@ -364,6 +364,8 @@ Request and response shapes for Phases 1–5 are in [api.md](api.md); later phas
 | POST | `/api/membership/cancel` | EngageController |
 | GET | `/api/referrals` | EngageController |
 | POST | `/api/referrals/claim` | EngageController |
+| GET | `/api/users/admin/outbox` | UserOutboxAdminController (ADMIN; `?status` DEAD or PENDING, no payload, max 200 rows) |
+| POST | `/api/users/admin/outbox/{id}/retry` | UserOutboxAdminController (ADMIN; DEAD row back to PENDING, 404 otherwise) |
 | GET | `/api/users/me` | UserController |
 | PUT | `/api/users/me` | UserController |
 | GET | `/api/users/me/addresses` | UserController |

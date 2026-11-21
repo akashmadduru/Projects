@@ -153,8 +153,9 @@ Phase 6 was built under "no tests, no HLD/LLD, record shortcuts as debt". The in
 - **Fix:** Document and alert on manual capture; add multi-currency once the business enables it in Razorpay.
 
 <a id="td-p6-33"></a>
-## TD-P6-33 Only order-service has an outbox
+## TD-P6-33 Only order-service and user-service have an outbox
 - **Severity / Effort:** Med / M
-- **Where:** product-service `ProductEventPublisher`, inventory-service `InventoryEventPublisher`, rating-, user-, seller-service publishers.
+- **Where:** product-service `ProductEventPublisher`, inventory-service `InventoryEventPublisher`, rating-service publisher and the auth-service audit publisher (user-service done 2026-11-21, see below).
 - **Risk:** Residual of TD-P6-01 (fixed 2026-11-17 for order-service: `orders.outbox` is written in the same transaction as the order change; `OutboxRelay` delivers stock restore, deal/exchange/coupon/coins release, payment cancel, COD collected, return restock and `order.events` with retries, per-order ordering and a DEAD state listed at `GET /api/admin/orders/outbox`). The other services still publish after commit, best effort: a crash or Kafka outage between commit and send loses e.g. a `product.events` update (search and inventory caches drift until the next change; embeddings already self-heal by polling).
 - **Fix:** Lift `Outbox`/`OutboxRelay` into common-web and use it in product- and inventory-service first.
+- **Done 2026-11-21 (F-20261119-12):** user-service. `USER_DELETED` is written to `users.outbox` in the same transaction as the account erasure (`PrivacyService.complete`), and `UserOutboxRelay` delivers it to `user.events` (copy of the order-service semantics, ADR 0011); DEAD rows are listed and retried at `/api/users/admin/outbox`. payment-, promotion- and seller-service are closed as "no producers" (they only consume `user.events`; their `UserDeletedListener` is tested as idempotent). **Still open:** product, inventory, rating and the auth-service audit publisher. Backlog: a purge job for DONE rows in `users.outbox`.

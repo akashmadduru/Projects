@@ -82,6 +82,9 @@ product-service and inventory-service.
   transaction as the order change; `OutboxRelay` sends them in order per order and retries until Kafka
   acknowledges (TD-P6-01, fixed 2026-11-17). The other producers still send after commit, so a crash
   or Kafka outage between commit and send loses that event ([TD-P6-33](../techdebt/phase6.md#td-p6-33)).
+  `USER_DELETED` also goes through an outbox now: user-service writes a row to `users.outbox` in the
+  same transaction as the account erasure, and `UserOutboxRelay` sends it to `user.events` with retries
+  (a DEAD row is listed at `GET /api/users/admin/outbox`).
 - **At-least-once consumption.** A redelivered event is processed again. There is no
   processed-event table; idempotency comes from each consumer's own data: unique keys (inventory
   `product_id`), `INSERT … ON CONFLICT` upserts, or re-reading the source of truth (ratings).
@@ -122,7 +125,7 @@ Logs carry the request's correlation id, and traces go to Jaeger (http://127.0.0
 
 | Gap | Tracked as |
 |---|---|
-| Only order-service has an outbox; other publishers can lose an event | [TD-P6-33](../techdebt/phase6.md#td-p6-33) |
+| Only order-service and user-service (`USER_DELETED`) have an outbox; product, inventory, rating and auth-audit publishers can still lose an event | [TD-P6-33](../techdebt/phase6.md#td-p6-33) |
 | Single broker, replication factor 1, PLAINTEXT | [technical audit](../audit/technical-audit.md#8-security-audit) |
 | Two consumer groups start at `latest` | [TD-P7-11](../techdebt/phase7.md#td-p7-11) |
 | Duplicated event classes, no schema registry | [ADR 0002](../architecture/adr/0002-event-driven-inventory-kafka-kraft-and-event-contract-duplication.md) |
