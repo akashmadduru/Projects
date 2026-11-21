@@ -1,15 +1,19 @@
 package com.acme.ecommerce.seller.ledger;
 
+import com.acme.ecommerce.common.core.error.ResourceConflictException;
 import com.acme.ecommerce.seller.Paged;
+import com.acme.ecommerce.seller.ledger.LedgerReconciler.Discrepancy;
 import com.acme.ecommerce.seller.ledger.LedgerService.LedgerEntry;
 import com.acme.ecommerce.seller.ledger.LedgerService.Payout;
 import com.acme.ecommerce.seller.ledger.LedgerService.PayoutRun;
 import com.acme.ecommerce.seller.seller.SellerService;
+import java.util.Map;
 import java.util.UUID;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -22,10 +26,13 @@ public class FinanceController {
 
   private final LedgerService ledger;
   private final SellerService sellers;
+  private final LedgerReconciler reconciler;
 
-  public FinanceController(LedgerService ledger, SellerService sellers) {
+  public FinanceController(
+      LedgerService ledger, SellerService sellers, LedgerReconciler reconciler) {
     this.ledger = ledger;
     this.sellers = sellers;
+    this.reconciler = reconciler;
   }
 
   @GetMapping("/api/seller/ledger")
@@ -62,5 +69,28 @@ public class FinanceController {
     Integer days =
         request != null && request.minAgeDays() != null ? request.minAgeDays() : minAgeDays;
     return ledger.run(days);
+  }
+
+  @GetMapping("/api/admin/ledger/discrepancies")
+  @PreAuthorize("hasAnyRole('ADMIN','FINANCE')")
+  public Paged<Discrepancy> discrepancies(
+      @RequestParam(defaultValue = "true") boolean open,
+      @RequestParam(defaultValue = "0") int page,
+      @RequestParam(defaultValue = "20") int size) {
+    return reconciler.list(open, page, size);
+  }
+
+  @PostMapping("/api/admin/ledger/reconcile")
+  @PreAuthorize("hasAnyRole('ADMIN','FINANCE')")
+  public Map<String, Integer> reconcile() {
+    return reconciler
+        .runNow()
+        .orElseThrow(() -> new ResourceConflictException("A reconcile run is already in progress"));
+  }
+
+  @PostMapping("/api/admin/ledger/discrepancies/{id}/repair")
+  @PreAuthorize("hasAnyRole('ADMIN','FINANCE')")
+  public Discrepancy repair(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
+    return reconciler.repair(id, jwt.getSubject());
   }
 }
