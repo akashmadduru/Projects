@@ -11,6 +11,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import com.acme.ecommerce.common.core.error.CodedException;
@@ -1152,6 +1153,9 @@ class OrderPlacementIntegrationTest extends AbstractOrderIntegrationTest {
   void fiftyLineCartMakesOneProductRequest() {
     List<com.acme.ecommerce.cart.api.dto.CartItemResponse> items = new java.util.ArrayList<>();
     Map<UUID, BigDecimal> expectedUnit = new HashMap<>();
+    Map<UUID, UUID> expectedVariant = new HashMap<>();
+    Map<UUID, UUID> expectedOffer = new HashMap<>();
+    Map<UUID, UUID> expectedSeller = new HashMap<>();
     for (int i = 0; i < 50; i++) {
       UUID id = UUID.randomUUID();
       String name = "P" + i;
@@ -1169,12 +1173,14 @@ class OrderPlacementIntegrationTest extends AbstractOrderIntegrationTest {
                 List.of()));
         items.add(cartLine(id, 1, variantId, null, "client-name", "0.01"));
         expectedUnit.put(id, base.add(BigDecimal.ONE));
+        expectedVariant.put(id, variantId);
       } else if (i % 7 == 3) {
         UUID offerId = UUID.randomUUID();
+        UUID sellerId = UUID.randomUUID();
         var offer =
             new com.acme.ecommerce.order.client.ProductViewFeignClient.Offer(
                 offerId,
-                UUID.randomUUID(),
+                sellerId,
                 "Seller",
                 null,
                 base.add(BigDecimal.TWO),
@@ -1185,6 +1191,8 @@ class OrderPlacementIntegrationTest extends AbstractOrderIntegrationTest {
         catalog.put(id, productWith(id, name, base.toString(), true, List.of(), List.of(offer)));
         items.add(cartLine(id, 1, null, offerId, "client-name", "0.01"));
         expectedUnit.put(id, base.add(BigDecimal.TWO));
+        expectedOffer.put(id, offerId);
+        expectedSeller.put(id, sellerId);
       } else {
         catalog.put(id, productWith(id, name, base.toString(), true, List.of(), List.of()));
         items.add(cartLine(id, 1, null, null, "client-name", "0.01"));
@@ -1197,14 +1205,21 @@ class OrderPlacementIntegrationTest extends AbstractOrderIntegrationTest {
 
     var csv = org.mockito.ArgumentCaptor.forClass(String.class);
     verify(products, times(1)).batch(csv.capture(), eq(true));
+    verifyNoMoreInteractions(products);
     assertThat(csv.getValue().split(",")).hasSize(50).doesNotHaveDuplicates();
     assertThat(p.order().items()).hasSize(50);
+    // Sanity: the fixture really has variant lines and offer lines to check.
+    assertThat(expectedVariant).isNotEmpty();
+    assertThat(expectedOffer).isNotEmpty();
     BigDecimal subtotal = BigDecimal.ZERO;
     for (var line : p.order().items()) {
       assertThat(line.unitPrice())
           .as("price of %s", line.name())
           .isEqualByComparingTo(expectedUnit.get(line.productId()));
       assertThat(line.name()).startsWith("P");
+      assertThat(line.variantId()).isEqualTo(expectedVariant.get(line.productId()));
+      assertThat(line.offerId()).isEqualTo(expectedOffer.get(line.productId()));
+      assertThat(line.sellerId()).isEqualTo(expectedSeller.get(line.productId()));
       subtotal = subtotal.add(expectedUnit.get(line.productId()));
     }
     assertThat(p.order().subtotalAmount()).isEqualByComparingTo(subtotal);

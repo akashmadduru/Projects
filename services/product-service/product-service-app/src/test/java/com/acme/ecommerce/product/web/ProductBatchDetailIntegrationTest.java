@@ -1,11 +1,18 @@
 package com.acme.ecommerce.product.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.acme.ecommerce.product.client.InventoryDto;
+import com.acme.ecommerce.product.client.InventoryServiceClient;
 import com.acme.ecommerce.product.support.AbstractProductIntegrationTest;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -15,6 +22,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 /**
@@ -29,7 +38,12 @@ class ProductBatchDetailIntegrationTest extends AbstractProductIntegrationTest {
   /** Seeded with active = false. */
   private static final String HEADSET = "55555555-5555-4555-8555-555555555555";
 
+  private static final UUID PLATFORM_SELLER =
+      UUID.fromString("00000000-0000-0000-0000-00000000a11e");
+
   @Autowired private MockMvc mockMvc;
+  @Autowired private JdbcTemplate jdbc;
+  @MockitoBean private InventoryServiceClient inventory;
 
   private String body(String url, String... params) throws Exception {
     var request = get(url);
@@ -82,6 +96,67 @@ class ProductBatchDetailIntegrationTest extends AbstractProductIntegrationTest {
     assertThat(actual).isEqualTo(expected);
     // Sanity: the detail shape really differs from lean (it carries the variants array).
     assertThat(actual).contains("\"variants\"").contains("SKU-HEADSET-01");
+  }
+
+  @Test
+  @DisplayName(
+      "detail=true parity on a product with a variant and an offer; the one difference is"
+          + " variants[].availableQuantity, which the batch omits and /{id} carries")
+  void detailParityWithVariantsAndOffer() throws Exception {
+    UUID product =
+        jdbc.queryForObject(
+            "select id from product.products where active order by id limit 1", UUID.class);
+    UUID variant = UUID.randomUUID();
+    UUID offer = UUID.randomUUID();
+    jdbc.update(
+        "insert into product.product_variants (id, product_id, sku) values (?, ?, ?)",
+        variant,
+        product,
+        "PARITY-" + variant);
+    jdbc.update(
+        "insert into product.offers (id, product_id, variant_id, seller_id, price, currency)"
+            + " values (?, ?, ?, ?, 10.00, 'USD')",
+        offer,
+        product,
+        variant,
+        PLATFORM_SELLER);
+    when(inventory.getVariantStock(any(), any()))
+        .thenReturn(List.of(new InventoryDto.VariantStock(variant, 7)));
+    when(inventory.stockRows(any(), any()))
+        .thenReturn(
+            List.of(new InventoryDto.StockRow(product, variant, PLATFORM_SELLER, offer, "W1", 5)));
+    try {
+      ObjectMapper json = new ObjectMapper();
+      JsonNode single = json.readTree(body("/api/products/" + product));
+      JsonNode batch =
+          json.readTree(body("/api/products/batch", "ids", product.toString(), "detail", "true"))
+              .get(0);
+
+      // The deviation is pinned: /{id} carries the variant stock, the batch omits it.
+      assertThat(single.at("/variants/0/availableQuantity").asInt()).isEqualTo(7);
+      assertThat(
+              batch.at("/variants/0/availableQuantity").isMissingNode()
+                  || batch.at("/variants/0/availableQuantity").isNull())
+          .isTrue();
+      // Offer enrichment is intact in the batch (offer stock still filled).
+      assertThat(batch.at("/offers/0/offerId").asText()).isEqualTo(offer.toString());
+      assertThat(batch.at("/offers/0/availableQuantity").asInt()).isEqualTo(5);
+      assertThat(batch.at("/variants/0/id").asText()).isEqualTo(variant.toString());
+
+      // Everything else is exactly the /{id} shape.
+      stripVariantStock(single);
+      stripVariantStock(batch);
+      assertThat(batch).isEqualTo(single);
+    } finally {
+      jdbc.update("delete from product.offers where id = ?", offer);
+      jdbc.update("delete from product.product_variants where id = ?", variant);
+    }
+  }
+
+  private static void stripVariantStock(JsonNode product) {
+    for (JsonNode v : product.path("variants")) {
+      ((ObjectNode) v).remove("availableQuantity");
+    }
   }
 
   @Test

@@ -444,8 +444,8 @@ class ProductCatalogServiceTest {
   @Test
   @DisplayName(
       "findDetailsByIds: request order, duplicates collapsed, inactive kept, unknown skipped,"
-          + " and no inventory call (B1)")
-  void findDetailsByIdsKeepsOrderAndSkipsStock() throws Exception {
+          + " and no variant-stock call (B1)")
+  void findDetailsByIdsKeepsOrderAndSkipsVariantStock() throws Exception {
     UUID a = UUID.fromString("00000000-0000-4000-8000-00000000000a");
     UUID b = UUID.fromString("00000000-0000-4000-8000-00000000000b");
     UUID unknown = UUID.fromString("00000000-0000-4000-8000-0000000000ff");

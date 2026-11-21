@@ -179,8 +179,8 @@ public class ProductCatalogService {
 
   /**
    * The {@code GET /{id}} detail view for each distinct known id, in request order, inactive
-   * products included, unknown ids skipped. Variant stock is not fetched (order-service never reads
-   * it), so this makes no inventory call.
+   * products included, unknown ids skipped. The per-variant stock call is skipped (order-service
+   * never reads it); offer enrichment still reads stock rows once per product (TD-BE-18).
    */
   public List<ProductResponse> findDetailsByIds(List<UUID> ids) {
     Map<UUID, Product> byId = new HashMap<>();
