@@ -18,6 +18,7 @@ import com.acme.ecommerce.product.api.dto.ProductResponse;
 import com.acme.ecommerce.product.client.InventoryServiceClient;
 import com.acme.ecommerce.product.domain.Product;
 import com.acme.ecommerce.product.domain.ProductImage;
+import com.acme.ecommerce.product.domain.ProductVariant;
 import com.acme.ecommerce.product.event.ProductEventPublisher;
 import com.acme.ecommerce.product.event.ProductEventType;
 import com.acme.ecommerce.product.repository.ProductFilter;
@@ -434,6 +435,59 @@ class ProductCatalogServiceTest {
         .name("Widget")
         .priceAmount(new BigDecimal("9.99"))
         .priceCurrency("USD")
+        .active(true)
+        .createdAt(NOW)
+        .updatedAt(NOW)
+        .build();
+  }
+
+  @Test
+  @DisplayName(
+      "findDetailsByIds: request order, duplicates collapsed, inactive kept, unknown skipped,"
+          + " and no inventory call (B1)")
+  void findDetailsByIdsKeepsOrderAndSkipsStock() throws Exception {
+    UUID a = UUID.fromString("00000000-0000-4000-8000-00000000000a");
+    UUID b = UUID.fromString("00000000-0000-4000-8000-00000000000b");
+    UUID unknown = UUID.fromString("00000000-0000-4000-8000-0000000000ff");
+    Product pa = newTestProduct();
+    setId(pa, a);
+    Product pb = newTestProduct();
+    setId(pb, b);
+    pb.setActive(false);
+    ProductVariant variant = variantOf(pa);
+    when(products.findAllById(List.of(b, a, b, unknown))).thenReturn(List.of(pa, pb));
+    when(variants.findByProductIdOrderBySortOrderAscSkuAsc(a)).thenReturn(List.of(variant));
+    when(variants.findByProductIdOrderBySortOrderAscSkuAsc(b)).thenReturn(List.of());
+
+    List<ProductResponse> out = service.findDetailsByIds(List.of(b, a, b, unknown));
+
+    assertThat(out).extracting(ProductResponse::getId).containsExactly(b, a);
+    assertThat(out.get(0).isActive()).isFalse();
+    assertThat(out.get(1).getVariants()).hasSize(1);
+    assertThat(out.get(1).getVariants().get(0).getAvailableQuantity()).isNull();
+    verifyNoInteractions(inventory);
+  }
+
+  @Test
+  @DisplayName("positive sanity: findById on a product with variants does call inventory for stock")
+  void findByIdFetchesVariantStock() throws Exception {
+    UUID a = UUID.fromString("00000000-0000-4000-8000-00000000000a");
+    Product pa = newTestProduct();
+    setId(pa, a);
+    when(products.findById(a)).thenReturn(Optional.of(pa));
+    when(variants.findByProductIdOrderBySortOrderAscSkuAsc(a)).thenReturn(List.of(variantOf(pa)));
+
+    service.findById(a);
+
+    verify(inventory).getVariantStock(any(), any());
+  }
+
+  private static ProductVariant variantOf(Product product) {
+    return ProductVariant.builder()
+        .id(UUID.fromString("00000000-0000-4000-8000-0000000000c1"))
+        .productId(product.getId())
+        .sku("SKU-01-RED")
+        .attributes("{\"color\":\"red\"}")
         .active(true)
         .createdAt(NOW)
         .updatedAt(NOW)

@@ -310,9 +310,14 @@ public class ProductController {
     return discovery.facets(filterOf(params, request));
   }
 
-  /** Lean products by id, in request order (max 50). Public. */
+  /**
+   * Lean products by id, in request order (max 50). With {@code detail=true} each element is the
+   * {@code GET /{id}} detail view and inactive products are included. Public.
+   */
   @GetMapping("/batch")
-  public List<ProductResponse> batch(@RequestParam(name = "ids") String ids) {
+  public List<ProductResponse> batch(
+      @RequestParam(name = "ids") String ids,
+      @RequestParam(name = "detail", defaultValue = "false") boolean detail) {
     List<UUID> parsed = new ArrayList<>();
     for (String raw : ProductListParams.splitCsv(ids)) {
       try {
@@ -324,7 +329,7 @@ public class ProductController {
     if (parsed.size() > MAX_BATCH) {
       throw ValidationException.forField("ids", "at most " + MAX_BATCH + " ids");
     }
-    return catalog.findByIds(parsed);
+    return detail ? catalog.findDetailsByIds(parsed) : catalog.findByIds(parsed);
   }
 
   /** One product by slug. Public. */

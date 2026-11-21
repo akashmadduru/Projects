@@ -177,6 +177,24 @@ public class ProductCatalogService {
     return out;
   }
 
+  /**
+   * The {@code GET /{id}} detail view for each distinct known id, in request order, inactive
+   * products included, unknown ids skipped. Variant stock is not fetched (order-service never reads
+   * it), so this makes no inventory call.
+   */
+  public List<ProductResponse> findDetailsByIds(List<UUID> ids) {
+    Map<UUID, Product> byId = new HashMap<>();
+    products.findAllById(ids).forEach(p -> byId.put(p.getId(), p));
+    List<ProductResponse> out = new ArrayList<>();
+    for (UUID id : new LinkedHashSet<>(ids)) {
+      Product p = byId.get(id);
+      if (p != null) {
+        out.add(detail(p, false));
+      }
+    }
+    return out;
+  }
+
   /** A single product by slug, with images and variants. */
   public ProductResponse findBySlug(String slug) {
     Product product =
@@ -185,7 +203,11 @@ public class ProductCatalogService {
   }
 
   private ProductResponse detail(Product product) {
-    List<ProductVariantResponse> variants = variantResponses(product.getId(), true);
+    return detail(product, true);
+  }
+
+  private ProductResponse detail(Product product, boolean withStock) {
+    List<ProductVariantResponse> variants = variantResponses(product.getId(), withStock);
     ProductResponse response =
         toResponse(
             product,
