@@ -3,6 +3,7 @@ package com.acme.ecommerce.cart.service;
 import com.acme.ecommerce.cart.api.dto.CartItemRequest;
 import com.acme.ecommerce.cart.api.dto.CartItemResponse;
 import com.acme.ecommerce.cart.api.dto.CartResponse;
+import com.acme.ecommerce.cart.api.dto.ConsumedLinesRequest;
 import com.acme.ecommerce.cart.repository.CartRepository;
 import com.acme.ecommerce.common.core.error.CodedException;
 import com.acme.ecommerce.common.core.error.ErrorCode;
@@ -70,6 +71,20 @@ public class CartService {
   @Transactional
   public void clear(UUID userId) {
     carts.clear(carts.lockOrCreateCart(userId));
+  }
+
+  /**
+   * Removes only the lines an order consumed, and only from this user's cart; a line the user
+   * changed or added since is kept. Idempotent: a repeat removes nothing. Returns the count.
+   */
+  @Transactional
+  public int removeConsumed(UUID userId, ConsumedLinesRequest request) {
+    UUID cartId = carts.lockOrCreateCart(userId);
+    int removed = 0;
+    for (ConsumedLinesRequest.Line line : request.lines()) {
+      removed += carts.deleteConsumed(cartId, line);
+    }
+    return removed;
   }
 
   /** Moves a cart line to "saved for later" (cap 50 saved lines). */

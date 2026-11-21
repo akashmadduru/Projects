@@ -2,9 +2,11 @@ package com.acme.ecommerce.cart.repository;
 
 import com.acme.ecommerce.cart.api.dto.CartItemRequest;
 import com.acme.ecommerce.cart.api.dto.CartItemResponse;
+import com.acme.ecommerce.cart.api.dto.ConsumedLinesRequest;
 import com.acme.ecommerce.cart.api.dto.SavedItemResponse;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -135,6 +137,25 @@ public class CartRepository {
   public void clear(UUID cartId) {
     jdbc.sql("DELETE FROM cart.cart_items WHERE cart_id = :cartId")
         .param("cartId", cartId)
+        .update();
+  }
+
+  /**
+   * Deletes the line only if it is in this cart and still exactly what the order consumed: same
+   * product, variant, offer, quantity and add time (to the millisecond). Returns rows deleted.
+   */
+  public int deleteConsumed(UUID cartId, ConsumedLinesRequest.Line line) {
+    return jdbc.sql(
+            "DELETE FROM cart.cart_items WHERE cart_id = :cartId AND product_id = :productId "
+                + "AND variant_key = :vk AND offer_key = :ok AND quantity = :qty "
+                + "AND date_trunc('milliseconds', added_at) "
+                + "= date_trunc('milliseconds', CAST(:addedAt AS timestamptz))")
+        .param("cartId", cartId)
+        .param("productId", line.productId())
+        .param("vk", key(line.variantId()))
+        .param("ok", key(line.offerId()))
+        .param("qty", line.quantity())
+        .param("addedAt", OffsetDateTime.ofInstant(line.addedAt(), ZoneOffset.UTC))
         .update();
   }
 
