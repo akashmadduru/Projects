@@ -8,6 +8,7 @@ import com.acme.ecommerce.order.outbox.Outbox.Kind;
 import com.acme.ecommerce.order.service.OrderRemote;
 import com.acme.ecommerce.order.support.AbstractOrderIntegrationTest;
 import java.util.UUID;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,6 +24,12 @@ class OutboxRelayTest extends AbstractOrderIntegrationTest {
   @Autowired private Outbox outbox;
   @Autowired private OutboxRelay relay;
   @Autowired private JdbcTemplate jdbc;
+
+  /** The database is shared with other test classes: leave no unknown rows behind. */
+  @AfterEach
+  void removeUnknownRows() {
+    jdbc.update("delete from orders.outbox where kind = 'BOGUS'");
+  }
 
   @Test
   @DisplayName("an unknown kind is skipped and left PENDING; a valid row behind it is delivered")
@@ -48,6 +55,26 @@ class OutboxRelayTest extends AbstractOrderIntegrationTest {
                 "select status from orders.outbox where aggregate_id = ?",
                 String.class,
                 validAggregate))
+        .isEqualTo("DONE");
+  }
+
+  @Test
+  @DisplayName("more than BATCH unknown rows on distinct aggregates do not starve a valid row")
+  void unknownRowsDoNotStarveTheBatch() {
+    for (int i = 0; i < OutboxRelay.BATCH + 1; i++) {
+      UUID bogus = UUID.randomUUID();
+      outbox.enqueue(Kind.RESTORE_STOCK, bogus);
+      jdbc.update("update orders.outbox set kind = 'BOGUS' where aggregate_id = ?", bogus);
+    }
+    UUID valid = UUID.randomUUID();
+    outbox.enqueue(Kind.RESTORE_STOCK, valid);
+
+    relay.relay();
+
+    verify(remote).restoreStockNow(valid);
+    assertThat(
+            jdbc.queryForObject(
+                "select status from orders.outbox where aggregate_id = ?", String.class, valid))
         .isEqualTo("DONE");
   }
 }

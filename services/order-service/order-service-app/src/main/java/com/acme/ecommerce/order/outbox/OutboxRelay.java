@@ -6,6 +6,7 @@ import com.acme.ecommerce.order.event.OrderEventPublisher;
 import com.acme.ecommerce.order.outbox.Outbox.Kind;
 import com.acme.ecommerce.order.service.OrderRemote;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 import org.slf4j.Logger;
@@ -32,7 +33,10 @@ public class OutboxRelay {
   static final int MAX_ROUNDS = 10;
   private static final long MAX_BACKOFF_SECONDS = 3600;
 
-  record Row(UUID id, UUID aggregateId, Kind kind, String rawKind, String payload, int attempts) {}
+  record Row(UUID id, UUID aggregateId, Kind kind, String payload, int attempts) {}
+
+  private static final List<String> KNOWN = Arrays.stream(Kind.values()).map(Kind::name).toList();
+  private static final int UNKNOWN_SAMPLE = 5;
 
   /** Result of one pass, for logs and tests. */
   public record Result(int delivered, int failed, int dead) {}
@@ -70,6 +74,7 @@ public class OutboxRelay {
     int delivered = 0;
     int failed = 0;
     int dead = 0;
+    reportUnknown();
     for (int round = 0; round < MAX_ROUNDS; round++) {
       Result r = round();
       delivered += r.delivered();
@@ -85,23 +90,54 @@ public class OutboxRelay {
     return new Result(delivered, failed, dead);
   }
 
+  /**
+   * Rows written by a newer build (rollback) are not ours to deliver or discard. They stay PENDING
+   * (and still hold back newer rows of their aggregate) but never take a batch slot. Reported once
+   * per pass, with a capped sample, so a long rollback window does not flood the log.
+   */
+  private void reportUnknown() {
+    Long count =
+        jdbc.sql("SELECT count(*) FROM orders.outbox WHERE status = 'PENDING' AND kind NOT IN (:k)")
+            .param("k", KNOWN)
+            .query(Long.class)
+            .single();
+    if (count == null || count == 0) {
+      return;
+    }
+    List<String> sample =
+        jdbc.sql(
+                "SELECT id || ':' || kind FROM orders.outbox WHERE status = 'PENDING'"
+                    + " AND kind NOT IN (:k) ORDER BY seq LIMIT :n")
+            .param("k", KNOWN)
+            .param("n", UNKNOWN_SAMPLE)
+            .query(String.class)
+            .list();
+    log.error(
+        "Outbox has {} PENDING rows of unknown kind (written by a newer build); skipped, left"
+            + " PENDING. Sample (id:kind, up to {}): {}",
+        count,
+        UNKNOWN_SAMPLE,
+        sample);
+  }
+
   private Result round() {
     List<Row> due =
         jdbc.sql(
                 "SELECT o.id, o.aggregate_id, o.kind, CAST(o.payload AS text) AS payload, o.attempts"
                     + " FROM orders.outbox o"
                     + " WHERE o.status = 'PENDING' AND o.next_attempt_at <= now()"
+                    + " AND o.kind IN (:known)"
                     + " AND NOT EXISTS (SELECT 1 FROM orders.outbox e WHERE e.status = 'PENDING'"
                     + "   AND e.aggregate_id = o.aggregate_id AND e.seq < o.seq)"
                     + " ORDER BY o.seq LIMIT :n")
             .param("n", BATCH)
+            .param("known", KNOWN)
             .query(
                 (rs, n) ->
                     new Row(
                         rs.getObject("id", UUID.class),
                         rs.getObject("aggregate_id", UUID.class),
-                        kindOf(rs.getString("kind")),
-                        rs.getString("kind"),
+                        Kind.valueOf(rs.getString("kind")),
                         rs.getString("payload"),
                         rs.getInt("attempts")))
             .list();
@@ -109,12 +145,6 @@ public class OutboxRelay {
     int failed = 0;
     int dead = 0;
     for (Row row : due) {
-      if (row.kind() == null) {
-        // Written by a newer build (rollback). Not ours to deliver or discard: leave it PENDING.
-        log.error(
-            "Outbox row {} has unknown kind '{}'; skipped, left PENDING", row.id(), row.rawKind());
-        continue;
-      }
       try {
         deliver(row);
         jdbc.sql(
@@ -132,14 +162,6 @@ public class OutboxRelay {
       }
     }
     return new Result(delivered, failed, dead);
-  }
-
-  private static Kind kindOf(String raw) {
-    try {
-      return Kind.valueOf(raw);
-    } catch (IllegalArgumentException | NullPointerException e) {
-      return null;
-    }
   }
 
   private void deliver(Row row) {
