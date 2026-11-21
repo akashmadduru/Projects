@@ -141,6 +141,47 @@ class GatewayEdgeIntegrationTest {
     }
 
     @Test
+    @DisplayName("/internal/** is not routed: anonymous is 401, an authenticated caller gets 404")
+    void internalPathsAreNotRouted() {
+      String path = "/internal/carts/" + UUID.randomUUID() + "/consumed";
+      String body = "{\"orderId\":\"" + UUID.randomUUID() + "\",\"lines\":[]}";
+
+      client
+          .post()
+          .uri(path)
+          .header("X-Internal-Token", "guess")
+          .contentType(MediaType.APPLICATION_JSON)
+          .bodyValue(body)
+          .exchange()
+          .expectStatus()
+          .isUnauthorized();
+      // A valid user token and a spoofed internal token still reach no service: no route matches,
+      // so the stub downstream (which echoes every request it gets) is never hit.
+      client
+          .post()
+          .uri(path)
+          .header(HttpHeaders.AUTHORIZATION, bearer())
+          .header("X-Internal-Token", "guess")
+          .contentType(MediaType.APPLICATION_JSON)
+          .bodyValue(body)
+          .exchange()
+          .expectStatus()
+          .isNotFound()
+          .expectBody(String.class)
+          .value(response -> assertThat(response).doesNotContain("\"path\""));
+      // Positive sanity for the "not proxied" check: a routed path does echo "path".
+      client
+          .get()
+          .uri("/api/auth/me")
+          .header(HttpHeaders.AUTHORIZATION, bearer())
+          .exchange()
+          .expectStatus()
+          .isOk()
+          .expectBody(String.class)
+          .value(response -> assertThat(response).contains("\"path\""));
+    }
+
+    @Test
     @DisplayName("the Google OIDC leg is public")
     void oauth2LegIsPublic() {
       client.get().uri("/oauth2/authorization/google").exchange().expectStatus().isOk();
