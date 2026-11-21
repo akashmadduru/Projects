@@ -184,4 +184,30 @@ class UserDeletionOutboxIT extends AbstractUserIntegrationTest {
     assertThat(requestStatus(u)).isEqualTo("CANCELLED");
     assertThat(outboxRows(u)).isZero();
   }
+
+  @Test
+  @DisplayName("a request cancelled while the blocker check runs is not erased")
+  void cancelledDuringBlockerCheckIsNotErased() {
+    UUID u = seedDue();
+    when(privacyHttp.get(anyString(), anyString(), any(Object[].class)))
+        .thenAnswer(
+            inv -> {
+              jdbc.sql("UPDATE users.deletion_requests SET status = 'CANCELLED' WHERE user_id = :u")
+                  .param("u", u)
+                  .update();
+              return "{}";
+            });
+
+    assertThat(privacy.runDue(Instant.now())).isZero();
+
+    assertThat(requestStatus(u)).isEqualTo("CANCELLED");
+    assertThat(
+            count(
+                "SELECT count(*) FROM users.user_profiles WHERE user_id = :u AND email LIKE"
+                    + " 'del-%'",
+                u))
+        .isEqualTo(1);
+    assertThat(count("SELECT count(*) FROM users.addresses WHERE user_id = :u", u)).isEqualTo(1);
+    assertThat(outboxRows(u)).isZero();
+  }
 }
