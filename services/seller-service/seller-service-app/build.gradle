@@ -21,6 +21,7 @@ dependencies {
     testImplementation libs.bundles.testing.unit
     testImplementation libs.bundles.testing.containers
     testImplementation libs.spring.security.test
+    testImplementation libs.spring.boot.webmvc.test
 
     compileOnly libs.lombok
     annotationProcessor libs.lombok
