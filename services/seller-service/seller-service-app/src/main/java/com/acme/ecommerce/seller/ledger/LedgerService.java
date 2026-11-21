@@ -15,6 +15,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /** Settlement ledger (from order.events) and payout runs. */
@@ -65,6 +66,42 @@ public class LedgerService {
   }
 
   // ---- event-driven postings --------------------------------------------------------------
+
+  /** Fulfilment order of order-service statuses; the register never moves to a lower rank. */
+  private static final String STATUS_RANK =
+      "ARRAY['PENDING_PAYMENT','PLACED','CONFIRMED','PACKED','SHIPPED','OUT_FOR_DELIVERY','DELIVERED','CANCELLED']";
+
+  /**
+   * Records what order-service announced for each shipment in {@code ledger_shipments}, the source
+   * the reconcile job compares the ledger against. It commits in its own transaction so a failing
+   * posting (or an outer rollback) never removes it, and it is monotonic: an older event (lower
+   * status rank) is ignored, so an out-of-order SHIPPED never overwrites DELIVERED.
+   */
+  @Transactional(propagation = Propagation.REQUIRES_NEW)
+  public void track(UUID orderId, List<Part> parts, String currency) {
+    for (Part p : parts) {
+      if (p.shipmentId() == null || p.status() == null) {
+        continue;
+      }
+      jdbc.sql(
+              "INSERT INTO ledger_shipments (shipment_id, order_id, seller_id, status, amount, currency)"
+                  + " VALUES (:sh, :o, :s, :st, COALESCE(CAST(:a AS numeric), 0), :c)"
+                  + " ON CONFLICT (shipment_id) DO UPDATE SET status = EXCLUDED.status,"
+                  + " amount = COALESCE(CAST(:a AS numeric), ledger_shipments.amount), updated_at = now()"
+                  + " WHERE COALESCE(array_position("
+                  + STATUS_RANK
+                  + ", EXCLUDED.status), 0) >= COALESCE(array_position("
+                  + STATUS_RANK
+                  + ", ledger_shipments.status), 0)")
+          .param("sh", UUID.fromString(p.shipmentId()))
+          .param("o", orderId)
+          .param("s", p.sellerId() == null ? platformSeller : UUID.fromString(p.sellerId()))
+          .param("st", p.status())
+          .param("a", p.amount() == null ? null : p.amount().setScale(2, RoundingMode.HALF_UP))
+          .param("c", currency.toUpperCase())
+          .update();
+    }
+  }
 
   /** SALE + COMMISSION + FEE for a delivered shipment. Idempotent on (shipment, type). */
   @Transactional

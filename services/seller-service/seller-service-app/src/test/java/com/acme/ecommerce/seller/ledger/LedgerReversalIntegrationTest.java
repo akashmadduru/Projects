@@ -308,4 +308,67 @@ class LedgerReversalIntegrationTest extends AbstractSellerIntegrationTest {
         .isEqualByComparingTo("10.00"); // completing: the rest of the booked commission
     assertThat(count(shipment, "FEE_REVERSAL")).isEqualTo(1);
   }
+
+  @Autowired private org.springframework.transaction.PlatformTransactionManager txManager;
+
+  private List<Object[]> register(UUID shipment) {
+    return jdbc.sql("SELECT status, amount FROM ledger_shipments WHERE shipment_id = :s")
+        .param("s", shipment)
+        .query((rs, n) -> new Object[] {rs.getString(1), rs.getBigDecimal(2)})
+        .list();
+  }
+
+  private LedgerService.Part registerPart(
+      UUID shipment, UUID seller, String status, String amount) {
+    return new LedgerService.Part(
+        shipment.toString(), seller.toString(), status, new BigDecimal(amount), List.of());
+  }
+
+  @Test
+  @DisplayName("the register row survives a DELIVERED whose posting fails and rolls back")
+  void registerSurvivesFailedPosting() {
+    UUID s = seller("10");
+    UUID order = UUID.randomUUID();
+    UUID shipment = UUID.randomUUID();
+    // a bad product id makes recordDelivered throw after it already posted the SALE
+    LedgerService.Part bad =
+        new LedgerService.Part(
+            shipment.toString(),
+            s.toString(),
+            "DELIVERED",
+            new BigDecimal("100.00"),
+            List.of(new LedgerService.Item("not-a-uuid", "x", 1, new BigDecimal("100.00"))));
+
+    // even inside one outer transaction that rolls back, the register has already committed
+    assertThatThrownBy(
+            () ->
+                new org.springframework.transaction.support.TransactionTemplate(txManager)
+                    .executeWithoutResult(
+                        st -> {
+                          ledger.track(order, List.of(bad), "INR");
+                          ledger.recordDelivered(order, bad, "INR");
+                        }))
+        .isInstanceOf(IllegalArgumentException.class);
+
+    assertThat(count(shipment, "SALE")).isZero();
+    assertThat(register(shipment)).hasSize(1);
+    assertThat(register(shipment).get(0)[0]).isEqualTo("DELIVERED");
+    assertThat((BigDecimal) register(shipment).get(0)[1]).isEqualByComparingTo("100.00");
+  }
+
+  @Test
+  @DisplayName("an older event never moves the register status or amount backwards")
+  void registerNeverMovesBackwards() {
+    UUID s = seller("10");
+    UUID order = UUID.randomUUID();
+    UUID shipment = UUID.randomUUID();
+
+    ledger.track(order, List.of(registerPart(shipment, s, "PLACED", "90.00")), "INR");
+    ledger.track(order, List.of(registerPart(shipment, s, "DELIVERED", "100.00")), "INR");
+    ledger.track(order, List.of(registerPart(shipment, s, "SHIPPED", "90.00")), "INR");
+
+    assertThat(register(shipment)).hasSize(1);
+    assertThat(register(shipment).get(0)[0]).isEqualTo("DELIVERED");
+    assertThat((BigDecimal) register(shipment).get(0)[1]).isEqualByComparingTo("100.00");
+  }
 }
