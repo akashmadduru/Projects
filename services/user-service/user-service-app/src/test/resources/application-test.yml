@@ -15,6 +15,9 @@ user:
     ip-hash-salt: test-only-referral-salt
   jwt:
     jwks-uri: http://localhost:1/.well-known/jwks.json
+  # The outbox relay is driven by the tests (relay()); keep the scheduler out of their way.
+  outbox:
+    initial-delay-ms: 3600000
 
 eureka:
   client:
