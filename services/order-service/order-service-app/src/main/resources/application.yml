@@ -254,6 +254,10 @@ spring.cloud.openfeign:
       productViewClient:
         connect-timeout: 1000
         read-timeout: 3000
+      # One request for up to 50 products (detail view); longer read budget than a single lookup.
+      productBatchClient:
+        connect-timeout: 1000
+        read-timeout: ${ORDER_PRODUCT_BATCH_READ_TIMEOUT_MS:5000}
       inventoryReservations:
         connect-timeout: 1000
         read-timeout: 3000

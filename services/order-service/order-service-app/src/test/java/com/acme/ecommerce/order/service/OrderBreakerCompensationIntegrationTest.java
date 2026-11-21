@@ -3,6 +3,8 @@ package com.acme.ecommerce.order.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 
@@ -14,7 +16,7 @@ import com.acme.ecommerce.order.api.dto.PlaceOrderRequest.PaymentMethodRequest;
 import com.acme.ecommerce.order.client.CartFeignClient;
 import com.acme.ecommerce.order.client.InventoryFeignClient;
 import com.acme.ecommerce.order.client.PaymentFeignClient;
-import com.acme.ecommerce.order.client.ProductViewFeignClient;
+import com.acme.ecommerce.order.client.ProductBatchFeignClient;
 import com.acme.ecommerce.order.client.ProductViewFeignClient.ProductView;
 import com.acme.ecommerce.order.client.PromotionFeignClient;
 import com.acme.ecommerce.order.client.SellerInternalFeignClient;
@@ -47,7 +49,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
  */
 class OrderBreakerCompensationIntegrationTest extends AbstractOrderIntegrationTest {
 
-  @MockitoBean private ProductViewFeignClient products;
+  @MockitoBean private ProductBatchFeignClient products;
   @MockitoBean private UserFeignClient users;
   @MockitoBean private CartFeignClient carts;
   @MockitoBean private InventoryFeignClient inventory;
@@ -102,20 +104,21 @@ class OrderBreakerCompensationIntegrationTest extends AbstractOrderIntegrationTe
                 true,
                 Instant.now(),
                 Instant.now()));
-    when(products.findById(shirt))
+    when(products.batch(anyString(), eq(true)))
         .thenReturn(
-            new ProductView(
-                shirt,
-                "SKU-Shirt",
-                "Shirt",
-                new BigDecimal("499.00"),
-                "INR",
-                true,
-                null,
-                null,
-                List.of(),
-                List.of(),
-                null));
+            List.of(
+                new ProductView(
+                    shirt,
+                    "SKU-Shirt",
+                    "Shirt",
+                    new BigDecimal("499.00"),
+                    "INR",
+                    true,
+                    null,
+                    null,
+                    List.of(),
+                    List.of(),
+                    null)));
     when(risks.assess(any(), any(), any())).thenReturn(new RiskService.Assessment(0, List.of()));
     when(inventory.reserve(any()))
         .thenReturn(

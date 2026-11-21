@@ -239,6 +239,8 @@ Request and response shapes for Phases 1–5 are in [api.md](api.md); later phas
 | POST | `/internal/products/{id}/sync-prices` | InternalCatalogController |
 | GET | `/internal/products/views/by-seller/{sellerId}` | InternalCatalogController |
 
+`GET /api/products/batch?ids=<uuid,uuid,..>` returns the lean product list (active products only, request order, duplicates collapsed, at most 50 ids, 400 on a non-UUID or more than 50). With `detail=true` each element is instead the same view as `GET /api/products/{id}` (images, variants, offers, buy box), inactive products are included, and the per-variant stock call is skipped (`availableQuantity` is not filled). Unknown ids are left out in both modes. Order-service uses `detail=true` to price a whole cart in one request.
+
 ## promotion-service (30)
 
 | Method | Path | Controller |

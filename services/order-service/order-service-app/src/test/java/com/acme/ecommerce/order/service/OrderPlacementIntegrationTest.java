@@ -23,7 +23,7 @@ import com.acme.ecommerce.order.client.DependencyBreakerCapability;
 import com.acme.ecommerce.order.client.InventoryFeignClient;
 import com.acme.ecommerce.order.client.PaymentFeignClient;
 import com.acme.ecommerce.order.client.PaymentFeignClient.PaymentResult;
-import com.acme.ecommerce.order.client.ProductViewFeignClient;
+import com.acme.ecommerce.order.client.ProductBatchFeignClient;
 import com.acme.ecommerce.order.client.ProductViewFeignClient.ProductView;
 import com.acme.ecommerce.order.client.PromotionFeignClient;
 import com.acme.ecommerce.order.client.RemoteCalls;
@@ -39,7 +39,9 @@ import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -55,7 +57,11 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
  */
 class OrderPlacementIntegrationTest extends AbstractOrderIntegrationTest {
 
-  @MockitoBean private ProductViewFeignClient products;
+  @MockitoBean private ProductBatchFeignClient products;
+
+  /** The product-service catalog behind the batch stub: id to its detail view. */
+  private final Map<UUID, ProductView> catalog = new HashMap<>();
+
   @MockitoBean private UserFeignClient users;
   @MockitoBean private CartFeignClient carts;
   @MockitoBean private OrderRemote remote;
@@ -107,8 +113,9 @@ class OrderPlacementIntegrationTest extends AbstractOrderIntegrationTest {
                 true,
                 Instant.now(),
                 Instant.now()));
-    when(products.findById(shirt)).thenReturn(product(shirt, "Shirt", "499.00", "INR", true));
-    when(products.findById(mug)).thenReturn(product(mug, "Mug", "10.00", "USD", true));
+    catalog.put(shirt, product(shirt, "Shirt", "499.00", "INR", true));
+    catalog.put(mug, product(mug, "Mug", "10.00", "USD", true));
+    when(products.batch(anyString(), eq(true))).thenAnswer(inv -> fromCatalog(inv.getArgument(0)));
     when(risks.assess(any(), any(), anyString()))
         .thenReturn(new RiskService.Assessment(0, List.of()));
     when(remote.reserveStock(any(), any(), anyString()))
@@ -126,6 +133,16 @@ class OrderPlacementIntegrationTest extends AbstractOrderIntegrationTest {
     when(remote.createPayment(any(), eq(user), any(), eq("INR"), eq("CARD")))
         .thenReturn(
             new PaymentResult("pay-1", null, "REQUIRES_PAYMENT", "RAZORPAY", null, "rzp_test"));
+  }
+
+  /** What the batch endpoint returns: the known ids among those requested, in request order. */
+  private List<ProductView> fromCatalog(String csv) {
+    return java.util.Arrays.stream(csv.split(","))
+        .map(UUID::fromString)
+        .distinct()
+        .map(catalog::get)
+        .filter(java.util.Objects::nonNull)
+        .toList();
   }
 
   private PlaceOrderRequest buyNow(UUID productId, int qty) {
@@ -222,7 +239,7 @@ class OrderPlacementIntegrationTest extends AbstractOrderIntegrationTest {
   @DisplayName("an inactive product cannot be ordered")
   void inactiveProduct() {
     UUID retired = UUID.randomUUID();
-    when(products.findById(retired)).thenReturn(product(retired, "Old", "5.00", "INR", false));
+    catalog.put(retired, product(retired, "Old", "5.00", "INR", false));
 
     assertThatThrownBy(() -> orders.place(user, "c@example.com", "key-old", buyNow(retired, 1)))
         .isInstanceOf(CodedException.class)
@@ -856,14 +873,15 @@ class OrderPlacementIntegrationTest extends AbstractOrderIntegrationTest {
   void openProductBreaker() {
     var registry = DependencyBreakerCapability.defaultRegistry();
     var host = new StubHost(503);
-    ProductViewFeignClient real =
+    ProductBatchFeignClient real =
         realClient(
-            ProductViewFeignClient.class,
+            ProductBatchFeignClient.class,
             "product-service",
             new DependencyBreakerCapability(registry),
             host);
-    when(products.findById(any())).thenAnswer(inv -> real.findById(inv.getArgument(0)));
-    trip(() -> real.findById(shirt), registry, "product-service");
+    when(products.batch(anyString(), anyBoolean()))
+        .thenAnswer(inv -> real.batch(inv.getArgument(0), inv.getArgument(1)));
+    trip(() -> real.batch(shirt.toString(), true), registry, "product-service");
 
     assertFailsFast(
         () -> orders.place(user, "c@example.com", "open-product", buyNow(shirt, 1)), host);
@@ -1016,13 +1034,14 @@ class OrderPlacementIntegrationTest extends AbstractOrderIntegrationTest {
   void productNotFoundKeepsDomainError() {
     var registry = DependencyBreakerCapability.defaultRegistry();
     var host = new StubHost(404);
-    ProductViewFeignClient real =
+    ProductBatchFeignClient real =
         realClient(
-            ProductViewFeignClient.class,
+            ProductBatchFeignClient.class,
             "product-service",
             new DependencyBreakerCapability(registry),
             host);
-    when(products.findById(any())).thenAnswer(inv -> real.findById(inv.getArgument(0)));
+    when(products.batch(anyString(), anyBoolean()))
+        .thenAnswer(inv -> real.batch(inv.getArgument(0), inv.getArgument(1)));
 
     for (int i = 0; i < 25; i++) {
       assertThatThrownBy(

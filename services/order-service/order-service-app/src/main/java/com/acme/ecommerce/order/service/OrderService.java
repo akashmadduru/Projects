@@ -13,7 +13,7 @@ import com.acme.ecommerce.order.api.dto.PlaceOrderRequest;
 import com.acme.ecommerce.order.client.CartFeignClient;
 import com.acme.ecommerce.order.client.PaymentFeignClient;
 import com.acme.ecommerce.order.client.PaymentFeignClient.PaymentResult;
-import com.acme.ecommerce.order.client.ProductViewFeignClient;
+import com.acme.ecommerce.order.client.ProductBatchFeignClient;
 import com.acme.ecommerce.order.client.ProductViewFeignClient.Offer;
 import com.acme.ecommerce.order.client.ProductViewFeignClient.ProductView;
 import com.acme.ecommerce.order.client.ProductViewFeignClient.Variant;
@@ -38,6 +38,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -45,6 +46,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -77,7 +79,7 @@ public class OrderService {
   private final OrderStore store;
   private final CartFeignClient carts;
   private final UserFeignClient users;
-  private final ProductViewFeignClient products;
+  private final ProductBatchFeignClient products;
   private final PricingService pricing;
   private final OrderRemote remote;
   private final OrderEventPublisher events;
@@ -89,7 +91,7 @@ public class OrderService {
       OrderStore store,
       CartFeignClient carts,
       UserFeignClient users,
-      ProductViewFeignClient products,
+      ProductBatchFeignClient products,
       PricingService pricing,
       OrderRemote remote,
       OrderEventPublisher events,
@@ -569,10 +571,8 @@ public class OrderService {
       List<DealClaimItem> dealClaims,
       Map<UUID, String> sellerNames,
       int lineDiscountPercent) {
-    List<ProductView> views = new ArrayList<>();
-    for (Line line : lines) {
-      views.add(fetchProduct(line.productId()));
-    }
+    Map<UUID, ProductView> views =
+        fetchProducts(lines.stream().map(Line::productId).distinct().toList());
     List<DealPrice> deals =
         remote.dealPrices(
             userId, lines.stream().map(l -> new DealKey(l.productId(), l.variantId())).toList());
@@ -580,7 +580,7 @@ public class OrderService {
     String currency = null;
     for (int n = 0; n < lines.size(); n++) {
       Line line = lines.get(n);
-      ProductView product = views.get(n);
+      ProductView product = views.get(line.productId());
       Variant variant = null;
       boolean hasVariants =
           product.variants() != null
@@ -765,15 +765,36 @@ public class OrderService {
     }
   }
 
-  private ProductView fetchProduct(UUID productId) {
+  /**
+   * One batched, detail-level product-service read for the distinct ids (an order has at most {@link
+   * #MAX_LINES} lines, the endpoint's cap). A requested id missing from the result is refused here,
+   * before anything is saved.
+   */
+  Map<UUID, ProductView> fetchProducts(List<UUID> productIds) {
+    Map<UUID, ProductView> found = new HashMap<>();
     try {
-      return products.findById(productId);
+      String csv = productIds.stream().map(UUID::toString).collect(Collectors.joining(","));
+      List<ProductView> views = products.batch(csv, true);
+      if (views != null) {
+        for (ProductView view : views) {
+          if (view != null && view.id() != null) {
+            found.putIfAbsent(view.id(), view);
+          }
+        }
+      }
     } catch (FeignException.NotFound e) {
       throw new CodedException(
           ErrorCode.PRODUCT_UNAVAILABLE, "A product in your order no longer exists");
     } catch (FeignException e) {
       throw RemoteCalls.unavailable("product-service", e);
     }
+    for (UUID id : productIds) {
+      if (!found.containsKey(id)) {
+        throw new CodedException(
+            ErrorCode.PRODUCT_UNAVAILABLE, "A product in your order no longer exists");
+      }
+    }
+    return found;
   }
 
   private void clearCartBestEffort(UUID orderId) {

@@ -335,6 +335,11 @@
       "requiredInProd": true,
       "text": "Hostname the Eureka server advertises. No default in `prod`."
     },
+    "ORDER_PRODUCT_BATCH_READ_TIMEOUT_MS": {
+      "group": "Business rules",
+      "usedBy": "order",
+      "text": "Read timeout (ms, default 5000) of the one batched product-service call that order placement makes for all cart lines (`GET /api/products/batch?detail=true`, up to 50 products). Longer than the 3 s single-lookup timeout; connect timeout stays 1 s."
+    },
     "ORDER_RETURNS_REFUND_POLL_INTERVAL_MS": {
       "group": "Business rules",
       "usedBy": "order",
