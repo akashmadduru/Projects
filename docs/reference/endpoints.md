@@ -7,6 +7,9 @@ Request and response shapes for Phases 1–5 are in [api.md](api.md); later phas
 - `/api/**`: public through the gateway (the gateway and each service still enforce auth).
 - `/api/admin/**`, `/api/seller/**`: role-gated (ADMIN, SUPPORT, FINANCE, CATALOG_MANAGER, SELLER).
 - `/internal/**`: service-to-service only, guarded by `X-Internal-Token`. The gateway does not route them.
+  `/internal/carts/**` is internal-only in the same way: order-service calls
+  `POST /internal/carts/{userId}/consumed` (body: `orderId`, up to 50 lines of product, variant, offer,
+  quantity 1 to 99 and `addedAt`) to remove exactly the lines an order consumed from that user's cart.
 
 ## auth-service (33)
 
@@ -46,7 +49,7 @@ Request and response shapes for Phases 1–5 are in [api.md](api.md); later phas
 | POST | `/internal/privacy/users/{userId}/verify-password` | PrivacyVerifyController |
 | POST | `/internal/users/{userId}/roles` | InternalRoleController |
 
-## cart-service (28)
+## cart-service (29)
 
 | Method | Path | Controller |
 |---|---|---|
@@ -77,6 +80,7 @@ Request and response shapes for Phases 1–5 are in [api.md](api.md); later phas
 | PUT | `/api/wishlist/{productId}` | WishlistController |
 | POST | `/api/wishlist/merge` | WishlistController |
 | POST | `/internal/cart/reminders/run` | ReminderController |
+| POST | `/internal/carts/{userId}/consumed` | InternalCartController |
 | GET | `/internal/privacy/users/{userId}/export` | PrivacyExportController |
 
 ## inventory-service (23)

@@ -29,8 +29,6 @@ Shortcuts taken while building customer accounts (login, Google SSO, user/cart/o
 | TD-P6-15 | Invoice PDF is a minimal hand-written PDF (no rupee glyph) | phase6 | Med | S | [phase6.md](phase6.md#td-p6-15) |
 | TD-P6-17 | Shipping/tax/COD rules hard-wired; client-side estimates | phase6 | Med | M | [phase6.md](phase6.md#td-p6-17) |
 | TD-TEST-04 | Gateway route/authorization contract untested | testing | Med | M | [testing.md](testing.md#td-test-04) |
-| TD-BE-03 | Cart clear after order is best-effort (stale cart only; re-order refused since TD-BE-15) | backend | Low | M | [backend.md](backend.md#td-be-03) |
-| TD-BE-07 | No Feign circuit breakers in order-service | backend | Med | S | [backend.md](backend.md#td-be-07) |
 | TD-BE-09 | Cart/wishlist trust client snapshots; productId unchecked | backend | Med | S | [backend.md](backend.md#td-be-09) |
 | TD-SEC-04 | Open registration by default (email verification now exists; see TD-P6-10) | infra-security | Med | S | [infra-security.md](infra-security.md#td-sec-04) |
 | TD-SEC-05 | Manual DB script needed for existing volumes | infra-security | Med | M | [infra-security.md](infra-security.md#td-sec-05) |
@@ -38,7 +36,6 @@ Shortcuts taken while building customer accounts (login, Google SSO, user/cart/o
 | TD-FE-03 | Optimistic cart/wishlist edits are last-write-wins | frontend | Med | M | [frontend.md](frontend.md#td-fe-03) |
 | TD-FE-04 | Failed login merge has no in-session retry | frontend | Low | S | [frontend.md](frontend.md#td-fe-04) |
 | TD-BE-12 | SecurityConfig copy-pasted across 6 services | backend | Low | M | [backend.md](backend.md#td-be-12) |
-| TD-BE-15 | Concurrent checkouts with different keys can double-order one cart | backend | Med | M | [backend.md](backend.md#td-be-15) |
 | TD-BE-16 | Build tooling quirks on Windows (spotless bind mount, buildx entitlement, LF endings) | backend | Low | S | [backend.md](backend.md#td-be-16) |
 | TD-BE-17 | Inactive products are readable by anonymous callers (`/{id}`, `batch?detail=true`) | backend | Low | S | [backend.md](backend.md#td-be-17) |
 | TD-BE-18 | Detail batch still makes one stock-rows call per product | backend | Low | M | [backend.md](backend.md#td-be-18) |

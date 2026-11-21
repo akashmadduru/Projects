@@ -47,7 +47,7 @@ All project documentation lives in this folder, grouped by what you are trying t
 - [guides/ci-cd.md](guides/ci-cd.md): GitHub Actions workflows, the enforcement switch, the baseline to clear.
 - [guides/deploy-aws.md](guides/deploy-aws.md): Terraform, EKS and Helm deployment.
 - [guides/postman.md](guides/postman.md): the Postman collection.
-- [guides/runbooks/](guides/runbooks/): [first admin user](guides/runbooks/first-admin-user.md), [rotate a secret](guides/runbooks/rotate-secrets.md), [leaked database dump](guides/runbooks/leaked-database-dump.md), [payment problems](guides/runbooks/payment-problems.md).
+- [guides/runbooks/](guides/runbooks/): [first admin user](guides/runbooks/first-admin-user.md), [rotate a secret](guides/runbooks/rotate-secrets.md), [leaked database dump](guides/runbooks/leaked-database-dump.md), [payment problems](guides/runbooks/payment-problems.md), [checkout-integrity rollback](guides/runbooks/checkout-integrity-rollback.md).
 
 ### Components
 - [services/](services/): deep dives for auth-service, gateway, eureka-server, product-service, inventory-service, [payment-service](services/payment-service.md).
