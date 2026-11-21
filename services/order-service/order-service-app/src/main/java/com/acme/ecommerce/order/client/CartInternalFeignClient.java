@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.RequestBody;
     name = "cart-service",
     contextId = "cartInternalClient",
     url = "${services.cart.url:}",
-    configuration = InternalFeignConfig.class)
+    configuration = {InternalFeignConfig.class, NoUserTokenFeignConfig.class})
 public interface CartInternalFeignClient {
 
   @PostMapping("/internal/carts/{userId}/consumed")
