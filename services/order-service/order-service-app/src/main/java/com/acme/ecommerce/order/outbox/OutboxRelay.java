@@ -19,7 +19,8 @@ import org.springframework.stereotype.Component;
  * Delivers outbox rows (TD-P6-01). Every 2 s, on one replica ({@link JobLock}), it takes due rows
  * oldest first and runs the matching call. A row waits while an older row of the same aggregate is
  * still pending, so one order's events and effects happen in the order they were recorded. A
- * failure is retried with exponential backoff (2 s doubling, capped at an hour); after {@link
+ * failure is retried with exponential backoff (2 s doubling, capped at an hour; CLEAR_CART
+ * rows cap at 4 minutes and give up after 400 attempts); after {@link
  * #MAX_ATTEMPTS} the row is {@code DEAD}, logged at ERROR as "OUTBOX DEAD" for alerting, and stays
  * listed for an admin to retry. Delivery is at least once; every receiver is idempotent.
  */
@@ -32,6 +33,11 @@ public class OutboxRelay {
   static final int BATCH = 100;
   static final int MAX_ROUNDS = 10;
   private static final long MAX_BACKOFF_SECONDS = 3600;
+
+  /** The cart clear is cheap and wanted soon: retry at most every 4 minutes, for about 26 hours. */
+  static final int CLEAR_CART_MAX_ATTEMPTS = 400;
+
+  private static final long CLEAR_CART_MAX_BACKOFF_SECONDS = 240;
 
   record Row(UUID id, UUID aggregateId, Kind kind, String payload, int attempts) {}
 
@@ -177,6 +183,7 @@ public class OutboxRelay {
       case RELEASE_COINS -> remote.releaseCoinsNow(id);
       case CANCEL_PAYMENT -> remote.cancelPaymentNow(id);
       case COD_COLLECTED -> remote.codCollectedNow(id);
+      case CLEAR_CART -> remote.clearCartNow(read(row.payload(), OrderRemote.ClearCartPayload.class));
     }
   }
 
@@ -185,8 +192,12 @@ public class OutboxRelay {
     int attempts = row.attempts() + 1;
     String error = e.toString();
     error = error.length() > 500 ? error.substring(0, 500) : error;
-    boolean dead = attempts >= MAX_ATTEMPTS;
-    long backoff = Math.min(MAX_BACKOFF_SECONDS, 2L << Math.min(attempts, 20));
+    boolean clearCart = row.kind() == Kind.CLEAR_CART;
+    boolean dead = attempts >= (clearCart ? CLEAR_CART_MAX_ATTEMPTS : MAX_ATTEMPTS);
+    long backoff =
+        Math.min(
+            clearCart ? CLEAR_CART_MAX_BACKOFF_SECONDS : MAX_BACKOFF_SECONDS,
+            2L << Math.min(attempts, 20));
     jdbc.sql(
             "UPDATE orders.outbox SET attempts = :n, last_error = :e, status = :s,"
                 + " next_attempt_at = now() + make_interval(secs => :b) WHERE id = :i")

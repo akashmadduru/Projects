@@ -245,6 +245,9 @@ spring.cloud.openfeign:
       cartClient:
         connect-timeout: 1000
         read-timeout: 3000
+      cartInternalClient:
+        connect-timeout: 1000
+        read-timeout: 3000
       userAddressClient:
         connect-timeout: 1000
         read-timeout: 3000

@@ -28,7 +28,8 @@ public class Outbox {
     RELEASE_COUPON,
     RELEASE_COINS,
     CANCEL_PAYMENT,
-    COD_COLLECTED
+    COD_COLLECTED,
+    CLEAR_CART
   }
 
   private final JdbcClient jdbc;
@@ -50,6 +51,15 @@ public class Outbox {
         .param("a", aggregateId)
         .param("k", kind.name())
         .param("p", toJson(payload))
+        .param("i", idemKey)
+        .update();
+  }
+
+  /** Marks a row DONE if it is still PENDING (an inline delivery succeeded). Returns rows set. */
+  public int complete(String idemKey) {
+    return jdbc.sql(
+            "UPDATE orders.outbox SET status = 'DONE', done_at = now(), attempts = attempts + 1,"
+                + " last_error = NULL WHERE idem_key = :i AND status = 'PENDING'")
         .param("i", idemKey)
         .update();
   }
