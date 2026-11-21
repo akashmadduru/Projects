@@ -1,0 +1,1126 @@
+diff --git a/libs/common-core/src/main/java/com/acme/ecommerce/common/core/net/ClientAddress.java b/libs/common-core/src/main/java/com/acme/ecommerce/common/core/net/ClientAddress.java
+new file mode 100644
+index 0000000..0e6597d
+--- /dev/null
++++ b/libs/common-core/src/main/java/com/acme/ecommerce/common/core/net/ClientAddress.java
+@@ -0,0 +1,78 @@
++package com.acme.ecommerce.common.core.net;
++
++import java.net.InetAddress;
++import java.net.UnknownHostException;
++import java.util.Optional;
++
++/**
++ * The client-address contract shared by the reactive gateway and the servlet services: the header
++ * name, a strict IP-literal parser and a canonical formatter. Framework-free on purpose.
++ *
++ * <p>Parsing is resolver-free: {@link InetAddress#ofLiteral} only parses IP literals and never
++ * falls back to a DNS or hosts lookup, unlike {@link InetAddress#getByName}. An IPv4-mapped IPv6
++ * address ({@code ::ffff:1.2.3.4}) becomes an {@code Inet4Address} and so equals the plain IPv4
++ * address. Never throws.
++ */
++public final class ClientAddress {
++
++  /** Set by the gateway on proxied requests only; stripped from every inbound request. */
++  public static final String HEADER = "X-Internal-Client-Ip";
++
++  private static final int MAX_ENTRY_LENGTH = 64;
++
++  private ClientAddress() {}
++
++  /** Parses an IP literal (optionally padded, bracketed, with a v4 port or a zone id). */
++  public static Optional<InetAddress> parse(String raw) {
++    if (raw == null) {
++      return Optional.empty();
++    }
++    String s = raw.trim();
++    if (s.isEmpty() || s.length() > MAX_ENTRY_LENGTH) {
++      return Optional.empty();
++    }
++    if (s.startsWith("[")) {
++      int close = s.indexOf(']');
++      if (close < 0) {
++        return Optional.empty();
++      }
++      String rest = s.substring(close + 1);
++      if (!rest.isEmpty() && !(rest.startsWith(":") && isPort(rest.substring(1)))) {
++        return Optional.empty();
++      }
++      s = s.substring(1, close);
++    }
++    int zone = s.indexOf('%');
++    if (zone >= 0 && s.indexOf(':') >= 0) {
++      s = s.substring(0, zone);
++    }
++    int firstColon = s.indexOf(':');
++    if (firstColon >= 0 && firstColon == s.lastIndexOf(':') && s.indexOf('.') >= 0) {
++      if (!isPort(s.substring(firstColon + 1))) {
++        return Optional.empty();
++      }
++      s = s.substring(0, firstColon); // IPv4:port
++    }
++    if (s.isEmpty() || (s.indexOf(':') < 0 && s.chars().filter(c -> c == '.').count() != 3)) {
++      return Optional.empty(); // dotted quad only: ofLiteral would also accept "1" or "127.1"
++    }
++    try {
++      return Optional.of(InetAddress.ofLiteral(s));
++    } catch (IllegalArgumentException e) {
++      return Optional.empty();
++    }
++  }
++
++  private static boolean isPort(String p) {
++    return p.length() >= 1 && p.length() <= 5 && p.chars().allMatch(ch -> ch >= '0' && ch <= '9');
++  }
++
++  /** Canonical, scope-free text form of an address (never a DNS lookup). */
++  public static String format(InetAddress address) {
++    try {
++      return InetAddress.getByAddress(address.getAddress()).getHostAddress();
++    } catch (UnknownHostException e) {
++      return address.getHostAddress();
++    }
++  }
++}
+diff --git a/libs/common-core/src/test/java/com/acme/ecommerce/common/core/net/ClientAddressTest.java b/libs/common-core/src/test/java/com/acme/ecommerce/common/core/net/ClientAddressTest.java
+new file mode 100644
+index 0000000..f866d7f
+--- /dev/null
++++ b/libs/common-core/src/test/java/com/acme/ecommerce/common/core/net/ClientAddressTest.java
+@@ -0,0 +1,96 @@
++package com.acme.ecommerce.common.core.net;
++
++import static org.assertj.core.api.Assertions.assertThat;
++
++import java.net.InetAddress;
++import java.util.Optional;
++import org.junit.jupiter.api.DisplayName;
++import org.junit.jupiter.api.Test;
++
++class ClientAddressTest {
++
++  private static String ip(String raw) {
++    return ClientAddress.parse(raw).map(InetAddress::getHostAddress).orElse(null);
++  }
++
++  @Test
++  @DisplayName("padded values and ports are accepted; the port is stripped")
++  void paddingAndPorts() {
++    assertThat(ip(" 1.1.1.1:8080 ")).isEqualTo("1.1.1.1");
++    assertThat(ip("3.3.3.3")).isEqualTo("3.3.3.3");
++    assertThat(ip("[2001:db8::1]:443")).isEqualTo(ip("2001:db8::1"));
++  }
++
++  @Test
++  @DisplayName("missing, blank, garbage, hostname, oversized and non-literal values are rejected")
++  void rejects() {
++    String big = "a".repeat(5000);
++    for (String raw :
++        new String[] {
++          null,
++          "",
++          "   ",
++          "garbage",
++          "example.com",
++          "deadbeef",
++          big,
++          "1.1.1.1, garbage",
++          "999.1.1.1",
++          "[::1]garbage",
++          "[1.2.3.4]:x:y",
++          "1.1.1.1%x",
++          "1.1.1.256",
++          "[1.1.1.1",
++          ".:1",
++          "..:",
++          ":.",
++          "a:1",
++          "1:2:3:4:5:6:7:8:9",
++          "1::2::3",
++          ":::",
++          "1:2:3:4:5:6:7:1.2.3.4",
++          "::1.2.3.999",
++          "1.2.3.4::",
++          "127.1",
++          "1"
++        }) {
++      assertThat(ClientAddress.parse(raw)).as("raw=%s", raw).isEmpty();
++    }
++  }
++
++  @Test
++  @DisplayName("IPv6 written differently parses to the same address; v4 is not v6")
++  void canonicalForms() {
++    InetAddress a = ClientAddress.parse("2001:DB8::1").orElseThrow();
++    for (String form :
++        new String[] {
++          "2001:0db8:0:0:0:0:0:1", "[2001:db8::1]", "[2001:db8::1]:443", "2001:db8::1%eth0"
++        }) {
++      assertThat(ClientAddress.parse(form).orElseThrow()).as(form).isEqualTo(a);
++    }
++    InetAddress v4 = ClientAddress.parse("1.2.3.4").orElseThrow();
++    assertThat(v4).isNotEqualTo(ClientAddress.parse("::102:304").orElseThrow());
++  }
++
++  @Test
++  @DisplayName("compressed and embedded-IPv4 forms parse; IPv4-mapped IPv6 equals the IPv4")
++  void ipv6Forms() {
++    assertThat(ip("::")).isEqualTo("0:0:0:0:0:0:0:0");
++    assertThat(ip("::1")).isEqualTo("0:0:0:0:0:0:0:1");
++    assertThat(ip("1:2:3:4:5:6:7:8")).isEqualTo("1:2:3:4:5:6:7:8");
++    assertThat(ip("1::")).isEqualTo("1:0:0:0:0:0:0:0");
++    assertThat(ClientAddress.parse("::ffff:1.2.3.4")).isEqualTo(ClientAddress.parse("1.2.3.4"));
++  }
++
++  @Test
++  @DisplayName("format is canonical and scope-free")
++  void format() throws Exception {
++    assertThat(ClientAddress.format(ClientAddress.parse("::FFFF:1.2.3.4").orElseThrow()))
++        .isEqualTo("1.2.3.4");
++    assertThat(ClientAddress.format(ClientAddress.parse("2001:DB8::1%eth0").orElseThrow()))
++        .isEqualTo("2001:db8:0:0:0:0:0:1");
++    Optional<InetAddress> scoped = Optional.of(InetAddress.getByName("fe80::1%1"));
++    assertThat(ClientAddress.format(scoped.get())).doesNotContain("%");
++    assertThat(ClientAddress.HEADER).isEqualTo("X-Internal-Client-Ip");
++  }
++}
+diff --git a/services/gateway/src/main/java/com/acme/ecommerce/gateway/filter/ClientIpPropagationGatewayFilter.java b/services/gateway/src/main/java/com/acme/ecommerce/gateway/filter/ClientIpPropagationGatewayFilter.java
+new file mode 100644
+index 0000000..639b71b
+--- /dev/null
++++ b/services/gateway/src/main/java/com/acme/ecommerce/gateway/filter/ClientIpPropagationGatewayFilter.java
+@@ -0,0 +1,56 @@
++package com.acme.ecommerce.gateway.filter;
++
++import com.acme.ecommerce.common.core.net.ClientAddress;
++import org.springframework.cloud.gateway.filter.GatewayFilterChain;
++import org.springframework.cloud.gateway.filter.GlobalFilter;
++import org.springframework.core.Ordered;
++import org.springframework.http.server.reactive.ServerHttpRequest;
++import org.springframework.stereotype.Component;
++import org.springframework.web.server.ServerWebExchange;
++import reactor.core.publisher.Mono;
++
++/**
++ * Tells downstream services who the client is, via {@link GatewayHeaders#CLIENT_IP}.
++ *
++ * <p>A GlobalFilter (not a WebFilter) so it only runs for requests that matched a route and will be
++ * proxied: 401/403/429 and unmatched paths never reach it. Order {@value #ORDER} is after identity
++ * propagation (0) and before routing ({@code RouteToRequestUrlFilter} at 10000). The header is
++ * {@code set} (replacing any value) when the address is known and removed otherwise, and {@link
++ * InboundHeaderSanitizationWebFilter} has already stripped every client-sent {@code x-internal-*}.
++ * Kept apart from {@link IdentityPropagationGatewayFilter}, whose only source is the token.
++ */
++@Component
++public class ClientIpPropagationGatewayFilter implements GlobalFilter, Ordered {
++
++  public static final int ORDER = 1;
++
++  private final GatewayClientIp clientIp;
++
++  public ClientIpPropagationGatewayFilter(GatewayClientIp clientIp) {
++    this.clientIp = clientIp;
++  }
++
++  @Override
++  public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
++    String ip = clientIp.resolve(exchange.getRequest()).map(ClientAddress::format).orElse(null);
++    ServerHttpRequest request =
++        exchange
++            .getRequest()
++            .mutate()
++            .headers(
++                headers -> {
++                  if (ip == null) {
++                    headers.remove(GatewayHeaders.CLIENT_IP);
++                  } else {
++                    headers.set(GatewayHeaders.CLIENT_IP, ip);
++                  }
++                })
++            .build();
++    return chain.filter(exchange.mutate().request(request).build());
++  }
++
++  @Override
++  public int getOrder() {
++    return ORDER;
++  }
++}
+diff --git a/services/gateway/src/main/java/com/acme/ecommerce/gateway/filter/GatewayClientIp.java b/services/gateway/src/main/java/com/acme/ecommerce/gateway/filter/GatewayClientIp.java
+new file mode 100644
+index 0000000..2a9663f
+--- /dev/null
++++ b/services/gateway/src/main/java/com/acme/ecommerce/gateway/filter/GatewayClientIp.java
+@@ -0,0 +1,50 @@
++package com.acme.ecommerce.gateway.filter;
++
++import com.acme.ecommerce.common.core.net.ClientAddress;
++import java.net.InetAddress;
++import java.net.InetSocketAddress;
++import java.util.List;
++import java.util.Optional;
++import org.springframework.beans.factory.annotation.Value;
++import org.springframework.http.server.reactive.ServerHttpRequest;
++import org.springframework.stereotype.Component;
++
++/**
++ * The one place the gateway decides who the client is. Used by the rate limiter's anonymous key and
++ * by {@link ClientIpPropagationGatewayFilter}, so the two can never disagree.
++ *
++ * <p>Behind CloudFront and an ALB the socket peer is the load balancer, not the caller. When {@code
++ * gateway.rate-limit.trusted-proxy-hops} is N (> 0) the client is the N-th entry from the RIGHT of
++ * {@code X-Forwarded-For}: each trusted proxy appends the address it received the request from, so
++ * only the entries on the left can be forged by the caller. Fewer than N entries, or an entry that
++ * is not an IP literal, falls back to the socket peer. An unresolvable peer yields empty.
++ */
++@Component
++public class GatewayClientIp {
++
++  private final int trustedProxyHops;
++
++  public GatewayClientIp(
++      @Value("${gateway.rate-limit.trusted-proxy-hops:0}") int trustedProxyHops) {
++    this.trustedProxyHops = trustedProxyHops;
++  }
++
++  public Optional<InetAddress> resolve(ServerHttpRequest request) {
++    if (trustedProxyHops > 0) {
++      // RFC 9110 5.3: several field lines are one comma-joined list.
++      List<String> lines = request.getHeaders().getOrEmpty("X-Forwarded-For");
++      if (!lines.isEmpty()) {
++        String[] parts = String.join(",", lines).split(",", -1);
++        if (parts.length >= trustedProxyHops) {
++          Optional<InetAddress> client =
++              ClientAddress.parse(parts[parts.length - trustedProxyHops]);
++          if (client.isPresent()) {
++            return client;
++          }
++        }
++      }
++    }
++    InetSocketAddress peer = request.getRemoteAddress();
++    return peer == null ? Optional.empty() : Optional.ofNullable(peer.getAddress());
++  }
++}
+diff --git a/services/gateway/src/main/java/com/acme/ecommerce/gateway/filter/GatewayHeaders.java b/services/gateway/src/main/java/com/acme/ecommerce/gateway/filter/GatewayHeaders.java
+index bf6199a..ec8a068 100644
+--- a/services/gateway/src/main/java/com/acme/ecommerce/gateway/filter/GatewayHeaders.java
++++ b/services/gateway/src/main/java/com/acme/ecommerce/gateway/filter/GatewayHeaders.java
+@@ -1,6 +1,7 @@
+ package com.acme.ecommerce.gateway.filter;
+ 
+ import com.acme.ecommerce.common.core.correlation.CorrelationIdHolder;
++import com.acme.ecommerce.common.core.net.ClientAddress;
+ import java.util.List;
+ import java.util.Locale;
+ 
+@@ -40,6 +41,9 @@ public final class GatewayHeaders {
+   /** Shared with every other service in the platform via common-core. */
+   public static final String CORRELATION_ID = CorrelationIdHolder.HEADER_NAME;
+ 
++  /** Client IP decided by the gateway ({@link GatewayClientIp}); set on proxied requests only. */
++  public static final String CLIENT_IP = ClientAddress.HEADER;
++
+   /**
+    * Inbound header prefixes that are always stripped.
+    *
+diff --git a/services/gateway/src/main/java/com/acme/ecommerce/gateway/filter/RateLimitWebFilter.java b/services/gateway/src/main/java/com/acme/ecommerce/gateway/filter/RateLimitWebFilter.java
+index 5301c73..6a61c86 100644
+--- a/services/gateway/src/main/java/com/acme/ecommerce/gateway/filter/RateLimitWebFilter.java
++++ b/services/gateway/src/main/java/com/acme/ecommerce/gateway/filter/RateLimitWebFilter.java
+@@ -1,8 +1,8 @@
+ package com.acme.ecommerce.gateway.filter;
+ 
+ import com.acme.ecommerce.common.core.error.ErrorCode;
++import com.acme.ecommerce.common.core.net.ClientAddress;
+ import com.acme.ecommerce.gateway.error.ProblemResponseWriter;
+-import java.net.InetSocketAddress;
+ import java.time.Duration;
+ import java.util.Map;
+ import org.slf4j.Logger;
+@@ -22,9 +22,9 @@ import reactor.core.publisher.Mono;
+ /**
+  * Edge request rate limiting backed by Redis (fixed one-minute windows, shared across gateway
+  * replicas). The key is the verified JWT subject when the request is authenticated, otherwise the
+- * remote IP. Writes (POST/PUT/PATCH/DELETE) and reads have separate budgets. Auth endpoints keep
+- * their own limiter in auth-service and are skipped here. FAIL-OPEN: a Redis outage never blocks
+- * traffic.
++ * client IP (see {@link GatewayClientIp}). Writes (POST/PUT/PATCH/DELETE) and reads have separate
++ * budgets. Auth endpoints keep their own limiter in auth-service and are skipped here. FAIL-OPEN: a
++ * Redis outage never blocks traffic.
+  *
+  * <p>Runs after Spring Security (order -100) so only a verified token can select the per-user key.
+  */
+@@ -39,10 +39,7 @@ public class RateLimitWebFilter implements WebFilter, Ordered {
+   private final boolean enabled;
+   private final long writesPerMinute;
+   private final long readsPerMinute;
+-  private final int trustedProxyHops;
+-
+-  private static final java.util.regex.Pattern IP_LITERAL =
+-      java.util.regex.Pattern.compile("^[0-9a-fA-F:.]{2,45}$");
++  private final GatewayClientIp clientIp;
+ 
+   public RateLimitWebFilter(
+       ReactiveStringRedisTemplate redis,
+@@ -50,8 +47,8 @@ public class RateLimitWebFilter implements WebFilter, Ordered {
+       @Value("${gateway.rate-limit.enabled:true}") boolean enabled,
+       @Value("${gateway.rate-limit.writes-per-minute:30}") long writesPerMinute,
+       @Value("${gateway.rate-limit.reads-per-minute:300}") long readsPerMinute,
+-      @Value("${gateway.rate-limit.trusted-proxy-hops:0}") int trustedProxyHops) {
+-    this.trustedProxyHops = trustedProxyHops;
++      GatewayClientIp clientIp) {
++    this.clientIp = clientIp;
+     this.redis = redis;
+     this.problems = problems;
+     this.enabled = enabled;
+@@ -124,35 +121,13 @@ public class RateLimitWebFilter implements WebFilter, Ordered {
+         .map(ctx -> ctx.getAuthentication())
+         .filter(a -> a != null && a.isAuthenticated() && a.getPrincipal() instanceof Jwt)
+         .map(a -> "u:" + ((Jwt) a.getPrincipal()).getSubject())
+-        .switchIfEmpty(Mono.fromSupplier(() -> "ip:" + remoteIp(exchange)));
+-  }
+-
+-  /**
+-   * Client address used as the rate-limit key for anonymous callers.
+-   *
+-   * <p>Behind CloudFront and an ALB the socket peer is the load balancer, not the caller, so every
+-   * anonymous user would share one bucket. When {@code gateway.rate-limit.trusted-proxy-hops} is N
+-   * (> 0) the client is the N-th entry from the RIGHT of {@code X-Forwarded-For}: each trusted
+-   * proxy appends the address it received the request from, so only the entries on the left can be
+-   * forged by the caller and the entry N from the right cannot. Fewer than N entries, or anything
+-   * that is not an IP literal, falls back to the socket peer.
+-   */
+-  private String remoteIp(ServerWebExchange exchange) {
+-    if (trustedProxyHops > 0) {
+-      String forwarded = exchange.getRequest().getHeaders().getFirst("X-Forwarded-For");
+-      if (forwarded != null) {
+-        String[] parts = forwarded.split(",");
+-        if (parts.length >= trustedProxyHops) {
+-          String candidate = parts[parts.length - trustedProxyHops].trim();
+-          if (IP_LITERAL.matcher(candidate).matches()) {
+-            return candidate;
+-          }
+-        }
+-      }
+-    }
+-    InetSocketAddress addr = exchange.getRequest().getRemoteAddress();
+-    return addr == null || addr.getAddress() == null
+-        ? "unknown"
+-        : addr.getAddress().getHostAddress();
++        .switchIfEmpty(
++            Mono.fromSupplier(
++                () ->
++                    "ip:"
++                        + clientIp
++                            .resolve(exchange.getRequest())
++                            .map(ClientAddress::format)
++                            .orElse("unknown")));
+   }
+ }
+diff --git a/services/gateway/src/test/java/com/acme/ecommerce/gateway/GatewayClientIpIntegrationTest.java b/services/gateway/src/test/java/com/acme/ecommerce/gateway/GatewayClientIpIntegrationTest.java
+new file mode 100644
+index 0000000..4fe046c
+--- /dev/null
++++ b/services/gateway/src/test/java/com/acme/ecommerce/gateway/GatewayClientIpIntegrationTest.java
+@@ -0,0 +1,285 @@
++package com.acme.ecommerce.gateway;
++
++import static org.assertj.core.api.Assertions.assertThat;
++import static org.mockito.ArgumentMatchers.any;
++import static org.mockito.ArgumentMatchers.anyString;
++import static org.mockito.Mockito.mock;
++import static org.mockito.Mockito.when;
++
++import com.acme.ecommerce.gateway.support.StubHttpServer;
++import com.acme.ecommerce.gateway.support.StubServiceInstances;
++import com.acme.ecommerce.gateway.support.TestKeys;
++import java.time.Duration;
++import java.util.List;
++import java.util.Map;
++import java.util.UUID;
++import java.util.concurrent.ConcurrentHashMap;
++import java.util.concurrent.atomic.AtomicLong;
++import org.junit.jupiter.api.AfterAll;
++import org.junit.jupiter.api.BeforeEach;
++import org.junit.jupiter.api.DisplayName;
++import org.junit.jupiter.api.Test;
++import org.springframework.boot.test.context.SpringBootTest;
++import org.springframework.boot.test.context.TestConfiguration;
++import org.springframework.boot.test.web.server.LocalServerPort;
++import org.springframework.cloud.loadbalancer.annotation.LoadBalancerClient;
++import org.springframework.cloud.loadbalancer.annotation.LoadBalancerClients;
++import org.springframework.cloud.loadbalancer.core.ServiceInstanceListSupplier;
++import org.springframework.context.annotation.Bean;
++import org.springframework.context.annotation.Import;
++import org.springframework.core.env.Environment;
++import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
++import org.springframework.data.redis.core.ReactiveValueOperations;
++import org.springframework.http.HttpHeaders;
++import org.springframework.http.MediaType;
++import org.springframework.test.context.DynamicPropertyRegistry;
++import org.springframework.test.context.DynamicPropertySource;
++import org.springframework.test.context.bean.override.mockito.MockitoBean;
++import org.springframework.test.web.reactive.server.WebTestClient;
++import reactor.core.publisher.Mono;
++
++/**
++ * AC-4, AC-5, AC-10(a)(b): client -> real Netty gateway -> real filter chain -> echo stub. Nothing
++ * in the filter chain is mocked; only Redis (so 429 is reachable) and Eureka are replaced.
++ */
++@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
++@Import(GatewayClientIpIntegrationTest.StubDownstreamConfiguration.class)
++class GatewayClientIpIntegrationTest {
++
++  private static final String HEADER_KEY = "\"x-internal-client-ip\":";
++  private static final TestKeys KEYS = TestKeys.generate("gateway-clientip-kid");
++  private static final StubHttpServer DOWNSTREAM = StubHttpServer.start(KEYS::jwksJson);
++
++  @LocalServerPort private int port;
++
++  @MockitoBean private ReactiveStringRedisTemplate redis;
++
++  private final Map<String, AtomicLong> counters = new ConcurrentHashMap<>();
++  private WebTestClient client;
++
++  @DynamicPropertySource
++  static void gatewayProperties(DynamicPropertyRegistry registry) {
++    registry.add("test.downstream.port", DOWNSTREAM::port);
++    registry.add("gateway.jwt.jwks-uri", () -> DOWNSTREAM.baseUrl() + "/.well-known/jwks.json");
++    registry.add("eureka.client.enabled", () -> "false");
++    registry.add("gateway.rate-limit.trusted-proxy-hops", () -> 1);
++    registry.add("gateway.rate-limit.writes-per-minute", () -> 2);
++    registry.add("gateway.rate-limit.reads-per-minute", () -> 1000);
++  }
++
++  @AfterAll
++  static void stopDownstream() {
++    DOWNSTREAM.close();
++  }
++
++  @SuppressWarnings("unchecked")
++  @BeforeEach
++  void setUp() {
++    ReactiveValueOperations<String, String> ops = mock(ReactiveValueOperations.class);
++    when(redis.opsForValue()).thenReturn(ops);
++    when(ops.increment(anyString()))
++        .thenAnswer(
++            inv ->
++                Mono.just(
++                    counters
++                        .computeIfAbsent(inv.getArgument(0), k -> new AtomicLong())
++                        .incrementAndGet()));
++    when(redis.expire(anyString(), any(Duration.class))).thenReturn(Mono.just(true));
++    client =
++        WebTestClient.bindToServer()
++            .baseUrl("http://localhost:" + port)
++            .responseTimeout(Duration.ofSeconds(20))
++            .build();
++  }
++
++  private static String bearer(String subject) {
++    return "Bearer " + KEYS.accessToken(subject, "u@example.com", "google", List.of("VIEWER"));
++  }
++
++  private String echoedIpHeader(WebTestClient.RequestHeadersSpec<?> request) {
++    String body =
++        request
++            .exchange()
++            .expectStatus()
++            .isOk()
++            .expectBody(String.class)
++            .returnResult()
++            .getResponseBody();
++    assertThat(body).isNotNull();
++    int at = body.indexOf(HEADER_KEY);
++    assertThat(at).as("header echoed in %s", body).isGreaterThanOrEqualTo(0);
++    assertThat(body.indexOf(HEADER_KEY, at + 1)).as("single header entry").isNegative();
++    int start = at + HEADER_KEY.length() + 1;
++    return body.substring(start, body.indexOf('"', start));
++  }
++
++  @Test
++  @DisplayName("AC-10(a): a spoofed XFF entry cannot change the IP; the N-th from the right wins")
++  void spoofedXff() {
++    assertThat(
++            echoedIpHeader(
++                client
++                    .get()
++                    .uri("/api/products")
++                    .header("X-Forwarded-For", "9.9.9.9, 203.0.113.7")))
++        .isEqualTo("203.0.113.7");
++  }
++
++  @Test
++  @DisplayName("AC-10(a): with two XFF field lines the real entry is the last of the joined list")
++  void twoXffLines() {
++    assertThat(
++            echoedIpHeader(
++                client
++                    .get()
++                    .uri("/api/products")
++                    .header("X-Forwarded-For", "6.6.6.6")
++                    .header("X-Forwarded-For", "9.9.9.9, 203.0.113.11")))
++        .isEqualTo("203.0.113.11");
++  }
++
++  @Test
++  @DisplayName("AC-4/AC-10(b): a spoofed X-Internal-Client-Ip never reaches the downstream")
++  void spoofedHeaderOnPublicAuthenticatedAndRateLimitedRoutes() {
++    String subject = UUID.randomUUID().toString();
++    // public + rate-limited (anonymous ip key)
++    assertThat(
++            echoedIpHeader(
++                client
++                    .get()
++                    .uri("/api/products")
++                    .header("X-Internal-Client-Ip", "6.6.6.6")
++                    .header("x-internal-client-ip", "7.7.7.7")
++                    .header("X-INTERNAL-CLIENT-IP", "8.8.8.8, 9.9.9.9")
++                    .header("X-Forwarded-For", "1.1.1.1, 203.0.113.8")))
++        .isEqualTo("203.0.113.8");
++    // public, not rate-limited (auth is skipped by the limiter)
++    assertThat(
++            echoedIpHeader(
++                client
++                    .post()
++                    .uri("/api/auth/login")
++                    .contentType(MediaType.APPLICATION_JSON)
++                    .bodyValue("{}")
++                    .header("x-Internal-Client-IP", "6.6.6.6")
++                    .header("X-Forwarded-For", "5.5.5.5, 203.0.113.9")))
++        .isEqualTo("203.0.113.9");
++    // authenticated + rate-limited (subject key)
++    assertThat(
++            echoedIpHeader(
++                client
++                    .get()
++                    .uri("/api/users/me")
++                    .header(HttpHeaders.AUTHORIZATION, bearer(subject))
++                    .header("X-Internal-Client-Ip", "6.6.6.6")
++                    .header("x-internal-client-ip", "7.7.7.7")
++                    .header("X-Forwarded-For", "5.5.5.5, 203.0.113.10")))
++        .isEqualTo("203.0.113.10");
++    // no XFF at all: the peer (the test client, loopback), never the spoofed value
++    assertThat(
++            echoedIpHeader(
++                client.get().uri("/api/products").header("X-Internal-Client-Ip", "6.6.6.6")))
++        .isNotEqualTo("6.6.6.6")
++        .matches("127\\.0\\.0\\.1|0:0:0:0:0:0:0:1");
++  }
++
++  @Test
++  @DisplayName(
++      "AC-5: rejected and unrouted requests never reach the downstream, statuses unchanged")
++  void rejectedRequestsForwardNothing() {
++    int before = DOWNSTREAM.echoedRequests();
++    String subject = UUID.randomUUID().toString();
++    String spoof = "6.6.6.6";
++
++    // 401: no token on a protected route
++    client
++        .post()
++        .uri("/api/products/42")
++        .contentType(MediaType.APPLICATION_JSON)
++        .bodyValue("{}")
++        .header("X-Internal-Client-Ip", spoof)
++        .exchange()
++        .expectStatus()
++        .isUnauthorized();
++    // 403: valid token on a denyAll path
++    client
++        .get()
++        .uri("/actuator/prometheus")
++        .header(HttpHeaders.AUTHORIZATION, bearer(subject))
++        .header("X-Internal-Client-Ip", spoof)
++        .exchange()
++        .expectStatus()
++        .isForbidden();
++    // no route: authenticated but nothing matches
++    client
++        .get()
++        .uri("/no/such/route")
++        .header(HttpHeaders.AUTHORIZATION, bearer(subject))
++        .header("X-Internal-Client-Ip", spoof)
++        .exchange()
++        .expectStatus()
++        .isNotFound();
++    assertThat(DOWNSTREAM.echoedRequests()).isEqualTo(before);
++
++    // 429: writes-per-minute=2, so the 3rd write by one subject is limited at the edge
++    String limited = UUID.randomUUID().toString();
++    for (int i = 0; i < 2; i++) {
++      client
++          .post()
++          .uri("/api/users/me")
++          .header(HttpHeaders.AUTHORIZATION, bearer(limited))
++          .contentType(MediaType.APPLICATION_JSON)
++          .bodyValue("{}")
++          .header("X-Internal-Client-Ip", spoof)
++          .exchange()
++          .expectStatus()
++          .isOk();
++    }
++    int afterAllowed = DOWNSTREAM.echoedRequests();
++    assertThat(afterAllowed).isEqualTo(before + 2);
++    client
++        .post()
++        .uri("/api/users/me")
++        .header(HttpHeaders.AUTHORIZATION, bearer(limited))
++        .contentType(MediaType.APPLICATION_JSON)
++        .bodyValue("{}")
++        .header("X-Internal-Client-Ip", spoof)
++        .exchange()
++        .expectStatus()
++        .isEqualTo(429);
++    assertThat(DOWNSTREAM.echoedRequests()).isEqualTo(afterAllowed);
++  }
++
++  @TestConfiguration(proxyBeanMethods = false)
++  @LoadBalancerClients({
++    @LoadBalancerClient(name = "AUTH-SERVICE", configuration = AuthInstances.class),
++    @LoadBalancerClient(name = "PRODUCT-SERVICE", configuration = ProductInstances.class),
++    @LoadBalancerClient(name = "USER-SERVICE", configuration = UserInstances.class)
++  })
++  static class StubDownstreamConfiguration {}
++
++  static class AuthInstances {
++    @Bean
++    ServiceInstanceListSupplier instances(Environment environment) {
++      return StubServiceInstances.at("AUTH-SERVICE", stubPort(environment));
++    }
++  }
++
++  static class ProductInstances {
++    @Bean
++    ServiceInstanceListSupplier instances(Environment environment) {
++      return StubServiceInstances.at("PRODUCT-SERVICE", stubPort(environment));
++    }
++  }
++
++  static class UserInstances {
++    @Bean
++    ServiceInstanceListSupplier instances(Environment environment) {
++      return StubServiceInstances.at("USER-SERVICE", stubPort(environment));
++    }
++  }
++
++  private static int stubPort(Environment environment) {
++    return Integer.parseInt(environment.getRequiredProperty("test.downstream.port"));
++  }
++}
+diff --git a/services/gateway/src/test/java/com/acme/ecommerce/gateway/GatewayEdgeIntegrationTest.java b/services/gateway/src/test/java/com/acme/ecommerce/gateway/GatewayEdgeIntegrationTest.java
+index 07f5365..2d49cb3 100644
+--- a/services/gateway/src/test/java/com/acme/ecommerce/gateway/GatewayEdgeIntegrationTest.java
++++ b/services/gateway/src/test/java/com/acme/ecommerce/gateway/GatewayEdgeIntegrationTest.java
+@@ -6,9 +6,13 @@ import com.acme.ecommerce.gateway.filter.GatewayHeaders;
+ import com.acme.ecommerce.gateway.support.StubHttpServer;
+ import com.acme.ecommerce.gateway.support.StubServiceInstances;
+ import com.acme.ecommerce.gateway.support.TestKeys;
++import java.io.IOException;
++import java.net.InetSocketAddress;
++import java.net.ServerSocket;
+ import java.util.List;
+ import java.util.UUID;
+ import org.junit.jupiter.api.AfterAll;
++import org.junit.jupiter.api.Assumptions;
+ import org.junit.jupiter.api.BeforeEach;
+ import org.junit.jupiter.api.DisplayName;
+ import org.junit.jupiter.api.Nested;
+@@ -25,10 +29,12 @@ import org.springframework.core.env.Environment;
+ import org.springframework.http.HttpHeaders;
+ import org.springframework.http.HttpMethod;
+ import org.springframework.http.MediaType;
++import org.springframework.http.client.reactive.ReactorClientHttpConnector;
+ import org.springframework.test.context.DynamicPropertyRegistry;
+ import org.springframework.test.context.DynamicPropertySource;
+ import org.springframework.test.web.reactive.server.EntityExchangeResult;
+ import org.springframework.test.web.reactive.server.WebTestClient;
++import reactor.netty.http.client.HttpClient;
+ 
+ /**
+  * End-to-end behaviour of the edge, with a real Netty server, the real security chain, the real
+@@ -339,6 +345,57 @@ class GatewayEdgeIntegrationTest {
+     }
+   }
+ 
++  // ---------------------------------------------------------------------------
++  // Client IP with trusted-proxy-hops = 0 (the default): the socket peer.
++  // ---------------------------------------------------------------------------
++
++  @Nested
++  @DisplayName("client ip, N=0")
++  class ClientIpPeer {
++
++    @Test
++    @DisplayName("the downstream sees the client's source address, not the gateway's own socket")
++    void downstreamSeesTheRealPeer() throws Exception {
++      // The client binds its source to 127.0.0.2 (Linux loopback is a /8); the gateway's own
++      // connection to the stub comes from 127.0.0.1. If the bind is impossible on this host the
++      // test is skipped locally (it fails when env CI is set). The unit test
++      // ClientIpPropagationGatewayFilterTest#headerIsTheRequestPeer covers only the filter, not
++      // the real socket path, so it is not a substitute for this test.
++      try (ServerSocket probe = new ServerSocket()) {
++        probe.bind(new InetSocketAddress("127.0.0.2", 0));
++      } catch (IOException e) {
++        if (System.getenv("CI") != null) {
++          throw new AssertionError("AC-10(c): cannot bind 127.0.0.2 on a CI host", e);
++        }
++        Assumptions.assumeTrue(false, "SKIPPED AC-10(c): cannot bind 127.0.0.2: " + e);
++      }
++      HttpClient http =
++          HttpClient.create().bindAddress(() -> new InetSocketAddress("127.0.0.2", 0));
++      WebTestClient bound =
++          WebTestClient.bindToServer(new ReactorClientHttpConnector(http))
++              .baseUrl("http://127.0.0.1:" + port)
++              .responseTimeout(java.time.Duration.ofSeconds(20))
++              .build();
++
++      String body =
++          bound
++              .post()
++              .uri("/api/auth/login")
++              .contentType(MediaType.APPLICATION_JSON)
++              .bodyValue("{}")
++              .header("X-Forwarded-For", "9.9.9.9")
++              .header(GatewayHeaders.CLIENT_IP, "6.6.6.6")
++              .exchange()
++              .expectStatus()
++              .isOk()
++              .expectBody(String.class)
++              .returnResult()
++              .getResponseBody();
++
++      assertThat(body).contains("\"x-internal-client-ip\":\"127.0.0.2\"");
++    }
++  }
++
+   // ---------------------------------------------------------------------------
+   // CORS - configured in exactly one place.
+   // ---------------------------------------------------------------------------
+diff --git a/services/gateway/src/test/java/com/acme/ecommerce/gateway/filter/ClientIpPropagationGatewayFilterTest.java b/services/gateway/src/test/java/com/acme/ecommerce/gateway/filter/ClientIpPropagationGatewayFilterTest.java
+new file mode 100644
+index 0000000..acb9ceb
+--- /dev/null
++++ b/services/gateway/src/test/java/com/acme/ecommerce/gateway/filter/ClientIpPropagationGatewayFilterTest.java
+@@ -0,0 +1,78 @@
++package com.acme.ecommerce.gateway.filter;
++
++import static org.assertj.core.api.Assertions.assertThat;
++
++import com.acme.ecommerce.common.core.net.ClientAddress;
++import java.net.InetAddress;
++import java.net.InetSocketAddress;
++import java.util.concurrent.atomic.AtomicReference;
++import org.junit.jupiter.api.DisplayName;
++import org.junit.jupiter.api.Test;
++import org.springframework.http.HttpHeaders;
++import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
++import org.springframework.mock.web.server.MockServerWebExchange;
++import reactor.core.publisher.Mono;
++
++class ClientIpPropagationGatewayFilterTest {
++
++  private static HttpHeaders run(int hops, MockServerHttpRequest request) {
++    AtomicReference<HttpHeaders> seen = new AtomicReference<>();
++    new ClientIpPropagationGatewayFilter(new GatewayClientIp(hops))
++        .filter(
++            MockServerWebExchange.from(request),
++            ex -> {
++              seen.set(ex.getRequest().getHeaders());
++              return Mono.empty();
++            })
++        .block();
++    return seen.get();
++  }
++
++  @Test
++  @DisplayName("set replaces repeated and mixed-case client-supplied values")
++  void replacesClientValues() throws Exception {
++    MockServerHttpRequest request =
++        MockServerHttpRequest.get("/api/x")
++            .header("X-Internal-Client-Ip", "6.6.6.6")
++            .header("x-internal-client-ip", "7.7.7.7")
++            .header("X-INTERNAL-CLIENT-IP", "8.8.8.8, 9.9.9.9")
++            .header("X-Forwarded-For", "5.5.5.5, 203.0.113.7")
++            .remoteAddress(new InetSocketAddress(InetAddress.getByName("10.0.0.1"), 1000))
++            .build();
++
++    assertThat(run(1, request).get(ClientAddress.HEADER)).containsExactly("203.0.113.7");
++  }
++
++  @Test
++  @DisplayName("N=0: the header is the request's remote address, not the outbound socket")
++  void headerIsTheRequestPeer() throws Exception {
++    // The proxied request is built from the inbound request's remote address; whatever socket the
++    // gateway later opens to the downstream (127.0.0.1 in the integration test) is irrelevant.
++    MockServerHttpRequest request =
++        MockServerHttpRequest.get("/api/x")
++            .remoteAddress(new InetSocketAddress(InetAddress.getByName("127.0.0.2"), 1000))
++            .build();
++
++    assertThat(run(0, request).get(ClientAddress.HEADER)).containsExactly("127.0.0.2");
++  }
++
++  @Test
++  @DisplayName("no resolvable address: the header is removed, never blank")
++  void removedWhenUnknown() {
++    MockServerHttpRequest request =
++        MockServerHttpRequest.get("/api/x").header("X-Internal-Client-Ip", "6.6.6.6").build();
++
++    assertThat(run(0, request).containsHeader(ClientAddress.HEADER)).isFalse();
++  }
++
++  @Test
++  @DisplayName("runs after identity propagation and before route resolution")
++  void order() {
++    ClientIpPropagationGatewayFilter filter =
++        new ClientIpPropagationGatewayFilter(new GatewayClientIp(0));
++    assertThat(filter.getOrder())
++        .isGreaterThan(IdentityPropagationGatewayFilter.ORDER)
++        .isLessThan(10000)
++        .isEqualTo(ClientIpPropagationGatewayFilter.ORDER);
++  }
++}
+diff --git a/services/gateway/src/test/java/com/acme/ecommerce/gateway/filter/GatewayClientIpContractTest.java b/services/gateway/src/test/java/com/acme/ecommerce/gateway/filter/GatewayClientIpContractTest.java
+new file mode 100644
+index 0000000..2ac615d
+--- /dev/null
++++ b/services/gateway/src/test/java/com/acme/ecommerce/gateway/filter/GatewayClientIpContractTest.java
+@@ -0,0 +1,185 @@
++package com.acme.ecommerce.gateway.filter;
++
++import static org.assertj.core.api.Assertions.assertThat;
++import static org.mockito.ArgumentMatchers.any;
++import static org.mockito.ArgumentMatchers.anyString;
++import static org.mockito.Mockito.mock;
++import static org.mockito.Mockito.when;
++
++import com.acme.ecommerce.common.core.net.ClientAddress;
++import java.net.InetAddress;
++import java.net.InetSocketAddress;
++import java.time.Duration;
++import java.util.ArrayList;
++import java.util.List;
++import java.util.concurrent.atomic.AtomicReference;
++import org.junit.jupiter.api.DisplayName;
++import org.junit.jupiter.api.Test;
++import org.springframework.cloud.gateway.filter.GatewayFilterChain;
++import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
++import org.springframework.data.redis.core.ReactiveValueOperations;
++import org.springframework.http.HttpHeaders;
++import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
++import org.springframework.mock.web.server.MockServerWebExchange;
++import org.springframework.web.server.WebFilterChain;
++import reactor.core.publisher.Mono;
++
++/**
++ * AC-3: the rate limiter's anonymous key and the propagated header come from one implementation.
++ * Every input runs through the REAL {@link RateLimitWebFilter} (capturing the Redis key) and the
++ * REAL {@link ClientIpPropagationGatewayFilter} (capturing the proxied request) and the two must
++ * agree: key suffix == header, header absent iff the key is {@code unknown}.
++ */
++class GatewayClientIpContractTest {
++
++  private record Case(String name, int hops, String xff, InetSocketAddress peer, String expected) {}
++
++  private static InetSocketAddress peer(String ip) throws Exception {
++    return new InetSocketAddress(InetAddress.getByName(ip), 54321);
++  }
++
++  private static List<Case> matrix() throws Exception {
++    List<Case> c = new ArrayList<>();
++    c.add(new Case("N=1 last entry", 1, "9.9.9.9, 203.0.113.7", peer("10.0.0.1"), "203.0.113.7"));
++    c.add(
++        new Case(
++            "N=2 second from right",
++            2,
++            "6.6.6.6, 203.0.113.7, 10.1.1.1",
++            peer("10.0.0.1"),
++            "203.0.113.7"));
++    c.add(new Case("N=0 ignores XFF", 0, "203.0.113.7", peer("10.0.0.1"), "10.0.0.1"));
++    c.add(new Case("too few entries", 3, "1.1.1.1, 2.2.2.2", peer("10.0.0.1"), "10.0.0.1"));
++    c.add(new Case("no XFF", 1, null, peer("10.0.0.1"), "10.0.0.1"));
++    c.add(new Case("non-literal entry", 1, "1.1.1.1, garbage", peer("10.0.0.1"), "10.0.0.1"));
++    c.add(
++        new Case("ip:port entry", 1, "1.1.1.1, 203.0.113.7:8080", peer("10.0.0.1"), "203.0.113.7"));
++    c.add(
++        new Case(
++            "bracketed v6",
++            1,
++            "1.1.1.1, [2001:db8::1]:443",
++            peer("10.0.0.1"),
++            "2001:db8:0:0:0:0:0:1"));
++    c.add(
++        new Case(
++            "v6 upper case", 1, "1.1.1.1, 2001:DB8::1", peer("10.0.0.1"), "2001:db8:0:0:0:0:0:1"));
++    c.add(
++        new Case(
++            "mapped v4 canonicalised", 1, "1.1.1.1, ::FFFF:1.2.3.4", peer("10.0.0.1"), "1.2.3.4"));
++    c.add(
++        new Case(
++            "loose 127.1 falls back to peer", 1, "1.1.1.1, 127.1", peer("10.0.0.1"), "10.0.0.1"));
++    c.add(new Case("loose 1 falls back to peer", 1, "1.1.1.1, 1", peer("10.0.0.1"), "10.0.0.1"));
++    c.add(
++        new Case("over-long entry", 1, "1.1.1.1, " + "1".repeat(65), peer("10.0.0.1"), "10.0.0.1"));
++    c.add(new Case("hostname entry", 1, "1.1.1.1, example.com", peer("10.0.0.1"), "10.0.0.1"));
++    c.add(
++        new Case(
++            "two XFF lines, client line first",
++            1,
++            "6.6.6.6|10.9.9.9, 203.0.113.7",
++            peer("10.0.0.1"),
++            "203.0.113.7"));
++    c.add(new Case("trailing comma falls back", 1, "1.1.1.1,", peer("10.0.0.1"), "10.0.0.1"));
++    c.add(new Case("null peer, no XFF", 1, null, null, null));
++    c.add(new Case("null peer, N=0", 0, "1.1.1.1", null, null));
++    c.add(
++        new Case(
++            "unresolved peer",
++            0,
++            null,
++            InetSocketAddress.createUnresolved("nohost.invalid", 80),
++            null));
++    c.add(
++        new Case(
++            "null peer, valid XFF still wins", 1, "1.1.1.1, 203.0.113.7", null, "203.0.113.7"));
++    return c;
++  }
++
++  private static MockServerHttpRequest request(Case c) {
++    MockServerHttpRequest.BaseBuilder<?> b = MockServerHttpRequest.get("/api/products");
++    if (c.xff() != null) {
++      b.header("X-Forwarded-For", c.xff().split("[|]")); // '|' separates field lines
++    }
++    if (c.peer() != null) {
++      b.remoteAddress(c.peer());
++    }
++    return b.build();
++  }
++
++  @SuppressWarnings("unchecked")
++  private static String rateLimitKeySuffix(Case c, GatewayClientIp resolver) {
++    ReactiveStringRedisTemplate redis = mock(ReactiveStringRedisTemplate.class);
++    ReactiveValueOperations<String, String> ops = mock(ReactiveValueOperations.class);
++    AtomicReference<String> key = new AtomicReference<>();
++    when(redis.opsForValue()).thenReturn(ops);
++    when(ops.increment(anyString()))
++        .thenAnswer(
++            inv -> {
++              key.set(inv.getArgument(0));
++              return Mono.just(1L);
++            });
++    when(redis.expire(anyString(), any(Duration.class))).thenReturn(Mono.just(true));
++    RateLimitWebFilter filter = new RateLimitWebFilter(redis, null, true, 30, 300, resolver);
++    WebFilterChain chain = ex -> Mono.empty();
++    filter.filter(MockServerWebExchange.from(request(c)), chain).block();
++    String k = key.get();
++    assertThat(k).startsWith("rl:r:ip:");
++    return k.substring("rl:r:ip:".length(), k.lastIndexOf(':'));
++  }
++
++  private static String propagatedHeader(Case c, GatewayClientIp resolver) {
++    ClientIpPropagationGatewayFilter filter = new ClientIpPropagationGatewayFilter(resolver);
++    AtomicReference<HttpHeaders> seen = new AtomicReference<>();
++    GatewayFilterChain chain =
++        ex -> {
++          seen.set(ex.getRequest().getHeaders());
++          return Mono.empty();
++        };
++    filter.filter(MockServerWebExchange.from(request(c)), chain).block();
++    assertThat(seen.get().get(ClientAddress.HEADER))
++        .satisfiesAnyOf(v -> assertThat(v).isNull(), v -> assertThat(v).hasSize(1));
++    return seen.get().getFirst(ClientAddress.HEADER);
++  }
++
++  @Test
++  @DisplayName("header value and anonymous rate-limit key agree for the whole AC-1/2 matrix")
++  void keyAndHeaderAgree() throws Exception {
++    for (Case c : matrix()) {
++      GatewayClientIp resolver = new GatewayClientIp(c.hops());
++      String suffix = rateLimitKeySuffix(c, resolver);
++      String header = propagatedHeader(c, resolver);
++      assertThat(header).as(c.name() + " header").isEqualTo(c.expected());
++      assertThat(suffix).as(c.name() + " key").isEqualTo(c.expected() == null ? "unknown" : header);
++      assertThat(header == null)
++          .as(c.name() + " empty iff unknown")
++          .isEqualTo("unknown".equals(suffix));
++    }
++  }
++
++  @Test
++  @DisplayName("a client-sent header is replaced, or removed when the peer is unresolvable")
++  void clientValueNeverSurvives() throws Exception {
++    GatewayClientIp resolver = new GatewayClientIp(0);
++    ClientIpPropagationGatewayFilter filter = new ClientIpPropagationGatewayFilter(resolver);
++    for (InetSocketAddress p : new InetSocketAddress[] {peer("10.0.0.1"), null}) {
++      MockServerHttpRequest.BaseBuilder<?> b =
++          MockServerHttpRequest.get("/x").header("x-internal-client-ip", "6.6.6.6");
++      if (p != null) {
++        b.remoteAddress(p);
++      }
++      AtomicReference<HttpHeaders> seen = new AtomicReference<>();
++      filter
++          .filter(
++              MockServerWebExchange.from(b.build()),
++              ex -> {
++                seen.set(ex.getRequest().getHeaders());
++                return Mono.empty();
++              })
++          .block();
++      assertThat(seen.get().get(ClientAddress.HEADER))
++          .isEqualTo(p == null ? null : List.of("10.0.0.1"));
++    }
++  }
++}
+diff --git a/services/gateway/src/test/java/com/acme/ecommerce/gateway/support/StubHttpServer.java b/services/gateway/src/test/java/com/acme/ecommerce/gateway/support/StubHttpServer.java
+index ecf9245..ce10287 100644
+--- a/services/gateway/src/test/java/com/acme/ecommerce/gateway/support/StubHttpServer.java
++++ b/services/gateway/src/test/java/com/acme/ecommerce/gateway/support/StubHttpServer.java
+@@ -7,6 +7,7 @@ import java.io.OutputStream;
+ import java.net.InetSocketAddress;
+ import java.nio.charset.StandardCharsets;
+ import java.util.LinkedHashMap;
++import java.util.Locale;
+ import java.util.Map;
+ import java.util.concurrent.Executors;
+ import java.util.concurrent.atomic.AtomicBoolean;
+@@ -35,6 +36,8 @@ public final class StubHttpServer implements AutoCloseable {
+ 
+   private final HttpServer server;
+   private final AtomicBoolean available = new AtomicBoolean(true);
++  private final java.util.concurrent.atomic.AtomicInteger echoed =
++      new java.util.concurrent.atomic.AtomicInteger();
+ 
+   private StubHttpServer(HttpServer server) {
+     this.server = server;
+@@ -71,6 +74,11 @@ public final class StubHttpServer implements AutoCloseable {
+     return server.getAddress().getPort();
+   }
+ 
++  /** How many requests the catch-all echo handler has answered (JWKS fetches excluded). */
++  public int echoedRequests() {
++    return echoed.get();
++  }
++
+   /** Base URL of the stub. */
+   public String baseUrl() {
+     return "http://127.0.0.1:" + port();
+@@ -93,6 +101,7 @@ public final class StubHttpServer implements AutoCloseable {
+   }
+ 
+   private void echo(HttpExchange exchange) throws IOException {
++    echoed.incrementAndGet();
+     if (!available.get()) {
+       respond(exchange, 503, "text/plain", "downstream is intentionally unavailable");
+       return;
+@@ -118,8 +127,7 @@ public final class StubHttpServer implements AutoCloseable {
+     exchange
+         .getRequestHeaders()
+         .forEach(
+-            (name, values) ->
+-                headers.put(name.toLowerCase(java.util.Locale.ROOT), String.join(",", values)));
++            (name, values) -> headers.put(name.toLowerCase(Locale.ROOT), String.join(",", values)));
+     body.put("headers", headers);
+ 
+     respond(exchange, 200, "application/json", toJson(body));

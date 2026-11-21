@@ -1,0 +1,12 @@
+{
+ "id": "F-20261119-11",
+ "slug": "checkout-integrity",
+ "step": "implement",
+ "branch": "forge/F-20261119-11-checkout-integrity",
+ "worktree": ".openforge/worktrees/F-20261119-11",
+ "base_sha": "820e5a8d13872308017dfafbc81eaa048af59a10",
+ "implementer": "forge-backend-engineer",
+ "head_sha": "820e5a8d13872308017dfafbc81eaa048af59a10",
+ "portfolio": "O-06",
+ "depends_on": "F-20261119-10"
+}

@@ -1,0 +1,18 @@
+- 2026-11-20T18:29:36Z step1 discover: worktree on F-04 head 218998b1; Owner policies recorded (full-return shipping; COD to wallet as a recorded refund).
+- 2026-11-20T18:30:43Z step2 CPO: 18 ACs. AC-18 question settled from existing code (clamp to balance, CoinService:159-175). Step3 CTO.
+- 2026-11-20T18:31:23Z CEO split O-05: F-09 (AC-1..13) and F-10 (coins, AC-14..18, stacked on F-09). CTO to re-score F-09.
+- 2026-11-20T18:31:46Z CTO re-score: F-09 L(6), F-10 L(6). The CTO admits it did not re-read the split requirements; conservative, accepted. Step4 architect.
+- 2026-11-20T18:38:05Z step4 architect: design + ADR 0008 (legs, V13, refundStatus poll, COD via payment; ~450 prod). Open: COD orders with no payment row would now fail; multi-shipment full returns never refund shipping; payment deploys first.
+- 2026-11-20T18:39:13Z CTO ACCEPT (5 conditions). Owner answered the shipping question: the completing return gets shipping. AC-3 amended; B-10 filed. Architect to set ADR 0008 Accepted; EM next.
+- 2026-11-20T18:40:40Z ADR 0008 Accepted; design updated (CEO diffed: CTO section unchanged). Step5 EM.
+- 2026-11-20T18:41:49Z step5 EM: T1-T12 (payment first). B-10 is the CEO-filed id. Engineer started.
+- 2026-11-20T19:17:34Z impl committed c6f1e36 (T1-T12; engineer says forge-verify PASS). CEO verify running.
+- 2026-11-20T19:22:58Z security APPROVE @ c6f1e36c (5 minor, money-relevant: sibling freeze without an order lock; unconditional lease release; null refundStatus fails open; legacy double-pay; V13 has no lock_timeout). Waiting on reviewer, then a fix round.
+- 2026-11-20T19:23:44Z reviewer REQUEST_CHANGES: MAJOR money bug (order flips to REFUNDED early when the shipping return is refunded first; the earlier return's card share is silently never paid). Security did not find it. Fix round r2 combines it with 6 minors.
+- 2026-11-20T19:48:36Z fix round head 1f937d9. Size 641 > 600 (the engineer misreported it as under). Asking the Owner: trim or override. CEO verify + delta reviews proceed.
+- 2026-11-20T19:48:56Z Owner: trim below 600 (no comment-stripping; remove duplication and dead code). CEO verify stopped; engineer trims.
+- 2026-11-20T20:36:47Z r2 reviewer REQUEST_CHANGES: production fix correct, but the out-of-order test is vacuous (passes on the buggy code); this is the 3rd vacuous test in the run. Plus a concurrency test that doesn't prove the lock and a runbook double-pay sentence. Waiting on security.
+- 2026-11-20T20:37:13Z r2 security APPROVE (1 minor: lease stamp uses the app clock). Fix round r3: the vacuous test (major), concurrency test, runbook COD line, lease stamp in SQL, javadoc.
+- 2026-11-20T21:05:39Z r3 security APPROVE @ b3cda340 (1 runbook minor). Waiting on reviewer.
+- 2026-11-20T21:06:34Z r3 both APPROVE @ b3cda340 (reviewer 2 nits; security 1 runbook minor). QA next.
+- 2026-11-20T21:07:40Z QA PASS 13/13. forge-gate PASS at b3cda340. pr.md written.

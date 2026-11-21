@@ -1,0 +1,285 @@
+diff --git a/deploy/aws/helm/ecommerce/templates/deployment.yaml b/deploy/aws/helm/ecommerce/templates/deployment.yaml
+index 4dcfc20..84397a9 100644
+--- a/deploy/aws/helm/ecommerce/templates/deployment.yaml
++++ b/deploy/aws/helm/ecommerce/templates/deployment.yaml
+@@ -85,6 +85,10 @@ spec:
+             # No Eureka in the cluster: discovery is the ConfigMap mounted at /config plus
+             # Kubernetes Services / CoreDNS (see discovery.yaml).
+             - { name: EUREKA_CLIENT_ENABLED, value: "false" }
++            {{- /* Boot defaults to NATIVE on Kubernetes, which would trust a forgeable X-Forwarded-For (gateway: Netty; servlet services: the remote address). Only auth needs forwarded host/proto (OIDC callback) and sets "framework" in values.yaml env. */}}
++            {{- if ne $name "auth-service" }}
++            - { name: SERVER_FORWARD_HEADERS_STRATEGY, value: "none" }
++            {{- end }}
+             - { name: SPRING_CONFIG_ADDITIONAL_LOCATION, value: "optional:file:/config/" }
+             - { name: SPRING_LIFECYCLE_TIMEOUT_PER_SHUTDOWN_PHASE, value: {{ $g.shutdown.springTimeout | quote }} }
+             - { name: AUTH_JWT_ISSUER, value: {{ required "global.jwt.issuer" $g.jwt.issuer | quote }} }
+@@ -122,12 +126,6 @@ spec:
+             - { name: GATEWAY_RATE_LIMIT_WRITES, value: {{ $g.gateway.rateLimitWritesPerMinute | quote }} }
+             - { name: GATEWAY_RATE_LIMIT_READS, value: {{ $g.gateway.rateLimitReadsPerMinute | quote }} }
+             - { name: GATEWAY_RATE_LIMIT_TRUSTED_PROXY_HOPS, value: {{ $g.gateway.trustedProxyHops | quote }} }
+-            {{- /* Boot defaults to NATIVE on Kubernetes, which makes Netty trust the forgeable leftmost X-Forwarded-For entry; the rate limiter counts from the right itself. */}}
+-            - { name: SERVER_FORWARD_HEADERS_STRATEGY, value: "none" }
+-            {{- end }}
+-            {{- if eq $name "payment-service" }}
+-            {{- /* No forwarded headers needed; pin none so Boot's Kubernetes default (native) cannot rewrite the peer from a client X-Forwarded-For. */}}
+-            - { name: SERVER_FORWARD_HEADERS_STRATEGY, value: "none" }
+             {{- end }}
+             {{- if eq $name "auth-service" }}
+             - { name: AUTH_ALLOWED_REDIRECT_URIS, value: "{{ $g.shopUrl }}/auth/callback,{{ $g.adminUrl }}/auth/callback" }
+diff --git a/docs/reference/env-descriptions.json b/docs/reference/env-descriptions.json
+index 4f3479c..8402189 100644
+--- a/docs/reference/env-descriptions.json
++++ b/docs/reference/env-descriptions.json
+@@ -32,8 +32,8 @@
+     },
+     "SERVER_FORWARD_HEADERS_STRATEGY": {
+       "group": "Platform",
+-      "usedBy": "auth, gateway, payment (Helm)",
+-      "text": "auth-service: `framework`, so the Google sign-in callback URL uses the public host instead of the internal one (a filter drops `X-Forwarded-For` first, so the remote address is always the socket peer). gateway and payment-service: `none`, because Spring Boot defaults to `native` on Kubernetes, which would trust a forgeable `X-Forwarded-For`; the gateway counts from the right itself and services read the gateway-set `X-Internal-Client-Ip`."
++      "usedBy": "all services (Helm)",
++      "text": "auth-service: `framework`, so the Google sign-in callback URL uses the public host instead of the internal one (a filter pins the remote address to the socket peer, so neither `X-Forwarded-For` nor `Forwarded: for=` can change it). Every other service, including the gateway: `none`, because Spring Boot defaults to `native` on Kubernetes, which would trust a forgeable `X-Forwarded-For`; the gateway counts from the right itself and services read the gateway-set `X-Internal-Client-Ip`."
+     },
+     "USER_FORWARD_HEADERS_STRATEGY": {
+       "group": "Platform",
+diff --git a/docs/reference/environment-variables.md b/docs/reference/environment-variables.md
+index 59ee0ed..c4b232e 100644
+--- a/docs/reference/environment-variables.md
++++ b/docs/reference/environment-variables.md
+@@ -35,7 +35,7 @@ service-level setting (add it under that service's `env:` in `values.yaml`). Rel
+ | `MANAGEMENT_SERVER_ADDRESS` | gateway (Helm) | _Spring default_ |  | helm | Bind address for a separate management port. The gateway defaults to `127.0.0.1` in `prod`, which Kubernetes probes cannot reach; the chart sets `0.0.0.0`. |
+ | `MANAGEMENT_SERVER_PORT` | all services (Helm) | _Spring default_ |  | helm | Port for actuator (health, metrics). Equal to the service port for every service except the gateway, whose `prod` profile uses a separate port 8081. |
+ | `RATING_MEDIA_DIR` | rating | `/data/media` |  | compose + helm | Directory where review images are stored. On AWS this is an EBS volume, which is why rating-service runs one replica. |
+-| `SERVER_FORWARD_HEADERS_STRATEGY` | auth, gateway, payment (Helm) | _Spring default_ |  | helm | auth-service: `framework`, so the Google sign-in callback URL uses the public host instead of the internal one (a filter drops `X-Forwarded-For` first, so the remote address is always the socket peer). gateway and payment-service: `none`, because Spring Boot defaults to `native` on Kubernetes, which would trust a forgeable `X-Forwarded-For`; the gateway counts from the right itself and services read the gateway-set `X-Internal-Client-Ip`. |
++| `SERVER_FORWARD_HEADERS_STRATEGY` | all services (Helm) | _Spring default_ |  | helm | auth-service: `framework`, so the Google sign-in callback URL uses the public host instead of the internal one (a filter pins the remote address to the socket peer, so neither `X-Forwarded-For` nor `Forwarded: for=` can change it). Every other service, including the gateway: `none`, because Spring Boot defaults to `native` on Kubernetes, which would trust a forgeable `X-Forwarded-For`; the gateway counts from the right itself and services read the gateway-set `X-Internal-Client-Ip`. |
+ | `SERVER_PORT` | all services | _per service_ |  | helm | Port the service listens on. Each service has its own default (gateway 8080, auth 8081, product 8082 ... support 8092). |
+ | `SPRING_CONFIG_ADDITIONAL_LOCATION` | all services (Helm) | _Spring default_ |  | helm | Extra config directory. On AWS it points at `/config/`, where the discovery ConfigMap is mounted. |
+ | `SPRING_LIFECYCLE_TIMEOUT_PER_SHUTDOWN_PHASE` | all services (Helm) | _Spring default_ |  | helm | How long a pod may spend finishing in-flight requests on shutdown. Must be shorter than the pod termination grace period. |
+diff --git a/services/auth-service/auth-service-app/src/main/java/com/acme/ecommerce/auth/config/ForwardedHeaderConfig.java b/services/auth-service/auth-service-app/src/main/java/com/acme/ecommerce/auth/config/ForwardedHeaderConfig.java
+index 1067944..2db6794 100644
+--- a/services/auth-service/auth-service-app/src/main/java/com/acme/ecommerce/auth/config/ForwardedHeaderConfig.java
++++ b/services/auth-service/auth-service-app/src/main/java/com/acme/ecommerce/auth/config/ForwardedHeaderConfig.java
+@@ -1,14 +1,15 @@
+ package com.acme.ecommerce.auth.config;
+ 
++import jakarta.servlet.DispatcherType;
+ import jakarta.servlet.FilterChain;
+ import jakarta.servlet.ServletException;
+ import jakarta.servlet.http.HttpServletRequest;
+ import jakarta.servlet.http.HttpServletRequestWrapper;
+ import jakarta.servlet.http.HttpServletResponse;
+ import java.io.IOException;
+-import java.util.Collections;
+-import java.util.Enumeration;
+-import java.util.List;
++import org.springframework.beans.factory.ObjectProvider;
++import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
++import org.springframework.boot.web.server.autoconfigure.servlet.ForwardedHeaderFilterCustomizer;
+ import org.springframework.boot.web.servlet.FilterRegistrationBean;
+ import org.springframework.context.annotation.Bean;
+ import org.springframework.context.annotation.Configuration;
+@@ -17,56 +18,71 @@ import org.springframework.web.filter.ForwardedHeaderFilter;
+ 
+ /**
+  * Keeps {@code server.forward-headers-strategy=framework} for {@code X-Forwarded-Host/Proto} (the
+- * OIDC callback URL) but stops the framework filter from turning a client-supplied {@code
+- * X-Forwarded-For} into {@code getRemoteAddr()}. Without this, the socket-peer fallback of {@code
+- * ClientIp} (header absent) would be attacker-chosen. Replaces Boot's own registration, which backs
+- * off when a {@code FilterRegistrationBean<ForwardedHeaderFilter>} exists.
++ * OIDC callback URL), but makes {@code getRemoteAddr()}, {@code getRemoteHost()} and {@code
++ * getRemotePort()} always return the socket peer, so no forwarded header ({@code X-Forwarded-For}
++ * or RFC 7239 {@code Forwarded: for=}) can choose the address {@code ClientIp} falls back to.
++ * Registered like Boot's own filter (same condition, order and dispatcher types), which backs off
++ * when a {@code FilterRegistrationBean<ForwardedHeaderFilter>} exists.
+  */
+ @Configuration(proxyBeanMethods = false)
+ public class ForwardedHeaderConfig {
+ 
+-  private static final String XFF = "X-Forwarded-For";
+-
+   @Bean
+-  FilterRegistrationBean<ForwardedHeaderFilter> forwardedHeaderFilter() {
++  @ConditionalOnProperty(name = "server.forward-headers-strategy", havingValue = "framework")
++  FilterRegistrationBean<ForwardedHeaderFilter> forwardedHeaderFilter(
++      ObjectProvider<ForwardedHeaderFilterCustomizer> customizers) {
++    ForwardedHeaderFilter filter = new PeerRemoteAddressForwardedHeaderFilter();
++    customizers.orderedStream().forEach(customizer -> customizer.customize(filter));
+     FilterRegistrationBean<ForwardedHeaderFilter> registration =
+-        new FilterRegistrationBean<>(new HostAndProtoOnlyForwardedHeaderFilter());
++        new FilterRegistrationBean<>(filter);
++    registration.setDispatcherTypes(
++        DispatcherType.REQUEST, DispatcherType.ASYNC, DispatcherType.ERROR);
+     registration.setOrder(Ordered.HIGHEST_PRECEDENCE);
+     return registration;
+   }
+ 
+-  /** The framework filter, minus X-Forwarded-For. */
+-  static final class HostAndProtoOnlyForwardedHeaderFilter extends ForwardedHeaderFilter {
++  /** The framework filter, with the remote address pinned to the original socket peer. */
++  static final class PeerRemoteAddressForwardedHeaderFilter extends ForwardedHeaderFilter {
+     @Override
+     protected void doFilterInternal(
+         HttpServletRequest request, HttpServletResponse response, FilterChain chain)
+         throws ServletException, IOException {
+-      super.doFilterInternal(new WithoutXff(request), response, chain);
++      String addr = request.getRemoteAddr();
++      String host = request.getRemoteHost();
++      int port = request.getRemotePort();
++      super.doFilterInternal(
++          request,
++          response,
++          (req, res) ->
++              chain.doFilter(new PeerRemote((HttpServletRequest) req, addr, host, port), res));
+     }
+   }
+ 
+-  private static final class WithoutXff extends HttpServletRequestWrapper {
+-    WithoutXff(HttpServletRequest request) {
++  private static final class PeerRemote extends HttpServletRequestWrapper {
++    private final String addr;
++    private final String host;
++    private final int port;
++
++    PeerRemote(HttpServletRequest request, String addr, String host, int port) {
+       super(request);
++      this.addr = addr;
++      this.host = host;
++      this.port = port;
+     }
+ 
+     @Override
+-    public String getHeader(String name) {
+-      return XFF.equalsIgnoreCase(name) ? null : super.getHeader(name);
++    public String getRemoteAddr() {
++      return addr;
+     }
+ 
+     @Override
+-    public Enumeration<String> getHeaders(String name) {
+-      return XFF.equalsIgnoreCase(name) ? Collections.emptyEnumeration() : super.getHeaders(name);
++    public String getRemoteHost() {
++      return host;
+     }
+ 
+     @Override
+-    public Enumeration<String> getHeaderNames() {
+-      List<String> names =
+-          Collections.list(super.getHeaderNames()).stream()
+-              .filter(n -> !XFF.equalsIgnoreCase(n))
+-              .toList();
+-      return Collections.enumeration(names);
++    public int getRemotePort() {
++      return port;
+     }
+   }
+ }
+diff --git a/services/auth-service/auth-service-app/src/test/java/com/acme/ecommerce/auth/config/ForwardedHeaderConfigTest.java b/services/auth-service/auth-service-app/src/test/java/com/acme/ecommerce/auth/config/ForwardedHeaderConfigTest.java
+index d302f8d..b4bd5de 100644
+--- a/services/auth-service/auth-service-app/src/test/java/com/acme/ecommerce/auth/config/ForwardedHeaderConfigTest.java
++++ b/services/auth-service/auth-service-app/src/test/java/com/acme/ecommerce/auth/config/ForwardedHeaderConfigTest.java
+@@ -4,46 +4,85 @@ import static org.assertj.core.api.Assertions.assertThat;
+ 
+ import com.acme.ecommerce.common.web.net.ClientIp;
+ import jakarta.servlet.http.HttpServletRequest;
++import java.util.List;
+ import org.junit.jupiter.api.DisplayName;
+ import org.junit.jupiter.api.Test;
++import org.springframework.boot.test.context.runner.WebApplicationContextRunner;
++import org.springframework.boot.web.servlet.FilterRegistrationBean;
+ import org.springframework.mock.web.MockFilterChain;
+ import org.springframework.mock.web.MockHttpServletRequest;
+ import org.springframework.mock.web.MockHttpServletResponse;
++import org.springframework.web.filter.ForwardedHeaderFilter;
+ 
+ class ForwardedHeaderConfigTest {
+ 
+-  private final ForwardedHeaderConfig config = new ForwardedHeaderConfig();
++  private static ForwardedHeaderFilter filter() {
++    return new ForwardedHeaderConfig()
++        .forwardedHeaderFilter(
++            new org.springframework.beans.factory.support.DefaultListableBeanFactory()
++                .getBeanProvider(
++                    org.springframework.boot.web.server.autoconfigure.servlet
++                        .ForwardedHeaderFilterCustomizer.class))
++        .getFilter();
++  }
+ 
+-  private HttpServletRequest seen(MockHttpServletRequest request) throws Exception {
++  private static HttpServletRequest seen(MockHttpServletRequest request) throws Exception {
+     MockFilterChain chain = new MockFilterChain();
+-    config
+-        .forwardedHeaderFilter()
+-        .getFilter()
+-        .doFilter(request, new MockHttpServletResponse(), chain);
++    filter().doFilter(request, new MockHttpServletResponse(), chain);
+     return (HttpServletRequest) chain.getRequest();
+   }
+ 
+-  @Test
+-  @DisplayName("X-Forwarded-For without X-Internal-Client-Ip: the socket peer is used")
+-  void peerNotForwardedFor() throws Exception {
++  private static MockHttpServletRequest base(String name, String value) {
+     MockHttpServletRequest r = new MockHttpServletRequest("GET", "/x");
+     r.setRemoteAddr("10.0.0.9");
+-    r.addHeader("X-Forwarded-For", "9.9.9.9");
+-    HttpServletRequest seen = seen(r);
+-    assertThat(seen.getRemoteAddr()).isEqualTo("10.0.0.9");
+-    assertThat(ClientIp.resolveAsString(seen)).isEqualTo("10.0.0.9");
++    r.setRemoteHost("peer.local");
++    r.setRemotePort(4321);
++    r.addHeader("X-Forwarded-Host", "shop.example.com");
++    r.addHeader("X-Forwarded-Proto", "https");
++    if (name != null) {
++      r.addHeader(name, value);
++    }
++    return r;
+   }
+ 
+   @Test
+-  @DisplayName("X-Forwarded-Host and -Proto still apply (OIDC callback URL)")
+-  void hostAndProtoKept() throws Exception {
+-    MockHttpServletRequest r = new MockHttpServletRequest("GET", "/x");
+-    r.setRemoteAddr("10.0.0.9");
+-    r.addHeader("X-Forwarded-Host", "shop.example.com");
+-    r.addHeader("X-Forwarded-Proto", "https");
+-    r.addHeader("X-Forwarded-For", "9.9.9.9");
+-    HttpServletRequest seen = seen(r);
++  @DisplayName("forwarded client headers never change the remote address; Host/Proto still apply")
++  void peerWinsHostProtoKept() throws Exception {
++    List<MockHttpServletRequest> requests =
++        List.of(
++            base("X-Forwarded-For", "9.9.9.9"),
++            base("x-forwarded-for", "9.9.9.9"),
++            base("Forwarded", "for=9.9.9.9"),
++            base("FORWARDED", "For=\"[2001:db8::1]:4711\";proto=http"),
++            withBoth());
++    for (MockHttpServletRequest r : requests) {
++      HttpServletRequest seen = seen(r);
++      assertThat(seen.getRemoteAddr()).isEqualTo("10.0.0.9");
++      assertThat(seen.getRemoteHost()).isEqualTo("peer.local");
++      assertThat(seen.getRemotePort()).isEqualTo(4321);
++      assertThat(ClientIp.resolveAsString(seen)).isEqualTo("10.0.0.9");
++    }
++    HttpServletRequest seen = seen(base("X-Forwarded-For", "9.9.9.9"));
+     assertThat(seen.getServerName()).isEqualTo("shop.example.com");
+     assertThat(seen.getScheme()).isEqualTo("https");
+   }
++
++  private static MockHttpServletRequest withBoth() {
++    MockHttpServletRequest r = base("x-forwarded-for", "9.9.9.9");
++    r.addHeader("Forwarded", "for=8.8.8.8");
++    return r;
++  }
++
++  @Test
++  @DisplayName("exactly one ForwardedHeaderFilter registration under the framework strategy")
++  void oneRegistration() {
++    new WebApplicationContextRunner()
++        .withUserConfiguration(ForwardedHeaderConfig.class)
++        .withPropertyValues("server.forward-headers-strategy=framework")
++        .run(ctx -> assertThat(ctx.getBeansOfType(FilterRegistrationBean.class)).hasSize(1));
++    new WebApplicationContextRunner()
++        .withUserConfiguration(ForwardedHeaderConfig.class)
++        .withPropertyValues("server.forward-headers-strategy=none")
++        .run(ctx -> assertThat(ctx.getBeansOfType(FilterRegistrationBean.class)).isEmpty());
++  }
+ }

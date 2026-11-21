@@ -1,0 +1,14 @@
+{
+ "id": "F-20261119-01",
+ "slug": "referral-abuse-checks",
+ "step": "pr-ready-owner-push",
+ "branch": "forge/F-20261119-01-referral-abuse-checks",
+ "worktree": ".openforge/worktrees/F-20261119-01",
+ "base_sha": "778d10253422dc39ace9f9f5cba51d288f634753",
+ "implementer": [
+  "forge-backend-engineer",
+  "forge-qa"
+ ],
+ "head_sha": "fcf6f2a2b93ae497b67244260fba86f3cb8aa29f",
+ "owner_push_approved": "2026-11-20 (AskUserQuestion)"
+}

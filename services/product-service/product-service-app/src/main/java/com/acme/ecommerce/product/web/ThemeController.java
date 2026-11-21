@@ -97,6 +97,44 @@ public class ThemeController {
           "drop",
           "left");
 
+  private static final Set<String> BG_PATTERNS =
+      Set.of(
+          "starburst",
+          "none",
+          "dots",
+          "grid",
+          "graph",
+          "pinstripe",
+          "diagonal",
+          "crosshatch",
+          "plus",
+          "isometric",
+          "hex",
+          "waves",
+          "scales",
+          "chevron",
+          "diamond",
+          "checker",
+          "rings",
+          "triangles",
+          "mesh");
+  private static final Set<String> BG_TINTS = Set.of("theme", "mono", "brand", "accent");
+  private static final Set<String> BG_SPACINGS =
+      Set.of(
+          "auto",
+          "4mm",
+          "5mm",
+          "6mm",
+          "8mm",
+          "10mm",
+          "12mm");
+  private static final Set<String> BG_STRENGTHS =
+      Set.of(
+          "whisper",
+          "faint",
+          "default",
+          "soft",
+          "bold");
   /** Families verified to serve real 400-700 weights on Google Fonts (see themeFonts.ts). */
   private static final Set<String> FONTS =
       Set.of(
@@ -352,6 +390,9 @@ public class ThemeController {
   /** Call-to-action button shape, fill and label style. */
   public record Button(String shape, String fill, String text, String hover) {}
 
+  /** Decorative page background: pattern, colour, element spacing (4-12 mm) and visibility. */
+  public record Background(String pattern, String tint, String spacing, String strength) {}
+
   /** Design language id; the effects themselves are rendered client-side. */
   public record Style(String id) {}
 
@@ -370,6 +411,7 @@ public class ThemeController {
       Shadow shadow,
       Card card,
       Button button,
+      Background background,
       Style style,
       Options options,
       Fonts fonts,
@@ -469,6 +511,13 @@ public class ThemeController {
             oneOf("button.fill", bt.fill(), BUTTON_FILLS, "default"),
             oneOf("button.text", bt.text(), BUTTON_TEXTS, "default"),
             oneOf("button.hover", bt.hover(), BUTTON_HOVERS, "default"));
+    Background bgr = c.background() == null ? new Background(null, null, null, null) : c.background();
+    Background background =
+        new Background(
+            oneOf("background.pattern", bgr.pattern(), BG_PATTERNS, "starburst"),
+            oneOf("background.tint", bgr.tint(), BG_TINTS, "theme"),
+            oneOf("background.spacing", bgr.spacing(), BG_SPACINGS, "auto"),
+            oneOf("background.strength", bgr.strength(), BG_STRENGTHS, "default"));
     Style designStyle =
         new Style(oneOf("style.id", c.style() == null ? null : c.style().id(), STYLES, "default"));
     Options op = c.options() == null ? new Options("default", "full") : c.options();
@@ -493,6 +542,7 @@ public class ThemeController {
         shadow,
         card,
         button,
+        background,
         designStyle,
         options,
         fonts,

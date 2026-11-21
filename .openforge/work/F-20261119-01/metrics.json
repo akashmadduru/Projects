@@ -1,0 +1,251 @@
+{
+ "runs": [
+  {
+   "at": "2026-11-19T06:50:46.359Z",
+   "role": "forge-cpo",
+   "tokens": 15696,
+   "tools": 6,
+   "ms": 27000,
+   "round": 0,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-19T06:50:46.423Z",
+   "role": "forge-cto",
+   "tokens": 15810,
+   "tools": 6,
+   "ms": 15000,
+   "round": 0,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-19T06:50:46.482Z",
+   "role": "forge-architect",
+   "tokens": 67525,
+   "tools": 47,
+   "ms": 186000,
+   "round": 0,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-19T06:50:46.543Z",
+   "role": "forge-cto",
+   "tokens": 23334,
+   "tools": 8,
+   "ms": 27000,
+   "round": 0,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-19T06:50:46.607Z",
+   "role": "forge-em",
+   "tokens": 28039,
+   "tools": 6,
+   "ms": 60000,
+   "round": 0,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-19T06:50:46.662Z",
+   "role": "forge-backend-engineer",
+   "tokens": 87183,
+   "tools": 52,
+   "ms": 1206000,
+   "round": 1,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-19T06:50:46.718Z",
+   "role": "forge-backend-engineer",
+   "tokens": 93188,
+   "tools": 34,
+   "ms": 648000,
+   "round": 1,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-19T06:50:46.772Z",
+   "role": "forge-qa",
+   "tokens": 49161,
+   "tools": 17,
+   "ms": 336000,
+   "round": 1,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-19T06:50:46.825Z",
+   "role": "forge-reviewer",
+   "tokens": 76741,
+   "tools": 9,
+   "ms": 90000,
+   "round": 1,
+   "outcome": "approve"
+  },
+  {
+   "at": "2026-11-19T06:50:46.877Z",
+   "role": "forge-security",
+   "tokens": 76425,
+   "tools": 12,
+   "ms": 114000,
+   "round": 1,
+   "outcome": "request_changes"
+  },
+  {
+   "at": "2026-11-19T06:50:46.931Z",
+   "role": "forge-backend-engineer",
+   "tokens": 90078,
+   "tools": 43,
+   "ms": 1356000,
+   "round": 2,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-19T06:50:46.992Z",
+   "role": "forge-backend-engineer",
+   "tokens": 38112,
+   "tools": 15,
+   "ms": 504000,
+   "round": 2,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-19T06:50:47.059Z",
+   "role": "forge-qa",
+   "tokens": 34405,
+   "tools": 9,
+   "ms": 32000,
+   "round": 2,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-19T06:50:47.117Z",
+   "role": "forge-reviewer",
+   "tokens": 82363,
+   "tools": 14,
+   "ms": 84000,
+   "round": 2,
+   "outcome": "approve"
+  },
+  {
+   "at": "2026-11-19T06:50:47.189Z",
+   "role": "forge-security",
+   "tokens": 84077,
+   "tools": 18,
+   "ms": 138000,
+   "round": 2,
+   "outcome": "request_changes"
+  },
+  {
+   "at": "2026-11-19T06:50:47.248Z",
+   "role": "forge-backend-engineer",
+   "tokens": 68356,
+   "tools": 45,
+   "ms": 1146000,
+   "round": 3,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-19T06:50:47.306Z",
+   "role": "forge-reviewer",
+   "tokens": 55549,
+   "tools": 13,
+   "ms": 102000,
+   "round": 3,
+   "outcome": "approve"
+  },
+  {
+   "at": "2026-11-19T06:50:47.363Z",
+   "role": "forge-security",
+   "tokens": 64718,
+   "tools": 27,
+   "ms": 270000,
+   "round": 3,
+   "outcome": "request_changes"
+  },
+  {
+   "at": "2026-11-19T06:50:47.423Z",
+   "role": "forge-backend-engineer",
+   "tokens": 52569,
+   "tools": 17,
+   "ms": 351875,
+   "round": 4,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-19T06:50:47.482Z",
+   "role": "forge-qa",
+   "tokens": 18957,
+   "tools": 5,
+   "ms": 22691,
+   "round": 4,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-19T06:50:47.539Z",
+   "role": "forge-reviewer",
+   "tokens": 46707,
+   "tools": 13,
+   "ms": 50841,
+   "round": 4,
+   "outcome": "request_changes"
+  },
+  {
+   "at": "2026-11-19T06:50:47.611Z",
+   "role": "forge-security",
+   "tokens": 40137,
+   "tools": 10,
+   "ms": 40755,
+   "round": 4,
+   "outcome": "approve"
+  },
+  {
+   "at": "2026-11-19T06:50:47.684Z",
+   "role": "forge-backend-engineer",
+   "tokens": 30746,
+   "tools": 14,
+   "ms": 571657,
+   "round": 5,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-19T06:50:47.758Z",
+   "role": "forge-reviewer",
+   "tokens": 27072,
+   "tools": 8,
+   "ms": 34047,
+   "round": 5,
+   "outcome": "approve"
+  },
+  {
+   "at": "2026-11-19T06:50:47.828Z",
+   "role": "forge-security",
+   "tokens": 23607,
+   "tools": 3,
+   "ms": 19836,
+   "round": 5,
+   "outcome": "approve"
+  }
+ ],
+ "events": [
+  {
+   "at": "2026-11-19T06:50:47.890Z",
+   "type": "recovery",
+   "note": "CEO fixed docker CRLF/gradlew env issue during task 1-5"
+  },
+  {
+   "at": "2026-11-19T06:50:47.955Z",
+   "type": "intervention",
+   "note": "Owner: 3-round stop resolved by delegation 'complete pending works'"
+  },
+  {
+   "at": "2026-11-19T06:50:48.017Z",
+   "type": "gate_fail",
+   "note": "size 1,911 > 600 (all lines rule) at 78a7b4f6"
+  },
+  {
+   "at": "2026-11-19T06:50:48.079Z",
+   "type": "recovery",
+   "note": "engineer broke one-build rule (parallel builds) — CEO verified scope; lock added to gradle.sh"
+  }
+ ]
+}

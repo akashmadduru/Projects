@@ -1,0 +1,216 @@
+{
+ "runs": [
+  {
+   "at": "2026-11-19T06:56:09.136Z",
+   "role": "forge-cpo",
+   "tokens": 40411,
+   "tools": 15,
+   "ms": 44241,
+   "round": 0,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-19T06:56:28.369Z",
+   "role": "forge-cto",
+   "tokens": 13676,
+   "tools": 5,
+   "ms": 10507,
+   "round": 0,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-19T07:01:20.453Z",
+   "role": "forge-architect",
+   "tokens": 82010,
+   "tools": 30,
+   "ms": 272462,
+   "round": 0,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-19T07:02:27.890Z",
+   "role": "forge-cto",
+   "tokens": 32617,
+   "tools": 11,
+   "ms": 53832,
+   "round": 0,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-19T07:03:29.737Z",
+   "role": "forge-em",
+   "tokens": 30348,
+   "tools": 13,
+   "ms": 49031,
+   "round": 0,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-19T07:10:43.291Z",
+   "role": "forge-backend-engineer",
+   "tokens": 98643,
+   "tools": 29,
+   "ms": 422690,
+   "round": 1,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-19T07:15:04.069Z",
+   "role": "forge-security",
+   "tokens": 65144,
+   "tools": 9,
+   "ms": 102766,
+   "round": 1,
+   "outcome": "approve"
+  },
+  {
+   "at": "2026-11-19T07:15:37.325Z",
+   "role": "forge-reviewer",
+   "tokens": 75785,
+   "tools": 14,
+   "ms": 123476,
+   "round": 1,
+   "outcome": "approve"
+  },
+  {
+   "at": "2026-11-19T15:53:45.807Z",
+   "role": "forge-backend-engineer",
+   "tokens": 136892,
+   "tools": 28,
+   "ms": 1134964,
+   "round": 2,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-19T16:28:36.650Z",
+   "role": "forge-security",
+   "tokens": 77138,
+   "tools": 15,
+   "ms": 131679,
+   "round": 2,
+   "outcome": "approve"
+  },
+  {
+   "at": "2026-11-19T16:28:36.770Z",
+   "role": "forge-reviewer",
+   "tokens": 95643,
+   "tools": 19,
+   "ms": 147874,
+   "round": 2,
+   "outcome": "approve"
+  },
+  {
+   "at": "2026-11-19T16:29:23.065Z",
+   "role": "forge-cto",
+   "tokens": 11689,
+   "tools": 5,
+   "ms": 14813,
+   "round": 2,
+   "outcome": "approve"
+  },
+  {
+   "at": "2026-11-19T16:40:19.651Z",
+   "role": "forge-backend-engineer",
+   "tokens": 11957,
+   "tools": 7,
+   "ms": 645651,
+   "round": 3,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-19T16:49:39.105Z",
+   "role": "forge-reviewer",
+   "tokens": 38376,
+   "tools": 11,
+   "ms": 72393,
+   "round": 3,
+   "outcome": "approve"
+  },
+  {
+   "at": "2026-11-19T16:50:04.059Z",
+   "role": "forge-security",
+   "tokens": 39156,
+   "tools": 12,
+   "ms": 88603,
+   "round": 3,
+   "outcome": "approve"
+  },
+  {
+   "at": "2026-11-19T16:50:28.291Z",
+   "role": "forge-cto",
+   "tokens": 579,
+   "tools": 0,
+   "ms": 3849,
+   "round": 3,
+   "outcome": "approve"
+  },
+  {
+   "at": "2026-11-19T16:57:56.112Z",
+   "role": "forge-backend-engineer",
+   "tokens": 9856,
+   "tools": 7,
+   "ms": 438722,
+   "round": 4,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-19T17:25:13.706Z",
+   "role": "forge-reviewer",
+   "tokens": 22578,
+   "tools": 8,
+   "ms": 51436,
+   "round": 4,
+   "outcome": "approve"
+  },
+  {
+   "at": "2026-11-19T17:25:13.778Z",
+   "role": "forge-security",
+   "tokens": 24716,
+   "tools": 12,
+   "ms": 55300,
+   "round": 4,
+   "outcome": "approve"
+  },
+  {
+   "at": "2026-11-19T17:26:28.579Z",
+   "role": "forge-qa",
+   "tokens": 46343,
+   "tools": 13,
+   "ms": 50503,
+   "round": 0,
+   "outcome": "pass"
+  }
+ ],
+ "events": [
+  {
+   "at": "2026-11-19T07:14:04.580Z",
+   "type": "seeded_test",
+   "note": "slice 1 seeded review: 2/2 caught; comments/design acted as oracle"
+  },
+  {
+   "at": "2026-11-19T07:46:21.087Z",
+   "type": "recovery",
+   "note": "session restart killed slice-2 engineer; resumed from transcript, partial work intact"
+  },
+  {
+   "at": "2026-11-19T15:53:46.236Z",
+   "type": "gate_fail",
+   "note": "size: cumulative 672 production lines from base > 600 L-limit (slice2 ~390 vs ~260 est). CEO ruling: per constitution 4 'split into PRs under 600', deliver as 2 stacked PRs (A: fcf6f2a..4e5fb6d, B: 4e5fb6d..d17de77)."
+  },
+  {
+   "at": "2026-11-19T15:54:50.203Z",
+   "type": "recovery",
+   "note": "CEO ran forge-verify without --base: defaulted to merge-base origin/dev (10129 files, false FAIL incl. gradle exit 127 and npm deps). Re-ran with --base fcf6f2a2. Lesson: --changed should default to state.json base_sha."
+  },
+  {
+   "at": "2026-11-19T16:29:18.993Z",
+   "type": "recovery",
+   "note": "CTO attempted full overwrite of design.md with empty content (to append); permission system denied; file intact. CEO transcribed ruling. Lesson: CTO lacks Edit tool; ask for ruling in reply."
+  },
+  {
+   "at": "2026-11-19T17:29:48.355Z",
+   "type": "gate_fail",
+   "note": "gate: 733 production lines from base fcf6f2a2 > 600 L limit. Each stacked part is under 600 (s1 ~213-282, s2 520), but the gate measures base..HEAD only. Needs an Owner decision (override line or G-8 gate fix)."
+  }
+ ]
+}

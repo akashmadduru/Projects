@@ -96,11 +96,11 @@ describe('ThemeView try-on, undo and guided flow', () => {
     const wrapper = await mountView();
     const trigger = wrapper.get('[data-test="section-menu"]');
     expect(trigger.text()).toContain('Looks');
-    expect(trigger.text()).toContain('2 of 9');
+    expect(trigger.text()).toContain('2 of 10');
 
     await trigger.trigger('click');
     expect(trigger.attributes('aria-expanded')).toBe('true');
-    expect(wrapper.findAll('[data-test^="menu-tab-"]')).toHaveLength(9);
+    expect(wrapper.findAll('[data-test^="menu-tab-"]')).toHaveLength(10);
     await wrapper.get('[data-test="menu-tab-components"]').trigger('click');
     expect(wrapper.find('#theme-section-menu').exists()).toBe(false);
     expect(wrapper.get('[data-test="tab-components"]').attributes('aria-current')).toBe('step');

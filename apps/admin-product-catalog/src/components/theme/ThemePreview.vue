@@ -12,6 +12,7 @@ import {
   previewButtonStyle,
   previewCardBackground,
   previewOutline,
+  previewPattern,
   previewShadows,
   type ThemeConfig,
 } from '@/lib/themeEngine';
@@ -225,6 +226,7 @@ const PRODUCTS = [
         <div class="device" :class="`device-${prefs.device}`">
           <!-- ===== Storefront ===== -->
           <div v-if="prefs.surface === 'storefront'" class="mock" :class="fxClasses(f.config)" :style="frameStyle(f.config, f.mode)">
+            <div class="mock-pattern" aria-hidden="true" data-test="preview-pattern" :style="previewPattern(f.config, f.mode)" />
             <div class="mock-header">
               <img v-if="f.config.brand.logoUrl" :src="f.config.brand.logoUrl" alt="" class="mock-logo" />
               <span v-else class="mock-dot" aria-hidden="true" />
@@ -268,6 +270,7 @@ const PRODUCTS = [
 
           <!-- ===== Admin console ===== -->
           <div v-else class="mock mock-admin" :class="fxClasses(f.config)" :style="frameStyle(f.config, f.mode)">
+            <div class="mock-pattern" aria-hidden="true" :style="previewPattern(f.config, f.mode)" />
             <aside class="mock-side">
               <div class="mock-side-brand">
                 <img v-if="f.config.brand.logoUrl" :src="f.config.brand.logoUrl" alt="" class="mock-logo" />
@@ -368,6 +371,8 @@ const PRODUCTS = [
 /* ===== Mock frame: everything reads the --p-* variables set inline ===== */
 .mock {
   --fs: calc(0.78rem * var(--p-scale));
+  position: relative;
+  isolation: isolate;
   background: var(--p-bg);
   color: var(--p-text);
   font-family: var(--p-body);
@@ -415,6 +420,13 @@ const PRODUCTS = [
   background: var(--p-accent);
   border: 2px solid var(--p-ink);
   flex: none;
+}
+/* Page background pattern: behind everything in the mock, above its background colour. */
+.mock-pattern {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
 }
 .mock-nav {
   display: flex;

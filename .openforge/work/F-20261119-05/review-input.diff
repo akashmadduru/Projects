@@ -1,0 +1,861 @@
+diff --git a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/client/InventoryFeignClient.java b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/client/InventoryFeignClient.java
+index 0000108..585cb39 100644
+--- a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/client/InventoryFeignClient.java
++++ b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/client/InventoryFeignClient.java
+@@ -18,9 +18,14 @@ import org.springframework.web.bind.annotation.RequestBody;
+     configuration = InternalFeignConfig.class)
+ public interface InventoryFeignClient {
+ 
+-  record Item(UUID productId, UUID variantId, int quantity, UUID offerId) {
++  /** {@code sellerId} = the offer's owner; inventory falls back to platform stock only for it. */
++  record Item(UUID productId, UUID variantId, int quantity, UUID offerId, UUID sellerId) {
+     public Item(UUID productId, UUID variantId, int quantity) {
+-      this(productId, variantId, quantity, null);
++      this(productId, variantId, quantity, null, null);
++    }
++
++    public Item(UUID productId, UUID variantId, int quantity, UUID offerId) {
++      this(productId, variantId, quantity, offerId, null);
+     }
+   }
+ 
+diff --git a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/OrderRemote.java b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/OrderRemote.java
+index b9a1389..a6ab3a4 100644
+--- a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/OrderRemote.java
++++ b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/OrderRemote.java
+@@ -111,7 +111,8 @@ public class OrderRemote {
+   // ---- inventory ---------------------------------------------------------------------------
+ 
+   /** One stock line to reserve; {@code offerId} null = the platform/default stock. */
+-  public record StockLine(UUID productId, UUID variantId, UUID offerId, int quantity) {}
++  public record StockLine(
++      UUID productId, UUID variantId, UUID offerId, int quantity, UUID sellerId) {}
+ 
+   /**
+    * Reserves stock and returns where it was reserved (empty with an inventory-service that still
+@@ -125,7 +126,14 @@ public class OrderRemote {
+               new InventoryFeignClient.ReserveRequest(
+                   orderId,
+                   lines.stream()
+-                      .map(l -> new Item(l.productId(), l.variantId(), l.quantity(), l.offerId()))
++                      .map(
++                          l ->
++                              new Item(
++                                  l.productId(),
++                                  l.variantId(),
++                                  l.quantity(),
++                                  l.offerId(),
++                                  l.sellerId()))
+                       .toList(),
+                   pincode));
+       return result == null || result.allocations() == null ? List.of() : result.allocations();
+diff --git a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/OrderService.java b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/OrderService.java
+index 673870f..2a4500e 100644
+--- a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/OrderService.java
++++ b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/OrderService.java
+@@ -290,7 +290,7 @@ public class OrderService {
+             .map(
+                 i ->
+                     new OrderRemote.StockLine(
+-                        i.productId(), i.variantId(), i.offerId(), i.quantity()))
++                        i.productId(), i.variantId(), i.offerId(), i.quantity(), i.sellerId()))
+             .toList();
+ 
+     List<Allocation> allocations;
+@@ -493,8 +493,8 @@ public class OrderService {
+ 
+   /**
+    * SHA-256 over every line's product, variant, offer, quantity and added-at instant, in a stable
+-   * order. The added-at instant is what tells "the same cart read twice" from "the same items
+-   * added again after the last order cleared the cart", so without it there is no fingerprint.
++   * order. The added-at instant is what tells "the same cart read twice" from "the same items added
++   * again after the last order cleared the cart", so without it there is no fingerprint.
+    */
+   static String cartFingerprint(List<CartItemResponse> items) {
+     List<String> parts = new ArrayList<>();
+@@ -503,7 +503,14 @@ public class OrderService {
+         return null;
+       }
+       parts.add(
+-          i.productId() + "|" + i.variantId() + "|" + i.offerId() + "|" + i.quantity() + "|"
++          i.productId()
++              + "|"
++              + i.variantId()
++              + "|"
++              + i.offerId()
++              + "|"
++              + i.quantity()
++              + "|"
+               + i.addedAt().toEpochMilli());
+     }
+     java.util.Collections.sort(parts);
+diff --git a/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/client/DependencyBreakerCapabilityTest.java b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/client/DependencyBreakerCapabilityTest.java
+index 946d42c..5dfe989 100644
+--- a/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/client/DependencyBreakerCapabilityTest.java
++++ b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/client/DependencyBreakerCapabilityTest.java
+@@ -66,9 +66,10 @@ class DependencyBreakerCapabilityTest {
+   void perServiceAndIoErrors() throws IOException {
+     Client failing =
+         capability.enrich(
+-            (req, opts) -> {
+-              throw new IOException("connection refused");
+-            });
++            (Client)
++                (req, opts) -> {
++                  throw new IOException("connection refused");
++                });
+     for (int i = 0; i < 10; i++) {
+       assertThatThrownBy(
+               () -> failing.execute(request("http://payment-service/p"), new Request.Options()))
+@@ -78,10 +79,7 @@ class DependencyBreakerCapabilityTest {
+         .isEqualTo(CircuitBreaker.State.OPEN);
+ 
+     Client healthy = capability.enrich(answering(200));
+-    assertThat(
+-            healthy
+-                .execute(request("http://user-service/u"), new Request.Options())
+-                .status())
++    assertThat(healthy.execute(request("http://user-service/u"), new Request.Options()).status())
+         .isEqualTo(200);
+   }
+ }
+diff --git a/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/OrderPlacementIntegrationTest.java b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/OrderPlacementIntegrationTest.java
+index 6a86114..e7fb500 100644
+--- a/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/OrderPlacementIntegrationTest.java
++++ b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/OrderPlacementIntegrationTest.java
+@@ -147,7 +147,16 @@ class OrderPlacementIntegrationTest extends AbstractOrderIntegrationTest {
+     assertThat(p.order().totalAmount()).isPositive();
+     assertThat(p.order().payment()).isNotNull();
+     assertThat(p.order().payment().paymentId()).isEqualTo("pay-1");
+-    verify(remote).reserveStock(eq(p.order().id()), any(), eq("560001"));
++    @SuppressWarnings("unchecked")
++    org.mockito.ArgumentCaptor<List<OrderRemote.StockLine>> lines =
++        org.mockito.ArgumentCaptor.forClass(List.class);
++    verify(remote).reserveStock(eq(p.order().id()), lines.capture(), eq("560001"));
++    assertThat(lines.getValue())
++        .isNotEmpty()
++        .allSatisfy(
++            l ->
++                assertThat(l.sellerId())
++                    .isEqualTo(com.acme.ecommerce.order.domain.Order.PLATFORM_SELLER));
+     assertThat(status(p.order().id())).isEqualTo("PENDING_PAYMENT");
+   }
+ 
+@@ -517,7 +526,17 @@ class OrderPlacementIntegrationTest extends AbstractOrderIntegrationTest {
+   private static com.acme.ecommerce.cart.api.dto.CartItemResponse item(
+       UUID productId, int qty, Instant addedAt) {
+     return new com.acme.ecommerce.cart.api.dto.CartItemResponse(
+-        productId, qty, "x", BigDecimal.ONE, "INR", null, BigDecimal.ONE, addedAt, null, null, null,
++        productId,
++        qty,
++        "x",
++        BigDecimal.ONE,
++        "INR",
++        null,
++        BigDecimal.ONE,
++        addedAt,
++        null,
++        null,
++        null,
+         null);
+   }
+ }
+diff --git a/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/OrderRemoteReserveMappingTest.java b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/OrderRemoteReserveMappingTest.java
+new file mode 100644
+index 0000000..e038d93
+--- /dev/null
++++ b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/OrderRemoteReserveMappingTest.java
+@@ -0,0 +1,45 @@
++package com.acme.ecommerce.order.service;
++
++import static org.assertj.core.api.Assertions.assertThat;
++import static org.mockito.Mockito.mock;
++import static org.mockito.Mockito.verify;
++
++import com.acme.ecommerce.order.client.InventoryFeignClient;
++import com.acme.ecommerce.order.domain.Order;
++import java.util.List;
++import java.util.UUID;
++import org.junit.jupiter.api.DisplayName;
++import org.junit.jupiter.api.Test;
++import org.mockito.ArgumentCaptor;
++
++/** The reserve request carries each line's owner so inventory can fail closed for seller offers. */
++class OrderRemoteReserveMappingTest {
++
++  @Test
++  @DisplayName("platform line sends PLATFORM and seller line sends that seller on the reserve item")
++  void sendsSellerIdPerLine() {
++    InventoryFeignClient inventory = mock(InventoryFeignClient.class);
++    OrderRemote remote = new OrderRemote(inventory, null, null, null, null, null, null);
++    UUID seller = UUID.randomUUID();
++    UUID offer = UUID.randomUUID();
++    UUID p1 = UUID.randomUUID();
++    UUID p2 = UUID.randomUUID();
++
++    remote.reserveStock(
++        UUID.randomUUID(),
++        List.of(
++            new OrderRemote.StockLine(p1, null, null, 1, Order.PLATFORM_SELLER),
++            new OrderRemote.StockLine(p2, null, offer, 2, seller)),
++        "560001");
++
++    ArgumentCaptor<InventoryFeignClient.ReserveRequest> req =
++        ArgumentCaptor.forClass(InventoryFeignClient.ReserveRequest.class);
++    verify(inventory).reserve(req.capture());
++    assertThat(req.getValue().items())
++        .extracting(InventoryFeignClient.Item::productId, InventoryFeignClient.Item::sellerId)
++        .containsExactly(
++            org.assertj.core.groups.Tuple.tuple(p1, Order.PLATFORM_SELLER),
++            org.assertj.core.groups.Tuple.tuple(p2, seller));
++    assertThat(req.getValue().items().get(1).offerId()).isEqualTo(offer);
++  }
++}
+diff --git a/services/product-service/product-service-app/src/main/java/com/acme/ecommerce/product/event/InventoryEvent.java b/services/product-service/product-service-app/src/main/java/com/acme/ecommerce/product/event/InventoryEvent.java
+index 3a3e865..cb5708f 100644
+--- a/services/product-service/product-service-app/src/main/java/com/acme/ecommerce/product/event/InventoryEvent.java
++++ b/services/product-service/product-service-app/src/main/java/com/acme/ecommerce/product/event/InventoryEvent.java
+@@ -23,4 +23,7 @@ public class InventoryEvent {
+   private Integer quantity;
+   private Integer requestedQuantity;
+   private String reason;
++
++  /** Set on seller-scoped events (additive); such events do not drive the product snapshot. */
++  private UUID offerId;
+ }
+diff --git a/services/product-service/product-service-app/src/main/java/com/acme/ecommerce/product/event/InventoryEventListener.java b/services/product-service/product-service-app/src/main/java/com/acme/ecommerce/product/event/InventoryEventListener.java
+index 62303e7..bf3ab5e 100644
+--- a/services/product-service/product-service-app/src/main/java/com/acme/ecommerce/product/event/InventoryEventListener.java
++++ b/services/product-service/product-service-app/src/main/java/com/acme/ecommerce/product/event/InventoryEventListener.java
+@@ -43,6 +43,13 @@ public class InventoryEventListener {
+     try {
+       switch (event.getEventType()) {
+         case INVENTORY_QUANTITY_CHANGED -> {
++          if (event.getOfferId() != null) {
++            log.debug(
++                "Skipping seller-scoped quantity event productId={} offerId={}",
++                productId,
++                event.getOfferId());
++            return;
++          }
+           log.info(
+               "Received INVENTORY_QUANTITY_CHANGED event productId={} quantity={}",
+               productId,
+diff --git a/services/product-service/product-service-app/src/main/java/com/acme/ecommerce/product/service/OfferService.java b/services/product-service/product-service-app/src/main/java/com/acme/ecommerce/product/service/OfferService.java
+index 6e945b4..1cd3b5c 100644
+--- a/services/product-service/product-service-app/src/main/java/com/acme/ecommerce/product/service/OfferService.java
++++ b/services/product-service/product-service-app/src/main/java/com/acme/ecommerce/product/service/OfferService.java
+@@ -238,6 +238,15 @@ public class OfferService {
+     return o;
+   }
+ 
++  /** Compensation for a create whose stock write failed: removes the offer and re-syncs prices. */
++  @Transactional
++  public void discard(UUID offerId) {
++    Offer o = get(offerId);
++    offers.delete(o);
++    offers.flush();
++    syncPrices(o.getProductId());
++  }
++
+   @Transactional
+   public Offer update(UUID sellerId, UUID offerId, OfferInput in, boolean admin) {
+     Offer o = get(offerId);
+diff --git a/services/product-service/product-service-app/src/main/java/com/acme/ecommerce/product/service/SellerCatalogService.java b/services/product-service/product-service-app/src/main/java/com/acme/ecommerce/product/service/SellerCatalogService.java
+index 0e72f16..06d1bbf 100644
+--- a/services/product-service/product-service-app/src/main/java/com/acme/ecommerce/product/service/SellerCatalogService.java
++++ b/services/product-service/product-service-app/src/main/java/com/acme/ecommerce/product/service/SellerCatalogService.java
+@@ -1,6 +1,7 @@
+ package com.acme.ecommerce.product.service;
+ 
+ import com.acme.ecommerce.common.core.error.ForbiddenException;
++import com.acme.ecommerce.common.core.error.UpstreamUnavailableException;
+ import com.acme.ecommerce.common.core.error.ValidationException;
+ import com.acme.ecommerce.product.api.dto.OfferResponse;
+ import com.acme.ecommerce.product.api.dto.ProductResponse;
+@@ -22,10 +23,15 @@ import java.math.BigDecimal;
+ import java.nio.charset.StandardCharsets;
+ import java.util.ArrayList;
+ import java.util.HashMap;
++import java.util.HashSet;
+ import java.util.List;
++import java.util.Locale;
+ import java.util.Map;
+ import java.util.Optional;
++import java.util.Set;
+ import java.util.UUID;
++import org.slf4j.Logger;
++import org.slf4j.LoggerFactory;
+ import org.springframework.beans.factory.annotation.Value;
+ import org.springframework.stereotype.Service;
+ import org.springframework.transaction.support.TransactionTemplate;
+@@ -34,6 +40,7 @@ import org.springframework.transaction.support.TransactionTemplate;
+ @Service
+ public class SellerCatalogService {
+ 
++  private static final Logger log = LoggerFactory.getLogger(SellerCatalogService.class);
+   public static final int MAX_ROWS = 1000;
+   public static final String TEMPLATE_HEADER =
+       "sku,name,description,categoryId,brand,price,salePrice,currency,quantity,warehouseCode,imageUrl,attributes";
+@@ -180,7 +187,8 @@ public class SellerCatalogService {
+                 r.currency(),
+                 r.dispatchDays(),
+                 r.active()));
+-    writeStock(o, r.quantity(), r.warehouseCode());
++    writeStockOrCompensate(
++        o, r.quantity(), r.warehouseCode(), () -> offerService.discard(o.getId()));
+     return viewOf(o);
+   }
+ 
+@@ -236,10 +244,49 @@ public class SellerCatalogService {
+           token);
+     } catch (feign.FeignException.BadRequest | feign.FeignException.Forbidden e) {
+       throw ValidationException.forField("warehouseCode", "unknown warehouse or seller has none");
++    } catch (RuntimeException e) {
++      // 5xx, timeout, or the open-circuit fallback: the stock state is unknown.
++      throw new UpstreamUnavailableException("inventory-service", e);
+     }
+     offerService.syncPrices(o.getProductId());
+   }
+ 
++  /**
++   * Writes stock for an offer this call just created; on any failure zeroes the stock best-effort
++   * (the write may have committed before a timeout), runs {@code undo}, and rethrows. A failed undo
++   * is logged as OFFER_STOCKLESS: the offer then shows 0 available and cannot be reserved.
++   */
++  private void writeStockOrCompensate(
++      Offer o, Integer quantity, String warehouseCode, Runnable undo) {
++    try {
++      writeStock(o, quantity, warehouseCode);
++    } catch (RuntimeException e) {
++      zeroStock(o, warehouseCode);
++      try {
++        undo.run();
++      } catch (RuntimeException u) {
++        log.error("OFFER_STOCKLESS offerId={}", o.getId(), u);
++      }
++      throw e;
++    }
++  }
++
++  private void zeroStock(Offer o, String warehouseCode) {
++    try {
++      inventory.putStock(
++          new InventoryDto.StockWrite(
++              o.getProductId(),
++              o.getVariantId(),
++              o.getSellerId(),
++              o.getId(),
++              blankToNull(warehouseCode),
++              0),
++          token);
++    } catch (RuntimeException z) {
++      log.warn("Best-effort stock zeroing failed offerId={}: {}", o.getId(), z.toString());
++    }
++  }
++
+   // ------------------------------------------------------------- products
+ 
+   public ProductResponse createProduct(SellerCtx ctx, SellerProductRequest r) {
+@@ -300,7 +347,11 @@ public class SellerCatalogService {
+         offers
+             .findByProductIdAndVariantIdIsNullAndSellerId(created.getId(), ctx.sellerId())
+             .orElseThrow();
+-    writeStock(offer, r.quantity() == null ? 0 : r.quantity(), r.warehouseCode());
++    writeStockOrCompensate(
++        offer,
++        r.quantity() == null ? 0 : r.quantity(),
++        r.warehouseCode(),
++        () -> catalog.delete(created.getId()));
+     return catalog.findById(created.getId());
+   }
+ 
+@@ -333,6 +384,7 @@ public class SellerCatalogService {
+     int created = 0;
+     int updated = 0;
+     List<RowError> errors = new ArrayList<>();
++    Set<String> seen = new HashSet<>();
+     for (int i = 1; i < rows.size(); i++) {
+       List<String> cells = rows.get(i);
+       if (cells.stream().allMatch(String::isBlank)) {
+@@ -343,6 +395,11 @@ public class SellerCatalogService {
+         row.put(header.get(c), c < cells.size() ? cells.get(c).trim() : "");
+       }
+       final int rowNo = i + 1;
++      String skuKey = row.getOrDefault("sku", "").trim().toUpperCase(Locale.ROOT);
++      if (!skuKey.isEmpty() && !seen.add(skuKey)) {
++        errors.add(new RowError(rowNo, "duplicate sku in file"));
++        continue;
++      }
+       try {
+         Boolean wasCreated = processRow(ctx, row);
+         if (wasCreated) {
+@@ -494,6 +551,7 @@ public class SellerCatalogService {
+     }
+     Offer offer =
+         offers.findByProductIdAndVariantIdIsNullAndSellerId(productId, ctx.sellerId()).orElse(null);
++    boolean offerCreated = offer == null;
+     if (offer == null) {
+       offer =
+           offerService.create(
+@@ -508,7 +566,15 @@ public class SellerCatalogService {
+               true);
+     }
+     if (!q.isBlank() || wasCreated) {
+-      writeStock(offer, quantity, warehouse);
++      final Offer written = offer;
++      if (wasCreated) {
++        writeStockOrCompensate(offer, quantity, warehouse, () -> catalog.delete(productId));
++      } else if (offerCreated) {
++        writeStockOrCompensate(
++            offer, quantity, warehouse, () -> offerService.discard(written.getId()));
++      } else {
++        writeStock(offer, quantity, warehouse);
++      }
+     }
+     return wasCreated;
+   }
+diff --git a/services/product-service/product-service-app/src/test/java/com/acme/ecommerce/product/event/InventoryEventListenerIntegrationTest.java b/services/product-service/product-service-app/src/test/java/com/acme/ecommerce/product/event/InventoryEventListenerIntegrationTest.java
+index e6631ca..c47a3c1 100644
+--- a/services/product-service/product-service-app/src/test/java/com/acme/ecommerce/product/event/InventoryEventListenerIntegrationTest.java
++++ b/services/product-service/product-service-app/src/test/java/com/acme/ecommerce/product/event/InventoryEventListenerIntegrationTest.java
+@@ -101,7 +101,8 @@ class InventoryEventListenerIntegrationTest extends AbstractProductIntegrationTe
+             Instant.now(),
+             null,
+             25,
+-            "connection reset");
++            "connection reset",
++            null);
+     String json = OBJECT_MAPPER.writeValueAsString(event);
+     producer.send(new ProducerRecord<>("inventory.events", productId.toString(), json)).get();
+ 
+@@ -112,7 +113,7 @@ class InventoryEventListenerIntegrationTest extends AbstractProductIntegrationTe
+       throws Exception {
+     InventoryEvent event =
+         new InventoryEvent(
+-            UUID.randomUUID(), type, productId, Instant.now(), newQuantity, null, null);
++            UUID.randomUUID(), type, productId, Instant.now(), newQuantity, null, null, null);
+     String json = OBJECT_MAPPER.writeValueAsString(event);
+     producer.send(new ProducerRecord<>("inventory.events", productId.toString(), json)).get();
+   }
+diff --git a/services/product-service/product-service-app/src/test/java/com/acme/ecommerce/product/event/InventoryEventListenerTest.java b/services/product-service/product-service-app/src/test/java/com/acme/ecommerce/product/event/InventoryEventListenerTest.java
+index bd0247f..8555fbf 100644
+--- a/services/product-service/product-service-app/src/test/java/com/acme/ecommerce/product/event/InventoryEventListenerTest.java
++++ b/services/product-service/product-service-app/src/test/java/com/acme/ecommerce/product/event/InventoryEventListenerTest.java
+@@ -95,7 +95,8 @@ class InventoryEventListenerTest {
+         Instant.parse("2026-01-01T00:00:00Z"),
+         null,
+         25,
+-        "connection reset");
++        "connection reset",
++        null);
+   }
+ 
+   private static InventoryEvent event(
+@@ -107,6 +108,7 @@ class InventoryEventListenerTest {
+         Instant.parse("2026-01-01T00:00:00Z"),
+         newQuantity,
+         null,
++        null,
+         null);
+   }
+ 
+@@ -124,4 +126,37 @@ class InventoryEventListenerTest {
+                     event(InventoryEventType.INVENTORY_QUANTITY_CHANGED, productId, 7)))
+         .hasMessage("db down");
+   }
++
++  @Test
++  @DisplayName(
++      "a quantity event carrying an offerId is skipped, so last_known_quantity is untouched")
++  void sellerScopedEventIsSkipped() {
++    InventoryEventListener listener = new InventoryEventListener(catalog);
++    InventoryEvent event =
++        event(InventoryEventType.INVENTORY_QUANTITY_CHANGED, UUID.randomUUID(), 5);
++    event.setOfferId(UUID.randomUUID());
++
++    listener.onInventoryEvent(event);
++
++    verifyNoInteractions(catalog);
++  }
++
++  @Test
++  @DisplayName(
++      "unknown JSON fields (inventory's variantId, sellerId) are tolerated and offerId read")
++  void unknownFieldsTolerated() throws Exception {
++    UUID offerId = UUID.randomUUID();
++    String json =
++        "{\"eventType\":\"INVENTORY_QUANTITY_CHANGED\",\"quantity\":3,"
++            + "\"variantId\":\"x\",\"sellerId\":\""
++            + UUID.randomUUID()
++            + "\",\"offerId\":\""
++            + offerId
++            + "\",\"futureField\":1}";
++    var deserializer =
++        new org.springframework.kafka.support.serializer.JsonDeserializer<>(InventoryEvent.class);
++    deserializer.addTrustedPackages("*");
++    InventoryEvent e = deserializer.deserialize("inventory.events", json.getBytes());
++    org.assertj.core.api.Assertions.assertThat(e.getOfferId()).isEqualTo(offerId);
++  }
+ }
+diff --git a/services/product-service/product-service-app/src/test/java/com/acme/ecommerce/product/service/SellerCatalogServiceTest.java b/services/product-service/product-service-app/src/test/java/com/acme/ecommerce/product/service/SellerCatalogServiceTest.java
+new file mode 100644
+index 0000000..2b1f66c
+--- /dev/null
++++ b/services/product-service/product-service-app/src/test/java/com/acme/ecommerce/product/service/SellerCatalogServiceTest.java
+@@ -0,0 +1,355 @@
++package com.acme.ecommerce.product.service;
++
++import static org.assertj.core.api.Assertions.assertThat;
++import static org.assertj.core.api.Assertions.assertThatThrownBy;
++import static org.mockito.ArgumentMatchers.any;
++import static org.mockito.ArgumentMatchers.anyString;
++import static org.mockito.ArgumentMatchers.eq;
++import static org.mockito.Mockito.doThrow;
++import static org.mockito.Mockito.mock;
++import static org.mockito.Mockito.never;
++import static org.mockito.Mockito.times;
++import static org.mockito.Mockito.verify;
++import static org.mockito.Mockito.when;
++
++import com.acme.ecommerce.common.core.error.ResourceConflictException;
++import com.acme.ecommerce.common.core.error.UpstreamUnavailableException;
++import com.acme.ecommerce.common.core.error.ValidationException;
++import com.acme.ecommerce.product.api.dto.OfferResponse;
++import com.acme.ecommerce.product.api.dto.ProductResponse;
++import com.acme.ecommerce.product.client.InventoryDto;
++import com.acme.ecommerce.product.client.InventoryServiceClient;
++import com.acme.ecommerce.product.domain.Offer;
++import com.acme.ecommerce.product.domain.Product;
++import com.acme.ecommerce.product.repository.CategoryRepository;
++import com.acme.ecommerce.product.repository.OfferRepository;
++import com.acme.ecommerce.product.repository.ProductRepository;
++import com.acme.ecommerce.product.service.OfferService.OfferInput;
++import com.acme.ecommerce.product.service.SellerCatalogService.BulkResult;
++import com.acme.ecommerce.product.service.SellerCatalogService.OfferRequest;
++import com.acme.ecommerce.product.service.SellerCatalogService.SellerCtx;
++import com.acme.ecommerce.product.service.SellerCatalogService.SellerProductRequest;
++import com.acme.ecommerce.product.web.dto.CreateProductRequest;
++import com.fasterxml.jackson.databind.ObjectMapper;
++import feign.FeignException;
++import feign.Request;
++import java.math.BigDecimal;
++import java.nio.charset.StandardCharsets;
++import java.util.List;
++import java.util.Map;
++import java.util.Optional;
++import java.util.UUID;
++import org.junit.jupiter.api.BeforeEach;
++import org.junit.jupiter.api.DisplayName;
++import org.junit.jupiter.api.Test;
++import org.springframework.transaction.PlatformTransactionManager;
++import org.springframework.transaction.support.TransactionTemplate;
++
++/**
++ * Offer/product create compensation (TD-P9-05) and bulk de-dup (TD-P9-04), with mocked
++ * collaborators.
++ */
++class SellerCatalogServiceTest {
++
++  private final UUID sellerId = UUID.randomUUID();
++  private final SellerCtx ctx = new SellerCtx(sellerId, false, null);
++
++  private SellerDirectory sellers;
++  private OfferService offerService;
++  private OfferRepository offers;
++  private ProductRepository products;
++  private ProductCatalogService catalog;
++  private InventoryServiceClient inventory;
++  private SellerCatalogService service;
++
++  @BeforeEach
++  void setUp() {
++    sellers = mock(SellerDirectory.class);
++    offerService = mock(OfferService.class);
++    offers = mock(OfferRepository.class);
++    products = mock(ProductRepository.class);
++    catalog = mock(ProductCatalogService.class);
++    inventory = mock(InventoryServiceClient.class);
++    service =
++        new SellerCatalogService(
++            sellers,
++            offerService,
++            offers,
++            products,
++            mock(CategoryRepository.class),
++            catalog,
++            inventory,
++            new ObjectMapper(),
++            new TransactionTemplate(mock(PlatformTransactionManager.class)));
++  }
++
++  // ------------------------------------------------------------- createOffer
++
++  private Offer offer(UUID productId) {
++    return Offer.builder().id(UUID.randomUUID()).productId(productId).sellerId(sellerId).build();
++  }
++
++  private Offer stubCreate(UUID productId) {
++    Offer o = offer(productId);
++    when(offerService.create(eq(sellerId), any(OfferInput.class))).thenReturn(o);
++    return o;
++  }
++
++  private OfferRequest request(UUID productId, Integer qty) {
++    return new OfferRequest(productId, null, BigDecimal.TEN, null, "USD", 1, true, qty, "WH-1");
++  }
++
++  private static FeignException badRequest() {
++    Request r =
++        Request.create(Request.HttpMethod.PUT, "/x", Map.of(), null, StandardCharsets.UTF_8, null);
++    return new FeignException.BadRequest("bad", r, null, Map.of());
++  }
++
++  private static FeignException serverError() {
++    Request r =
++        Request.create(Request.HttpMethod.PUT, "/x", Map.of(), null, StandardCharsets.UTF_8, null);
++    return new FeignException.InternalServerError("boom", r, null, Map.of());
++  }
++
++  @Test
++  @DisplayName("a Feign 5xx on create zeroes best-effort, discards the offer and returns 503")
++  void feign5xxDiscardsAndZeroes() {
++    UUID productId = UUID.randomUUID();
++    Offer o = stubCreate(productId);
++    // first call (the real write) fails; the zeroing call succeeds
++    doThrow(serverError()).doNothing().when(inventory).putStock(any(), any());
++
++    assertThatThrownBy(() -> service.createOffer(ctx, request(productId, 5)))
++        .isInstanceOf(UpstreamUnavailableException.class);
++
++    var calls = org.mockito.ArgumentCaptor.forClass(InventoryDto.StockWrite.class);
++    verify(inventory, times(2)).putStock(calls.capture(), any());
++    assertThat(calls.getAllValues().get(0).getQuantity()).isEqualTo(5);
++    assertThat(calls.getAllValues().get(1).getQuantity()).isZero();
++    assertThat(calls.getAllValues().get(1).getOfferId()).isEqualTo(o.getId());
++    verify(offerService).discard(o.getId());
++  }
++
++  @Test
++  @DisplayName("the open-circuit fallback (IllegalStateException) and a timeout both give 503")
++  void fallbackAndTimeoutGive503() {
++    UUID productId = UUID.randomUUID();
++    Offer o = stubCreate(productId);
++    doThrow(new IllegalStateException("circuit open")).when(inventory).putStock(any(), any());
++    assertThatThrownBy(() -> service.createOffer(ctx, request(productId, 5)))
++        .isInstanceOf(UpstreamUnavailableException.class);
++    verify(offerService).discard(o.getId());
++
++    doThrow(new RuntimeException(new java.net.SocketTimeoutException("Read timed out")))
++        .when(inventory)
++        .putStock(any(), any());
++    assertThatThrownBy(() -> service.createOffer(ctx, request(productId, 5)))
++        .isInstanceOf(UpstreamUnavailableException.class);
++    verify(offerService, times(2)).discard(o.getId());
++  }
++
++  @Test
++  @DisplayName("a failing zeroing call is only logged; the 503 and the discard still happen")
++  void zeroingFailureOnlyLogged() {
++    UUID productId = UUID.randomUUID();
++    Offer o = stubCreate(productId);
++    doThrow(serverError()).when(inventory).putStock(any(), any());
++
++    assertThatThrownBy(() -> service.createOffer(ctx, request(productId, 5)))
++        .isInstanceOf(UpstreamUnavailableException.class);
++
++    verify(inventory, times(2)).putStock(any(), any());
++    verify(offerService).discard(o.getId());
++  }
++
++  @Test
++  @DisplayName("a failing discard is logged (OFFER_STOCKLESS) and the original 503 is rethrown")
++  void discardFailureStillRethrowsOriginal() {
++    UUID productId = UUID.randomUUID();
++    Offer o = stubCreate(productId);
++    doThrow(serverError()).when(inventory).putStock(any(), any());
++    doThrow(new IllegalStateException("db down")).when(offerService).discard(o.getId());
++
++    assertThatThrownBy(() -> service.createOffer(ctx, request(productId, 5)))
++        .isInstanceOf(UpstreamUnavailableException.class);
++  }
++
++  @Test
++  @DisplayName("an inventory 400 stays a 400 validation error and still discards the offer")
++  void badRequestStays400() {
++    UUID productId = UUID.randomUUID();
++    Offer o = stubCreate(productId);
++    doThrow(badRequest()).when(inventory).putStock(any(), any());
++
++    assertThatThrownBy(() -> service.createOffer(ctx, request(productId, 5)))
++        .isInstanceOf(ValidationException.class);
++    verify(offerService).discard(o.getId());
++  }
++
++  @Test
++  @DisplayName("no quantity: the offer is created, no stock call is made and nothing is discarded")
++  void nullQuantityCreatesOfferWithoutStock() {
++    UUID productId = UUID.randomUUID();
++    Offer o = stubCreate(productId);
++    OfferResponse view = mock(OfferResponse.class);
++    when(view.getAvailableQuantity()).thenReturn(0);
++    when(offerService.views(eq(productId), any())).thenReturn(List.of(view));
++
++    var result = service.createOffer(ctx, request(productId, null));
++
++    assertThat(result.offer().getAvailableQuantity()).isZero();
++    verify(inventory, never()).putStock(any(), any());
++    verify(offerService, never()).discard(any());
++    assertThat(o.getId()).isNotNull();
++  }
++
++  @Test
++  @DisplayName("a retried create is a 409 with no stock call and no second offer")
++  void retriedCreateIs409() {
++    UUID productId = UUID.randomUUID();
++    when(offerService.create(eq(sellerId), any(OfferInput.class)))
++        .thenThrow(new ResourceConflictException("This seller already has an offer"));
++
++    assertThatThrownBy(() -> service.createOffer(ctx, request(productId, 5)))
++        .isInstanceOf(ResourceConflictException.class);
++    verify(inventory, never()).putStock(any(), any());
++    verify(offerService, never()).discard(any());
++  }
++
++  // ------------------------------------------------------------ createProduct
++
++  @Test
++  @DisplayName("createProduct with a failing stock write deletes the product and returns 503")
++  void createProductStockFailureDeletesProduct() {
++    UUID productId = UUID.randomUUID();
++    ProductResponse created = ProductResponse.builder().id(productId).build();
++    when(catalog.createFor(any(CreateProductRequest.class), eq(sellerId), anyString()))
++        .thenReturn(created);
++    Product entity = mock(Product.class);
++    when(products.findById(productId)).thenReturn(Optional.of(entity));
++    Offer o = offer(productId);
++    when(offers.findByProductIdAndVariantIdIsNullAndSellerId(productId, sellerId))
++        .thenReturn(Optional.of(o));
++    doThrow(serverError()).when(inventory).putStock(any(), any());
++
++    var req =
++        new SellerProductRequest(
++            "N", null, null, null, "SKU-1", null, BigDecimal.TEN, null, "USD", 1, 3, "WH-1");
++    assertThatThrownBy(() -> service.createProduct(ctx, req))
++        .isInstanceOf(UpstreamUnavailableException.class);
++
++    verify(catalog).delete(productId);
++  }
++
++  // --------------------------------------------------------------------- bulk
++
++  private static byte[] csv(String... rows) {
++    return ("sku,name,price,quantity\n" + String.join("\n", rows) + "\n")
++        .getBytes(StandardCharsets.UTF_8);
++  }
++
++  /** New SKUs create a product (id = fresh, remembered by sku) and, with no offer yet, an offer. */
++  private Map<String, UUID> stubNewProducts() {
++    Map<String, UUID> ids = new java.util.concurrent.ConcurrentHashMap<>();
++    when(catalog.createFor(any(CreateProductRequest.class), eq(sellerId), anyString()))
++        .thenAnswer(
++            inv -> {
++              CreateProductRequest r = inv.getArgument(0);
++              UUID id = UUID.randomUUID();
++              ids.put(r.getSku(), id);
++              return ProductResponse.builder().id(id).build();
++            });
++    when(products.findById(any(UUID.class))).thenAnswer(i -> Optional.of(mock(Product.class)));
++    when(offerService.create(eq(sellerId), any(OfferInput.class)))
++        .thenAnswer(i -> offer(((OfferInput) i.getArgument(1)).productId()));
++    return ids;
++  }
++
++  @Test
++  @DisplayName("later rows repeating a SKU (exact, case or whitespace variant) are row errors")
++  void bulkDuplicateSkuRejected() {
++    stubNewProducts();
++
++    BulkResult result =
++        service.bulk(
++            ctx, csv("A1,One,10,5", "B2,Two,10,5", "a1,Dup,10,5", " B2 ,Dup,10,5", "A1,x,1,1"));
++
++    assertThat(result.created()).isEqualTo(2);
++    assertThat(result.updated()).isZero();
++    assertThat(result.errors())
++        .extracting(SellerCatalogService.RowError::row, SellerCatalogService.RowError::message)
++        .containsExactly(
++            org.assertj.core.groups.Tuple.tuple(4, "duplicate sku in file"),
++            org.assertj.core.groups.Tuple.tuple(5, "duplicate sku in file"),
++            org.assertj.core.groups.Tuple.tuple(6, "duplicate sku in file"));
++    verify(catalog, times(2)).createFor(any(CreateProductRequest.class), any(), anyString());
++  }
++
++  @Test
++  @DisplayName("a row whose stock write fails is rolled back; other rows are unaffected")
++  void bulkStockFailureCompensatesOnlyThatRow() {
++    Map<String, UUID> ids = stubNewProducts();
++    doThrow(serverError())
++        .when(inventory)
++        .putStock(
++            org.mockito.ArgumentMatchers.argThat(
++                w ->
++                    w != null && ids.get("BAD") != null && ids.get("BAD").equals(w.getProductId())),
++            any());
++
++    BulkResult result = service.bulk(ctx, csv("OK1,One,10,5", "BAD,Two,10,5", "OK2,Three,10,5"));
++
++    assertThat(result.created()).isEqualTo(2);
++    assertThat(result.errors()).hasSize(1);
++    assertThat(result.errors().get(0).row()).isEqualTo(3);
++    verify(catalog).delete(ids.get("BAD"));
++    verify(catalog, never()).delete(ids.get("OK1"));
++    verify(catalog, never()).delete(ids.get("OK2"));
++    verify(offerService, never()).discard(any());
++  }
++
++  @Test
++  @DisplayName(
++      "an existing product gaining a new offer is discarded (not deleted) on stock failure")
++  void bulkOfferOnlyRowDiscardsOffer() {
++    UUID productId = UUID.randomUUID();
++    Product existing = mock(Product.class);
++    when(existing.getId()).thenReturn(productId);
++    when(existing.getSellerId()).thenReturn(sellerId);
++    when(products.findBySku("E1")).thenReturn(Optional.of(existing));
++    when(products.findById(productId)).thenReturn(Optional.of(existing));
++    Offer o = offer(productId);
++    when(offerService.create(eq(sellerId), any(OfferInput.class))).thenReturn(o);
++    doThrow(serverError()).when(inventory).putStock(any(), any());
++
++    BulkResult result = service.bulk(ctx, csv("E1,One,10,5"));
++
++    assertThat(result.errors()).hasSize(1);
++    verify(offerService).discard(o.getId());
++    verify(catalog, never()).delete(any(UUID.class));
++  }
++
++  @Test
++  @DisplayName("a row that only updates an existing offer reports the error and discards nothing")
++  void bulkUpdateOnlyRowNotDiscarded() {
++    UUID productId = UUID.randomUUID();
++    Product existing = mock(Product.class);
++    when(existing.getId()).thenReturn(productId);
++    when(existing.getSellerId()).thenReturn(sellerId);
++    when(products.findBySku("E1")).thenReturn(Optional.of(existing));
++    when(products.findById(productId)).thenReturn(Optional.of(existing));
++    Offer o = offer(productId);
++    when(offers.findByProductIdAndVariantIdIsNullAndSellerId(productId, sellerId))
++        .thenReturn(Optional.of(o));
++    when(offerService.update(eq(sellerId), eq(o.getId()), any(OfferInput.class), eq(true)))
++        .thenReturn(o);
++    doThrow(serverError()).when(inventory).putStock(any(), any());
++
++    BulkResult result = service.bulk(ctx, csv("E1,One,10,5"));
++
++    assertThat(result.errors()).hasSize(1);
++    verify(offerService, never()).discard(any());
++    verify(catalog, never()).delete(any(UUID.class));
++    verify(inventory, times(1)).putStock(any(), any());
++  }
++}

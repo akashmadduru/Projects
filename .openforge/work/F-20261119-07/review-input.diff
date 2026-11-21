@@ -1,0 +1,1240 @@
+diff --git a/apps/product-catalog/src/components/__tests__/PhoneSection.test.tsx b/apps/product-catalog/src/components/__tests__/PhoneSection.test.tsx
+new file mode 100644
+index 0000000..2766f18
+--- /dev/null
++++ b/apps/product-catalog/src/components/__tests__/PhoneSection.test.tsx
+@@ -0,0 +1,41 @@
++/**
++ * PhoneSection: neutral hint once the code field shows (O-01); OTP errors keep the existing message.
++ */
++
++import { describe, it, expect, beforeEach, vi } from 'vitest'
++import { render, screen } from '@testing-library/react'
++import userEvent from '@testing-library/user-event'
++import { PhoneSection } from '../account/PhoneSection'
++import { authApi } from '../../services/authApi'
++
++vi.mock('../../services/authApi', () => ({
++  authApi: { addPhone: vi.fn(), verifyPhone: vi.fn() },
++}))
++
++async function sendCode() {
++  render(<PhoneSection />)
++  await userEvent.type(screen.getByLabelText('Mobile number'), '+919876543210')
++  await userEvent.click(screen.getByRole('button', { name: 'Send code' }))
++}
++
++describe('PhoneSection', () => {
++  beforeEach(() => {
++    vi.mocked(authApi.addPhone).mockReset().mockResolvedValue(undefined as never)
++    vi.mocked(authApi.verifyPhone).mockReset()
++  })
++
++  it('shows a neutral hint once the code field is shown', async () => {
++    await sendCode()
++    const hint = await screen.findByText('If the code does not arrive, check the number.')
++    expect(hint.textContent).not.toMatch(/already|in use|taken|verified/i)
++  })
++
++  it('shows the existing message for AUTH_OTP_INVALID', async () => {
++    const err = Object.assign(new Error('x'), { name: 'ApiError', status: 401, problem: { code: 'AUTH_OTP_INVALID' } })
++    vi.mocked(authApi.verifyPhone).mockRejectedValue(err)
++    await sendCode()
++    await userEvent.type(await screen.findByLabelText('6-digit code'), '123456')
++    await userEvent.click(screen.getByRole('button', { name: 'Verify number' }))
++    expect(await screen.findByText(/That code is incorrect or has expired/)).toBeTruthy()
++  })
++})
+diff --git a/apps/product-catalog/src/components/account/PhoneSection.tsx b/apps/product-catalog/src/components/account/PhoneSection.tsx
+index 3787883..8667926 100644
+--- a/apps/product-catalog/src/components/account/PhoneSection.tsx
++++ b/apps/product-catalog/src/components/account/PhoneSection.tsx
+@@ -89,7 +89,7 @@ export function PhoneSection() {
+           )}
+         </Field>
+         {codeSent && (
+-          <Field label="6-digit code">
++          <Field label="6-digit code" hint="If the code does not arrive, check the number.">
+             {(id) => (
+               <input
+                 id={id}
+diff --git a/docs/architecture/adr/0007-generic-add-phone.md b/docs/architecture/adr/0007-generic-add-phone.md
+new file mode 100644
+index 0000000..051264f
+--- /dev/null
++++ b/docs/architecture/adr/0007-generic-add-phone.md
+@@ -0,0 +1,51 @@
++# ADR 0007: Add-phone answers the same for taken and free numbers; the owner gets one email a day; reset keeps creating a credential but says so
++
++Status: accepted, 2026-11-20 (CTO, class L, standing Owner approval R-20261119-01). Work id F-20261119-07
++(TD-P6-20).
++
++## Context
++- Add-phone threw 409 `AUTH_PHONE_TAKEN` when the number was verified on another account, and so did the
++  verify race. Any signed-in user could test whether a number is registered.
++- Uniqueness of verified numbers is enforced by the partial unique index `users_phone_verified_key`
++  (`V2__phase6_tokens_phone_otp.sql`), not by the 409.
++- Every account has an email. Redis is already used fail-open (`UserSessionCache`).
++- Password reset is the only way to set a password, and it creates a credential for Google-only users
++  without telling them.
++
++## Decision
++- **Generic add.** Taken and free numbers run the same steps: store unverified, issue the code with the same
++  30 s cooldown, return 202 with an empty body. Only the last step differs: a free number gets the SMS; a
++  taken number gets no SMS and hands the owner notice to `PhoneClaimNotifier` asynchronously. A resend
++  inside 30 s is the same 429 `AUTH_RATE_LIMITED` for both.
++- **Generic verify race.** A lost race or a guessed decoy code returns 401 `AUTH_OTP_INVALID`, the same as a
++  wrong code. The code is consumed in its own transaction **before** the in-transaction re-check
++  (`OneTimeTokenService.verifyCode`), so a refused code cannot be replayed. The DB re-check and the unique
++  index remain the safety and keep their tests. `AUTH_PHONE_TAKEN` is `@Deprecated(forRemoval = true)`,
++  stays in the enum, and is no longer emitted.
++- **Owner notice.** The owner gets an email (`PHONE_CLAIM_ATTEMPT`, last 4 digits only) through
++  `NotificationGateway`, limited to one per owner per `AUTH_PHONE_CLAIM_NOTICE_WINDOW` (default 24 h) by
++  Redis `SET NX PX` on `auth:phone-claim-notice:{ownerId}` (no phone number in Redis). If Redis is
++  unavailable the notice is skipped (fail-closed for the notice only; WARN throttled to one per 30 s).
++- **Reset (AC-12 option b).** Keep creating the credential. When the reset created it, send a
++  `PASSWORD_SET` email to the account address after commit (fail-open). Documented in `api.md` and
++  `auth-service.md`.
++
++## Alternatives considered
++- **Skip issuing a code for taken numbers:** the cooldown 429 then differs between taken and free numbers,
++  an oracle. Rejected.
++- **SMS notice to the number:** costs money and lets users trigger paid SMS to registered numbers. Rejected.
++- **Fail-open notice when Redis is down:** unbounded email to the owner. Rejected.
++- **AC-12 (a), gate the reset for Google-only users:** removes their only way to get a password and adds no
++  protection, because mailbox control already allows a reset on password accounts. Rejected.
++- **204 on the verify race without verifying:** the UI would say "verified" while the profile says not.
++  Rejected.
++- **Reuse F-06 `SharedWindowCounter`:** not on this branch, and a counter is the wrong primitive for a
++  one-shot flag. Rejected.
++
++## Consequences
++- An honest user who mistypes a number sees no "already in use" message. The storefront hint says "If the
++  code does not arrive, check the number." without describing the rule.
++- **Deploy order: notification-service first, then auth-service.** An old notification-service rejects the
++  unknown template names (HTTP 400). If auth deploys first, `PHONE_CLAIM_ATTEMPT` and `PASSWORD_SET` notices
++  are lost (WARN in the gateway); nothing fails for the user.
++- **Rollback:** revert both images. Redis keys expire within the window; no migration.
+diff --git a/docs/reference/api.md b/docs/reference/api.md
+index b5438f1..e74b19d 100644
+--- a/docs/reference/api.md
++++ b/docs/reference/api.md
+@@ -141,6 +141,18 @@ more replicas multiplies them. There is no gateway-level rate limit yet.
+ 
+ Exceeding a limit returns 429 `RATE_LIMITED`.
+ 
++### Add phone and password reset (auth-service)
++
++- `POST /api/auth/me/phone` answers **202 with an empty body** whether or not the number is already
++  verified on another account; a taken number gets no SMS. A second call within 30 s is 429
++  `AUTH_RATE_LIMITED` in both cases. The owner of a taken number gets at most one notice email per
++  `AUTH_PHONE_CLAIM_NOTICE_WINDOW`.
++- `POST /api/auth/me/phone/verify` answers 204, or 401 `AUTH_OTP_INVALID` for a wrong code, a lost race
++  or a code that was never delivered. `AUTH_PHONE_TAKEN` is deprecated and no longer emitted.
++- `POST /api/auth/password/reset` answers 204. For an account with no password (for example Google-only)
++  it creates the credential row and sends a `PASSWORD_SET` email to the account address. See
++  [ADR 0007](../architecture/adr/0007-generic-add-phone.md).
++
+ ### Idempotency
+ 
+ `POST /api/orders` requires an `Idempotency-Key` header. The same key with the same body returns the
+diff --git a/docs/reference/env-descriptions.json b/docs/reference/env-descriptions.json
+index 8402189..9fae7d9 100644
+--- a/docs/reference/env-descriptions.json
++++ b/docs/reference/env-descriptions.json
+@@ -113,6 +113,10 @@
+       "group": "Identity and tokens",
+       "text": "Redirect used when the caller does not name one."
+     },
++    "AUTH_PHONE_CLAIM_NOTICE_WINDOW": {
++      "group": "Identity and tokens",
++      "text": "Minimum gap between \"someone tried to add your number\" emails to the same owner (Redis SET NX TTL). A Redis outage skips the notice."
++    },
+     "AUTH_RATE_LIMIT_LOGIN_CAPACITY": {
+       "group": "Identity and tokens",
+       "text": "Login attempts per window per client (in-memory, per instance)."
+diff --git a/docs/reference/environment-variables.md b/docs/reference/environment-variables.md
+index c4b232e..28c6398 100644
+--- a/docs/reference/environment-variables.md
++++ b/docs/reference/environment-variables.md
+@@ -53,6 +53,7 @@ service-level setting (add it under that service's `env:` in `values.yaml`). Rel
+ | `AUTH_DEFAULT_REDIRECT_URI` | auth | `http://localhost:5173/auth/callback` |  | .env + helm | Redirect used when the caller does not name one. |
+ | `AUTH_JWT_AUDIENCES` | all services | `ecommerce-platform` |  | .env + helm | Token audience (`aud`). Same rule as the issuer. |
+ | `AUTH_JWT_ISSUER` | all services | `https://auth.acme-ecommerce.internal` |  | .env + helm | Token issuer (`iss`). Must be identical in auth-service, the gateway and every resource server, or every request fails with `invalid_token`. |
++| `AUTH_PHONE_CLAIM_NOTICE_WINDOW` | auth | `24h` |  | - | Minimum gap between "someone tried to add your number" emails to the same owner (Redis SET NX TTL). A Redis outage skips the notice. |
+ | `AUTH_RATE_LIMIT_LOGIN_CAPACITY` | auth | `10` |  | compose | Login attempts per window per client (in-memory, per instance). |
+ | `AUTH_RATE_LIMIT_REFRESH_CAPACITY` | auth | `60` |  | compose | Token refreshes per window per client (in-memory, per instance). |
+ | `AUTH_REGISTRATION_ENABLED` | auth | `false` |  | .env + helm | Allows self-service sign-up. Default `false`; the local template and the AWS chart turn it on so you can register the first admin. Turn it off again once your accounts exist. |
+diff --git a/docs/services/auth-service.md b/docs/services/auth-service.md
+index 2ab5ff3..bac0a9f 100644
+--- a/docs/services/auth-service.md
++++ b/docs/services/auth-service.md
+@@ -119,6 +119,12 @@ Rate limits are in [api.md](../reference/api.md#rate-limits).
+ application default is **false**; `deploy/local/docker-compose.yml` sets it to **true** for local use.
+ New accounts get `ROLE_VIEWER` only.
+ 
++**Add phone is generic.** Taken and free numbers get the same 202 and the same 30 s resend cooldown; a taken
++number gets no SMS and its owner gets one `PHONE_CLAIM_ATTEMPT` email per 24 h (`PhoneClaimNotifier`, Redis
++`SET NX`; skipped if Redis is down). A lost verify race returns 401 `AUTH_OTP_INVALID`. **Password reset**
++on an account with no credential creates one and sends `PASSWORD_SET`. Deploy notification-service before
++auth-service. See [ADR 0007](../architecture/adr/0007-generic-add-phone.md).
++
+ Refresh cookie: `HttpOnly; Secure; SameSite=Lax; Path=/api/auth`.
+ 
+ The refresh token is **never** in a response body and **never** in a redirect URL. After a Google
+diff --git a/services/auth-service/auth-service-api/src/main/java/com/acme/ecommerce/auth/api/AuthErrorCode.java b/services/auth-service/auth-service-api/src/main/java/com/acme/ecommerce/auth/api/AuthErrorCode.java
+index 0686576..6643dbf 100644
+--- a/services/auth-service/auth-service-api/src/main/java/com/acme/ecommerce/auth/api/AuthErrorCode.java
++++ b/services/auth-service/auth-service-api/src/main/java/com/acme/ecommerce/auth/api/AuthErrorCode.java
+@@ -97,7 +97,11 @@ public enum AuthErrorCode {
+   /** The phone number is not valid E.164. */
+   AUTH_PHONE_INVALID(400, "Phone number invalid"),
+ 
+-  /** The phone number is already verified on another account. */
++  /**
++   * No longer emitted since F-20261119-07: add-phone and verify answer the same for taken and free
++   * numbers (ADR 0007). Kept so auth-service-api consumers still compile.
++   */
++  @Deprecated(forRemoval = true)
+   AUTH_PHONE_TAKEN(409, "Phone number already in use"),
+ 
+   /** Phase 10: second-factor code or recovery code rejected. */
+diff --git a/services/auth-service/auth-service-app/src/main/java/com/acme/ecommerce/auth/service/PasswordResetService.java b/services/auth-service/auth-service-app/src/main/java/com/acme/ecommerce/auth/service/PasswordResetService.java
+index 672e453..a3d7738 100644
+--- a/services/auth-service/auth-service-app/src/main/java/com/acme/ecommerce/auth/service/PasswordResetService.java
++++ b/services/auth-service/auth-service-app/src/main/java/com/acme/ecommerce/auth/service/PasswordResetService.java
+@@ -16,6 +16,7 @@ import java.time.Duration;
+ import java.time.Instant;
+ import java.util.Map;
+ import java.util.UUID;
++import java.util.concurrent.atomic.AtomicBoolean;
+ import org.slf4j.Logger;
+ import org.slf4j.LoggerFactory;
+ import org.springframework.security.crypto.password.PasswordEncoder;
+@@ -103,6 +104,7 @@ public class PasswordResetService {
+                         AuthErrorCode.AUTH_RESET_TOKEN_INVALID,
+                         "Password reset token unknown, expired or used"));
+     String encoded = passwordEncoder.encode(newPassword);
++    AtomicBoolean created = new AtomicBoolean();
+     tx.executeWithoutResult(
+         status -> {
+           Instant now = timeProvider.now();
+@@ -110,10 +112,33 @@ public class PasswordResetService {
+               .findById(userId)
+               .ifPresentOrElse(
+                   credential -> credential.changePassword(encoded, now),
+-                  () -> credentials.save(UserCredential.create(userId, encoded, now)));
++                  () -> {
++                    credentials.save(UserCredential.create(userId, encoded, now));
++                    created.set(true);
++                  });
+           users.findById(userId).ifPresent(UserAccount::markEmailVerified);
+         });
+     tokenService.revokeAllSessions(userId, RevokeReason.PASSWORD_CHANGE);
++    if (created.get()) {
++      // A reset on a passwordless (e.g. Google-only) account sets its first password: tell the
++      // owner. After commit and fail-open (the gateway is async and swallows errors).
++      try {
++        users
++            .findById(userId)
++            .ifPresent(
++                user ->
++                    notifications.sendEmail(
++                        user.getEmail(),
++                        EmailTemplate.PASSWORD_SET,
++                        Map.of(
++                            "name",
++                            user.getDisplayName(),
++                            "link",
++                            storefrontBaseUrl + "/account/security")));
++      } catch (RuntimeException e) {
++        log.warn("Password-set notice failed: {}", e.getClass().getSimpleName());
++      }
++    }
+     log.info("Password reset for userId={}", userId);
+   }
+ }
+diff --git a/services/auth-service/auth-service-app/src/main/java/com/acme/ecommerce/auth/service/PhoneClaimNotifier.java b/services/auth-service/auth-service-app/src/main/java/com/acme/ecommerce/auth/service/PhoneClaimNotifier.java
+new file mode 100644
+index 0000000..4f198a8
+--- /dev/null
++++ b/services/auth-service/auth-service-app/src/main/java/com/acme/ecommerce/auth/service/PhoneClaimNotifier.java
+@@ -0,0 +1,100 @@
++package com.acme.ecommerce.auth.service;
++
++import com.acme.ecommerce.auth.config.AuthProperties;
++import com.acme.ecommerce.auth.repository.UserAccountRepository;
++import com.acme.ecommerce.notification.api.dto.EmailTemplate;
++import jakarta.annotation.PreDestroy;
++import java.time.Duration;
++import java.util.Map;
++import java.util.concurrent.ExecutorService;
++import java.util.concurrent.Executors;
++import java.util.concurrent.atomic.AtomicLong;
++import org.slf4j.Logger;
++import org.slf4j.LoggerFactory;
++import org.springframework.beans.factory.annotation.Value;
++import org.springframework.data.redis.core.StringRedisTemplate;
++import org.springframework.stereotype.Service;
++
++/**
++ * Tells the owner of a verified phone that someone tried to add it to another account.
++ *
++ * <p>At most one email per owner per window: an atomic {@code SET NX PX} on the owner id (no phone
++ * number is stored). FAIL-CLOSED for the notice only: if Redis is down the notice is skipped, since
++ * an unbounded email stream is a worse outcome than one missed notice (the attempt already failed).
++ * Runs off the request thread and never throws, so the add-phone response is the same for taken and
++ * free numbers.
++ */
++@Service
++public class PhoneClaimNotifier {
++
++  private static final Logger log = LoggerFactory.getLogger(PhoneClaimNotifier.class);
++  private static final long WARN_EVERY_MILLIS = 30_000;
++
++  private final UserAccountRepository users;
++  private final StringRedisTemplate redis;
++  private final NotificationGateway notifications;
++  private final Duration window;
++  private final String securityLink;
++  private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
++  private final AtomicLong lastWarnMillis = new AtomicLong(Long.MIN_VALUE);
++
++  public PhoneClaimNotifier(
++      UserAccountRepository users,
++      StringRedisTemplate redis,
++      NotificationGateway notifications,
++      AuthProperties properties,
++      @Value("${auth.phone.claim-notice-window:24h}") Duration window) {
++    this.users = users;
++    this.redis = redis;
++    this.notifications = notifications;
++    this.window = window;
++    this.securityLink = properties.storefront().baseUrl() + "/account/security";
++  }
++
++  /** Someone tried to claim {@code e164}; notify its verified owner at most once per window. */
++  public void attempted(String e164) {
++    executor.execute(() -> notifyOwner(e164));
++  }
++
++  void notifyOwner(String e164) {
++    try {
++      users
++          .findWithRolesByPhoneAndPhoneVerifiedTrue(e164)
++          .ifPresent(
++              owner -> {
++                Boolean first =
++                    redis
++                        .opsForValue()
++                        .setIfAbsent("auth:phone-claim-notice:" + owner.getId(), "1", window);
++                if (Boolean.TRUE.equals(first)) {
++                  notifications.sendEmail(
++                      owner.getEmail(),
++                      EmailTemplate.PHONE_CLAIM_ATTEMPT,
++                      Map.of(
++                          "name",
++                          owner.getDisplayName(),
++                          "phoneTail",
++                          e164.substring(Math.max(0, e164.length() - 4)),
++                          "link",
++                          securityLink));
++                }
++              });
++    } catch (RuntimeException e) {
++      warnThrottled(e);
++    }
++  }
++
++  private void warnThrottled(RuntimeException e) {
++    long now = System.currentTimeMillis();
++    long last = lastWarnMillis.get();
++    if ((last == Long.MIN_VALUE || now - last >= WARN_EVERY_MILLIS)
++        && lastWarnMillis.compareAndSet(last, now)) {
++      log.warn("Phone claim notice skipped: {}", e.getClass().getSimpleName());
++    }
++  }
++
++  @PreDestroy
++  void shutdown() {
++    executor.shutdown();
++  }
++}
+diff --git a/services/auth-service/auth-service-app/src/main/java/com/acme/ecommerce/auth/service/PhoneVerificationService.java b/services/auth-service/auth-service-app/src/main/java/com/acme/ecommerce/auth/service/PhoneVerificationService.java
+index bd52a47..4d999fa 100644
+--- a/services/auth-service/auth-service-app/src/main/java/com/acme/ecommerce/auth/service/PhoneVerificationService.java
++++ b/services/auth-service/auth-service-app/src/main/java/com/acme/ecommerce/auth/service/PhoneVerificationService.java
+@@ -32,16 +32,19 @@ public class PhoneVerificationService {
+   private final UserAccountRepository users;
+   private final OneTimeTokenService tokens;
+   private final NotificationGateway notifications;
++  private final PhoneClaimNotifier claimNotifier;
+   private final TransactionTemplate tx;
+ 
+   public PhoneVerificationService(
+       UserAccountRepository users,
+       OneTimeTokenService tokens,
+       NotificationGateway notifications,
++      PhoneClaimNotifier claimNotifier,
+       TransactionTemplate tx) {
+     this.users = users;
+     this.tokens = tokens;
+     this.notifications = notifications;
++    this.claimNotifier = claimNotifier;
+     this.tx = tx;
+   }
+ 
+@@ -53,9 +56,8 @@ public class PhoneVerificationService {
+                 () ->
+                     new AuthException(
+                         AuthErrorCode.AUTH_PHONE_INVALID, "Not a valid E.164 number"));
+-    if (users.existsByPhoneAndPhoneVerifiedTrueAndIdNot(phone, userId)) {
+-      throw new AuthException(AuthErrorCode.AUTH_PHONE_TAKEN, "Phone already verified elsewhere");
+-    }
++    // Taken and free numbers run the same steps and answer the same (no enumeration oracle).
++    boolean taken = users.existsByPhoneAndPhoneVerifiedTrueAndIdNot(phone, userId);
+     Boolean alreadyVerified =
+         tx.execute(
+             status -> {
+@@ -71,8 +73,13 @@ public class PhoneVerificationService {
+     if (code.isEmpty()) {
+       throw new AuthException(AuthErrorCode.AUTH_RATE_LIMITED, "Phone code resend cooldown active");
+     }
+-    notifications.sendSms(
+-        phone, "Your verification code is " + code.get() + ". It expires in 10 minutes.");
++    if (taken) {
++      // No SMS: the code goes nowhere, and the verified owner is told (at most once a day).
++      claimNotifier.attempted(phone);
++    } else {
++      notifications.sendSms(
++          phone, "Your verification code is " + code.get() + ". It expires in 10 minutes.");
++    }
+   }
+ 
+   /** Checks the code and marks the number verified. */
+@@ -87,14 +94,19 @@ public class PhoneVerificationService {
+       tx.executeWithoutResult(
+           status -> {
+             if (users.existsByPhoneAndPhoneVerifiedTrueAndIdNot(phone, userId)) {
+-              throw new AuthException(
+-                  AuthErrorCode.AUTH_PHONE_TAKEN, "Phone verified elsewhere meanwhile");
++              throw refusedElsewhere(userId);
+             }
+             users.findById(userId).orElseThrow().markPhoneVerified();
+           });
+     } catch (DataIntegrityViolationException e) {
+-      throw new AuthException(AuthErrorCode.AUTH_PHONE_TAKEN, "Concurrent phone verification");
++      throw refusedElsewhere(userId);
+     }
+     log.info("Phone verified for userId={}", userId);
+   }
++
++  /** Same exception as a wrong code, so a lost race or guessed decoy code reveals nothing. */
++  private static AuthException refusedElsewhere(UUID userId) {
++    log.info("phone verify refused: verified elsewhere userId={}", userId);
++    return new AuthException(AuthErrorCode.AUTH_OTP_INVALID, "Phone verification code rejected");
++  }
+ }
+diff --git a/services/auth-service/auth-service-app/src/main/resources/application.yml b/services/auth-service/auth-service-app/src/main/resources/application.yml
+index ff9a21d..e00f157 100644
+--- a/services/auth-service/auth-service-app/src/main/resources/application.yml
++++ b/services/auth-service/auth-service-app/src/main/resources/application.yml
+@@ -192,6 +192,10 @@ auth:
+   storefront:
+     base-url: ${STOREFRONT_BASE_URL:http://localhost:3000}
+ 
++  # F-20261119-07: at most one "someone tried to add your number" email per owner per window.
++  phone:
++    claim-notice-window: ${AUTH_PHONE_CLAIM_NOTICE_WINDOW:24h}
++
+ # Phase 6: outbound call to notification-service (X-Internal-Token on /internal/**).
+ notification:
+   internal-token: ${INTERNAL_API_TOKEN:}
+diff --git a/services/auth-service/auth-service-app/src/test/java/com/acme/ecommerce/auth/service/PhoneClaimNotifierRedisTest.java b/services/auth-service/auth-service-app/src/test/java/com/acme/ecommerce/auth/service/PhoneClaimNotifierRedisTest.java
+new file mode 100644
+index 0000000..4e6f899
+--- /dev/null
++++ b/services/auth-service/auth-service-app/src/test/java/com/acme/ecommerce/auth/service/PhoneClaimNotifierRedisTest.java
+@@ -0,0 +1,197 @@
++package com.acme.ecommerce.auth.service;
++
++import static org.assertj.core.api.Assertions.assertThat;
++import static org.mockito.ArgumentMatchers.any;
++import static org.mockito.ArgumentMatchers.anyMap;
++import static org.mockito.ArgumentMatchers.eq;
++import static org.mockito.Mockito.mock;
++import static org.mockito.Mockito.never;
++import static org.mockito.Mockito.timeout;
++import static org.mockito.Mockito.times;
++import static org.mockito.Mockito.verify;
++import static org.mockito.Mockito.when;
++
++import ch.qos.logback.classic.Level;
++import ch.qos.logback.classic.Logger;
++import ch.qos.logback.classic.spi.ILoggingEvent;
++import ch.qos.logback.core.read.ListAppender;
++import com.acme.ecommerce.auth.config.AuthProperties;
++import com.acme.ecommerce.auth.domain.UserAccount;
++import com.acme.ecommerce.auth.repository.UserAccountRepository;
++import com.acme.ecommerce.notification.api.dto.EmailTemplate;
++import java.time.Duration;
++import java.util.Map;
++import java.util.Optional;
++import java.util.concurrent.CountDownLatch;
++import java.util.concurrent.ExecutorService;
++import java.util.concurrent.Executors;
++import java.util.concurrent.TimeUnit;
++import org.junit.jupiter.api.AfterAll;
++import org.junit.jupiter.api.AfterEach;
++import org.junit.jupiter.api.BeforeAll;
++import org.junit.jupiter.api.BeforeEach;
++import org.junit.jupiter.api.Test;
++import org.slf4j.LoggerFactory;
++import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
++import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
++import org.springframework.data.redis.core.StringRedisTemplate;
++import org.testcontainers.containers.GenericContainer;
++import org.testcontainers.utility.DockerImageName;
++
++/** AC-10: one owner notice per window, atomic across threads, fail-closed and non-throwing. */
++class PhoneClaimNotifierRedisTest {
++
++  private static final String PHONE = "+919876543210";
++
++  @SuppressWarnings("resource") // stopped in tearDownClass
++  private static final GenericContainer<?> REDIS =
++      new GenericContainer<>(DockerImageName.parse("redis:7-alpine")).withExposedPorts(6379);
++
++  private static LettuceConnectionFactory factory;
++  private static StringRedisTemplate redis;
++
++  private final UserAccountRepository users = mock(UserAccountRepository.class);
++  private final NotificationGateway notifications = mock(NotificationGateway.class);
++  private final UserAccount owner = UserAccount.create("owner@example.com", "Owner", true);
++  private ListAppender<ILoggingEvent> logs;
++
++  @BeforeAll
++  static void startRedis() {
++    REDIS.start();
++    factory = connectionFactory(REDIS.getHost(), REDIS.getFirstMappedPort());
++    redis = new StringRedisTemplate(factory);
++    redis.afterPropertiesSet();
++  }
++
++  @AfterAll
++  static void stopRedis() {
++    factory.destroy();
++    REDIS.stop();
++  }
++
++  @BeforeEach
++  void setUp() {
++    redis.getConnectionFactory().getConnection().serverCommands().flushAll();
++    when(users.findWithRolesByPhoneAndPhoneVerifiedTrue(PHONE)).thenReturn(Optional.of(owner));
++    logs = new ListAppender<>();
++    logs.start();
++    ((Logger) LoggerFactory.getLogger(PhoneClaimNotifier.class)).addAppender(logs);
++  }
++
++  @AfterEach
++  void tearDown() {
++    ((Logger) LoggerFactory.getLogger(PhoneClaimNotifier.class)).detachAppender(logs);
++  }
++
++  private PhoneClaimNotifier notifier(StringRedisTemplate template) {
++    return new PhoneClaimNotifier(
++        users,
++        template,
++        notifications,
++        new AuthProperties(
++            null,
++            null,
++            null,
++            null,
++            null,
++            null,
++            null,
++            null,
++            new AuthProperties.Storefront("https://shop.test")),
++        Duration.ofHours(24));
++  }
++
++  @Test
++  void twentyConcurrentAttemptsSendExactlyOneEmail() throws Exception {
++    PhoneClaimNotifier notifier = notifier(redis);
++    ExecutorService pool = Executors.newFixedThreadPool(20);
++    CountDownLatch start = new CountDownLatch(1);
++    CountDownLatch done = new CountDownLatch(20);
++    for (int i = 0; i < 20; i++) {
++      pool.execute(
++          () -> {
++            try {
++              start.await();
++              notifier.notifyOwner(PHONE);
++            } catch (InterruptedException e) {
++              Thread.currentThread().interrupt();
++            } finally {
++              done.countDown();
++            }
++          });
++    }
++    start.countDown();
++    assertThat(done.await(10, TimeUnit.SECONDS)).isTrue();
++    pool.shutdown();
++
++    verify(notifications, times(1))
++        .sendEmail(
++            eq("owner@example.com"),
++            eq(EmailTemplate.PHONE_CLAIM_ATTEMPT),
++            eq(
++                Map.of(
++                    "name", "Owner",
++                    "phoneTail", "3210",
++                    "link", "https://shop.test/account/security")));
++  }
++
++  @Test
++  void keyHoldsNoPhoneNumberAndExpiresAboutADayOut() {
++    notifier(redis).notifyOwner(PHONE);
++
++    String key = "auth:phone-claim-notice:" + owner.getId();
++    assertThat(redis.keys("*")).containsExactly(key);
++    Long ttl = redis.getExpire(key, TimeUnit.SECONDS);
++    assertThat(ttl).isBetween(Duration.ofHours(23).toSeconds(), Duration.ofHours(24).toSeconds());
++  }
++
++  @Test
++  void anotherNoticeIsSentOnceTheKeyIsGone() {
++    PhoneClaimNotifier notifier = notifier(redis);
++    notifier.notifyOwner(PHONE);
++    notifier.notifyOwner(PHONE);
++    verify(notifications, times(1)).sendEmail(any(), any(), anyMap());
++
++    redis.delete("auth:phone-claim-notice:" + owner.getId());
++    notifier.notifyOwner(PHONE);
++
++    verify(notifications, times(2)).sendEmail(any(), any(), anyMap());
++  }
++
++  @Test
++  void asyncEntryPointDeliversToo() {
++    notifier(redis).attempted(PHONE);
++
++    verify(notifications, timeout(5000).times(1)).sendEmail(any(), any(), anyMap());
++  }
++
++  @Test
++  void noOwnerMeansNoEmailAndNoKey() {
++    notifier(redis).notifyOwner("+910000000000");
++
++    verify(notifications, never()).sendEmail(any(), any(), anyMap());
++    assertThat(redis.keys("*")).isEmpty();
++  }
++
++  @Test
++  void redisDownMeansNoThrowNoEmailAndOneThrottledWarning() {
++    LettuceConnectionFactory dead = connectionFactory("127.0.0.1", 1);
++    StringRedisTemplate template = new StringRedisTemplate(dead);
++    template.afterPropertiesSet();
++    PhoneClaimNotifier notifier = notifier(template);
++
++    notifier.notifyOwner(PHONE);
++    notifier.notifyOwner(PHONE);
++    dead.destroy();
++
++    verify(notifications, never()).sendEmail(any(), any(), anyMap());
++    assertThat(logs.list).filteredOn(e -> e.getLevel() == Level.WARN).hasSize(1);
++  }
++
++  private static LettuceConnectionFactory connectionFactory(String host, int port) {
++    LettuceConnectionFactory f =
++        new LettuceConnectionFactory(new RedisStandaloneConfiguration(host, port));
++    f.afterPropertiesSet();
++    return f;
++  }
++}
+diff --git a/services/auth-service/auth-service-app/src/test/java/com/acme/ecommerce/auth/service/PhoneVerificationServiceTest.java b/services/auth-service/auth-service-app/src/test/java/com/acme/ecommerce/auth/service/PhoneVerificationServiceTest.java
+new file mode 100644
+index 0000000..7bb65e1
+--- /dev/null
++++ b/services/auth-service/auth-service-app/src/test/java/com/acme/ecommerce/auth/service/PhoneVerificationServiceTest.java
+@@ -0,0 +1,106 @@
++package com.acme.ecommerce.auth.service;
++
++import static org.assertj.core.api.Assertions.assertThat;
++import static org.assertj.core.api.Assertions.assertThatThrownBy;
++import static org.mockito.ArgumentMatchers.any;
++import static org.mockito.ArgumentMatchers.anyInt;
++import static org.mockito.ArgumentMatchers.anyString;
++import static org.mockito.ArgumentMatchers.eq;
++import static org.mockito.Mockito.doAnswer;
++import static org.mockito.Mockito.doThrow;
++import static org.mockito.Mockito.mock;
++import static org.mockito.Mockito.never;
++import static org.mockito.Mockito.verify;
++import static org.mockito.Mockito.when;
++
++import com.acme.ecommerce.auth.api.AuthErrorCode;
++import com.acme.ecommerce.auth.domain.UserAccount;
++import com.acme.ecommerce.auth.error.AuthException;
++import com.acme.ecommerce.auth.repository.UserAccountRepository;
++import com.acme.ecommerce.auth.service.OneTimeTokenService.Purpose;
++import java.util.Optional;
++import java.util.UUID;
++import java.util.function.Consumer;
++import org.junit.jupiter.api.BeforeEach;
++import org.junit.jupiter.api.Test;
++import org.springframework.dao.DataIntegrityViolationException;
++import org.springframework.transaction.support.TransactionTemplate;
++
++class PhoneVerificationServiceTest {
++
++  private static final String PHONE = "+919876500001";
++
++  private final UserAccountRepository users = mock(UserAccountRepository.class);
++  private final OneTimeTokenService tokens = mock(OneTimeTokenService.class);
++  private final NotificationGateway notifications = mock(NotificationGateway.class);
++  private final PhoneClaimNotifier claimNotifier = mock(PhoneClaimNotifier.class);
++  private final TransactionTemplate tx = mock(TransactionTemplate.class);
++  private final PhoneVerificationService service =
++      new PhoneVerificationService(users, tokens, notifications, claimNotifier, tx);
++
++  private final UUID userId = UUID.randomUUID();
++  private final UserAccount user = UserAccount.create("a@example.com", "A", true);
++
++  @BeforeEach
++  void setUp() {
++    user.changePhone(PHONE);
++    when(users.findById(userId)).thenReturn(Optional.of(user));
++    when(tokens.verifyCode(eq(userId), eq(Purpose.PHONE_VERIFY), eq(PHONE), anyString(), anyInt()))
++        .thenReturn(true);
++  }
++
++  @Test
++  void concurrentUniqueIndexViolationIsReportedAsAnInvalidCode() {
++    doThrow(new DataIntegrityViolationException("users_phone_verified_key"))
++        .when(tx)
++        .executeWithoutResult(any());
++
++    assertThatThrownBy(() -> service.verifyPhone(userId, "123456"))
++        .isInstanceOfSatisfying(
++            AuthException.class,
++            e -> assertThat(e.authErrorCode()).isEqualTo(AuthErrorCode.AUTH_OTP_INVALID));
++  }
++
++  @Test
++  void recheckFindingTheNumberVerifiedElsewhereIsReportedAsAnInvalidCode() {
++    when(users.existsByPhoneAndPhoneVerifiedTrueAndIdNot(PHONE, userId)).thenReturn(true);
++    doAnswer(
++            inv -> {
++              inv.<Consumer<Object>>getArgument(0).accept(null);
++              return null;
++            })
++        .when(tx)
++        .executeWithoutResult(any());
++
++    assertThatThrownBy(() -> service.verifyPhone(userId, "123456"))
++        .isInstanceOfSatisfying(
++            AuthException.class,
++            e -> assertThat(e.authErrorCode()).isEqualTo(AuthErrorCode.AUTH_OTP_INVALID));
++    assertThat(user.isPhoneVerified()).isFalse();
++  }
++
++  @Test
++  void takenNumberSendsNoSmsAndNotifiesTheOwner() {
++    when(users.existsByPhoneAndPhoneVerifiedTrueAndIdNot(PHONE, userId)).thenReturn(true);
++    when(tx.execute(any())).thenReturn(false);
++    when(tokens.issueCode(eq(userId), eq(Purpose.PHONE_VERIFY), eq(PHONE), any(), any()))
++        .thenReturn(Optional.of("654321"));
++
++    service.addPhone(userId, PHONE);
++
++    verify(notifications, never()).sendSms(anyString(), anyString());
++    verify(claimNotifier).attempted(PHONE);
++  }
++
++  @Test
++  void freeNumberSendsTheSmsAndNoOwnerNotice() {
++    when(tx.execute(any())).thenReturn(false);
++    when(tokens.issueCode(eq(userId), eq(Purpose.PHONE_VERIFY), eq(PHONE), any(), any()))
++        .thenReturn(Optional.of("654321"));
++
++    service.addPhone(userId, PHONE);
++
++    verify(notifications).sendSms(eq(PHONE), anyString());
++    verify(claimNotifier, never()).attempted(anyString());
++  }
++}
+diff --git a/services/auth-service/auth-service-app/src/test/java/com/acme/ecommerce/auth/web/PasswordResetIntegrationTest.java b/services/auth-service/auth-service-app/src/test/java/com/acme/ecommerce/auth/web/PasswordResetIntegrationTest.java
+new file mode 100644
+index 0000000..e0de5b3
+--- /dev/null
++++ b/services/auth-service/auth-service-app/src/test/java/com/acme/ecommerce/auth/web/PasswordResetIntegrationTest.java
+@@ -0,0 +1,121 @@
++package com.acme.ecommerce.auth.web;
++
++import static org.assertj.core.api.Assertions.assertThat;
++import static org.mockito.ArgumentMatchers.any;
++import static org.mockito.ArgumentMatchers.anyMap;
++import static org.mockito.ArgumentMatchers.eq;
++import static org.mockito.Mockito.doAnswer;
++import static org.mockito.Mockito.doThrow;
++import static org.mockito.Mockito.never;
++import static org.mockito.Mockito.reset;
++import static org.mockito.Mockito.times;
++import static org.mockito.Mockito.verify;
++import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
++
++import com.acme.ecommerce.auth.domain.UserAccount;
++import com.acme.ecommerce.auth.repository.UserCredentialRepository;
++import com.acme.ecommerce.auth.service.NotificationGateway;
++import com.acme.ecommerce.auth.service.OneTimeTokenService;
++import com.acme.ecommerce.auth.service.OneTimeTokenService.Purpose;
++import com.acme.ecommerce.auth.support.AbstractAuthIntegrationTest;
++import com.acme.ecommerce.auth.support.DatabaseCleaner;
++import com.acme.ecommerce.auth.support.UserFixtures;
++import com.acme.ecommerce.common.security.Roles;
++import com.acme.ecommerce.notification.api.dto.EmailTemplate;
++import com.fasterxml.jackson.databind.ObjectMapper;
++import java.time.Duration;
++import java.util.Map;
++import java.util.concurrent.atomic.AtomicBoolean;
++import org.junit.jupiter.api.BeforeEach;
++import org.junit.jupiter.api.DisplayName;
++import org.junit.jupiter.api.Test;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.http.MediaType;
++import org.springframework.test.context.bean.override.mockito.MockitoBean;
++import org.springframework.test.web.servlet.MockMvc;
++
++/** AC-12 (b): a reset that creates a credential is documented and notified after commit. */
++class PasswordResetIntegrationTest extends AbstractAuthIntegrationTest {
++
++  private static final String NEW_PASSWORD = "a-brand-new-password";
++
++  @Autowired private MockMvc mockMvc;
++  @Autowired private ObjectMapper objectMapper;
++  @Autowired private UserFixtures userFixtures;
++  @Autowired private DatabaseCleaner databaseCleaner;
++  @Autowired private OneTimeTokenService tokens;
++  @Autowired private UserCredentialRepository credentials;
++  @MockitoBean private NotificationGateway notifications;
++
++  @BeforeEach
++  void setUp() {
++    databaseCleaner.clean();
++    reset(notifications);
++  }
++
++  @Test
++  @DisplayName("Google-only user: 204, credential row created, PASSWORD_SET sent after commit")
++  void googleOnlyUserGetsACredentialAndANotice() throws Exception {
++    UserAccount user = userFixtures.createSocialOnlyUser("g@example.com", Roles.ROLE_VIEWER);
++    AtomicBoolean rowVisibleAtSend = new AtomicBoolean();
++    doAnswer(
++            inv -> {
++              rowVisibleAtSend.set(credentials.existsById(user.getId()));
++              return null;
++            })
++        .when(notifications)
++        .sendEmail(eq("g@example.com"), eq(EmailTemplate.PASSWORD_SET), anyMap());
++
++    assertThat(resetPassword(user).getStatus()).isEqualTo(204);
++
++    assertThat(credentials.existsById(user.getId())).isTrue();
++    verify(notifications, times(1))
++        .sendEmail(
++            eq("g@example.com"),
++            eq(EmailTemplate.PASSWORD_SET),
++            eq(
++                Map.of(
++                    "name", "Test g@example.com",
++                    "link", "http://localhost:3000/account/security")));
++    assertThat(rowVisibleAtSend).isTrue();
++  }
++
++  @Test
++  @DisplayName("password user: 204 and no PASSWORD_SET")
++  void passwordUserGetsNoNotice() throws Exception {
++    UserAccount user =
++        userFixtures.createPasswordUser("p@example.com", "old-password-123", Roles.ROLE_VIEWER);
++
++    assertThat(resetPassword(user).getStatus()).isEqualTo(204);
++
++    verify(notifications, never()).sendEmail(any(), eq(EmailTemplate.PASSWORD_SET), anyMap());
++  }
++
++  @Test
++  @DisplayName("a failing gateway does not fail the reset")
++  void failingGatewayDoesNotFailTheReset() throws Exception {
++    UserAccount user = userFixtures.createSocialOnlyUser("f@example.com", Roles.ROLE_VIEWER);
++    doThrow(new IllegalStateException("boom"))
++        .when(notifications)
++        .sendEmail(any(), any(), anyMap());
++
++    assertThat(resetPassword(user).getStatus()).isEqualTo(204);
++
++    assertThat(credentials.existsById(user.getId())).isTrue();
++  }
++
++  private org.springframework.mock.web.MockHttpServletResponse resetPassword(UserAccount user)
++      throws Exception {
++    String token =
++        tokens.issueLinkToken(user.getId(), Purpose.PASSWORD_RESET, Duration.ofMinutes(5));
++    return mockMvc
++        .perform(
++            post("/api/auth/password/reset")
++                .contentType(MediaType.APPLICATION_JSON)
++                .content(
++                    objectMapper.writeValueAsString(
++                        Map.of("token", token, "newPassword", NEW_PASSWORD))))
++        .andReturn()
++        .getResponse();
++  }
++}
+diff --git a/services/auth-service/auth-service-app/src/test/java/com/acme/ecommerce/auth/web/PhoneEnumerationIntegrationTest.java b/services/auth-service/auth-service-app/src/test/java/com/acme/ecommerce/auth/web/PhoneEnumerationIntegrationTest.java
+new file mode 100644
+index 0000000..e3362e4
+--- /dev/null
++++ b/services/auth-service/auth-service-app/src/test/java/com/acme/ecommerce/auth/web/PhoneEnumerationIntegrationTest.java
+@@ -0,0 +1,231 @@
++package com.acme.ecommerce.auth.web;
++
++import static org.assertj.core.api.Assertions.assertThat;
++import static org.mockito.ArgumentMatchers.anyString;
++import static org.mockito.ArgumentMatchers.eq;
++import static org.mockito.Mockito.never;
++import static org.mockito.Mockito.reset;
++import static org.mockito.Mockito.times;
++import static org.mockito.Mockito.verify;
++import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
++
++import com.acme.ecommerce.auth.api.dto.LoginRequest;
++import com.acme.ecommerce.auth.domain.UserAccount;
++import com.acme.ecommerce.auth.repository.UserAccountRepository;
++import com.acme.ecommerce.auth.service.NotificationGateway;
++import com.acme.ecommerce.auth.service.OneTimeTokenService;
++import com.acme.ecommerce.auth.service.OneTimeTokenService.Purpose;
++import com.acme.ecommerce.auth.service.PhoneClaimNotifier;
++import com.acme.ecommerce.auth.support.AbstractAuthIntegrationTest;
++import com.acme.ecommerce.auth.support.DatabaseCleaner;
++import com.acme.ecommerce.auth.support.UserFixtures;
++import com.acme.ecommerce.common.security.Roles;
++import com.fasterxml.jackson.databind.ObjectMapper;
++import java.time.Duration;
++import java.util.Map;
++import java.util.TreeMap;
++import org.junit.jupiter.api.BeforeEach;
++import org.junit.jupiter.api.DisplayName;
++import org.junit.jupiter.api.Test;
++import org.mockito.ArgumentCaptor;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.http.HttpHeaders;
++import org.springframework.http.MediaType;
++import org.springframework.mock.web.MockHttpServletResponse;
++import org.springframework.test.context.bean.override.mockito.MockitoBean;
++import org.springframework.test.web.servlet.MockMvc;
++import org.springframework.transaction.support.TransactionTemplate;
++
++/** AC-9 and AC-11: add-phone and phone verify answer the same for taken and free numbers. */
++class PhoneEnumerationIntegrationTest extends AbstractAuthIntegrationTest {
++
++  private static final String PASSWORD = "correct-horse-battery-staple";
++  private static final String TAKEN = "+919876500001";
++  private static final String FREE = "+919876500002";
++
++  @Autowired private MockMvc mockMvc;
++  @Autowired private ObjectMapper objectMapper;
++  @Autowired private UserFixtures userFixtures;
++  @Autowired private DatabaseCleaner databaseCleaner;
++  @Autowired private UserAccountRepository users;
++  @Autowired private OneTimeTokenService tokens;
++  @Autowired private TransactionTemplate tx;
++  @MockitoBean private NotificationGateway notifications;
++  @MockitoBean private PhoneClaimNotifier claimNotifier;
++
++  private UserAccount userA;
++  private UserAccount userB;
++
++  @BeforeEach
++  void setUp() {
++    databaseCleaner.clean();
++    reset(notifications, claimNotifier);
++    UserAccount owner =
++        userFixtures.createPasswordUser("owner@example.com", PASSWORD, Roles.ROLE_VIEWER);
++    tx.executeWithoutResult(
++        s -> {
++          UserAccount o = users.findById(owner.getId()).orElseThrow();
++          o.changePhone(TAKEN);
++          o.markPhoneVerified();
++        });
++    userA = userFixtures.createPasswordUser("a@example.com", PASSWORD, Roles.ROLE_VIEWER);
++    userB = userFixtures.createPasswordUser("b@example.com", PASSWORD, Roles.ROLE_VIEWER);
++  }
++
++  @Test
++  @DisplayName("taken and free numbers give identical status, body and headers; no SMS for taken")
++  void addPhoneIsIdenticalForTakenAndFree() throws Exception {
++    MockHttpServletResponse taken = addPhone(userA, TAKEN);
++    MockHttpServletResponse free = addPhone(userB, FREE);
++
++    assertThat(taken.getStatus()).isEqualTo(202);
++    assertThat(free.getStatus()).isEqualTo(202);
++    assertThat(taken.getContentAsString()).isEmpty();
++    assertThat(free.getContentAsString()).isEmpty();
++    assertThat(comparableHeaders(taken)).isEqualTo(comparableHeaders(free));
++
++    verify(notifications, never()).sendSms(eq(TAKEN), anyString());
++    verify(notifications, times(1)).sendSms(eq(FREE), anyString());
++    verify(claimNotifier, times(1)).attempted(TAKEN);
++    verify(claimNotifier, never()).attempted(FREE);
++  }
++
++  @Test
++  @DisplayName("a resend within the cooldown is the same 429 for taken and free numbers")
++  void resendIsRateLimitedIdentically() throws Exception {
++    addPhone(userA, TAKEN);
++    addPhone(userB, FREE);
++
++    MockHttpServletResponse taken = addPhone(userA, TAKEN);
++    MockHttpServletResponse free = addPhone(userB, FREE);
++
++    assertThat(taken.getStatus()).isEqualTo(429);
++    assertThat(free.getStatus()).isEqualTo(429);
++    assertThat(json(taken)).containsEntry("code", "AUTH_RATE_LIMITED");
++    assertThat(json(free)).containsEntry("code", "AUTH_RATE_LIMITED");
++    verify(claimNotifier, times(1)).attempted(TAKEN);
++  }
++
++  @Test
++  @DisplayName("a decoy code for a taken number is AUTH_OTP_INVALID and the phone stays unverified")
++  void decoyCodeForTakenNumberIsRejected() throws Exception {
++    addPhone(userA, TAKEN);
++    String decoy =
++        tokens
++            .issueCode(
++                userA.getId(), Purpose.PHONE_VERIFY, TAKEN, Duration.ofMinutes(10), Duration.ZERO)
++            .orElseThrow();
++
++    MockHttpServletResponse response = verifyPhone(userA, decoy);
++
++    assertThat(response.getStatus()).isEqualTo(401);
++    assertThat(json(response)).containsEntry("code", "AUTH_OTP_INVALID");
++    assertThat(users.findById(userA.getId()).orElseThrow().isPhoneVerified()).isFalse();
++  }
++
++  @Test
++  @DisplayName("race: both add a free number, B verifies first, A gets 401 AUTH_OTP_INVALID")
++  void lostRaceIsAnInvalidCode() throws Exception {
++    assertThat(addPhone(userA, FREE).getStatus()).isEqualTo(202);
++    String codeA = lastSmsCode();
++    assertThat(addPhone(userB, FREE).getStatus()).isEqualTo(202);
++    String codeB = lastSmsCode();
++
++    assertThat(verifyPhone(userB, codeB).getStatus()).isEqualTo(204);
++    MockHttpServletResponse lost = verifyPhone(userA, codeA);
++
++    assertThat(lost.getStatus()).isEqualTo(401);
++    assertThat(json(lost)).containsEntry("code", "AUTH_OTP_INVALID");
++    assertThat(users.findById(userB.getId()).orElseThrow().isPhoneVerified()).isTrue();
++    assertThat(users.findById(userA.getId()).orElseThrow().isPhoneVerified()).isFalse();
++  }
++
++  @Test
++  @DisplayName("unique index backs the re-check: a second verified row for one number is refused")
++  void uniqueIndexStillRefusesDuplicateVerifiedNumbers() {
++    org.junit.jupiter.api.Assertions.assertThrows(
++        org.springframework.dao.DataIntegrityViolationException.class,
++        () ->
++            tx.executeWithoutResult(
++                s -> {
++                  UserAccount a = users.findById(userA.getId()).orElseThrow();
++                  a.changePhone(TAKEN);
++                  a.markPhoneVerified();
++                  users.flush();
++                }));
++  }
++
++  @Test
++  @DisplayName("free number happy path is unchanged: 202, SMS, 204, verified (AC-11)")
++  void freeNumberHappyPath() throws Exception {
++    assertThat(addPhone(userB, FREE).getStatus()).isEqualTo(202);
++    String code = lastSmsCode();
++
++    assertThat(verifyPhone(userB, code).getStatus()).isEqualTo(204);
++
++    UserAccount b = users.findById(userB.getId()).orElseThrow();
++    assertThat(b.isPhoneVerified()).isTrue();
++    assertThat(b.getPhone()).isEqualTo(FREE);
++  }
++
++  private String lastSmsCode() {
++    ArgumentCaptor<String> text = ArgumentCaptor.forClass(String.class);
++    verify(notifications, org.mockito.Mockito.atLeastOnce()).sendSms(anyString(), text.capture());
++    return text.getValue().replaceAll("\\D+(\\d{6})\\D.*", "$1");
++  }
++
++  private MockHttpServletResponse addPhone(UserAccount user, String phone) throws Exception {
++    return mockMvc
++        .perform(
++            post("/api/auth/me/phone")
++                .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken(user))
++                .contentType(MediaType.APPLICATION_JSON)
++                .content(objectMapper.writeValueAsString(Map.of("phone", phone))))
++        .andReturn()
++        .getResponse();
++  }
++
++  private MockHttpServletResponse verifyPhone(UserAccount user, String code) throws Exception {
++    return mockMvc
++        .perform(
++            post("/api/auth/me/phone/verify")
++                .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken(user))
++                .contentType(MediaType.APPLICATION_JSON)
++                .content(objectMapper.writeValueAsString(Map.of("code", code))))
++        .andReturn()
++        .getResponse();
++  }
++
++  private String accessToken(UserAccount user) throws Exception {
++    MockHttpServletResponse login =
++        mockMvc
++            .perform(
++                post("/api/auth/login")
++                    .contentType(MediaType.APPLICATION_JSON)
++                    .content(
++                        objectMapper.writeValueAsString(
++                            new LoginRequest(user.getEmail(), PASSWORD))))
++            .andReturn()
++            .getResponse();
++    return (String) json(login).get("accessToken");
++  }
++
++  @SuppressWarnings("unchecked")
++  private Map<String, Object> json(MockHttpServletResponse response) throws Exception {
++    return objectMapper.readValue(response.getContentAsString(), Map.class);
++  }
++
++  /** Response headers minus the ones that legitimately differ per request. */
++  private static Map<String, java.util.List<String>> comparableHeaders(
++      MockHttpServletResponse response) {
++    Map<String, java.util.List<String>> headers = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
++    for (String name : response.getHeaderNames()) {
++      String lower = name.toLowerCase();
++      if (lower.equals("date") || lower.contains("correlation") || lower.contains("trace")) {
++        continue;
++      }
++      headers.put(name, response.getHeaders(name));
++    }
++    return headers;
++  }
++}
+diff --git a/services/notification-service/notification-service-api/src/main/java/com/acme/ecommerce/notification/api/dto/EmailTemplate.java b/services/notification-service/notification-service-api/src/main/java/com/acme/ecommerce/notification/api/dto/EmailTemplate.java
+index c5174cd..d6b4169 100644
+--- a/services/notification-service/notification-service-api/src/main/java/com/acme/ecommerce/notification/api/dto/EmailTemplate.java
++++ b/services/notification-service/notification-service-api/src/main/java/com/acme/ecommerce/notification/api/dto/EmailTemplate.java
+@@ -39,5 +39,9 @@ public enum EmailTemplate {
+   /** data: name, link, expiresAt. */
+   PRIVACY_EXPORT_READY,
+   /** data: name, scheduledFor, link. */
+-  PRIVACY_DELETE_SCHEDULED
++  PRIVACY_DELETE_SCHEDULED,
++  /** data: name, phoneTail (last 4 digits), link. */
++  PHONE_CLAIM_ATTEMPT,
++  /** data: name, link. */
++  PASSWORD_SET
+ }
+diff --git a/services/notification-service/notification-service-app/src/main/java/com/acme/ecommerce/notification/mail/EmailRenderer.java b/services/notification-service/notification-service-app/src/main/java/com/acme/ecommerce/notification/mail/EmailRenderer.java
+index 23349f2..314d022 100644
+--- a/services/notification-service/notification-service-app/src/main/java/com/acme/ecommerce/notification/mail/EmailRenderer.java
++++ b/services/notification-service/notification-service-app/src/main/java/com/acme/ecommerce/notification/mail/EmailRenderer.java
+@@ -214,6 +214,24 @@ public class EmailRenderer {
+                   + ". Changed your mind? Sign in and cancel the deletion before then.",
+               "Cancel deletion",
+               d.get("link"));
++      case PHONE_CLAIM_ATTEMPT ->
++          layout(
++              "Someone tried to use your phone number",
++              "Hi " + name + ",",
++              "Someone tried to add your number ending "
++                  + d.getOrDefault("phoneTail", "")
++                  + " to another account. It is still only on yours; no action needed unless this"
++                  + " keeps happening.",
++              "Review account security",
++              d.get("link"));
++      case PASSWORD_SET ->
++          layout(
++              "A password was set on your account",
++              "Hi " + name + ",",
++              "A password was just set on your account using a reset link sent to this email."
++                  + " If this was you, nothing to do. If not, secure your account now.",
++              "Review account security",
++              d.get("link"));
+     };
+   }
+ 
+diff --git a/services/notification-service/notification-service-app/src/test/java/com/acme/ecommerce/notification/mail/EmailRendererTest.java b/services/notification-service/notification-service-app/src/test/java/com/acme/ecommerce/notification/mail/EmailRendererTest.java
+new file mode 100644
+index 0000000..1a92af5
+--- /dev/null
++++ b/services/notification-service/notification-service-app/src/test/java/com/acme/ecommerce/notification/mail/EmailRendererTest.java
+@@ -0,0 +1,59 @@
++package com.acme.ecommerce.notification.mail;
++
++import static org.assertj.core.api.Assertions.assertThat;
++
++import com.acme.ecommerce.notification.api.dto.EmailTemplate;
++import java.util.Map;
++import org.junit.jupiter.api.Test;
++
++class EmailRendererTest {
++
++  private final EmailRenderer renderer = new EmailRenderer();
++
++  @Test
++  void phoneClaimAttemptShowsOnlyTheLastFourDigitsAndNamesNoOneElse() {
++    EmailContent mail =
++        renderer.render(
++            EmailTemplate.PHONE_CLAIM_ATTEMPT,
++            Map.of(
++                "name", "Asha", "phoneTail", "4321", "link", "https://shop.test/account/security"));
++
++    assertThat(mail.text())
++        .contains("Hi Asha,")
++        .contains("number ending 4321")
++        .contains("It is still only on yours")
++        .contains("https://shop.test/account/security");
++    assertThat(mail.html()).contains("number ending 4321");
++  }
++
++  @Test
++  void passwordSetExplainsTheResetAndLinksToSecurity() {
++    EmailContent mail =
++        renderer.render(
++            EmailTemplate.PASSWORD_SET,
++            Map.of("name", "Asha", "link", "https://shop.test/account/security"));
++
++    assertThat(mail.subject()).isEqualTo("A password was set on your account");
++    assertThat(mail.text()).contains("Hi Asha,").contains("https://shop.test/account/security");
++  }
++
++  @Test
++  void newTemplatesEscapeNameTailAndLinkInHtml() {
++    for (EmailTemplate template :
++        new EmailTemplate[] {EmailTemplate.PHONE_CLAIM_ATTEMPT, EmailTemplate.PASSWORD_SET}) {
++      EmailContent mail =
++          renderer.render(
++              template,
++              Map.of(
++                  "name", "<script>alert(1)</script>",
++                  "phoneTail", "<b>9</b>",
++                  "link", "https://x.test/?a=1&b=\"2\""));
++
++      assertThat(mail.html())
++          .doesNotContain("<script>")
++          .doesNotContain("<b>9</b>")
++          .contains("&lt;script&gt;")
++          .contains("&amp;b=&quot;2&quot;");
++    }
++  }
++}

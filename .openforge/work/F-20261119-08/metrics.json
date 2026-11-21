@@ -1,0 +1,78 @@
+{
+ "runs": [
+  {
+   "at": "2026-11-19T19:37:45.005Z",
+   "role": "forge-architect",
+   "tokens": 102156,
+   "tools": 55,
+   "ms": 272193,
+   "round": 0,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-19T19:38:25.677Z",
+   "role": "forge-cto",
+   "tokens": 16869,
+   "tools": 2,
+   "ms": 11849,
+   "round": 0,
+   "outcome": "approve"
+  },
+  {
+   "at": "2026-11-19T19:38:53.035Z",
+   "role": "forge-architect",
+   "tokens": 2319,
+   "tools": 2,
+   "ms": 20203,
+   "round": 0,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-19T19:39:23.084Z",
+   "role": "forge-em",
+   "tokens": 22715,
+   "tools": 4,
+   "ms": 36357,
+   "round": 0,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-20T17:21:20.973Z",
+   "role": "forge-backend-engineer",
+   "tokens": 127870,
+   "tools": 7,
+   "ms": 309966,
+   "round": 1,
+   "outcome": "pass",
+   "note": "usage of the first run, cut off by the limit, unknown"
+  },
+  {
+   "at": "2026-11-20T17:27:48.579Z",
+   "role": "forge-security",
+   "tokens": 58539,
+   "tools": 7,
+   "ms": 95260,
+   "round": 1,
+   "outcome": "approve"
+  },
+  {
+   "at": "2026-11-20T17:28:16.967Z",
+   "role": "forge-reviewer",
+   "tokens": 69910,
+   "tools": 15,
+   "ms": 109657,
+   "round": 1,
+   "outcome": "approve"
+  },
+  {
+   "at": "2026-11-20T17:28:52.452Z",
+   "role": "forge-qa",
+   "tokens": 24976,
+   "tools": 7,
+   "ms": 30695,
+   "round": 0,
+   "outcome": "pass"
+  }
+ ],
+ "events": []
+}

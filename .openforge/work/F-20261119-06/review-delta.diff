@@ -1,0 +1,164 @@
+diff --git a/docs/reference/env-descriptions.json b/docs/reference/env-descriptions.json
+index 0a46a7a..05cbc97 100644
+--- a/docs/reference/env-descriptions.json
++++ b/docs/reference/env-descriptions.json
+@@ -115,11 +115,11 @@
+     },
+     "AUTH_OTP_PER_PHONE_CAPACITY": {
+       "group": "Identity and tokens",
+-      "text": "OTP sends per phone per 15 minutes (shared through Redis). 0 disables the cap."
++      "text": "OTP requests per phone per 15 minutes (shared through Redis; counted before the 30 s resend cooldown). 0 disables the cap."
+     },
+     "AUTH_OTP_PER_PHONE_DAILY": {
+       "group": "Identity and tokens",
+-      "text": "OTP sends per phone per UTC day (shared through Redis). 0 disables the cap."
++      "text": "OTP requests per phone per UTC day (shared through Redis; counted before the 30 s resend cooldown). 0 disables the cap."
+     },
+     "AUTH_RATE_LIMIT_LOGIN_CAPACITY": {
+       "group": "Identity and tokens",
+@@ -127,7 +127,7 @@
+     },
+     "AUTH_RATE_LIMIT_REFRESH_CAPACITY": {
+       "group": "Identity and tokens",
+-      "text": "Token refreshes per window per client (in-memory, per instance)."
++      "text": "Token refreshes per window per client (shared through Redis; per instance if Redis is down)."
+     },
+     "GOOGLE_CLIENT_ID": {
+       "group": "Identity and tokens",
+diff --git a/docs/reference/environment-variables.md b/docs/reference/environment-variables.md
+index f1f66d3..fdff85c 100644
+--- a/docs/reference/environment-variables.md
++++ b/docs/reference/environment-variables.md
+@@ -53,10 +53,10 @@ service-level setting (add it under that service's `env:` in `values.yaml`). Rel
+ | `AUTH_DEFAULT_REDIRECT_URI` | auth | `http://localhost:5173/auth/callback` |  | .env + helm | Redirect used when the caller does not name one. |
+ | `AUTH_JWT_AUDIENCES` | all services | `ecommerce-platform` |  | .env + helm | Token audience (`aud`). Same rule as the issuer. |
+ | `AUTH_JWT_ISSUER` | all services | `https://auth.acme-ecommerce.internal` |  | .env + helm | Token issuer (`iss`). Must be identical in auth-service, the gateway and every resource server, or every request fails with `invalid_token`. |
+-| `AUTH_OTP_PER_PHONE_CAPACITY` | auth | `3` |  | - | OTP sends per phone per 15 minutes (shared through Redis). 0 disables the cap. |
+-| `AUTH_OTP_PER_PHONE_DAILY` | auth | `10` |  | - | OTP sends per phone per UTC day (shared through Redis). 0 disables the cap. |
++| `AUTH_OTP_PER_PHONE_CAPACITY` | auth | `3` |  | - | OTP requests per phone per 15 minutes (shared through Redis; counted before the 30 s resend cooldown). 0 disables the cap. |
++| `AUTH_OTP_PER_PHONE_DAILY` | auth | `10` |  | - | OTP requests per phone per UTC day (shared through Redis; counted before the 30 s resend cooldown). 0 disables the cap. |
+ | `AUTH_RATE_LIMIT_LOGIN_CAPACITY` | auth | `10` |  | compose | Login attempts per window per client (shared through Redis; per instance if Redis is down). |
+-| `AUTH_RATE_LIMIT_REFRESH_CAPACITY` | auth | `60` |  | compose | Token refreshes per window per client (in-memory, per instance). |
++| `AUTH_RATE_LIMIT_REFRESH_CAPACITY` | auth | `60` |  | compose | Token refreshes per window per client (shared through Redis; per instance if Redis is down). |
+ | `AUTH_REGISTRATION_ENABLED` | auth | `false` |  | .env + helm | Allows self-service sign-up. Default `false`; the local template and the AWS chart turn it on so you can register the first admin. Turn it off again once your accounts exist. |
+ | `AUTH_STATE_COOKIE_SECRET` 🔒 | auth | `""` |  | helm | Signs the OIDC `state` cookie. Must be the same on every auth-service replica. |
+ | `GOOGLE_CLIENT_ID` | auth | `""` |  | .env + helm | Google OAuth client id. Blank disables Google sign-in. |
+diff --git a/docs/services/auth-service.md b/docs/services/auth-service.md
+index 8c7111e..e060e0e 100644
+--- a/docs/services/auth-service.md
++++ b/docs/services/auth-service.md
+@@ -275,7 +275,9 @@ Skipping step 1 or 3 is what produces the classic "everyone got logged out durin
+ - **OTP send caps.** Checked in `OtpLoginService.request` before the user lookup, for every valid
+   E.164 number, so known and unknown numbers behave the same (202, empty body, no SMS when capped).
+   Defaults: `AUTH_OTP_PER_PHONE_CAPACITY=3` per `auth.rate-limit.otp-per-phone-window` (15 m) and
+-  `AUTH_OTP_PER_PHONE_DAILY=10` per UTC day. **A value of 0 disables that cap.** Keys are
++  `AUTH_OTP_PER_PHONE_DAILY=10` per UTC day. The caps count OTP *requests*, not SMS sent: a request
++  inside the 30 s resend cooldown sends nothing but still uses up a cap slot, so a user who
++  double-clicks spends two of three. **A value of 0 disables that cap.** Keys are
+   `auth:otp:phone:{E164}` and `auth:otp:day:{E164}`; the number is plaintext in the key and the
+   TTL bounds how long it is kept.
+ - **Residual timing risk.** The known-phone verify path does more database work than the unknown
+@@ -288,5 +290,12 @@ Skipping step 1 or 3 is what produces the classic "everyone got logged out durin
+   lock state, so they are never locked. Their exposure is bounded by 5 attempts per code and the
+   daily cap: at most 50 guesses a day against 10^6 codes. A lock for them is deferred to backlog
+   B-9 (it needs a migration or a second lock store).
++- **Redis expectations.** The `auth:rl:*` and `auth:otp:*` keys all carry a TTL. Redis should have
++  `maxmemory` set with an eviction policy that tolerates them (for example `volatile-lru` or
++  `allkeys-lru`); evicted counters only reset a window early (soft control).
++- **Fallback map.** During a Redis outage the per-instance fallback map is cleared wholesale when
++  it exceeds `max-tracked-clients`, which gives mid-limit clients a fresh window. Soft control.
++- **Lockout during a lock.** Wrong OTPs while the account is already locked do not record a failure
++  (same as the password path), so an attacker cannot renew a lock. Each lock lasts at most 15 m.
+ - **Victim DoS.** An attacker can use up a victim's OTP caps (at most one window or one UTC day) and
+   lock a victim's password login through wrong OTPs; the lock is capped at 15 m, never permanent.
+diff --git a/services/auth-service/auth-service-app/src/main/java/com/acme/ecommerce/auth/domain/UserCredential.java b/services/auth-service/auth-service-app/src/main/java/com/acme/ecommerce/auth/domain/UserCredential.java
+index 805bdd9..ec3507d 100644
+--- a/services/auth-service/auth-service-app/src/main/java/com/acme/ecommerce/auth/domain/UserCredential.java
++++ b/services/auth-service/auth-service-app/src/main/java/com/acme/ecommerce/auth/domain/UserCredential.java
+@@ -16,10 +16,10 @@ import java.util.UUID;
+  * here, which is a far clearer model than a nullable {@code password_hash} column that every code
+  * path has to null-check.
+  *
+- * <p>THE LOCKOUT HERE IS THE REAL BRUTE-FORCE CONTROL. The Bucket4j per-IP throttle is per-instance
+- * and per-source-address: an attacker with a botnet walks straight through it. This counter lives
+- * in the shared database, so it is correct with one replica or fifty, and it is attached to the
+- * thing actually under attack (the account) rather than to the thing the attacker controls (the
++ * <p>THE LOCKOUT HERE IS THE REAL BRUTE-FORCE CONTROL. The per-IP throttle is a soft, fixed-window
++ * control and per-source-address: an attacker with a botnet walks straight through it. This counter
++ * lives in the shared database, so it is correct with one replica or fifty, and it is attached to
++ * the thing actually under attack (the account) rather than to the thing the attacker controls (the
+  * source IP).
+  */
+ @Entity
+diff --git a/services/auth-service/auth-service-app/src/main/java/com/acme/ecommerce/auth/service/LoginAttemptService.java b/services/auth-service/auth-service-app/src/main/java/com/acme/ecommerce/auth/service/LoginAttemptService.java
+index fb3b350..5785256 100644
+--- a/services/auth-service/auth-service-app/src/main/java/com/acme/ecommerce/auth/service/LoginAttemptService.java
++++ b/services/auth-service/auth-service-app/src/main/java/com/acme/ecommerce/auth/service/LoginAttemptService.java
+@@ -24,7 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
+  * the lockout would quietly never trigger. That failure mode is invisible in every test that checks
+  * only the HTTP status.
+  *
+- * <p>This is THE brute-force control. The per-IP Bucket4j throttle is per-replica and per-source-
++ * <p>This is THE brute-force control. The per-IP throttle is a soft control and per-source-
+  * address: an attacker with a botnet walks straight past it. This counter is in the shared database
+  * and is attached to the account under attack.
+  */
+diff --git a/services/auth-service/auth-service-app/src/main/java/com/acme/ecommerce/auth/service/OtpLoginService.java b/services/auth-service/auth-service-app/src/main/java/com/acme/ecommerce/auth/service/OtpLoginService.java
+index a35d458..eb3654b 100644
+--- a/services/auth-service/auth-service-app/src/main/java/com/acme/ecommerce/auth/service/OtpLoginService.java
++++ b/services/auth-service/auth-service-app/src/main/java/com/acme/ecommerce/auth/service/OtpLoginService.java
+@@ -124,7 +124,10 @@ public class OtpLoginService {
+     }
+     if (!tokens.verifyCode(
+         user.getId(), Purpose.OTP_LOGIN, phone, code, PhoneVerificationService.MAX_ATTEMPTS)) {
+-      loginAttempts.recordFailure(user.getId());
++      // Not while locked: wrong codes must not keep renewing a victim's lock (same as password).
++      if (!loginAttempts.isLocked(user.getId())) {
++        loginAttempts.recordFailure(user.getId());
++      }
+       metrics.loginAttempt(AuthMethod.OTP, "bad_code");
+       throw new AuthException(AuthErrorCode.AUTH_OTP_INVALID, "OTP rejected");
+     }
+diff --git a/services/auth-service/auth-service-app/src/test/java/com/acme/ecommerce/auth/ratelimit/SharedWindowCounterTest.java b/services/auth-service/auth-service-app/src/test/java/com/acme/ecommerce/auth/ratelimit/SharedWindowCounterTest.java
+index cb7ec63..69e2cf0 100644
+--- a/services/auth-service/auth-service-app/src/test/java/com/acme/ecommerce/auth/ratelimit/SharedWindowCounterTest.java
++++ b/services/auth-service/auth-service-app/src/test/java/com/acme/ecommerce/auth/ratelimit/SharedWindowCounterTest.java
+@@ -124,7 +124,7 @@ class SharedWindowCounterTest {
+       assertFallbackTripsAtCapacityPlusOne(counter, "timeout");
+       Duration elapsed = Duration.ofNanos(System.nanoTime() - started);
+ 
+-      assertThat(elapsed).isLessThan(Duration.ofSeconds(5));
++      assertThat(elapsed).isLessThan(Duration.ofSeconds(1));
+       assertThat(output).contains(SharedWindowCounter.WARN_MESSAGE);
+       acceptor.interrupt();
+     }
+diff --git a/services/auth-service/auth-service-app/src/test/java/com/acme/ecommerce/auth/service/OtpLockoutIT.java b/services/auth-service/auth-service-app/src/test/java/com/acme/ecommerce/auth/service/OtpLockoutIT.java
+index f8650de..2b9883c 100644
+--- a/services/auth-service/auth-service-app/src/test/java/com/acme/ecommerce/auth/service/OtpLockoutIT.java
++++ b/services/auth-service/auth-service-app/src/test/java/com/acme/ecommerce/auth/service/OtpLockoutIT.java
+@@ -132,6 +132,25 @@ class OtpLockoutIT extends AbstractAuthIntegrationTest {
+         .isEqualTo(AuthErrorCode.AUTH_ACCOUNT_LOCKED);
+   }
+ 
++  @Test
++  @DisplayName("wrong OTPs during an active lock do not move locked_until; response stays INVALID")
++  void wrongOtpsDoNotRenewLock() {
++    for (int i = 0; i < 5; i++) {
++      wrongOtp(credentialUser.getId(), PHONE);
++    }
++    UserCredential locked = credentials.findById(credentialUser.getId()).orElseThrow();
++    java.time.Instant until = locked.getLockedUntil();
++    short failures = locked.getFailedAttempts();
++
++    for (int i = 0; i < 3; i++) {
++      wrongOtp(credentialUser.getId(), PHONE);
++    }
++
++    UserCredential after = credentials.findById(credentialUser.getId()).orElseThrow();
++    assertThat(after.getLockedUntil()).isEqualTo(until);
++    assertThat(after.getFailedAttempts()).isEqualTo(failures);
++  }
++
+   @Test
+   @DisplayName("after locked_until passes, OTP login succeeds and the failure count resets")
+   void successResetsCounters() {

@@ -372,3 +372,73 @@ describe('10x option catalogue', () => {
     expect(stack('Caveat')).toContain("'Caveat', 'Segoe Print'");
   });
 });
+
+describe('background patterns', () => {
+  it('the built-in starburst at built-in settings changes nothing beyond the original output', async () => {
+    const E = await import('@/lib/themeEngine');
+    for (const target of ['admin', 'storefront'] as const) {
+      const css = buildThemeCss(DEFAULT_THEME, target);
+      expect(css).not.toContain('.bg-atomic-pattern{');
+      expect(css).not.toContain('body::before{');
+      expect(css).not.toContain('pattern-opacity');
+      expect(css).toContain(target === 'storefront' ? '--pattern-image: url("data:image/svg+xml' : '--cw-pattern: url("data:image/svg+xml');
+    }
+    expect(E.BACKGROUND_PATTERNS.length).toBe(19);
+    expect(E.PATTERN_SPACINGS.map((s) => s.value)).toEqual(['auto', '4mm', '5mm', '6mm', '8mm', '10mm', '12mm']);
+  });
+
+  it('every pattern, tint, spacing and strength renders a usable layer in both apps and modes', async () => {
+    const E = await import('@/lib/themeEngine');
+    for (const { value: pattern } of E.BACKGROUND_PATTERNS) {
+      for (const { value: spacing } of E.PATTERN_SPACINGS) {
+        for (const { value: tint } of E.PATTERN_TINTS) {
+          const cfg = normalizeTheme({ ...DEFAULT_THEME, background: { pattern, tint, spacing, strength: 'faint' } });
+          expect(cfg.background).toEqual({ pattern, tint, spacing, strength: 'faint' });
+          for (const target of ['admin', 'storefront'] as const) {
+            const css = buildThemeCss(cfg, target);
+            expect(css, `${pattern}/${spacing}/${tint}/${target}`).not.toMatch(/undefined|NaN|Infinity/);
+            expect(css.split('{').length).toBe(css.split('}').length);
+            expect(css.includes((target === 'storefront' ? '--pattern-image: ' : '--cw-pattern: ') + 'none')).toBe(pattern === 'none');
+            for (const m of css.matchAll(/url\("data:image\/svg\+xml,([^"]*)"\)/g)) expect(m[1]).toContain('</svg>');
+          }
+        }
+      }
+    }
+  });
+
+  it('spacing is the real distance between elements: 4 mm ≈ 15px, 12 mm ≈ 45px, for any pattern', async () => {
+    const E = await import('@/lib/themeEngine');
+    const size = (pattern: 'dots' | 'grid' | 'graph' | 'hex', spacing: '4mm' | '12mm') =>
+      E.previewPattern({ ...DEFAULT_THEME, background: { pattern, tint: 'mono', spacing, strength: 'faint' } }, 'light').backgroundSize;
+    expect(size('dots', '4mm')).toBe('15.1px 15.1px'); // one dot per tile
+    expect(size('dots', '12mm')).toBe('45.4px 45.4px');
+    expect(size('grid', '4mm')).toBe('15.1px 15.1px');
+    expect(size('graph', '4mm')).toBe('75.6px 75.6px'); // 5 minor squares of 4 mm per major square
+    expect(size('hex', '12mm')).toBe('79.4px 141.7px');
+  });
+
+  it('lines stay ~1px on screen however dense the pattern', () => {
+    const at = (spacing: '4mm' | '12mm') =>
+      buildThemeCss({ ...DEFAULT_THEME, background: { pattern: 'grid', tint: 'mono', spacing, strength: 'faint' } }, 'storefront');
+    // grid tile is 32 units; at 4 mm it is drawn at 15.1px, so a 1px line is 32/15.1 = 2.12 units
+    expect(at('4mm')).toContain("stroke-width='2.12'");
+    expect(at('12mm')).toContain("stroke-width='0.71'");
+  });
+
+  it('non-starburst patterns are light by default; strengths and the mesh map onto the layer', () => {
+    const css = (bg: Partial<typeof DEFAULT_THEME.background>, target: 'admin' | 'storefront' = 'storefront') =>
+      buildThemeCss({ ...DEFAULT_THEME, background: { ...DEFAULT_THEME.background, ...bg } }, target);
+    expect(css({ pattern: 'dots' })).toContain(':root:root{--pattern-opacity:0.1}:root:root[data-theme="dark"]{--pattern-opacity:0.08}');
+    expect(css({ pattern: 'dots', strength: 'whisper' })).toContain('--pattern-opacity:0.06');
+    expect(css({ pattern: 'graph', spacing: '5mm' }, 'admin')).toContain('body::before{background-size:94.5px 94.5px}');
+    expect(css({ pattern: 'mesh' })).toContain('.bg-atomic-pattern{background-size:cover;background-repeat:no-repeat}');
+    expect(css({ pattern: 'mesh' })).toContain('--pattern-opacity:0.35');
+    expect(css({ strength: 'soft' })).toContain('--pattern-opacity:0.16'); // starburst, softened
+  });
+
+  it('unknown values normalise to built-in, and the old scale field maps onto spacing', () => {
+    expect(normalizeTheme({ background: { pattern: 'photo', tint: 'x', spacing: '3mm', strength: 9 } }).background).toEqual(DEFAULT_THEME.background);
+    expect(normalizeTheme({ background: { pattern: 'dots', scale: 'fine' } }).background.spacing).toBe('4mm');
+    expect(normalizeTheme({ background: { pattern: 'dots', scale: 'large' } }).background.spacing).toBe('12mm');
+  });
+});

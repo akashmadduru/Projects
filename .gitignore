@@ -131,3 +131,6 @@ deploy/aws/.state/
 *.tfstate.*
 *.tfvars
 crash.log
+
+# OpenForge: per-objective worktrees are local only
+.openforge/worktrees/

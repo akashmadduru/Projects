@@ -1,0 +1,192 @@
+diff --git a/docs/reference/env-descriptions.json b/docs/reference/env-descriptions.json
+index 5add8fb..9baa926 100644
+--- a/docs/reference/env-descriptions.json
++++ b/docs/reference/env-descriptions.json
+@@ -544,6 +544,8 @@
+     "VITE_STOREFRONT_ORIGIN": "Admin app: the storefront origin, used only to build \"Preview on storefront\" links in the theme editor. Default `http://localhost:3000`."
+   },
+   "deploy": {
++    "VAPID_PUBLIC_KEY": "Browser-push (VAPID) public key for the notification service, base64url. Blank in a non-prod environment: a keypair is generated on first start. Under `prod` blank turns web push off.",
++    "VAPID_PRIVATE_KEY": "Browser-push (VAPID) private key paired with `VAPID_PUBLIC_KEY`. Required for web push under `prod`.",
+     "AWS_REGION": "Region for everything except CloudFront certificates and WAF (always us-east-1).",
+     "AWS_PROFILE": "Named AWS CLI profile; blank uses the default credential chain.",
+     "PROJECT": "Name prefix for every resource.",
+diff --git a/docs/reference/environment-variables.md b/docs/reference/environment-variables.md
+index 00349c1..bd19fab 100644
+--- a/docs/reference/environment-variables.md
++++ b/docs/reference/environment-variables.md
+@@ -36,12 +36,12 @@ service-level setting (add it under that service's `env:` in `values.yaml`). Rel
+ | `MANAGEMENT_SERVER_PORT` | all services (Helm) | _Spring default_ |  | helm | Port for actuator (health, metrics). Equal to the service port for every service except the gateway, whose `prod` profile uses a separate port 8081. |
+ | `RATING_MEDIA_DIR` | rating | `/data/media` |  | compose + helm | Directory where review images are stored. On AWS this is an EBS volume, which is why rating-service runs one replica. |
+ | `SERVER_FORWARD_HEADERS_STRATEGY` | auth, gateway (Helm) | _Spring default_ |  | helm | auth-service: `framework`, so the Google sign-in callback URL uses the public host instead of the internal one. gateway: `none`, because Spring Boot defaults to `native` on Kubernetes, which would make the gateway trust the forgeable leftmost `X-Forwarded-For` entry; the rate limiter and the referral checks count from the right themselves. |
+-| `USER_FORWARD_HEADERS_STRATEGY` | user | `none` |  | - | Maps to `server.forward-headers-strategy` for user-service. Keep the default `none`: the referral IP checks read the raw `X-Forwarded-For` chain, and Spring Boot's Kubernetes default (`native`) would make Tomcat rewrite it first. |
+ | `SERVER_PORT` | all services | _per service_ |  | helm | Port the service listens on. Each service has its own default (gateway 8080, auth 8081, product 8082 ... support 8092). |
+ | `SPRING_CONFIG_ADDITIONAL_LOCATION` | all services (Helm) | _Spring default_ |  | helm | Extra config directory. On AWS it points at `/config/`, where the discovery ConfigMap is mounted. |
+ | `SPRING_LIFECYCLE_TIMEOUT_PER_SHUTDOWN_PHASE` | all services (Helm) | _Spring default_ |  | helm | How long a pod may spend finishing in-flight requests on shutdown. Must be shorter than the pod termination grace period. |
+ | `SPRING_PROFILES_ACTIVE` | all services | _Spring default_ |  | compose + helm | Spring profile. `prod` turns on production behaviour: no default passwords, secure cookies, payments refuse to run in simulated mode. Set by Helm on AWS. |
+ | `STOREFRONT_BASE_URL` | auth, cart, notification, seller, support, user | `http://localhost:3000` |  | .env + helm | Public origin of the storefront. Used in links inside emails (verify, reset password, order, referral) and as a CORS/redirect reference. |
++| `USER_FORWARD_HEADERS_STRATEGY` | user | `none` |  | - | Maps to `server.forward-headers-strategy` for user-service. Keep the default `none`: the referral IP checks read the raw `X-Forwarded-For` chain, and Spring Boot's Kubernetes default (`native`) would make Tomcat rewrite it first. |
+ 
+ ## Identity and tokens
+ 
+@@ -112,8 +112,8 @@ service-level setting (add it under that service's `env:` in `values.yaml`). Rel
+ | `SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH` | notification | _Spring default_ |  | compose + helm | SMTP authentication on/off. `true` with a real provider. |
+ | `SPRING_MAIL_PROPERTIES_MAIL_SMTP_SSL_ENABLE` | notification | _Spring default_ |  | compose + helm | Implicit TLS (port 465). |
+ | `SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE` | notification | _Spring default_ |  | compose + helm | Upgrade the SMTP connection with STARTTLS (port 587). |
+-| `VAPID_PRIVATE_KEY` 🔒 | notification | `""` |  | .env | Browser-push private key, paired with `VAPID_PUBLIC_KEY`. Required for web push under `prod`, where it is never generated or stored in the database. |
+-| `VAPID_PUBLIC_KEY` | notification | `""` |  | .env | Browser-push public key (base64url; `npx web-push generate-vapid-keys`). Blank outside `prod`: generated on first start and stored in the database. Blank under `prod`: web push is off (an ERROR is logged). Changing the pair invalidates every browser subscription. |
++| `VAPID_PRIVATE_KEY` 🔒 | notification | `""` |  | .env + helm | Browser-push private key, paired with `VAPID_PUBLIC_KEY`. Required for web push under `prod`, where it is never generated or stored in the database. |
++| `VAPID_PUBLIC_KEY` | notification | `""` |  | .env + helm | Browser-push public key (base64url; `npx web-push generate-vapid-keys`). Blank outside `prod`: generated on first start and stored in the database. Blank under `prod`: web push is off (an ERROR is logged). Changing the pair invalidates every browser subscription. |
+ | `VAPID_SUBJECT` | notification | `mailto:admin@acme.local` |  | .env + helm | Contact (`mailto:`) sent to push services. |
+ 
+ ## Edge, CORS and rate limits
+@@ -169,10 +169,10 @@ service-level setting (add it under that service's `env:` in `values.yaml`). Rel
+ | `ORDER_RISK_VELOCITY_THRESHOLD` | order (Compose) | _Spring default_ |  | compose | Orders in a short window that trigger a velocity risk flag (Compose default 8). Mapped by Spring onto `order.risk.*`. |
+ | `USER_REFERRAL_IP_HASH_SALT` 🔒 | user | `""` |  | - | Secret key for hashing client IPs on referral pages and claims (HMAC-SHA256; raw IPs are never stored). Blank fails safe: a random key is made per process and a WARN is logged, so IP matches can only be missed (hashes differ across restarts and replicas), never wrongly refused, and the code-age check still applies. Production must set it. |
+ | `USER_REFERRAL_IP_LOOKBACK` | user | `0` |  | - | How far back a referrer's recorded network counts when a referee claims. A claim from a network the referrer used within this window is refused. Default 0: the IP check is OFF and no IP activity is recorded, until the gateway forwards a trustworthy client IP (backlog B-1); do not enable it behind the current gateway. A blank value keeps the default. |
+-| `USER_REFERRAL_IP_RETENTION` | user | `30d` |  | - | How long hashed IPs are kept before the daily cleanup deletes them. Keep it at least as long as the lookback; if shorter, retention is the effective lookback. 0 or negative disables the cleanup (hashed IPs are then kept indefinitely; a WARN is logged at startup). Blank is a startup error. |
++| `USER_REFERRAL_IP_RETENTION` | user | `30d` |  | - | How long hashed IPs are kept before the daily cleanup deletes them. Keep it at least as long as the lookback; if shorter, retention is the effective lookback. 0 or negative disables the cleanup (hashed IPs are then kept indefinitely; a WARN is logged at startup). A blank value keeps the default. |
+ | `USER_REFERRAL_MIN_CODE_AGE` | user | `10m` |  | - | Minimum age of a referral code before it can be claimed. A newer code is refused. 0 turns the check off. |
+-| `USER_REFERRAL_TRUSTED_PROXY_HOPS` | user | `1` |  | helm | Which `X-Forwarded-For` entry, counted from the right, is the caller's IP for the referral checks. Each proxy appends, so only entries on the left can be forged. 1 for Compose (the gateway appends the caller); 3 on AWS (CloudFront, ALB, gateway). 0 ignores the header and uses the socket peer. |
+ | `USER_REFERRAL_REWARD_COINS` | user | `100` |  | - | Coins awarded for a successful referral. |
++| `USER_REFERRAL_TRUSTED_PROXY_HOPS` | user | `1` |  | helm | Which `X-Forwarded-For` entry, counted from the right, is the caller's IP for the referral checks. Each proxy appends, so only entries on the left can be forged. 1 for Compose (the gateway appends the caller); 3 on AWS (CloudFront, ALB, gateway). 0 ignores the header and uses the socket peer. |
+ 
+ ## AI and search
+ 
+@@ -230,6 +230,8 @@ Read by `deploy.sh` / `destroy.sh`. Commented-out lines in the template are opti
+ | `RAZORPAY_KEY_ID` | `""` | **One provider required.** Razorpay key id. Set all three Razorpay values or none. You may configure Stripe, Razorpay or both. |
+ | `RAZORPAY_KEY_SECRET` 🔒 |  | Razorpay key secret (all three Razorpay values or none). |
+ | `RAZORPAY_WEBHOOK_SECRET` 🔒 |  | Secret of the Razorpay webhook endpoint (all three Razorpay values or none). |
++| `VAPID_PUBLIC_KEY` 🔒 |  | Browser-push (VAPID) public key for the notification service, base64url. Blank in a non-prod environment: a keypair is generated on first start. Under `prod` blank turns web push off. |
++| `VAPID_PRIVATE_KEY` 🔒 |  | Browser-push (VAPID) private key paired with `VAPID_PUBLIC_KEY`. Required for web push under `prod`. |
+ | `GOOGLE_CLIENT_ID` | `""` | Optional. Blank disables Google sign-in. |
+ | `GOOGLE_CLIENT_SECRET` 🔒 |  | Optional. Blank disables Google sign-in. |
+ | `KUBERNETES_API_ALLOWED_CIDRS` | `0.0.0.0/0` | Comma-separated CIDRs allowed to reach the Kubernetes API. Narrow it for production. |
+diff --git a/services/user-service/user-service-app/src/main/java/com/acme/ecommerce/user/config/UserProperties.java b/services/user-service/user-service-app/src/main/java/com/acme/ecommerce/user/config/UserProperties.java
+index 1e49c0b..1afa6d0 100644
+--- a/services/user-service/user-service-app/src/main/java/com/acme/ecommerce/user/config/UserProperties.java
++++ b/services/user-service/user-service-app/src/main/java/com/acme/ecommerce/user/config/UserProperties.java
+@@ -35,6 +35,13 @@ public class UserProperties {
+     requireDuration("user.referral.min-code-age", r.minCodeAge);
+     requireDuration("user.referral.ip-lookback", r.ipLookback);
+     requireDuration("user.referral.ip-retention", r.ipRetention);
++    if (r.ipLookback.toSeconds() > 0) {
++      log.warn(
++          "user.referral.ip-lookback ({}) enables the same-network referral check. It needs a"
++              + " trustworthy client IP from the gateway (backlog B-1 / F-20261119-03) and must"
++              + " not be enabled behind the current gateway",
++          r.ipLookback);
++    }
+     if (r.ipRetention.compareTo(Duration.ofSeconds(1)) < 0) {
+       log.warn(
+           "user.referral.ip-retention ({}) is zero or negative: the nightly purge is DISABLED and"
+diff --git a/services/user-service/user-service-app/src/main/java/com/acme/ecommerce/user/membership/ReferralService.java b/services/user-service/user-service-app/src/main/java/com/acme/ecommerce/user/membership/ReferralService.java
+index 519a7ef..d2dd639 100644
+--- a/services/user-service/user-service-app/src/main/java/com/acme/ecommerce/user/membership/ReferralService.java
++++ b/services/user-service/user-service-app/src/main/java/com/acme/ecommerce/user/membership/ReferralService.java
+@@ -60,7 +60,7 @@ public class ReferralService {
+   @Transactional
+   public ReferralView view(UUID userId, InetAddress ip) {
+     String code = codeFor(userId);
+-    if (ip != null && properties.getReferral().getIpLookback().toSeconds() > 0) {
++    if (ip != null && ipCheckOn()) {
+       recordActivity(userId, fingerprint.hash(ip));
+     }
+     long invited =
+@@ -106,8 +106,7 @@ public class ReferralService {
+       throw new CodedException(
+           ErrorCode.RESOURCE_CONFLICT, "A referral code was already applied to this account");
+     }
+-    boolean ipCheckOn = properties.getReferral().getIpLookback().toSeconds() > 0;
+-    String ipHash = ip == null || !ipCheckOn ? null : fingerprint.hash(ip);
++    String ipHash = ip == null || !ipCheckOn() ? null : fingerprint.hash(ip);
+     refuseIfAbusive(referrer, owner.tooNew() && minAgeSeconds > 0, ipHash);
+     try {
+       jdbc.sql(
+@@ -124,6 +123,10 @@ public class ReferralService {
+     }
+   }
+ 
++  private boolean ipCheckOn() {
++    return properties.getReferral().getIpLookback().toSeconds() > 0;
++  }
++
+   private record CodeOwner(UUID userId, boolean tooNew) {}
+ 
+   /** Abuse checks, in order: code age, then network match. A throw rolls the claim back. */
+@@ -133,7 +136,7 @@ public class ReferralService {
+           ErrorCode.REFERRAL_CODE_TOO_NEW, "This referral code cannot be used yet");
+     }
+     long lookback = properties.getReferral().getIpLookback().toSeconds();
+-    if (lookback > 0 && ipHash != null) {
++    if (ipCheckOn() && ipHash != null) {
+       boolean sameNetwork =
+           jdbc.sql(
+                   "SELECT EXISTS (SELECT 1 FROM users.referral_ip_activity WHERE user_id = :p AND"
+diff --git a/services/user-service/user-service-app/src/test/java/com/acme/ecommerce/user/config/UserPropertiesValidationTest.java b/services/user-service/user-service-app/src/test/java/com/acme/ecommerce/user/config/UserPropertiesValidationTest.java
+index e2b2bf4..3da5712 100644
+--- a/services/user-service/user-service-app/src/test/java/com/acme/ecommerce/user/config/UserPropertiesValidationTest.java
++++ b/services/user-service/user-service-app/src/test/java/com/acme/ecommerce/user/config/UserPropertiesValidationTest.java
+@@ -72,9 +72,9 @@ class UserPropertiesValidationTest {
+     appender.start();
+     logger.addAppender(appender);
+     try {
+-      assertThatCode(() -> with(d(1), d(1), Duration.ZERO).validateReferral())
++      assertThatCode(() -> with(d(1), Duration.ZERO, Duration.ZERO).validateReferral())
+           .doesNotThrowAnyException();
+-      with(d(1), d(1), Duration.ofSeconds(-5)).validateReferral();
++      with(d(1), Duration.ZERO, Duration.ofSeconds(-5)).validateReferral();
+       assertThat(appender.list)
+           .hasSize(2)
+           .allSatisfy(
+@@ -83,7 +83,29 @@ class UserPropertiesValidationTest {
+                 assertThat(e.getFormattedMessage()).contains("purge is DISABLED");
+               });
+       appender.list.clear();
++      with(d(1), Duration.ZERO, d(30)).validateReferral();
++      assertThat(appender.list).isEmpty();
++    } finally {
++      logger.detachAppender(appender);
++    }
++  }
++
++  @Test
++  @DisplayName("enabling the ip check warns once that it needs a trustworthy client IP")
++  void enabledIpCheckWarns() {
++    Logger logger = (Logger) LoggerFactory.getLogger(UserProperties.class);
++    ListAppender<ILoggingEvent> appender = new ListAppender<>();
++    appender.start();
++    logger.addAppender(appender);
++    try {
+       with(d(1), d(1), d(30)).validateReferral();
++      assertThat(appender.list).hasSize(1);
++      assertThat(appender.list.get(0).getLevel()).isEqualTo(Level.WARN);
++      assertThat(appender.list.get(0).getFormattedMessage())
++          .contains("trustworthy client IP")
++          .contains("F-20261119-03");
++      appender.list.clear();
++      with(d(1), Duration.ZERO, d(30)).validateReferral();
+       assertThat(appender.list).isEmpty();
+     } finally {
+       logger.detachAppender(appender);
+diff --git a/services/user-service/user-service-app/src/test/java/com/acme/ecommerce/user/membership/ReferralIpCheckDefaultOffIntegrationTest.java b/services/user-service/user-service-app/src/test/java/com/acme/ecommerce/user/membership/ReferralIpCheckDefaultOffIntegrationTest.java
+index 3bf681b..4cbcad2 100644
+--- a/services/user-service/user-service-app/src/test/java/com/acme/ecommerce/user/membership/ReferralIpCheckDefaultOffIntegrationTest.java
++++ b/services/user-service/user-service-app/src/test/java/com/acme/ecommerce/user/membership/ReferralIpCheckDefaultOffIntegrationTest.java
+@@ -44,10 +44,12 @@ class ReferralIpCheckDefaultOffIntegrationTest extends AbstractUserIntegrationTe
+     assertThat(rows("referral_claims", "referee_user_id", referee)).isEqualTo(1);
+     assertThat(rows("referral_ip_activity", "user_id", referrer)).isZero();
+     assertThat(
+-            jdbc.sql("SELECT claim_ip_hash FROM users.referral_claims WHERE referee_user_id = :u")
++            jdbc.sql(
++                    "SELECT count(*) FROM users.referral_claims WHERE referee_user_id = :u AND"
++                        + " claim_ip_hash IS NULL")
+                 .param("u", referee)
+-                .query(String.class)
+-                .optional())
+-        .isEmpty();
++                .query(Long.class)
++                .single())
++        .isEqualTo(1L);
+   }
+ }

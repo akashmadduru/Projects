@@ -1,0 +1,101 @@
+{
+ "runs": [
+  {
+   "at": "2026-11-19T19:43:24.361Z",
+   "role": "forge-architect",
+   "tokens": 88696,
+   "tools": 49,
+   "ms": 265787,
+   "round": 0,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-19T19:43:46.819Z",
+   "role": "forge-cto",
+   "tokens": 17521,
+   "tools": 3,
+   "ms": 10923,
+   "round": 0,
+   "outcome": "approve"
+  },
+  {
+   "at": "2026-11-19T19:44:54.646Z",
+   "role": "forge-architect",
+   "tokens": 13404,
+   "tools": 3,
+   "ms": 86653,
+   "round": 0,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-19T19:45:38.563Z",
+   "role": "forge-em",
+   "tokens": 21434,
+   "tools": 4,
+   "ms": 32762,
+   "round": 0,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-19T20:17:56.387Z",
+   "role": "forge-backend-engineer",
+   "tokens": 107695,
+   "tools": 63,
+   "ms": 1621052,
+   "round": 1,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-19T20:20:03.670Z",
+   "role": "forge-frontend-engineer",
+   "tokens": 19748,
+   "tools": 12,
+   "ms": 100279,
+   "round": 1,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-20T17:25:23.384Z",
+   "role": "forge-backend-engineer",
+   "tokens": 4032,
+   "tools": 7,
+   "ms": 553741,
+   "round": 2,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-20T17:36:53.157Z",
+   "role": "forge-security",
+   "tokens": 59432,
+   "tools": 9,
+   "ms": 89245,
+   "round": 1,
+   "outcome": "approve"
+  },
+  {
+   "at": "2026-11-20T17:38:11.675Z",
+   "role": "forge-reviewer",
+   "tokens": 77203,
+   "tools": 27,
+   "ms": 160841,
+   "round": 1,
+   "outcome": "approve"
+  },
+  {
+   "at": "2026-11-20T17:38:39.549Z",
+   "role": "forge-qa",
+   "tokens": 20667,
+   "tools": 7,
+   "ms": 23758,
+   "round": 0,
+   "outcome": "pass"
+  }
+ ],
+ "events": [
+  {
+   "at": "2026-11-20T17:16:00.346Z",
+   "type": "gate_fail",
+   "note": "CEO verify: env reference FAIL (AUTH_PHONE_CLAIM_NOTICE_WINDOW undescribed; generated doc stale); gradle gave up on the host lock after 30 min (rc 75) with 4 builds queued; vitest + tsc PASS."
+  }
+ ]
+}

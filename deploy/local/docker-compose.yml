@@ -11,24 +11,37 @@
 
 name: ecommerce-platform
 
+# Shared datasource settings for the 12 database-backed services. The databases live in sdai-pg (the
+# synthetic-data Postgres from synthetic-db-ai) and only the superuser exists there, so every service
+# connects as `postgres`. The schemas were created from the same Flyway migrations but without a
+# flyway_schema_history, so each service baselines at its latest migration (SPRING_FLYWAY_BASELINE_VERSION).
+x-sdai-datasource: &sdai-datasource
+  SPRING_DATASOURCE_USERNAME: postgres
+  SPRING_DATASOURCE_PASSWORD: ${SDAI_PG_PASSWORD:-sdai_scratch}
+  SPRING_FLYWAY_BASELINE_ON_MIGRATE: "true"
+
 services:
   # ---------------------------------------------------------------------------
-  # PostgreSQL - one instance hosting a separate database per service.
+  # PostgreSQL (container sdai-pg) - one instance hosting a separate database per service.
+  # This is the synthetic-data Postgres built by synthetic-db-ai; it replaced ecommerce-postgres. The
+  # service key stays `postgres` so every `depends_on: postgres` keeps working, and the container is
+  # also reachable as `sdai-pg`. Full backup: ./db-backup.sh (repo root).
   # ---------------------------------------------------------------------------
   postgres:
-    # Cartwise AI-1: the official postgres:17 image plus the pgvector extension (semantic product
-    # search). Same major version and the same data directory, so an existing volume starts
-    # unchanged; the extension itself is created by deploy/local/postgres/init/01-schemas.sql on
-    # a new volume, or by deploy/local/scripts/create-customer-dbs.sql on an existing one.
-    # Pinned to a pgvector 0.8.x build (iterative index scans need >= 0.8.0).
+    # The official postgres:17 image plus the pgvector extension (semantic product search; the product
+    # service's V10 migration needs it). Pinned to a pgvector 0.8.x build (iterative index scans need >= 0.8.0).
     image: pgvector/pgvector:0.8.7-pg17
-    container_name: ecommerce-postgres
+    container_name: sdai-pg
     restart: unless-stopped
+    # Throwaway-data tuning for bulk loads: durability is traded for speed. A hard kill can corrupt this
+    # cluster, so stop it cleanly (docker compose stop / down) and take a backup with ./db-backup.sh.
+    command: ["-c", "fsync=off", "-c", "synchronous_commit=off", "-c", "max_connections=200", "-c", "shared_buffers=512MB"]
     environment:
-      # Superuser credentials are LOCAL-ONLY throwaway values. Service
-      # credentials are created by the init script, not here.
+      # Superuser credentials are LOCAL-ONLY throwaway values; they only apply when the data volume is
+      # created. Service-specific roles are not used: the services connect as the superuser (see
+      # x-sdai-datasource above).
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: ${SDAI_PG_PASSWORD:-sdai_scratch}
       POSTGRES_DB: postgres
       # Deterministic collation, so ORDER BY behaves the same for everyone.
       POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
@@ -37,11 +50,15 @@ services:
       # project's stack) does not block bring-up: POSTGRES_PORT=15432 docker compose up -d
       # Loopback only: the superuser password above is a known throwaway value, so
       # publishing on 0.0.0.0 let anyone on the network log in as superuser.
-      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-55432}:5432"
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      - sdai-pg-data:/var/lib/postgresql/data
       # Executed only when the data volume is empty (first start).
       - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    networks:
+      default:
+        aliases:
+          - sdai-pg
     healthcheck:
       # `-d postgres` matters: without it pg_isready can report ready during the
       # init phase, before the init scripts have created the service databases.
@@ -213,10 +230,9 @@ services:
       # Phase 10 tracing -> Jaeger (OTLP/HTTP). Dev samples everything; production default is 0.1.
       OTEL_TRACES_ENDPOINT: http://jaeger:4318/v1/traces
       TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY:-1.0}
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/auth_db
-      SPRING_DATASOURCE_USERNAME: auth_service
-      # Injected from the developer's .env (gitignored) - never inlined here.
-      SPRING_DATASOURCE_PASSWORD: ${AUTH_DB_PASSWORD:?set AUTH_DB_PASSWORD in deploy/local/.env}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://sdai-pg:5432/auth_db
+      <<: *sdai-datasource
+      SPRING_FLYWAY_BASELINE_VERSION: "4"
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
       # Keystore produced by deploy/local/scripts/generate-keystore.sh. MOUNTED, never
       # baked into the image and never generated at startup - a key generated
@@ -445,10 +461,9 @@ services:
       # Phase 10 tracing -> Jaeger (OTLP/HTTP). Dev samples everything; production default is 0.1.
       OTEL_TRACES_ENDPOINT: http://jaeger:4318/v1/traces
       TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY:-1.0}
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/product_db
-      SPRING_DATASOURCE_USERNAME: product_service
-      # Injected from the developer's .env (gitignored) - never inlined here.
-      SPRING_DATASOURCE_PASSWORD: ${PRODUCT_DB_PASSWORD:?set PRODUCT_DB_PASSWORD in deploy/local/.env}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://sdai-pg:5432/product_db
+      <<: *sdai-datasource
+      SPRING_FLYWAY_BASELINE_VERSION: "9"
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
       # MUST MATCH auth-service's and the gateway's values EXACTLY. A mismatch
       # produces "invalid_token" on every request to /api/products/**, with
@@ -570,10 +585,9 @@ services:
       # Phase 10 tracing -> Jaeger (OTLP/HTTP). Dev samples everything; production default is 0.1.
       OTEL_TRACES_ENDPOINT: http://jaeger:4318/v1/traces
       TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY:-1.0}
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/inventory_db
-      SPRING_DATASOURCE_USERNAME: inventory_service
-      # Injected from the developer's .env (gitignored) - never inlined here.
-      SPRING_DATASOURCE_PASSWORD: ${INVENTORY_DB_PASSWORD:?set INVENTORY_DB_PASSWORD in deploy/local/.env}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://sdai-pg:5432/inventory_db
+      <<: *sdai-datasource
+      SPRING_FLYWAY_BASELINE_VERSION: "7"
       INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?set INTERNAL_API_TOKEN in deploy/local/.env}
       # Demo stack: the catalog sync gives every seeded product and variant this much stock.
       # Production leaves it at 0, so nothing is sellable until it is stocked (TD-P6-04).
@@ -623,9 +637,9 @@ services:
       # Phase 10 tracing -> Jaeger (OTLP/HTTP). Dev samples everything; production default is 0.1.
       OTEL_TRACES_ENDPOINT: http://jaeger:4318/v1/traces
       TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY:-1.0}
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/user_db
-      SPRING_DATASOURCE_USERNAME: user_service
-      SPRING_DATASOURCE_PASSWORD: ${USER_DB_PASSWORD:?set USER_DB_PASSWORD in deploy/local/.env}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://sdai-pg:5432/user_db
+      <<: *sdai-datasource
+      SPRING_FLYWAY_BASELINE_VERSION: "4"
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
       AUTH_JWT_ISSUER: ${AUTH_JWT_ISSUER:-https://auth.acme-ecommerce.internal}
       AUTH_JWT_AUDIENCES: ${AUTH_JWT_AUDIENCES:-ecommerce-platform}
@@ -665,9 +679,9 @@ services:
       # Phase 10 tracing -> Jaeger (OTLP/HTTP). Dev samples everything; production default is 0.1.
       OTEL_TRACES_ENDPOINT: http://jaeger:4318/v1/traces
       TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY:-1.0}
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/cart_db
-      SPRING_DATASOURCE_USERNAME: cart_service
-      SPRING_DATASOURCE_PASSWORD: ${CART_DB_PASSWORD:?set CART_DB_PASSWORD in deploy/local/.env}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://sdai-pg:5432/cart_db
+      <<: *sdai-datasource
+      SPRING_FLYWAY_BASELINE_VERSION: "5"
       # Phase 7: alerts consume product.events/inventory.events and email via notification-service
       INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?set INTERNAL_API_TOKEN in deploy/local/.env}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
@@ -706,9 +720,9 @@ services:
       # Phase 10 tracing -> Jaeger (OTLP/HTTP). Dev samples everything; production default is 0.1.
       OTEL_TRACES_ENDPOINT: http://jaeger:4318/v1/traces
       TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY:-1.0}
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/order_db
-      SPRING_DATASOURCE_USERNAME: order_service
-      SPRING_DATASOURCE_PASSWORD: ${ORDER_DB_PASSWORD:?set ORDER_DB_PASSWORD in deploy/local/.env}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://sdai-pg:5432/order_db
+      <<: *sdai-datasource
+      SPRING_FLYWAY_BASELINE_VERSION: "7"
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
       AUTH_JWT_ISSUER: ${AUTH_JWT_ISSUER:-https://auth.acme-ecommerce.internal}
       AUTH_JWT_AUDIENCES: ${AUTH_JWT_AUDIENCES:-ecommerce-platform}
@@ -753,9 +767,9 @@ services:
       # Phase 10 tracing -> Jaeger (OTLP/HTTP). Dev samples everything; production default is 0.1.
       OTEL_TRACES_ENDPOINT: http://jaeger:4318/v1/traces
       TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY:-1.0}
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/rating_db
-      SPRING_DATASOURCE_USERNAME: rating_service
-      SPRING_DATASOURCE_PASSWORD: ${RATING_DB_PASSWORD:?set RATING_DB_PASSWORD in deploy/local/.env}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://sdai-pg:5432/rating_db
+      <<: *sdai-datasource
+      SPRING_FLYWAY_BASELINE_VERSION: "5"
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
       AUTH_JWT_ISSUER: ${AUTH_JWT_ISSUER:-https://auth.acme-ecommerce.internal}
       AUTH_JWT_AUDIENCES: ${AUTH_JWT_AUDIENCES:-ecommerce-platform}
@@ -817,9 +831,9 @@ services:
       OTEL_TRACES_ENDPOINT: http://jaeger:4318/v1/traces
       TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY:-1.0}
       # Phase 8: own database (inbox, push subscriptions, campaigns) + JWT validation for /api/**
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/notification_db
-      SPRING_DATASOURCE_USERNAME: notification_service
-      SPRING_DATASOURCE_PASSWORD: ${NOTIFICATION_DB_PASSWORD:?set NOTIFICATION_DB_PASSWORD in deploy/local/.env}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://sdai-pg:5432/notification_db
+      <<: *sdai-datasource
+      SPRING_FLYWAY_BASELINE_VERSION: "1"
       AUTH_JWT_ISSUER: ${AUTH_JWT_ISSUER:-https://auth.acme-ecommerce.internal}
       AUTH_JWT_AUDIENCES: ${AUTH_JWT_AUDIENCES:-ecommerce-platform}
       # Blank => keys are generated at first start and persisted in notification_db.settings
@@ -869,9 +883,9 @@ services:
       # Phase 10 tracing -> Jaeger (OTLP/HTTP). Dev samples everything; production default is 0.1.
       OTEL_TRACES_ENDPOINT: http://jaeger:4318/v1/traces
       TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY:-1.0}
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/payment_db
-      SPRING_DATASOURCE_USERNAME: payment_service
-      SPRING_DATASOURCE_PASSWORD: ${PAYMENT_DB_PASSWORD:?set PAYMENT_DB_PASSWORD in deploy/local/.env}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://sdai-pg:5432/payment_db
+      <<: *sdai-datasource
+      SPRING_FLYWAY_BASELINE_VERSION: "3"
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
       AUTH_JWT_ISSUER: ${AUTH_JWT_ISSUER:-https://auth.acme-ecommerce.internal}
       AUTH_JWT_AUDIENCES: ${AUTH_JWT_AUDIENCES:-ecommerce-platform}
@@ -912,9 +926,9 @@ services:
       # Phase 10 tracing -> Jaeger (OTLP/HTTP). Dev samples everything; production default is 0.1.
       OTEL_TRACES_ENDPOINT: http://jaeger:4318/v1/traces
       TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY:-1.0}
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/promotion_db
-      SPRING_DATASOURCE_USERNAME: promotion_service
-      SPRING_DATASOURCE_PASSWORD: ${PROMOTION_DB_PASSWORD:?set PROMOTION_DB_PASSWORD in deploy/local/.env}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://sdai-pg:5432/promotion_db
+      <<: *sdai-datasource
+      SPRING_FLYWAY_BASELINE_VERSION: "4"
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
       AUTH_JWT_ISSUER: ${AUTH_JWT_ISSUER:-https://auth.acme-ecommerce.internal}
       AUTH_JWT_AUDIENCES: ${AUTH_JWT_AUDIENCES:-ecommerce-platform}
@@ -951,9 +965,9 @@ services:
       # Phase 10 tracing -> Jaeger (OTLP/HTTP). Dev samples everything; production default is 0.1.
       OTEL_TRACES_ENDPOINT: http://jaeger:4318/v1/traces
       TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY:-1.0}
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/seller_db
-      SPRING_DATASOURCE_USERNAME: seller_service
-      SPRING_DATASOURCE_PASSWORD: ${SELLER_DB_PASSWORD:?set SELLER_DB_PASSWORD in deploy/local/.env}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://sdai-pg:5432/seller_db
+      <<: *sdai-datasource
+      SPRING_FLYWAY_BASELINE_VERSION: "2"
       SELLER_DATA_KEY: ${SELLER_DATA_KEY:?set SELLER_DATA_KEY in deploy/local/.env}
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
       AUTH_JWT_ISSUER: ${AUTH_JWT_ISSUER:-https://auth.acme-ecommerce.internal}
@@ -992,9 +1006,9 @@ services:
       # Phase 10 tracing -> Jaeger (OTLP/HTTP). Dev samples everything; production default is 0.1.
       OTEL_TRACES_ENDPOINT: http://jaeger:4318/v1/traces
       TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY:-1.0}
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/support_db
-      SPRING_DATASOURCE_USERNAME: support_service
-      SPRING_DATASOURCE_PASSWORD: ${SUPPORT_DB_PASSWORD:?set SUPPORT_DB_PASSWORD in deploy/local/.env}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://sdai-pg:5432/support_db
+      <<: *sdai-datasource
+      SPRING_FLYWAY_BASELINE_VERSION: "2"
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
       AUTH_JWT_ISSUER: ${AUTH_JWT_ISSUER:-https://auth.acme-ecommerce.internal}
       AUTH_JWT_AUDIENCES: ${AUTH_JWT_AUDIENCES:-ecommerce-platform}
@@ -1028,5 +1042,10 @@ services:
 volumes:
   static-image-data:
   rating-media:
-  postgres-data:
+  # sdai-pg's data (the generated databases). External on purpose: `docker compose down -v` must never
+  # delete it. Create it once on a fresh machine: docker volume create ecommerce-platform_sdai-pg-data
+  # An existing volume with data is selected with SDAI_PG_VOLUME in deploy/local/.env.
+  sdai-pg-data:
+    external: true
+    name: ${SDAI_PG_VOLUME:-ecommerce-platform_sdai-pg-data}
   kafka-data:

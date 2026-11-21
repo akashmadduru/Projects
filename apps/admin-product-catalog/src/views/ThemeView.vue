@@ -13,7 +13,11 @@ import { ApiError } from '@/lib/problem';
 import {
   BORDER_COLORS,
   BORDER_WIDTHS,
+  BACKGROUND_PATTERNS,
   BORDER_STYLES,
+  PATTERN_SPACINGS,
+  PATTERN_STRENGTHS,
+  PATTERN_TINTS,
   BUTTON_FILLS,
   BUTTON_HOVERS,
   BUTTON_SHAPES,
@@ -55,9 +59,13 @@ import {
   previewButtonStyle,
   previewCardBackground,
   previewOutline,
+  previewPattern,
   previewShadows,
   randomPalette,
+  type BackgroundPattern,
   type BorderColor,
+  type PatternSpacing,
+  type PatternTint,
   type FontCategory,
   type BorderStyle,
   type BorderWidth,
@@ -93,10 +101,10 @@ import { getThemeConfig, resetThemeConfig, saveThemeConfig } from '@/lib/trustAp
  */
 type ErrorInfo = { message: string; correlationId: string | null };
 type Mode = 'light' | 'dark';
-type Section = 'style' | 'brand' | 'colours' | 'fonts' | 'borders' | 'shadows' | 'cards' | 'buttons' | 'options' | 'css';
-type TabId = 'start' | 'looks' | 'brand' | 'colours' | 'type' | 'shape' | 'components' | 'comfort' | 'advanced';
+type Section = 'style' | 'brand' | 'colours' | 'fonts' | 'borders' | 'shadows' | 'cards' | 'buttons' | 'background' | 'options' | 'css';
+type TabId = 'start' | 'looks' | 'brand' | 'colours' | 'type' | 'shape' | 'components' | 'backdrop' | 'comfort' | 'advanced';
 /** Config groups edited field-by-field through ChoiceGroups. */
-type Part = 'border' | 'shadow' | 'card' | 'button' | 'fonts';
+type Part = 'border' | 'shadow' | 'card' | 'button' | 'background' | 'fonts';
 
 interface Tab {
   id: TabId;
@@ -116,6 +124,7 @@ const TABS: readonly Tab[] = [
   { id: 'type', label: 'Typography', icon: 'Aa', hint: 'Fonts, weight and spacing', group: 'Brand & colour', sections: ['fonts'] },
   { id: 'shape', label: 'Borders & shadows', icon: '▢', hint: 'Corners, outlines and depth', group: 'Shape', sections: ['borders', 'shadows'] },
   { id: 'components', label: 'Cards & buttons', icon: '▤', hint: 'Card fill, hover and buttons', group: 'Shape', sections: ['cards', 'buttons'] },
+  { id: 'backdrop', label: 'Background', icon: '▦', hint: 'Page patterns and grids', group: 'Shape', sections: ['background'] },
   { id: 'comfort', label: 'Comfort', icon: '☺', hint: 'Text size and motion', group: 'More', sections: ['options'] },
   { id: 'advanced', label: 'Advanced', icon: '</>', hint: 'Drafts, export and custom CSS', group: 'More', sections: ['css'] },
 ];
@@ -206,6 +215,7 @@ const sectionDirty = computed<Record<Section, boolean>>(() => {
     shadows: diff(d.shadow, base.shadow),
     cards: diff(d.card, base.card),
     buttons: diff(d.button, base.button),
+    background: diff(d.background, base.background),
     options: diff(d.options, base.options),
     css: d.customCss !== base.customCss,
   };
@@ -220,6 +230,7 @@ const SECTION_LABEL: Record<Section, string> = {
   shadows: 'Shadows',
   cards: 'Cards',
   buttons: 'Buttons',
+  background: 'Background pattern',
   options: 'Comfort options',
   css: 'Custom CSS',
 };
@@ -524,6 +535,19 @@ const swatch = {
   cardShape: (v: CardShape) => ({ borderRadius: PREVIEW_CARD_RADIUS[v] ?? PREVIEW_RADIUS[draft.value.border.radius], borderWidth: '2px', borderColor: 'currentColor' }),
   cardAccent: (v: CardAccent) => ({ background: previewCardBackground(withPart('card', { accent: v }), mode.value), borderColor: draft.value[mode.value].text }),
   buttonShape: (v: ButtonShape) => ({ ...previewButtonStyle(withPart('button', { shape: v }), mode.value), height: '1rem', alignSelf: 'center' }),
+  pattern: (v: BackgroundPattern) => {
+    const { backgroundImage, backgroundSize, backgroundRepeat } = previewPattern(withPart('background', { pattern: v }), mode.value, 0.5);
+    return { backgroundColor: draft.value[mode.value].background, backgroundImage, backgroundSize, backgroundRepeat };
+  },
+  spacing: (v: PatternSpacing) => {
+    const pattern = draft.value.background.pattern === 'none' || draft.value.background.pattern === 'mesh' ? 'dots' : draft.value.background.pattern;
+    const { backgroundImage, backgroundSize, backgroundRepeat } = previewPattern(withPart('background', { spacing: v, pattern }), mode.value, 0.5);
+    return { backgroundColor: draft.value[mode.value].background, backgroundImage, backgroundSize, backgroundRepeat };
+  },
+  patternTint: (v: PatternTint) => {
+    const { backgroundImage, backgroundSize, backgroundRepeat } = previewPattern(withPart('background', { tint: v, pattern: draft.value.background.pattern === 'none' ? 'dots' : draft.value.background.pattern }), mode.value, 0.5);
+    return { backgroundColor: draft.value[mode.value].background, backgroundImage, backgroundSize, backgroundRepeat };
+  },
   buttonFill: (v: ButtonFill) => ({ ...previewButtonStyle(withPart('button', { fill: v }), mode.value), height: '1rem', alignSelf: 'center' }),
 };
 
@@ -566,6 +590,9 @@ function resetSection(section: Section): void {
       break;
     case 'buttons':
       draft.value = { ...cur, button: d.button };
+      break;
+    case 'background':
+      draft.value = { ...cur, background: d.background };
       break;
     case 'css':
       draft.value = { ...cur, customCss: '' };
@@ -1582,6 +1609,24 @@ onBeforeRouteLeave(() => {
               <ChoiceGroup label="Fill" :choices="BUTTON_FILLS" :model-value="draft.button.fill" test-prefix="bfill" :swatch="swatch.buttonFill" @update:model-value="(v) => setPart('button', { fill: v })" @preview="(v, l) => previewPart('button', v && { fill: v }, l)" />
               <ChoiceGroup label="Label style" :choices="BUTTON_TEXTS" :model-value="draft.button.text" test-prefix="btext" compact @update:model-value="(v) => setPart('button', { text: v })" @preview="(v, l) => previewPart('button', v && { text: v }, l)" />
               <ChoiceGroup label="Hover effect" :choices="BUTTON_HOVERS" :model-value="draft.button.hover" test-prefix="bhover" @update:model-value="(v) => setPart('button', { hover: v })" @preview="(v, l) => previewPart('button', v && { hover: v }, l)" />
+            </div>
+          </template>
+
+          <!-- ===== Background ===== -->
+          <template v-else-if="activeTab === 'backdrop'">
+            <div class="mb-1 flex flex-wrap items-center justify-between gap-2">
+              <h2 class="flex items-center gap-2 text-lg font-semibold">
+                Background pattern
+                <span v-if="sectionDirty.background" class="badge badge-warning badge-sm">Changed</span>
+              </h2>
+              <button class="btn btn-ghost btn-xs" type="button" @click="resetSection('background')">Reset background</button>
+            </div>
+            <p class="mb-3 text-sm opacity-70">The decorative layer behind the storefront (and this console), drawn in your theme colours. Fine grids and dot patterns at 4–6 mm spacing and Whisper or Faint strength give the most elegant result. Lines stay one pixel thin at every spacing; the preview shows true size.</p>
+            <div class="grid gap-4">
+              <ChoiceGroup label="Pattern" :choices="BACKGROUND_PATTERNS" :model-value="draft.background.pattern" test-prefix="bgpattern" :swatch="swatch.pattern" @update:model-value="(v) => setPart('background', { pattern: v })" @preview="(v, l) => previewPart('background', v && { pattern: v }, l)" />
+              <ChoiceGroup label="Colour" :choices="PATTERN_TINTS" :model-value="draft.background.tint" test-prefix="bgtint" :swatch="swatch.patternTint" compact @update:model-value="(v) => setPart('background', { tint: v })" @preview="(v, l) => previewPart('background', v && { tint: v }, l)" />
+              <ChoiceGroup label="Spacing between pattern elements" :choices="PATTERN_SPACINGS" :model-value="draft.background.spacing" test-prefix="bgspacing" :swatch="swatch.spacing" compact @update:model-value="(v) => setPart('background', { spacing: v })" @preview="(v, l) => previewPart('background', v && { spacing: v }, l)" />
+              <ChoiceGroup label="Strength" :choices="PATTERN_STRENGTHS" :model-value="draft.background.strength" test-prefix="bgstrength" compact @update:model-value="(v) => setPart('background', { strength: v })" @preview="(v, l) => previewPart('background', v && { strength: v }, l)" />
             </div>
           </template>
 

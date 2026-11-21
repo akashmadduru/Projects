@@ -1,0 +1,68 @@
+{
+ "runs": [
+  {
+   "at": "2026-11-20T21:13:11.155Z",
+   "role": "forge-architect",
+   "tokens": 88149,
+   "tools": 45,
+   "ms": 288478,
+   "round": 0,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-20T21:14:02.536Z",
+   "role": "forge-cto",
+   "tokens": 18503,
+   "tools": 4,
+   "ms": 10370,
+   "round": 0,
+   "outcome": "approve"
+  },
+  {
+   "at": "2026-11-20T21:14:39.599Z",
+   "role": "forge-architect",
+   "tokens": 6000,
+   "tools": 2,
+   "ms": 30000,
+   "round": 0,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-20T21:15:04.695Z",
+   "role": "forge-em",
+   "tokens": 22000,
+   "tools": 5,
+   "ms": 40000,
+   "round": 0,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-20T22:15:02.870Z",
+   "role": "forge-backend-engineer",
+   "tokens": 111099,
+   "tools": 76,
+   "ms": 3577737,
+   "round": 1,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-20T22:20:54.983Z",
+   "role": "forge-security",
+   "tokens": 67490,
+   "tools": 14,
+   "ms": 119836,
+   "round": 1,
+   "outcome": "approve"
+  },
+  {
+   "at": "2026-11-20T22:21:28.449Z",
+   "role": "forge-reviewer",
+   "tokens": 71985,
+   "tools": 22,
+   "ms": 140401,
+   "round": 1,
+   "outcome": "approve"
+  }
+ ],
+ "events": []
+}

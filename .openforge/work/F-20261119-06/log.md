@@ -1,0 +1,15 @@
+- 2026-11-19T17:33:20Z step1 discover: worktree created on F-03 head a04ad610; objective.md with 5 cited facts; TD-P6-10 policy/captcha and TD-SEC-08 UX deferred as Owner decisions.
+- 2026-11-19T17:34:14Z step2 CPO: requirements.md, 17 ACs. Open: token-validation points (proof needed), OTP-only lockout keying, Redis-down policy (design), reset-creates-credential (design).
+- 2026-11-19T19:31:43Z CEO split O-01 into F-06 (AC-1..8), F-07 (AC-9..12), F-08 (AC-13..17) as separate objectives so each passes the gate independently (avoids G-8). CTO to re-score each.
+- 2026-11-19T19:32:42Z step3 CTO: ## Class: M. Step4 architect started.
+- 2026-11-19T19:38:10Z step4 architect: design.md + ADR 0006 (Lua INCR+PEXPIRE SharedWindowCounter, drops bucket4j; ~230 prod lines). Assumption 3 false: lockout requires user_credentials row; OTP-only users have none -> AC-6 gap, sent to CTO.
+- 2026-11-19T19:38:38Z step4 CTO ACCEPT (6 conditions; AC-6 narrowed via CPO, B-9 filed). Transcribed.
+- 2026-11-19T19:39:09Z CPO amended AC-6, added AC-9 (CTO cond 1). Step5 EM next.
+- 2026-11-19T19:39:51Z step5 EM: tasks.md T1-T6 (AC-1..9, C2-C6). Step6 engineer started. Note: F-06 and F-08 both touch auth-service config; expect a merge conflict in application.yml/AuthProperties when merging after each other.
+- 2026-11-19T20:00:24Z impl committed (engineer: 100 auth tests). Register not edited (run rule). CEO verify started.
+- 2026-11-19T20:07:11Z CEO verify FAIL (env-reference: 2 undescribed vars, stale doc); gradle PASS 100 tests. Back to engineer.
+- 2026-11-19T20:29:20Z security APPROVE @ 2a745cb3 (4 minor). Notable: the OTP lock is renewable indefinitely; add-phone SMS is uncapped (relevant to F-07).
+- 2026-11-20T17:16:21Z fix round (OTP lock no-renew, docs) committed fca9bc1. CEO verify running.
+- 2026-11-20T17:30:40Z r2 reviewer APPROVE @ fca9bc19 (1 minor = add-phone SMS cap, already in backlog; 3 nits). Waiting on security.
+- 2026-11-20T17:31:07Z r2 both APPROVE @ fca9bc19 (security 2 doc/timing minors -> PR known issues + backlog). QA next.
+- 2026-11-20T17:31:54Z QA PASS 9/9 (JUnit-confirmed). forge-gate PASS at fca9bc19. pr.md written.
