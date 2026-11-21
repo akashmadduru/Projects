@@ -95,8 +95,7 @@ class OrderServiceFetchProductsTest {
   void feignErrorsAreMapped() {
     UUID a = UUID.randomUUID();
     when(batch.batch(anyString(), eq(true)))
-        .thenThrow(
-            new FeignException.ServiceUnavailable("down", request(), null, new HashMap<>()));
+        .thenThrow(new FeignException.ServiceUnavailable("down", request(), null, new HashMap<>()));
     assertThatThrownBy(() -> orders.fetchProducts(List.of(a)))
         .isInstanceOf(CodedException.class)
         .extracting(e -> ((CodedException) e).errorCode())

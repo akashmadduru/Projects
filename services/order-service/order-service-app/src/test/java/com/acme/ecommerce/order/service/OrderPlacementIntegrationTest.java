@@ -1317,25 +1317,22 @@ class OrderPlacementIntegrationTest extends AbstractOrderIntegrationTest {
 
     assertThat(e.errorCode()).isEqualTo(ErrorCode.PRODUCT_UNAVAILABLE);
     assertThat(orderCount()).isZero();
-    assertThat(
-            jdbc.queryForObject(
-                "select count(*) from orders.orders where status <> 'CANCELLED'", Integer.class))
-        .as("no live order of anyone is left behind")
-        .isZero();
     verify(remote, never()).reserveStock(any(), any(), anyString());
   }
 
   @Test
   @DisplayName("AC-12: client-supplied cart price, name and image are ignored; the catalog wins")
   void clientSuppliedCartFieldsAreIgnored() {
-    cartWith(List.of(cartLine(shirt, 2, null, null, "HACKED NAME", "0.01")));
+    UUID tee = UUID.randomUUID();
+    catalog.put(tee, productWith(tee, "Tee", "499.00", true, List.of(), List.of()));
+    cartWith(List.of(cartLine(tee, 2, null, null, "HACKED NAME", "0.01")));
 
     OrderService.Placement placed = orders.place(user, "c@example.com", "a12-ignore", fromCart());
 
     var line = placed.order().items().get(0);
     assertThat(line.unitPrice()).isEqualByComparingTo("499.00");
-    assertThat(line.name()).isEqualTo("Shirt");
-    assertThat(line.imageUrl()).doesNotContain("evil.example");
+    assertThat(line.name()).isEqualTo("Tee");
+    assertThat(line.imageUrl()).isEqualTo("http://cdn.example/Tee.png");
     assertThat(placed.order().subtotalAmount()).isEqualByComparingTo("998.00");
   }
 

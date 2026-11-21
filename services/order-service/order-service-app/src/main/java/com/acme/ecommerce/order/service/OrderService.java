@@ -766,9 +766,9 @@ public class OrderService {
   }
 
   /**
-   * One batched, detail-level product-service read for the distinct ids (an order has at most {@link
-   * #MAX_LINES} lines, the endpoint's cap). A requested id missing from the result is refused here,
-   * before anything is saved.
+   * One batched, detail-level product-service read for the distinct ids (an order has at most
+   * {@link #MAX_LINES} lines, the endpoint's cap). A requested id missing from the result is
+   * refused here, before anything is saved.
    */
   Map<UUID, ProductView> fetchProducts(List<UUID> productIds) {
     Map<UUID, ProductView> found = new HashMap<>();
