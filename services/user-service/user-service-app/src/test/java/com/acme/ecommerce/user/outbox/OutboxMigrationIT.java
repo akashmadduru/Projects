@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,6 +15,9 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 
 /** AC-9: V6 adds users.outbox with its three partial indexes and nothing destructive. */
 class OutboxMigrationIT extends AbstractUserIntegrationTest {
+
+  private static final Pattern DESTRUCTIVE =
+      Pattern.compile("\\b(ALTER|DROP|TRUNCATE)\\b", Pattern.CASE_INSENSITIVE);
 
   @Autowired private JdbcClient jdbc;
 
@@ -45,8 +49,16 @@ class OutboxMigrationIT extends AbstractUserIntegrationTest {
   @DisplayName("V6 is additive: no ALTER, DROP or TRUNCATE")
   void additiveOnly() throws IOException {
     try (InputStream in = getClass().getResourceAsStream("/db/migration/V6__outbox.sql")) {
-      String sql = new String(in.readAllBytes(), StandardCharsets.UTF_8).toUpperCase();
-      assertThat(sql).doesNotContainPattern("(?i)\b(ALTER|DROP|TRUNCATE)\b");
+      String sql = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+      assertThat(sql).doesNotContainPattern(DESTRUCTIVE);
     }
+  }
+
+  @Test
+  @DisplayName("the destructive-DDL guard pattern matches what it should")
+  void guardPatternBites() {
+    assertThat(DESTRUCTIVE.matcher("DROP\nTABLE x").find()).isTrue();
+    assertThat(DESTRUCTIVE.matcher("alter table y").find()).isTrue();
+    assertThat(DESTRUCTIVE.matcher("CREATE TABLE altered_things (id int)").find()).isFalse();
   }
 }

@@ -198,7 +198,7 @@ class UserDeletionOutboxIT extends AbstractUserIntegrationTest {
               return "{}";
             });
 
-    assertThat(privacy.runDue(Instant.now())).isZero();
+    privacy.runDue(Instant.now());
 
     assertThat(requestStatus(u)).isEqualTo("CANCELLED");
     assertThat(

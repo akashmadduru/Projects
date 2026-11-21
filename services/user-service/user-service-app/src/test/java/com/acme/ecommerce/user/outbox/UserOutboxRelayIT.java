@@ -219,6 +219,12 @@ class UserOutboxRelayIT extends AbstractUserIntegrationTest {
           .update();
       relay.relay();
       assertThat(status(bad)).isEqualTo("DEAD");
+      assertThat(
+              jdbc.sql("SELECT last_error FROM users.outbox WHERE aggregate_id = :u")
+                  .param("u", bad)
+                  .query(String.class)
+                  .single())
+          .isEqualTo("java.lang.IllegalStateException: Corrupt outbox payload");
     }
     verify(kafka, never()).send(anyString(), anyString(), anyString());
   }
