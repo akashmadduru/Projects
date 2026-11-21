@@ -157,6 +157,10 @@ service-level setting (add it under that service's `env:` in `values.yaml`). Rel
 | `RATING_JWKS_URI` | rating | `""` |  | helm | Fixed URL of auth-service's public keys, used by rating to verify tokens. Set it on AWS (`http://auth-service:8081/.well-known/jwks.json`); blank resolves auth-service through discovery. |
 | `SELLER_JWKS_SERVICE_ID` | seller | `AUTH-SERVICE` |  | - | Service id used to find auth-service when no fixed JWKS URL is set (default `AUTH-SERVICE`). |
 | `SELLER_JWKS_URI` | seller | `""` |  | helm | Fixed URL of auth-service's public keys, used by seller to verify tokens. Set it on AWS (`http://auth-service:8081/.well-known/jwks.json`); blank resolves auth-service through discovery. |
+| `SELLER_LEDGER_RECONCILE_CRON` | seller | `0 30 2 * * *` |  | - | Spring cron (UTC) of the daily ledger reconcile job (`seller.ledger.reconcile.cron`). It only reports to `ledger_discrepancies`; it never posts to the ledger. |
+| `SELLER_LEDGER_RECONCILE_GRACE` | seller | `PT1H` |  | - | How long a DELIVERED shipment may be without a SALE before reconcile reports MISSING_SALE (`seller.ledger.reconcile.grace`, ISO-8601 duration). |
+| `SELLER_LEDGER_RECONCILE_LOOKBACK_DAYS` | seller | `35` |  | - | Reconcile asks order-service about SALEs newer than this many days (STATE_MISMATCH; `seller.ledger.reconcile.lookback-days`). |
+| `SELLER_LEDGER_RECONCILE_PAGE_SIZE` | seller | `200` |  | - | Shipments read per page by the reconcile job (`seller.ledger.reconcile.page-size`). |
 | `SUPPORT_JWKS_SERVICE_ID` | support | `AUTH-SERVICE` |  | - | Service id used to find auth-service when no fixed JWKS URL is set (default `AUTH-SERVICE`). |
 | `SUPPORT_JWKS_URI` | support | `""` |  | helm | Fixed URL of auth-service's public keys, used by support to verify tokens. Set it on AWS (`http://auth-service:8081/.well-known/jwks.json`); blank resolves auth-service through discovery. |
 | `USER_JWKS_SERVICE_ID` | user | `AUTH-SERVICE` |  | - | Service id used to find auth-service when no fixed JWKS URL is set (default `AUTH-SERVICE`). |

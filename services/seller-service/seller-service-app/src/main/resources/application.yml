@@ -136,6 +136,15 @@ seller:
   # Settlement: ledger entries younger than this are not paid out (admin may pass minAgeDays=0).
   payout-min-age-days: 7
   platform-seller-id: 00000000-0000-0000-0000-00000000a11e
+  ledger:
+    reconcile:
+      # Daily read-only check of the ledger against the shipment register (reports, never posts).
+      cron: ${SELLER_LEDGER_RECONCILE_CRON:0 30 2 * * *}
+      # A DELIVERED shipment without a SALE is reported only after this long.
+      grace: ${SELLER_LEDGER_RECONCILE_GRACE:PT1H}
+      # STATE_MISMATCH asks order-service about SALEs newer than this many days.
+      lookback-days: ${SELLER_LEDGER_RECONCILE_LOOKBACK_DAYS:35}
+      page-size: ${SELLER_LEDGER_RECONCILE_PAGE_SIZE:200}
   jwt:
     # SAME ENV VARS AND SAME DEFAULTS AS auth-service's `auth.jwt.*`, the
     # gateway's `gateway.jwt.*` and product-service's `product.jwt.*`. Any of
