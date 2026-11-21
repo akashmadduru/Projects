@@ -8,10 +8,11 @@ import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -41,7 +42,8 @@ public class OrderEventConsumer {
       String shipmentId,
       String returnId,
       String returnShipmentId,
-      BigDecimal refundAmount) {}
+      BigDecimal refundAmount,
+      BigDecimal returnItemsValue) {}
 
   @Bean
   public ConcurrentKafkaListenerContainerFactory<String, OrderEvt> sellerOrderFactory(
@@ -65,7 +67,7 @@ public class OrderEventConsumer {
 
   @Component
   public static class Listener {
-    private static final Set<String> REFUNDED = Set.of("RETURNED", "REFUNDED", "RETURN_REFUNDED");
+    private static final Logger log = LoggerFactory.getLogger(Listener.class);
     private final LedgerService ledger;
     private final String platformSeller;
 
@@ -88,26 +90,29 @@ public class OrderEventConsumer {
       UUID orderId = UUID.fromString(e.orderId());
       String currency = e.currency() == null ? "USD" : e.currency();
       List<Part> parts = e.shipments() == null ? List.of() : e.shipments();
+      if (!parts.isEmpty()) {
+        // the register commits first and on its own, so a failing posting below cannot lose it
+        ledger.track(orderId, parts, currency);
+      }
       if ("RETURN_REFUNDED".equals(e.type())) {
-        if (e.returnShipmentId() != null && e.returnId() != null && e.refundAmount() != null) {
-          ledger.reverseReturn(
-              orderId,
-              UUID.fromString(e.returnShipmentId()),
-              UUID.fromString(e.returnId()),
-              e.refundAmount(),
-              currency);
-          return;
+        if (e.returnId() == null || e.returnShipmentId() == null || e.returnItemsValue() == null) {
+          // No fallback to refundAmount: it includes shipping and discounts, which are never the
+          // seller's. IllegalArgumentException is not retryable: straight to order.events.DLT.
+          log.error(
+              "LEDGER ALERT malformed RETURN_REFUNDED order={} returnId={} returnShipmentId={}"
+                  + " returnItemsValue={} - dead-lettered, nothing posted",
+              e.orderId(),
+              e.returnId(),
+              e.returnShipmentId(),
+              e.returnItemsValue());
+          throw new IllegalArgumentException("malformed RETURN_REFUNDED for order " + e.orderId());
         }
-        List<UUID> targets =
-            parts.stream()
-                .filter(p -> REFUNDED.contains(p.status()))
-                .map(p -> UUID.fromString(p.shipmentId()))
-                .toList();
-        if (!targets.isEmpty()) {
-          ledger.reverseRefund(orderId, targets);
-        } else if ("REFUNDED".equals(e.paymentStatus())) {
-          ledger.reverseRefund(orderId, null);
-        }
+        ledger.reverseReturn(
+            orderId,
+            UUID.fromString(e.returnShipmentId()),
+            UUID.fromString(e.returnId()),
+            e.returnItemsValue(),
+            currency);
         return;
       }
       if (parts.isEmpty()) {
