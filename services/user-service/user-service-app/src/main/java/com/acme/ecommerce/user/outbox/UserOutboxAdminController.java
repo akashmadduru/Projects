@@ -43,7 +43,10 @@ public class UserOutboxAdminController {
 
   @GetMapping
   public List<OutboxRow> list(@RequestParam(defaultValue = "DEAD") String status) {
-    String s = "PENDING".equalsIgnoreCase(status) ? "PENDING" : "DEAD";
+    String s = status.toUpperCase(java.util.Locale.ROOT);
+    if (!s.equals("DEAD") && !s.equals("PENDING")) {
+      throw new CodedException(ErrorCode.VALIDATION_FAILED, "status must be DEAD or PENDING");
+    }
     return jdbc.sql(
             "SELECT id, aggregate_id, kind, status, attempts, last_error, created_at,"
                 + " next_attempt_at FROM users.outbox WHERE status = :s ORDER BY seq LIMIT 200")

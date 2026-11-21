@@ -130,7 +130,11 @@ public class UserOutboxRelay {
   private void deliver(Row row) {
     String json;
     try {
-      json = UserOutbox.JSON.writeValueAsString(read(row.payload()));
+      UserDeletedEvent event = read(row.payload());
+      if (event == null || event.userId() == null) {
+        throw new IllegalStateException("Corrupt outbox payload");
+      }
+      json = UserOutbox.JSON.writeValueAsString(event);
     } catch (JsonProcessingException e) {
       throw new IllegalStateException("Corrupt outbox payload");
     }
@@ -182,8 +186,8 @@ public class UserOutboxRelay {
     while (root.getCause() != null && root.getCause() != root) {
       root = root.getCause();
     }
-    String text = e.getClass().getName();
-    if (root != e || e.getMessage() != null) {
+    String text = root.getClass().getName();
+    if (root.getMessage() != null) {
       text += ": " + root.getMessage();
     }
     return text.length() > 500 ? text.substring(0, 500) : text;

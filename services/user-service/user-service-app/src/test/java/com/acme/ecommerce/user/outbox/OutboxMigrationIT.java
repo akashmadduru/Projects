@@ -42,11 +42,11 @@ class OutboxMigrationIT extends AbstractUserIntegrationTest {
   }
 
   @Test
-  @DisplayName("V6 is additive: no ALTER and no DROP")
+  @DisplayName("V6 is additive: no ALTER, DROP or TRUNCATE")
   void additiveOnly() throws IOException {
     try (InputStream in = getClass().getResourceAsStream("/db/migration/V6__outbox.sql")) {
       String sql = new String(in.readAllBytes(), StandardCharsets.UTF_8).toUpperCase();
-      assertThat(sql).doesNotContain("ALTER ").doesNotContain("DROP ");
+      assertThat(sql).doesNotContainPattern("(?i)\b(ALTER|DROP|TRUNCATE)\b");
     }
   }
 }

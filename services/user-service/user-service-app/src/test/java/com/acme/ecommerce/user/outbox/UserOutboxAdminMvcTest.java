@@ -148,6 +148,25 @@ class UserOutboxAdminMvcTest extends AbstractUserIntegrationTest {
   }
 
   @Test
+  @DisplayName("GET: a status other than DEAD or PENDING is 400")
+  void badStatus() throws Exception {
+    assertThat(
+            mockMvc
+                .perform(get(BASE).param("status", "DONE").with(withRole("ADMIN")))
+                .andReturn()
+                .getResponse()
+                .getStatus())
+        .isEqualTo(400);
+    assertThat(
+            mockMvc
+                .perform(get(BASE).param("status", "pending").with(withRole("ADMIN")))
+                .andReturn()
+                .getResponse()
+                .getStatus())
+        .isEqualTo(200);
+  }
+
+  @Test
   @DisplayName("GET is capped at 200 rows")
   void capped() throws Exception {
     jdbc.sql(

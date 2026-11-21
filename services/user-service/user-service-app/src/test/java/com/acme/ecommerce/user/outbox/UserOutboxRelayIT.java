@@ -209,6 +209,31 @@ class UserOutboxRelayIT extends AbstractUserIntegrationTest {
   }
 
   @Test
+  @DisplayName("a null or userId-less payload goes DEAD as corrupt and is never sent")
+  void emptyPayloadsAreCorrupt() {
+    for (String payload : new String[] {"null", "{}"}) {
+      UUID bad = UUID.randomUUID();
+      insertRaw(bad, "USER_DELETED:" + bad, payload, "now()");
+      jdbc.sql("UPDATE users.outbox SET attempts = 19 WHERE aggregate_id = :u")
+          .param("u", bad)
+          .update();
+      relay.relay();
+      assertThat(status(bad)).isEqualTo("DEAD");
+    }
+    verify(kafka, never()).send(anyString(), anyString(), anyString());
+  }
+
+  @Test
+  @DisplayName("describe names the root cause class and message, truncated to 500")
+  void describeUsesRootCause() {
+    assertThat(
+            UserOutboxRelay.describe(
+                new IllegalStateException("wrap", new java.util.concurrent.TimeoutException("t"))))
+        .isEqualTo("java.util.concurrent.TimeoutException: t");
+    assertThat(UserOutboxRelay.describe(new RuntimeException("x".repeat(900)))).hasSize(500);
+  }
+
+  @Test
   @DisplayName("AC-10: neither payload nor last_error carries the user's email, phone or name")
   void noPii() {
     UUID u = UUID.randomUUID();
