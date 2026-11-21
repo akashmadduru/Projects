@@ -1079,4 +1079,323 @@ class OrderPlacementIntegrationTest extends AbstractOrderIntegrationTest {
     assertThat(registry.circuitBreaker("dep-user-service").getState())
         .isEqualTo(CircuitBreaker.State.CLOSED);
   }
+
+  // --- AC-10..14: one batched product lookup (PR-B) ------------------------------------------
+
+  private static com.acme.ecommerce.cart.api.dto.CartItemResponse cartLine(
+      UUID productId, int qty, UUID variantId, UUID offerId, String name, String price) {
+    return new com.acme.ecommerce.cart.api.dto.CartItemResponse(
+        productId,
+        qty,
+        name,
+        new BigDecimal(price),
+        "INR",
+        "http://evil.example/cart.png",
+        new BigDecimal(price).multiply(BigDecimal.valueOf(qty)),
+        Instant.parse("2026-11-20T10:00:00Z"),
+        variantId,
+        null,
+        offerId,
+        null);
+  }
+
+  private void cartWith(List<com.acme.ecommerce.cart.api.dto.CartItemResponse> items) {
+    when(carts.getCart())
+        .thenReturn(
+            new com.acme.ecommerce.cart.api.dto.CartResponse(
+                items, "INR", items.size(), BigDecimal.ZERO, List.of()));
+  }
+
+  private static com.acme.ecommerce.order.client.ProductViewFeignClient.Variant variant(
+      UUID id, String price, String salePrice, boolean active) {
+    return new com.acme.ecommerce.order.client.ProductViewFeignClient.Variant(
+        id,
+        "V-" + id.toString().substring(0, 4),
+        Map.of("size", "M"),
+        new BigDecimal(price),
+        salePrice == null ? null : new BigDecimal(salePrice),
+        null,
+        active);
+  }
+
+  private static ProductView productWith(
+      UUID id,
+      String name,
+      String price,
+      boolean active,
+      List<com.acme.ecommerce.order.client.ProductViewFeignClient.Variant> variants,
+      List<com.acme.ecommerce.order.client.ProductViewFeignClient.Offer> offers) {
+    return new ProductView(
+        id,
+        "SKU-" + name,
+        name,
+        new BigDecimal(price),
+        "INR",
+        active,
+        null,
+        "http://cdn.example/" + name + ".png",
+        variants,
+        offers,
+        null);
+  }
+
+  private CodedException placeFromCartFails(String key) {
+    Throwable t =
+        org.assertj.core.api.Assertions.catchThrowable(
+            () -> orders.place(user, "c@example.com", key, fromCart()));
+    assertThat(t).isInstanceOf(CodedException.class);
+    return (CodedException) t;
+  }
+
+  @Test
+  @DisplayName("AC-10: a 50-line cart makes exactly one product-service request, priced per line")
+  void fiftyLineCartMakesOneProductRequest() {
+    List<com.acme.ecommerce.cart.api.dto.CartItemResponse> items = new java.util.ArrayList<>();
+    Map<UUID, BigDecimal> expectedUnit = new HashMap<>();
+    for (int i = 0; i < 50; i++) {
+      UUID id = UUID.randomUUID();
+      String name = "P" + i;
+      BigDecimal base = new BigDecimal(10 + i);
+      if (i % 5 == 0) {
+        UUID variantId = UUID.randomUUID();
+        catalog.put(
+            id,
+            productWith(
+                id,
+                name,
+                base.toString(),
+                true,
+                List.of(variant(variantId, base.add(BigDecimal.ONE).toString(), null, true)),
+                List.of()));
+        items.add(cartLine(id, 1, variantId, null, "client-name", "0.01"));
+        expectedUnit.put(id, base.add(BigDecimal.ONE));
+      } else if (i % 7 == 3) {
+        UUID offerId = UUID.randomUUID();
+        var offer =
+            new com.acme.ecommerce.order.client.ProductViewFeignClient.Offer(
+                offerId,
+                UUID.randomUUID(),
+                "Seller",
+                null,
+                base.add(BigDecimal.TWO),
+                null,
+                "INR",
+                2,
+                9);
+        catalog.put(id, productWith(id, name, base.toString(), true, List.of(), List.of(offer)));
+        items.add(cartLine(id, 1, null, offerId, "client-name", "0.01"));
+        expectedUnit.put(id, base.add(BigDecimal.TWO));
+      } else {
+        catalog.put(id, productWith(id, name, base.toString(), true, List.of(), List.of()));
+        items.add(cartLine(id, 1, null, null, "client-name", "0.01"));
+        expectedUnit.put(id, base);
+      }
+    }
+    cartWith(items);
+
+    OrderService.Placement p = orders.place(user, "c@example.com", "fifty", fromCart());
+
+    var csv = org.mockito.ArgumentCaptor.forClass(String.class);
+    verify(products, times(1)).batch(csv.capture(), eq(true));
+    assertThat(csv.getValue().split(",")).hasSize(50).doesNotHaveDuplicates();
+    assertThat(p.order().items()).hasSize(50);
+    BigDecimal subtotal = BigDecimal.ZERO;
+    for (var line : p.order().items()) {
+      assertThat(line.unitPrice())
+          .as("price of %s", line.name())
+          .isEqualByComparingTo(expectedUnit.get(line.productId()));
+      assertThat(line.name()).startsWith("P");
+      subtotal = subtotal.add(expectedUnit.get(line.productId()));
+    }
+    assertThat(p.order().subtotalAmount()).isEqualByComparingTo(subtotal);
+    assertThat(p.order().currency()).isEqualTo("INR");
+  }
+
+  @Test
+  @DisplayName("AC-11: an inactive product keeps PRODUCT_UNAVAILABLE and the message names it")
+  void inactiveProductNamedInMessage() {
+    UUID retired = UUID.randomUUID();
+    catalog.put(retired, productWith(retired, "Old Lamp", "5.00", false, List.of(), List.of()));
+    cartWith(List.of(cartLine(retired, 1, null, null, "x", "5.00")));
+
+    CodedException e = placeFromCartFails("a11-inactive");
+
+    assertThat(e.errorCode()).isEqualTo(ErrorCode.PRODUCT_UNAVAILABLE);
+    assertThat(e.getMessage()).contains("Old Lamp");
+    assertThat(orderCount()).isZero();
+  }
+
+  @Test
+  @DisplayName("AC-11: an inactive or unknown variant keeps PRODUCT_UNAVAILABLE naming the product")
+  void variantUnavailableNamedInMessage() {
+    UUID p = UUID.randomUUID();
+    UUID inactiveVariant = UUID.randomUUID();
+    catalog.put(
+        p,
+        productWith(
+            p,
+            "Tee",
+            "20.00",
+            true,
+            List.of(variant(inactiveVariant, "20.00", null, false)),
+            List.of()));
+
+    cartWith(List.of(cartLine(p, 1, inactiveVariant, null, "x", "20.00")));
+    CodedException inactive = placeFromCartFails("a11-v-inactive");
+    cartWith(List.of(cartLine(p, 1, UUID.randomUUID(), null, "x", "20.00")));
+    CodedException unknown = placeFromCartFails("a11-v-unknown");
+
+    for (CodedException e : List.of(inactive, unknown)) {
+      assertThat(e.errorCode()).isEqualTo(ErrorCode.PRODUCT_UNAVAILABLE);
+      assertThat(e.getMessage()).contains("Tee");
+    }
+    assertThat(orderCount()).isZero();
+  }
+
+  @Test
+  @DisplayName("AC-11: a product with variants but no variant on the line is VALIDATION_FAILED")
+  void missingVariantChoiceIsValidationFailed() {
+    UUID p = UUID.randomUUID();
+    UUID v = UUID.randomUUID();
+    catalog.put(
+        p,
+        productWith(
+            p, "Hoodie", "50.00", true, List.of(variant(v, "50.00", null, true)), List.of()));
+    cartWith(List.of(cartLine(p, 1, null, null, "x", "50.00")));
+
+    CodedException e = placeFromCartFails("a11-choose");
+
+    assertThat(e.errorCode()).isEqualTo(ErrorCode.VALIDATION_FAILED);
+    assertThat(e.getMessage()).contains("Hoodie");
+    assertThat(orderCount()).isZero();
+  }
+
+  @Test
+  @DisplayName("AC-13: the same product on two lines sends one id and prices both lines")
+  void sameProductOnTwoLinesIsOneLookup() {
+    UUID p = UUID.randomUUID();
+    UUID v1 = UUID.randomUUID();
+    UUID v2 = UUID.randomUUID();
+    catalog.put(
+        p,
+        productWith(
+            p,
+            "Shoe",
+            "100.00",
+            true,
+            List.of(variant(v1, "120.00", null, true), variant(v2, "150.00", "140.00", true)),
+            List.of()));
+    cartWith(List.of(cartLine(p, 1, v1, null, "x", "1.00"), cartLine(p, 2, v2, null, "x", "1.00")));
+
+    OrderService.Placement placed = orders.place(user, "c@example.com", "a13", fromCart());
+
+    var csv = org.mockito.ArgumentCaptor.forClass(String.class);
+    verify(products, times(1)).batch(csv.capture(), eq(true));
+    assertThat(csv.getValue()).isEqualTo(p.toString());
+    assertThat(placed.order().items()).hasSize(2);
+    assertThat(placed.order().items())
+        .filteredOn(i -> v1.equals(i.variantId()))
+        .singleElement()
+        .satisfies(i -> assertThat(i.lineTotal()).isEqualByComparingTo("120.00"));
+    assertThat(placed.order().items())
+        .filteredOn(i -> v2.equals(i.variantId()))
+        .singleElement()
+        .satisfies(i -> assertThat(i.lineTotal()).isEqualByComparingTo("280.00"));
+  }
+
+  @Test
+  @DisplayName("AC-14: a batch that omits a requested id is PRODUCT_UNAVAILABLE with no order row")
+  void batchOmittingAnIdLeavesNoOrder() {
+    UUID gone = UUID.randomUUID();
+    // shirt is in the catalog, gone is not: the stubbed batch returns only the shirt.
+    cartWith(
+        List.of(
+            cartLine(shirt, 1, null, null, "Shirt", "499.00"),
+            cartLine(gone, 1, null, null, "Gone", "5.00")));
+
+    CodedException e = placeFromCartFails("a14");
+
+    assertThat(e.errorCode()).isEqualTo(ErrorCode.PRODUCT_UNAVAILABLE);
+    assertThat(orderCount()).isZero();
+    assertThat(
+            jdbc.queryForObject(
+                "select count(*) from orders.orders where status <> 'CANCELLED'", Integer.class))
+        .as("no live order of anyone is left behind")
+        .isZero();
+    verify(remote, never()).reserveStock(any(), any(), anyString());
+  }
+
+  @Test
+  @DisplayName("AC-12: client-supplied cart price, name and image are ignored; the catalog wins")
+  void clientSuppliedCartFieldsAreIgnored() {
+    cartWith(List.of(cartLine(shirt, 2, null, null, "HACKED NAME", "0.01")));
+
+    OrderService.Placement placed = orders.place(user, "c@example.com", "a12-ignore", fromCart());
+
+    var line = placed.order().items().get(0);
+    assertThat(line.unitPrice()).isEqualByComparingTo("499.00");
+    assertThat(line.name()).isEqualTo("Shirt");
+    assertThat(line.imageUrl()).doesNotContain("evil.example");
+    assertThat(placed.order().subtotalAmount()).isEqualByComparingTo("998.00");
+  }
+
+  @Autowired(required = false)
+  private List<feign.RequestInterceptor> feignInterceptors = List.of();
+
+  @Test
+  @DisplayName("AC-12: the batch call carries the request's Authorization bearer, never another")
+  void batchCallForwardsTheCallersBearer() {
+    var forwarding =
+        feignInterceptors.stream()
+            .filter(
+                i ->
+                    i
+                        instanceof
+                        com.acme.ecommerce.common.web.feign.CorrelationAndAuthForwardingInterceptor)
+            .findFirst();
+    assertThat(forwarding).as("the common-web interceptor is registered for Feign").isPresent();
+
+    java.util.concurrent.atomic.AtomicReference<feign.Request> seen =
+        new java.util.concurrent.atomic.AtomicReference<>();
+    feign.Client capture =
+        (request, options) -> {
+          seen.set(request);
+          return feign.Response.builder()
+              .status(200)
+              .request(request)
+              .headers(Map.of("Content-Type", List.of("application/json")))
+              .body("[]", StandardCharsets.UTF_8)
+              .build();
+        };
+    ProductBatchFeignClient real =
+        feign.Feign.builder()
+            .contract(new org.springframework.cloud.openfeign.support.SpringMvcContract())
+            .decoder(
+                (response, type) -> {
+                  try (var in = response.body().asInputStream()) {
+                    return JSON.readValue(in, JSON.constructType(type));
+                  }
+                })
+            .requestInterceptor(forwarding.get())
+            .client(capture)
+            .target(ProductBatchFeignClient.class, "http://product-service");
+
+    var mockRequest = new org.springframework.mock.web.MockHttpServletRequest();
+    mockRequest.addHeader("Authorization", "Bearer alice-token");
+    org.springframework.web.context.request.RequestContextHolder.setRequestAttributes(
+        new org.springframework.web.context.request.ServletRequestAttributes(mockRequest));
+    try {
+      real.batch(shirt.toString(), true);
+    } finally {
+      org.springframework.web.context.request.RequestContextHolder.resetRequestAttributes();
+    }
+
+    assertThat(seen.get().headers().get("Authorization")).containsExactly("Bearer alice-token");
+    assertThat(seen.get().url()).contains("/api/products/batch").contains("detail=true");
+
+    // Sanity for the assertion above: with no inbound request there is nothing to forward, so the
+    // header is absent rather than another user's.
+    real.batch(shirt.toString(), true);
+    assertThat(seen.get().headers()).doesNotContainKey("Authorization");
+  }
 }
