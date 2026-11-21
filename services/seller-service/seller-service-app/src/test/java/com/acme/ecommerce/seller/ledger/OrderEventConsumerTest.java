@@ -86,8 +86,7 @@ class OrderEventConsumerTest {
                 returnRefunded(returnId, shipment, new BigDecimal("-5.00")),
                 "returnId present returnShipmentId present"),
             new Case(
-                returnRefunded("not-a-uuid
-FORGED", shipment, new BigDecimal("1.00")),
+                returnRefunded("not-a-uuid\nFORGED", shipment, new BigDecimal("1.00")),
                 "returnId invalid returnShipmentId present"),
             new Case(
                 returnRefunded(returnId, "nope", new BigDecimal("1.00")),

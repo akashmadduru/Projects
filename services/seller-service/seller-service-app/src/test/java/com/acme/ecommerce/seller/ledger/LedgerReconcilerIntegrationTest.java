@@ -66,7 +66,8 @@ class LedgerReconcilerIntegrationTest extends AbstractSellerIntegrationTest {
         .thenAnswer(
             inv -> {
               UUID sh = inv.getArgument(0);
-              return new ShipmentInfo(sh, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), "DELIVERED");
+              return new ShipmentInfo(
+                  sh, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), "DELIVERED");
             });
   }
 
@@ -450,6 +451,7 @@ class LedgerReconcilerIntegrationTest extends AbstractSellerIntegrationTest {
 
     mvc.perform(
             post("/api/admin/ledger/discrepancies/{id}/repair", id)
+                .param("amount", "50.00")
                 .with(as("fin-1", "ROLE_FINANCE")))
         .andExpect(status().isServiceUnavailable());
 
@@ -579,7 +581,8 @@ class LedgerReconcilerIntegrationTest extends AbstractSellerIntegrationTest {
   }
 
   private ResultActionsHolder repairWith(UUID id, String amount, String actor) throws Exception {
-    var req = post("/api/admin/ledger/discrepancies/{id}/repair", id).with(as(actor, "ROLE_FINANCE"));
+    var req =
+        post("/api/admin/ledger/discrepancies/{id}/repair", id).with(as(actor, "ROLE_FINANCE"));
     if (amount != null) {
       req = req.param("amount", amount);
     }
@@ -653,7 +656,8 @@ class LedgerReconcilerIntegrationTest extends AbstractSellerIntegrationTest {
   }
 
   @Test
-  @DisplayName("when the SALE already exists, detail and log say so and never name the entered amount")
+  @DisplayName(
+      "when the SALE already exists, detail and log say so and never name the entered amount")
   void repairWhenSaleAlreadyPresent(CapturedOutput output) throws Exception {
     UUID s = seller();
     UUID order = UUID.randomUUID();
@@ -709,7 +713,8 @@ class LedgerReconcilerIntegrationTest extends AbstractSellerIntegrationTest {
     assertThat(detail).contains("admin-entered amount " + booked);
     assertThat(detail).containsOnlyOnce("admin-entered");
     assertThat(resolvedBy(id)).isIn("adm-a", "adm-b");
-    assertThat(detail).doesNotContain(booked.compareTo(new BigDecimal("60")) == 0 ? "70.00" : "60.00");
+    assertThat(detail)
+        .doesNotContain(booked.compareTo(new BigDecimal("60")) == 0 ? "70.00" : "60.00");
   }
 
   @Test

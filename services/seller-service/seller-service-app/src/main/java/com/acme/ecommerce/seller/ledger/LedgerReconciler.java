@@ -286,9 +286,15 @@ public class LedgerReconciler {
             "LEDGER_DISCREPANCY",
             id.toString(),
             null,
-            "{\"kind\":\"" + d.kind() + "\",\"amount\":" + (outcome[1] == null ? "null" : outcome[1])
-                + ",\"registerAmount\":" + d.expected() + ",\"note\":\""
-                + outcome[0].replace("\"", "'") + "\"}",
+            "{\"kind\":\""
+                + d.kind()
+                + "\",\"amount\":"
+                + (outcome[1] == null ? "null" : outcome[1])
+                + ",\"registerAmount\":"
+                + d.expected()
+                + ",\"note\":\""
+                + outcome[0].replace("\"", "'")
+                + "\"}",
             null);
       }
     }
