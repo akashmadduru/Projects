@@ -32,7 +32,7 @@ public class OutboxRelay {
   static final int MAX_ROUNDS = 10;
   private static final long MAX_BACKOFF_SECONDS = 3600;
 
-  record Row(UUID id, UUID aggregateId, Kind kind, String payload, int attempts) {}
+  record Row(UUID id, UUID aggregateId, Kind kind, String rawKind, String payload, int attempts) {}
 
   /** Result of one pass, for logs and tests. */
   public record Result(int delivered, int failed, int dead) {}
@@ -100,7 +100,8 @@ public class OutboxRelay {
                     new Row(
                         rs.getObject("id", UUID.class),
                         rs.getObject("aggregate_id", UUID.class),
-                        Kind.valueOf(rs.getString("kind")),
+                        kindOf(rs.getString("kind")),
+                        rs.getString("kind"),
                         rs.getString("payload"),
                         rs.getInt("attempts")))
             .list();
@@ -108,6 +109,12 @@ public class OutboxRelay {
     int failed = 0;
     int dead = 0;
     for (Row row : due) {
+      if (row.kind() == null) {
+        // Written by a newer build (rollback). Not ours to deliver or discard: leave it PENDING.
+        log.error(
+            "Outbox row {} has unknown kind '{}'; skipped, left PENDING", row.id(), row.rawKind());
+        continue;
+      }
       try {
         deliver(row);
         jdbc.sql(
@@ -125,6 +132,14 @@ public class OutboxRelay {
       }
     }
     return new Result(delivered, failed, dead);
+  }
+
+  private static Kind kindOf(String raw) {
+    try {
+      return Kind.valueOf(raw);
+    } catch (IllegalArgumentException | NullPointerException e) {
+      return null;
+    }
   }
 
   private void deliver(Row row) {
