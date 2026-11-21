@@ -27,8 +27,7 @@ class OrderRemoteRefundTest {
 
   private final PaymentFeignClient payments = mock(PaymentFeignClient.class);
   private final OrderRemote remote =
-      new OrderRemote(
-          null, payments, null, null, null, mock(WalletCreditBacks.class), null, null);
+      new OrderRemote(null, payments, null, null, null, mock(WalletCreditBacks.class), null, null);
   private final UUID order = UUID.randomUUID();
 
   private String refund() {

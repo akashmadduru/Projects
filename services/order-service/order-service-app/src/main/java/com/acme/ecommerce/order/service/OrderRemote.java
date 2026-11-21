@@ -166,7 +166,8 @@ public class OrderRemote {
   // ---- cart clear (durable, scoped to the lines the order consumed) --------------------------
 
   /** What the relay needs to clear one order's lines from its user's cart. */
-  public record ClearCartPayload(UUID userId, UUID orderId, List<ConsumedLinesRequest.Line> lines) {}
+  public record ClearCartPayload(
+      UUID userId, UUID orderId, List<ConsumedLinesRequest.Line> lines) {}
 
   static String clearCartKey(UUID orderId) {
     return Kind.CLEAR_CART + ":" + orderId;

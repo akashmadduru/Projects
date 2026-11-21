@@ -225,7 +225,8 @@ class CartClearIntegrationTest extends AbstractOrderIntegrationTest {
                         && r.lines().get(0).addedAt().equals(ADDED)));
     // Once DONE a further pass does nothing; and repeating the clear by hand is harmless.
     relay.relay();
-    verify(cartInternal, times(1)).consumed(any(), any());
+    // (Other tests' rows share this database, so count only this user's calls.)
+    verify(cartInternal, times(1)).consumed(eq(user), any());
     remote.attemptClearCart(user, orderId, carts.getCart().items());
     assertThat(clearRows(orderId)).containsExactly("DONE");
   }
@@ -259,8 +260,7 @@ class CartClearIntegrationTest extends AbstractOrderIntegrationTest {
         .isEqualTo(1);
     // The replay enqueued for the same order (one row) and its inline retry cleared the cart.
     assertThat(clearRows(orderId)).containsExactly("DONE");
-    verify(cartInternal, times(1))
-        .consumed(eq(user), argThat(r -> r.orderId().equals(orderId)));
+    verify(cartInternal, times(1)).consumed(eq(user), argThat(r -> r.orderId().equals(orderId)));
   }
 
   @Test
@@ -280,7 +280,8 @@ class CartClearIntegrationTest extends AbstractOrderIntegrationTest {
                         && r.lines().size() == 1
                         && r.lines().get(0).productId().equals(shirt)));
     verify(cartInternal, never())
-        .consumed(any(), argThat(r -> r.lines().stream().anyMatch(l -> l.productId().equals(later))));
+        .consumed(
+            any(), argThat(r -> r.lines().stream().anyMatch(l -> l.productId().equals(later))));
   }
 
   @Test

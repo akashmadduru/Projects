@@ -386,18 +386,20 @@ public class OrderService {
     if (method == PaymentMethod.WALLET) {
       // Paid status and its ORDER_PLACED event commit together (outbox, TD-P6-01).
       UUID savedId = saved.id();
+      UUID clearUser = saved.userId();
+      List<CartItemResponse> clearItems = buyNow ? List.of() : cart.items();
       OrderResponse paid =
           tx.execute(
               s -> {
                 OrderResponse o = store.markPaid(savedId, null).order();
                 events.publish(placedType, o);
                 if (!buyNow) {
-                  remote.enqueueClearCart(saved.userId(), savedId, cart.items());
+                  remote.enqueueClearCart(clearUser, savedId, clearItems);
                 }
                 return o;
               });
       if (!buyNow) {
-        remote.attemptClearCart(saved.userId(), savedId, cart.items());
+        remote.attemptClearCart(saved.userId(), savedId, clearItems);
       }
       return new Placement(paid, true);
     }
@@ -477,8 +479,7 @@ public class OrderService {
   }
 
   /** The cart's lines and its fingerprint (never null: a cart without one is refused). */
-  private record CartSnapshot(
-      List<Line> lines, String fingerprint, List<CartItemResponse> items) {}
+  private record CartSnapshot(List<Line> lines, String fingerprint, List<CartItemResponse> items) {}
 
   private CartSnapshot cartSnapshot() {
     CartResponse cart = call("cart-service", carts::getCart);

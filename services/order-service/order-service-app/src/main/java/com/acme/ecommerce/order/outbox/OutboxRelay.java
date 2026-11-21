@@ -19,10 +19,10 @@ import org.springframework.stereotype.Component;
  * Delivers outbox rows (TD-P6-01). Every 2 s, on one replica ({@link JobLock}), it takes due rows
  * oldest first and runs the matching call. A row waits while an older row of the same aggregate is
  * still pending, so one order's events and effects happen in the order they were recorded. A
- * failure is retried with exponential backoff (2 s doubling, capped at an hour; CLEAR_CART
- * rows cap at 4 minutes and give up after 400 attempts); after {@link
- * #MAX_ATTEMPTS} the row is {@code DEAD}, logged at ERROR as "OUTBOX DEAD" for alerting, and stays
- * listed for an admin to retry. Delivery is at least once; every receiver is idempotent.
+ * failure is retried with exponential backoff (2 s doubling, capped at an hour; CLEAR_CART rows cap
+ * at 4 minutes and give up after 400 attempts); after {@link #MAX_ATTEMPTS} the row is {@code
+ * DEAD}, logged at ERROR as "OUTBOX DEAD" for alerting, and stays listed for an admin to retry.
+ * Delivery is at least once; every receiver is idempotent.
  */
 @Component
 public class OutboxRelay {
@@ -183,7 +183,8 @@ public class OutboxRelay {
       case RELEASE_COINS -> remote.releaseCoinsNow(id);
       case CANCEL_PAYMENT -> remote.cancelPaymentNow(id);
       case COD_COLLECTED -> remote.codCollectedNow(id);
-      case CLEAR_CART -> remote.clearCartNow(read(row.payload(), OrderRemote.ClearCartPayload.class));
+      case CLEAR_CART ->
+          remote.clearCartNow(read(row.payload(), OrderRemote.ClearCartPayload.class));
     }
   }
 

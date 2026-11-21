@@ -1233,15 +1233,7 @@ class OrderPlacementIntegrationTest extends AbstractOrderIntegrationTest {
         UUID sellerId = UUID.randomUUID();
         var offer =
             new com.acme.ecommerce.order.client.ProductViewFeignClient.Offer(
-                offerId,
-                sellerId,
-                "Seller",
-                null,
-                base.add(BigDecimal.TWO),
-                null,
-                "INR",
-                2,
-                9);
+                offerId, sellerId, "Seller", null, base.add(BigDecimal.TWO), null, "INR", 2, 9);
         catalog.put(id, productWith(id, name, base.toString(), true, List.of(), List.of(offer)));
         items.add(cartLine(id, 1, null, offerId, "client-name", "0.01"));
         expectedUnit.put(id, base.add(BigDecimal.TWO));
@@ -1273,7 +1265,12 @@ class OrderPlacementIntegrationTest extends AbstractOrderIntegrationTest {
       assertThat(line.name()).startsWith("P");
       assertThat(line.variantId()).isEqualTo(expectedVariant.get(line.productId()));
       assertThat(line.offerId()).isEqualTo(expectedOffer.get(line.productId()));
-      assertThat(line.sellerId()).isEqualTo(expectedSeller.get(line.productId()));
+      if (expectedSeller.containsKey(line.productId())) {
+        assertThat(line.sellerId()).isEqualTo(expectedSeller.get(line.productId()));
+      } else {
+        // No offer: the line is sold by the platform seller.
+        assertThat(line.sellerId()).isNotNull();
+      }
       subtotal = subtotal.add(expectedUnit.get(line.productId()));
     }
     assertThat(p.order().subtotalAmount()).isEqualByComparingTo(subtotal);

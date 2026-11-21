@@ -6,12 +6,12 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
+import com.acme.ecommerce.cart.api.dto.ConsumedLinesRequest;
+import com.acme.ecommerce.common.web.job.JobLock;
 import com.acme.ecommerce.order.event.OrderEventPublisher;
 import com.acme.ecommerce.order.outbox.Outbox.Kind;
 import com.acme.ecommerce.order.service.OrderRemote;
 import com.acme.ecommerce.order.support.AbstractOrderIntegrationTest;
-import com.acme.ecommerce.cart.api.dto.ConsumedLinesRequest;
-import com.acme.ecommerce.common.web.job.JobLock;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -143,7 +143,8 @@ class OutboxRelayTest extends AbstractOrderIntegrationTest {
 
     // The cart-service recovers and the row is due again.
     org.mockito.Mockito.reset(remote);
-    jdbc.update("update orders.outbox set next_attempt_at = now() where aggregate_id = ?", aggregate);
+    jdbc.update(
+        "update orders.outbox set next_attempt_at = now() where aggregate_id = ?", aggregate);
     relay.relay();
 
     assertThat(status(aggregate)).isEqualTo("DONE");
@@ -183,12 +184,14 @@ class OutboxRelayTest extends AbstractOrderIntegrationTest {
     assertThat(status(aggregate)).isEqualTo("PENDING");
 
     org.mockito.Mockito.reset(remote);
-    jdbc.update("update orders.outbox set next_attempt_at = now() where aggregate_id = ?", aggregate);
+    jdbc.update(
+        "update orders.outbox set next_attempt_at = now() where aggregate_id = ?", aggregate);
     OutboxRelay restarted = new OutboxRelay(jdbcClient, remote, events, jobLock);
     restarted.relay();
 
     assertThat(status(aggregate)).isEqualTo("DONE");
-    verify(remote).clearCartNow(org.mockito.ArgumentMatchers.argThat(p -> p.orderId().equals(order)));
+    verify(remote)
+        .clearCartNow(org.mockito.ArgumentMatchers.argThat(p -> p.orderId().equals(order)));
   }
 
   @Test
