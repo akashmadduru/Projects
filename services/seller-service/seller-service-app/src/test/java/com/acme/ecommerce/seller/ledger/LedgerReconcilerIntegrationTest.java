@@ -3,6 +3,12 @@ package com.acme.ecommerce.seller.ledger;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -10,18 +16,23 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.acme.ecommerce.common.web.audit.AuditPublisher;
 import com.acme.ecommerce.common.web.job.JobLock;
 import com.acme.ecommerce.seller.client.OrderFeignClient;
 import com.acme.ecommerce.seller.client.OrderFeignClient.ShipmentInfo;
 import com.acme.ecommerce.seller.support.AbstractSellerIntegrationTest;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
@@ -46,6 +57,18 @@ class LedgerReconcilerIntegrationTest extends AbstractSellerIntegrationTest {
   @Autowired private MockMvc mvc;
   @Autowired private PlatformTransactionManager txManager;
   @MockitoBean private OrderFeignClient orders;
+  @MockitoBean private AuditPublisher auditPublisher;
+
+  /** Shipments left by other tests share the database; none of them may trip the error streak. */
+  @BeforeEach
+  void orderServiceAnswersByDefault() {
+    when(orders.shipment(any()))
+        .thenAnswer(
+            inv -> {
+              UUID sh = inv.getArgument(0);
+              return new ShipmentInfo(sh, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), "DELIVERED");
+            });
+  }
 
   private UUID seller() {
     UUID id = UUID.randomUUID();
@@ -277,6 +300,58 @@ class LedgerReconcilerIntegrationTest extends AbstractSellerIntegrationTest {
         .isEqualTo(before);
   }
 
+  @Test
+  @DisplayName("paging with page-size 2 still reports every one of 5+ findings")
+  void pagingReportsAllFindings() {
+    UUID s = seller();
+    List<UUID> shipments = new java.util.ArrayList<>();
+    for (int i = 0; i < 5; i++) {
+      UUID sh = UUID.randomUUID();
+      shipments.add(sh);
+      shipment(UUID.randomUUID(), sh, s, "DELIVERED", false);
+      age(sh);
+    }
+    @SuppressWarnings("unchecked")
+    ObjectProvider<AuditPublisher> none = mock(ObjectProvider.class);
+    var paged =
+        new LedgerReconciler(
+            jdbc, jobLock, orders, ledger, Duration.ofHours(1), 35, 2, 5, txManager, none);
+
+    var counts = paged.runNow().orElseThrow();
+
+    assertThat(counts.get("MISSING_SALE")).isGreaterThanOrEqualTo(5);
+    shipments.forEach(sh -> assertThat(found(sh, "MISSING_SALE")).isEqualTo(1));
+  }
+
+  @Test
+  @DisplayName("the state check stops after 5 errors in a row and says so")
+  void feignLoopStopsAfterConsecutiveErrors() {
+    UUID s = seller();
+    for (int i = 0; i < 7; i++) {
+      shipment(UUID.randomUUID(), UUID.randomUUID(), s, "DELIVERED", true);
+    }
+    when(orders.shipment(any())).thenThrow(new IllegalStateException("order-service down"));
+
+    var counts = reconciler.runNow().orElseThrow();
+
+    assertThat(counts.get("FEIGN_ERRORS")).isEqualTo(5);
+    assertThat(counts.get("FEIGN_STOPPED")).isEqualTo(1);
+    verify(orders, times(5)).shipment(any());
+  }
+
+  @Test
+  @DisplayName("a legacy order-level SALE (shipment id = order id) is not asked about")
+  void legacyOrderLevelSaleSkipsFeign() {
+    UUID s = seller();
+    UUID legacy = UUID.randomUUID();
+    shipment(legacy, legacy, s, "DELIVERED", true);
+
+    reconciler.runNow().orElseThrow();
+
+    verify(orders, never()).shipment(legacy);
+    assertThat(found(legacy, "STATE_MISMATCH")).isZero();
+  }
+
   // ---- admin API --------------------------------------------------------------------------
 
   private static RequestPostProcessor as(String subject, String role) {
@@ -501,5 +576,158 @@ class LedgerReconcilerIntegrationTest extends AbstractSellerIntegrationTest {
     mvc.perform(post("/api/admin/ledger/reconcile").with(as("fin-1", "ROLE_FINANCE")))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.MISSING_SALE").isNumber());
+  }
+
+  private ResultActionsHolder repairWith(UUID id, String amount, String actor) throws Exception {
+    var req = post("/api/admin/ledger/discrepancies/{id}/repair", id).with(as(actor, "ROLE_FINANCE"));
+    if (amount != null) {
+      req = req.param("amount", amount);
+    }
+    return new ResultActionsHolder(mvc.perform(req));
+  }
+
+  private record ResultActionsHolder(org.springframework.test.web.servlet.ResultActions r) {}
+
+  @Test
+  @DisplayName("amounts that round to zero, are negative or too large are 409, book nothing, WARN")
+  void badAmountsAre409WithoutBooking(CapturedOutput output) throws Exception {
+    UUID s = seller();
+    UUID order = UUID.randomUUID();
+    UUID shipment = UUID.randomUUID();
+    UUID id = missingSale(s, order, shipment);
+    feignSays(shipment, order, s, "DELIVERED");
+
+    for (String bad : List.of("0.004", "0", "-5.00", "1000000000000", "99999999999999.99")) {
+      repairWith(id, bad, "fin-bad").r().andExpect(status().isConflict());
+    }
+
+    assertThat(entries(shipment, "SALE")).isZero();
+    assertThat(entries(shipment, "FEE")).isZero();
+    assertThat(resolvedBy(id)).isNull();
+    assertThat(output).containsPattern("WARN.*refused for fin-bad: Amount must be above 0.00");
+  }
+
+  @Test
+  @DisplayName("an amount above the register amount is 409 with a WARN naming the actor")
+  void amountAboveRegisterIsRefused(CapturedOutput output) throws Exception {
+    UUID s = seller();
+    UUID order = UUID.randomUUID();
+    UUID shipment = UUID.randomUUID();
+    UUID id = missingSale(s, order, shipment); // register amount 100.00
+    feignSays(shipment, order, s, "DELIVERED");
+
+    repairWith(id, "100.01", "fin-big").r().andExpect(status().isConflict());
+
+    assertThat(entries(shipment, "SALE")).isZero();
+    assertThat(resolvedBy(id)).isNull();
+    assertThat(output).containsPattern("WARN.*refused for fin-big: Amount is above the register");
+    // the register amount itself, with sub-cent noise that rounds to it, is allowed
+    repairWith(id, "99.996", "fin-big").r().andExpect(status().isOk());
+    assertThat(entries(shipment, "SALE")).isEqualTo(1);
+  }
+
+  @Test
+  @DisplayName("the durable audit event carries the amount and the register amount")
+  void repairPublishesAuditEventWithAmounts() throws Exception {
+    UUID s = seller();
+    UUID order = UUID.randomUUID();
+    UUID shipment = UUID.randomUUID();
+    UUID id = missingSale(s, order, shipment);
+    feignSays(shipment, order, s, "DELIVERED");
+
+    repairWith(id, "80", "fin-aud").r().andExpect(status().isOk());
+
+    ArgumentCaptor<String> after = ArgumentCaptor.forClass(String.class);
+    verify(auditPublisher)
+        .publish(
+            eq("REPAIR_LEDGER_DISCREPANCY"),
+            eq("LEDGER_DISCREPANCY"),
+            eq(id.toString()),
+            isNull(),
+            after.capture(),
+            any());
+    assertThat(after.getValue())
+        .contains("\"amount\":80.00")
+        .contains("\"registerAmount\":100.00")
+        .contains("MISSING_SALE");
+  }
+
+  @Test
+  @DisplayName("when the SALE already exists, detail and log say so and never name the entered amount")
+  void repairWhenSaleAlreadyPresent(CapturedOutput output) throws Exception {
+    UUID s = seller();
+    UUID order = UUID.randomUUID();
+    UUID shipment = UUID.randomUUID();
+    UUID id = missingSale(s, order, shipment);
+    ledger.recordDelivered(order, part(shipment, s, "DELIVERED", "100.00"), "INR");
+    feignSays(shipment, order, s, "DELIVERED");
+
+    repairWith(id, "80.00", "fin-late").r().andExpect(status().isOk());
+
+    String detail =
+        jdbc.sql("SELECT detail FROM ledger_discrepancies WHERE id = :i")
+            .param("i", id)
+            .query(String.class)
+            .single();
+    assertThat(detail).contains("SALE already present (amount 100.00)");
+    assertThat(detail).doesNotContain("admin-entered");
+    assertThat(output).contains("SALE already present (amount 100.00)");
+    assertThat(output).doesNotContain("admin-entered amount 80");
+    assertThat(entries(shipment, "SALE")).isEqualTo(1);
+    assertThat(entries(shipment, "FEE")).isEqualTo(1);
+  }
+
+  @Test
+  @DisplayName("two concurrent repairs with different amounts book one SALE and one winner")
+  void concurrentRepairsBookOnce() throws Exception {
+    UUID s = seller();
+    UUID order = UUID.randomUUID();
+    UUID shipment = UUID.randomUUID();
+    UUID id = missingSale(s, order, shipment);
+    feignSays(shipment, order, s, "DELIVERED");
+    var pool = java.util.concurrent.Executors.newFixedThreadPool(2);
+    try {
+      var a = pool.submit(() -> reconciler.repair(id, "adm-a", new BigDecimal("60.00")));
+      var b = pool.submit(() -> reconciler.repair(id, "adm-b", new BigDecimal("70.00")));
+      a.get();
+      b.get();
+    } finally {
+      pool.shutdown();
+    }
+
+    assertThat(entries(shipment, "SALE")).isEqualTo(1);
+    String detail =
+        jdbc.sql("SELECT detail FROM ledger_discrepancies WHERE id = :i")
+            .param("i", id)
+            .query(String.class)
+            .single();
+    BigDecimal booked =
+        jdbc.sql("SELECT amount FROM ledger_entries WHERE shipment_id = :s AND type = 'SALE'")
+            .param("s", shipment)
+            .query(BigDecimal.class)
+            .single();
+    assertThat(detail).contains("admin-entered amount " + booked);
+    assertThat(detail).containsOnlyOnce("admin-entered");
+    assertThat(resolvedBy(id)).isIn("adm-a", "adm-b");
+    assertThat(detail).doesNotContain(booked.compareTo(new BigDecimal("60")) == 0 ? "70.00" : "60.00");
+  }
+
+  @Test
+  @DisplayName("an unmatched reversal that names another order than the SALE is 409 with a WARN")
+  void unmatchedReversalOrderMismatchIs409(CapturedOutput output) throws Exception {
+    UUID s = seller();
+    UUID shipment = UUID.randomUUID();
+    ledger.reverseReturn(
+        UUID.randomUUID(), shipment, UUID.randomUUID(), new BigDecimal("40.00"), "INR");
+    UUID id = discrepancyId(shipment, "UNMATCHED_REVERSAL");
+    ledger.recordDelivered(UUID.randomUUID(), part(shipment, s, "DELIVERED", "100.00"), "INR");
+
+    mvc.perform(
+            post("/api/admin/ledger/discrepancies/{id}/repair", id).with(as("adm-2", "ROLE_ADMIN")))
+        .andExpect(status().isConflict());
+
+    assertThat(output).containsPattern("WARN.*refused for adm-2: Reversal names another order");
+    assertThat(entries(shipment, "REFUND_REVERSAL")).isZero();
+    assertThat(resolvedBy(id)).isNull();
   }
 }

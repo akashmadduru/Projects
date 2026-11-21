@@ -503,6 +503,11 @@
       "usedBy": "seller",
       "text": "Reconcile asks order-service about SALEs newer than this many days (STATE_MISMATCH; `seller.ledger.reconcile.lookback-days`)."
     },
+    "SELLER_LEDGER_RECONCILE_MAX_FEIGN_ERRORS": {
+      "group": "Business rules",
+      "usedBy": "seller",
+      "text": "Reconcile stops its order-service state checks after this many errors in a row, so a down order-service cannot hold the run (`seller.ledger.reconcile.max-feign-errors`, default 5; the counts then show FEIGN_STOPPED)."
+    },
     "SELLER_LEDGER_RECONCILE_PAGE_SIZE": {
       "group": "Business rules",
       "usedBy": "seller",

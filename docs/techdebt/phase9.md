@@ -148,3 +148,11 @@ Phase 9 was built under "no tests, no HLD/LLD, record shortcuts as debt". The in
 - **Deadlock note:** a multi-shipment call locks several SALE rows one after another (shipment_id order) while a payout run locks its rows in one unordered statement, so the two can deadlock (Postgres aborts one; nothing is corrupted). Call it once per shipment, each in its own transaction, or order the payout run's lock, before adding a caller.
 - **Fix:** part B (per-shipment cancel, [TD-P9-12](#td-p9-12)) must use it for the whole-shipment refund path or delete it.
 - **Debt line:** td-p9-22 | seller-service LedgerService.reverseRefund has no event caller (RETURN_REFUNDED fallback removed in F-20261119-13); part B (per-shipment cancel) must use it for the whole-shipment refund path or delete it; a multi-shipment call can deadlock with a payout run (lock several SALE rows vs one unordered FOR UPDATE), so call per shipment or order the payout lock first | owner: part B follow-up
+
+<a id="td-p9-23"></a>
+## TD-P9-23 Ledger discrepancies of the manual kinds cannot be closed
+- **Severity / Effort:** Low / S
+- **Where:** seller-service `LedgerReconciler`.
+- **Risk:** `AMOUNT_MISMATCH` and `STATE_MISMATCH` rows (and a `MISSING_SALE` whose SALE arrived later) have no close action; the repair answers 409 "manual". Open rows pile up behind the newest-first limit of 200 and can hide older real findings.
+- **Fix:** an acknowledge/close action that sets `resolved_by` from the principal, and have the job close `MISSING_SALE` rows whose SALE now exists.
+- **Debt line:** td-p9-23 | seller-service ledger discrepancies of kinds AMOUNT_MISMATCH and STATE_MISMATCH cannot be closed through the API (repair answers 409 manual), so open rows pile up behind the 200 cap; add an acknowledge action and auto-close MISSING_SALE rows whose SALE exists | owner: seller ledger follow-up

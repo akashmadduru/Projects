@@ -130,10 +130,12 @@ Logs carry the request's correlation id, and traces go to Jaeger (http://127.0.0
   (same key). The consumer is idempotent per return.
 - **Reconcile.** Daily at 02:30 UTC (`seller.ledger.reconcile.cron`), read-only. Findings: `GET
   /api/admin/ledger/discrepancies?open=true` (newest first, at most 200); run now: `POST /api/admin/ledger/reconcile` (409 if one is running).
-  `POST /api/admin/ledger/discrepancies/{id}/repair` (ADMIN/FINANCE) fixes `MISSING_SALE` (needs `?amount=`, the shipment amount the admin has verified: order-service does not confirm amounts, so it is never taken from the register; the amount is logged and kept in the row's detail) and `UNMATCHED_REVERSAL`;
-  the other kinds are manual. Refused repairs are logged at WARN with the actor.
+  `POST /api/admin/ledger/discrepancies/{id}/repair` (ADMIN/FINANCE) fixes `MISSING_SALE` (needs `?amount=`, the shipment amount the admin has verified: order-service does not confirm amounts, so it is never taken from the register; the amount is rounded to cents, must be above 0 and below 10^12 and never above the register amount of the row, otherwise 409; it is logged with the actor, kept in the row's detail and sent in the `audit.events` record `REPAIR_LEDGER_DISCREPANCY` with the register amount) and `UNMATCHED_REVERSAL` (409 if it names another order than the SALE). A SALE that is already present is not rebooked and the detail says `SALE already present (amount ...)`.
+  **A SALE larger than the register amount is out of scope for the API: it is a manual DB procedure for the Owner** (verify with order-service and payment, insert the SALE, COMMISSION and FEE rows in one transaction, record it in the row's detail);
+  the other kinds are manual. Refused repairs are logged at WARN with the actor. The state check stops after
+  `seller.ledger.reconcile.max-feign-errors` (5) order-service errors in a row (counts show `FEIGN_STOPPED`) and skips legacy order-level SALEs (shipment id = order id).
 - **Blind spots:** shipments none of whose events arrived, amount changes without an event, returns whose
-  `RETURN_REFUNDED` was dead-lettered, deliveries before this deploy that have no SALE.
+  `RETURN_REFUNDED` was dead-lettered, deliveries before this deploy that have no SALE, and **historical over-reversals** (reversals booked before the items-value cap that exceed their SALE; there is no OVER_REVERSED check, find them by comparing the sum of reversals with the SALE per shipment).
 
 ## Known gaps
 

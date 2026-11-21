@@ -145,6 +145,8 @@ seller:
       # STATE_MISMATCH asks order-service about SALEs newer than this many days.
       lookback-days: ${SELLER_LEDGER_RECONCILE_LOOKBACK_DAYS:35}
       page-size: ${SELLER_LEDGER_RECONCILE_PAGE_SIZE:200}
+      # STATE_MISMATCH stops asking order-service after this many errors in a row.
+      max-feign-errors: ${SELLER_LEDGER_RECONCILE_MAX_FEIGN_ERRORS:5}
   jwt:
     # SAME ENV VARS AND SAME DEFAULTS AS auth-service's `auth.jwt.*`, the
     # gateway's `gateway.jwt.*` and product-service's `product.jwt.*`. Any of

@@ -74,20 +74,38 @@ class OrderEventConsumerTest {
   }
 
   @Test
-  @DisplayName("a non-positive items value or a non-UUID id is alerted without echoing the id")
-  void nonPositiveOrUnparseableReturnIsAlertedAndRejected(CapturedOutput output) {
-    List<OrderEvt> bad =
+  @DisplayName("each malformed event is alerted on its own, with present/missing/invalid per id")
+  void eachMalformedReturnIsAlertedWithFieldStates(CapturedOutput output) {
+    record Case(OrderEvt event, String ids) {}
+    List<Case> cases =
         List.of(
-            returnRefunded(returnId, shipment, BigDecimal.ZERO),
-            returnRefunded(returnId, shipment, new BigDecimal("-5.00")),
-            returnRefunded("not-a-uuid\nFORGED", shipment, new BigDecimal("1.00")),
-            returnRefunded(returnId, "nope", new BigDecimal("1.00")));
+            new Case(
+                returnRefunded(returnId, shipment, BigDecimal.ZERO),
+                "returnId present returnShipmentId present"),
+            new Case(
+                returnRefunded(returnId, shipment, new BigDecimal("-5.00")),
+                "returnId present returnShipmentId present"),
+            new Case(
+                returnRefunded("not-a-uuid
+FORGED", shipment, new BigDecimal("1.00")),
+                "returnId invalid returnShipmentId present"),
+            new Case(
+                returnRefunded(returnId, "nope", new BigDecimal("1.00")),
+                "returnId present returnShipmentId invalid"),
+            new Case(
+                returnRefunded(null, shipment, new BigDecimal("1.00")),
+                "returnId missing returnShipmentId present"));
 
-    for (OrderEvt e : bad) {
-      assertThatThrownBy(() -> listener.onEvent(e)).isInstanceOf(IllegalArgumentException.class);
+    for (Case c : cases) {
+      String seen = output.getAll();
+      int before = seen.split("LEDGER ALERT", -1).length - 1;
+      assertThatThrownBy(() -> listener.onEvent(c.event()))
+          .isInstanceOf(IllegalArgumentException.class);
+      String now = output.getAll();
+      assertThat(now.split("LEDGER ALERT", -1).length - 1).isEqualTo(before + 1);
+      assertThat(now.substring(seen.length())).contains(c.ids());
     }
 
-    assertThat(output.getAll()).contains("LEDGER ALERT malformed RETURN_REFUNDED");
     assertThat(output.getAll()).doesNotContain("FORGED");
     verify(ledger, org.mockito.Mockito.never())
         .reverseReturn(any(), any(), any(), any(), anyString());

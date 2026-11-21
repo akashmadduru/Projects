@@ -127,6 +127,7 @@ Shortcuts taken while building customer accounts (login, Google SSO, user/cart/o
 | TD-P9-19 | Phase 9 test data left in dev (Laptop PDP 404) | phase9 | Low | S | [phase9.md](phase9.md#td-p9-19) |
 | TD-P9-21 | Product review: edits after approval are not re-reviewed | phase9 | Low | S | [phase9.md](phase9.md#td-p9-21) |
 | TD-P9-22 | Seller ledger `reverseRefund` has no event caller | phase9 | Low | S | [phase9.md](phase9.md#td-p9-22) |
+| TD-P9-23 | Seller ledger manual-kind discrepancies cannot be closed | phase9 | Low | S | [phase9.md](phase9.md#td-p9-23) |
 | TD-SEC-14 | Database dumps with credential material remain in git history | infra-security | High | S | [infra-security.md](infra-security.md#td-sec-14) |
 | TD-AI-02 | No IRSA role or NetworkPolicy egress for Bedrock | ai | Med | S | [ai.md](ai.md#td-ai-02) |
 | TD-AI-03 | No search-specific rate limit | ai | Med | M | [ai.md](ai.md#td-ai-03) |
