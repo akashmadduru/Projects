@@ -33,9 +33,9 @@ class OutboxRelayTest extends AbstractOrderIntegrationTest {
     jdbc.update("update orders.outbox set kind = 'BOGUS' where aggregate_id = ?", bogusAggregate);
     outbox.enqueue(Kind.RESTORE_STOCK, validAggregate);
 
-    OutboxRelay.Result result = relay.relay();
+    // Other test classes share this database, so rows of theirs may be delivered in the same pass.
+    relay.relay();
 
-    assertThat(result.delivered()).isEqualTo(1);
     verify(remote).restoreStockNow(validAggregate);
     assertThat(
             jdbc.queryForObject(
