@@ -6,6 +6,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 
+import com.acme.ecommerce.common.core.error.CodedException;
+import com.acme.ecommerce.common.core.error.ErrorCode;
 import com.acme.ecommerce.order.api.dto.OrderLineRequest;
 import com.acme.ecommerce.order.api.dto.PlaceOrderRequest;
 import com.acme.ecommerce.order.api.dto.PlaceOrderRequest.PaymentMethodRequest;
@@ -169,9 +171,9 @@ class OrderBreakerCompensationIntegrationTest extends AbstractOrderIntegrationTe
 
     assertThatThrownBy(
             () -> orders.place(user, "c@example.com", "cb-coupon", request("SAVE50", null)))
-        .isInstanceOf(com.acme.ecommerce.common.core.error.CodedException.class)
-        .extracting(e -> ((com.acme.ecommerce.common.core.error.CodedException) e).errorCode())
-        .isEqualTo(com.acme.ecommerce.common.core.error.ErrorCode.DEPENDENCY_UNAVAILABLE);
+        .isInstanceOf(CodedException.class)
+        .extracting(e -> ((CodedException) e).errorCode())
+        .isEqualTo(ErrorCode.DEPENDENCY_UNAVAILABLE);
 
     assertThat(orderStatus("cb-coupon")).isEqualTo("CANCELLED");
     assertThat(outboxKinds("cb-coupon")).contains("RESTORE_STOCK", "RELEASE_COUPON");
@@ -186,12 +188,78 @@ class OrderBreakerCompensationIntegrationTest extends AbstractOrderIntegrationTe
     doThrow(openBreaker("promotion-service")).when(promotions).redeemCoins(any());
 
     assertThatThrownBy(() -> orders.place(user, "c@example.com", "cb-coins", request("SAVE50", 10)))
-        .isInstanceOf(com.acme.ecommerce.common.core.error.CodedException.class)
-        .extracting(e -> ((com.acme.ecommerce.common.core.error.CodedException) e).errorCode())
-        .isEqualTo(com.acme.ecommerce.common.core.error.ErrorCode.DEPENDENCY_UNAVAILABLE);
+        .isInstanceOf(CodedException.class)
+        .extracting(e -> ((CodedException) e).errorCode())
+        .isEqualTo(ErrorCode.DEPENDENCY_UNAVAILABLE);
 
     assertThat(orderStatus("cb-coins")).isEqualTo("CANCELLED");
     assertThat(outboxKinds("cb-coins"))
         .contains("RESTORE_STOCK", "RELEASE_COUPON", "RELEASE_COINS");
+  }
+
+  private PlaceOrderRequest walletRequest() {
+    return new PlaceOrderRequest(
+        addressId,
+        PaymentMethodRequest.CARD,
+        null,
+        List.of(new OrderLineRequest(shirt, 2, null, null)),
+        true,
+        null,
+        null);
+  }
+
+  private List<String> walletRows(String key) {
+    return jdbc.queryForList(
+        "select w.kind from orders.pending_wallet_credits w join orders.orders r on r.id = w.order_id"
+            + " where r.user_id = ? and r.idempotency_key = ?",
+        String.class,
+        user,
+        key);
+  }
+
+  @Test
+  @DisplayName(
+      "wallet debit refused by an open payment breaker: cancelled, stock restored, wallet reversal recorded")
+  void walletDebitBreakerOpen() {
+    when(payments.walletBalance(user))
+        .thenReturn(new PaymentFeignClient.WalletBalance(new BigDecimal("5000.00"), "INR"));
+    doThrow(openBreaker("payment-service")).when(payments).walletDebit(any());
+
+    assertThatThrownBy(() -> orders.place(user, "c@example.com", "cb-wallet", walletRequest()))
+        .isInstanceOf(CodedException.class)
+        .extracting(e -> ((CodedException) e).errorCode())
+        .isEqualTo(ErrorCode.DEPENDENCY_UNAVAILABLE);
+
+    assertThat(orderStatus("cb-wallet")).isEqualTo("CANCELLED");
+    assertThat(outboxKinds("cb-wallet")).contains("RESTORE_STOCK");
+    assertThat(walletRows("cb-wallet")).containsExactly("REVERSE_DEBIT");
+  }
+
+  @Test
+  @DisplayName(
+      "payment create refused after a partial wallet debit: cancelled, wallet credited back")
+  void paymentCreateBreakerOpenAfterPartialWalletDebit() {
+    when(payments.walletBalance(user))
+        .thenReturn(new PaymentFeignClient.WalletBalance(new BigDecimal("300.00"), "INR"));
+    when(payments.walletDebit(any()))
+        .thenReturn(new PaymentFeignClient.WalletBalance(BigDecimal.ZERO, "INR"));
+    doThrow(openBreaker("payment-service")).when(payments).create(any());
+
+    assertThatThrownBy(() -> orders.place(user, "c@example.com", "cb-partial", walletRequest()))
+        .isInstanceOf(CodedException.class)
+        .extracting(e -> ((CodedException) e).errorCode())
+        .isEqualTo(ErrorCode.DEPENDENCY_UNAVAILABLE);
+
+    assertThat(orderStatus("cb-partial")).isEqualTo("CANCELLED");
+    assertThat(outboxKinds("cb-partial")).contains("RESTORE_STOCK");
+    assertThat(walletRows("cb-partial")).containsExactly("CREDIT");
+    assertThat(
+            jdbc.queryForObject(
+                "select w.amount from orders.pending_wallet_credits w join orders.orders r"
+                    + " on r.id = w.order_id where r.user_id = ? and r.idempotency_key = ?",
+                BigDecimal.class,
+                user,
+                "cb-partial"))
+        .isEqualByComparingTo("300.00");
   }
 }
