@@ -1508,11 +1508,11 @@ class OrderPlacementIntegrationTest extends AbstractOrderIntegrationTest {
                 "select payment_id from orders.orders where id = ?", String.class, id))
         .isEqualTo("cod-pay-1");
     assertThat(
-            jdbc.queryForObject(
+            jdbc.queryForList(
                 "select status from orders.outbox where idem_key = ?",
                 String.class,
                 "ENSURE_COD_PAYMENT:" + id))
-        .isEqualTo("DONE");
+        .containsExactly("DONE");
   }
 
   @Test
