@@ -453,6 +453,17 @@ public class OrderRemote {
     walletCreditBacks.creditBack(userId, amount, currency, orderId);
   }
 
+  /** Inside the caller's transaction: queues a durable credit under a shipment-scoped key. */
+  public void queueWalletCredit(
+      UUID userId, BigDecimal amount, String currency, UUID orderId, String key) {
+    walletCreditBacks.enqueue(userId, amount, currency, orderId, key);
+  }
+
+  /** After the commit: one delivery attempt for a queued credit; never throws. */
+  public void tryWalletCredit(String key) {
+    walletCreditBacks.tryNow(key);
+  }
+
   /** Strict credit used by return refunds (idempotent by key). */
   public void creditWallet(
       UUID userId, BigDecimal amount, String currency, UUID orderId, String key) {

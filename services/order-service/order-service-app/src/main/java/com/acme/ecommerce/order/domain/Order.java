@@ -453,6 +453,26 @@ public class Order {
     return true;
   }
 
+  /**
+   * Commits a claimed shipment cancel (false when the claim is not REQUESTED at this attempt). The
+   * order itself becomes CANCELLED when no live shipment remains, else its status is re-derived.
+   */
+  public boolean commitShipmentCancel(
+      OrderShipment s, int attempt, HistoryActor actor, String note, Instant now) {
+    if (!s.commitCancel(attempt, now)) {
+      return false;
+    }
+    record(OrderStatus.CANCELLED, note, actor, now, s.getId());
+    if (shipments.stream().allMatch(OrderShipment::isCancelled)) {
+      status = OrderStatus.CANCELLED;
+      cancelledAt = now;
+      record(OrderStatus.CANCELLED, note, actor, now);
+    } else {
+      syncFromShipments(now);
+    }
+    return true;
+  }
+
   /** Admin forward-only move along the fulfilment chain. */
   public void advance(
       OrderStatus target, String note, String tracking, String carrierName, Instant now) {
@@ -650,14 +670,7 @@ public class Order {
       }
       gross = gross.add(item.getUnitPrice().multiply(BigDecimal.valueOf(e.getValue())));
     }
-    BigDecimal refund = gross;
-    BigDecimal totalDiscount = discountAmount.add(coinsValue);
-    if (subtotalAmount.signum() > 0 && totalDiscount.signum() > 0) {
-      refund =
-          gross
-              .multiply(subtotalAmount.subtract(totalDiscount))
-              .divide(subtotalAmount, 2, RoundingMode.HALF_UP);
-    }
+    BigDecimal refund = paidShare(gross);
     BigDecimal shipping =
         shippingAmount.signum() > 0 && completesOrder(merged) && !shippingAlreadyRefunded()
             ? shippingAmount.setScale(2, RoundingMode.HALF_UP)
@@ -683,6 +696,79 @@ public class Order {
     }
     returns.add(r);
     return r;
+  }
+
+  /** What a gross items amount is worth after the coupon and coins (shared by returns, cancels). */
+  BigDecimal paidShare(BigDecimal gross) {
+    BigDecimal totalDiscount = discountAmount.add(coinsValue);
+    if (subtotalAmount.signum() > 0 && totalDiscount.signum() > 0) {
+      return gross
+          .multiply(subtotalAmount.subtract(totalDiscount))
+          .divide(subtotalAmount, 2, RoundingMode.HALF_UP);
+    }
+    return gross;
+  }
+
+  /** The items and shipping parts of a shipment cancel. */
+  public record CancelShare(BigDecimal items, BigDecimal shipping) {
+    public BigDecimal total() {
+      return items.add(shipping);
+    }
+  }
+
+  /**
+   * Quantity per line that is in no non-rejected return and in no cancelled or claimed shipment,
+   * counting {@code also} as cancelled.
+   */
+  private Map<LineKey, Integer> uncovered(OrderShipment also) {
+    Map<LineKey, Integer> left = remainingReturnable(null);
+    for (OrderItem i : items) {
+      OrderShipment s =
+          shipments.stream()
+              .filter(x -> x.getId().equals(i.getShipmentId()))
+              .findFirst()
+              .orElse(null);
+      if (s != null && (s == also || s.isCancelled() || s.holdsCancelClaim())) {
+        left.merge(new LineKey(i.getProductId(), i.getVariantId()), -i.getQuantity(), Integer::sum);
+      }
+    }
+    return left;
+  }
+
+  /**
+   * The refund of cancelling shipment {@code s}: its pro-rata items share, or, when it covers the
+   * last uncovered line, the remainder so all shares add up to the paid items value to the cent.
+   * Shipping goes to the completing share unless a return or another cancel already carries it.
+   */
+  public CancelShare cancelShare(OrderShipment s) {
+    BigDecimal gross =
+        items.stream()
+            .filter(i -> s.getId().equals(i.getShipmentId()))
+            .map(OrderItem::getLineTotal)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+    BigDecimal zero = BigDecimal.ZERO.setScale(2);
+    if (!uncovered(s).values().stream().allMatch(q -> q == 0)) {
+      return new CancelShare(paidShare(gross).setScale(2, RoundingMode.HALF_UP), zero);
+    }
+    BigDecimal taken = BigDecimal.ZERO;
+    boolean shippingTaken = false;
+    for (OrderShipment o : shipments) {
+      if (o != s && o.holdsCancelClaim() && o.getCancelRefundAmount() != null) {
+        taken = taken.add(o.getCancelRefundAmount().subtract(o.getCancelShippingRefund()));
+        shippingTaken |= o.getCancelShippingRefund().signum() > 0;
+      }
+    }
+    for (OrderReturn r : returns) {
+      if (r.getStatus() != ReturnStatus.REJECTED) {
+        taken = taken.add(r.getRefundAmount().subtract(r.getShippingRefund()));
+        shippingTaken |= r.getShippingRefund().signum() > 0;
+      }
+    }
+    BigDecimal itemsPart =
+        paidItemsValue().subtract(taken).max(BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP);
+    boolean withShipping = shippingAmount.signum() > 0 && !shippingTaken;
+    return new CancelShare(
+        itemsPart, withShipping ? shippingAmount.setScale(2, RoundingMode.HALF_UP) : zero);
   }
 
   /** True when these lines, on top of earlier non-rejected returns, cover every order line. */
@@ -851,6 +937,10 @@ public class Order {
           ErrorCode.INVALID_STATUS_TRANSITION,
           "Order is on risk hold - an admin must release it first");
     }
+    if ("REQUESTED".equals(s.getCancelState())) {
+      throw new CodedException(ErrorCode.RESOURCE_CONFLICT, "Shipment cancel in progress");
+    }
+    s.dropFailedCancel();
     s.advance(target, tracking, carrierName, now);
     record(target, note, actor, now, s.getId());
     syncFromShipments(now);

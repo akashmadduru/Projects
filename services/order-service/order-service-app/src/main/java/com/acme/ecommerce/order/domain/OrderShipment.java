@@ -71,6 +71,29 @@ public class OrderShipment {
   @Column(name = "amount", nullable = false)
   private BigDecimal amount = BigDecimal.ZERO;
 
+  /** Per-shipment cancel (F-14). The amounts are frozen on the first claim; state null = none. */
+  @Column(name = "cancel_refund_amount")
+  private BigDecimal cancelRefundAmount;
+
+  @Column(name = "cancel_shipping_refund", nullable = false)
+  private BigDecimal cancelShippingRefund = BigDecimal.ZERO;
+
+  @Column(name = "cancel_wallet_leg")
+  private BigDecimal cancelWalletLeg;
+
+  @Column(name = "cancel_rest_leg")
+  private BigDecimal cancelRestLeg;
+
+  @Column(name = "cancel_rest_route", length = 16)
+  private String cancelRestRoute;
+
+  /** null, REQUESTED, FAILED or DONE. */
+  @Column(name = "cancel_state", length = 12)
+  private String cancelState;
+
+  @Column(name = "cancel_attempt", nullable = false)
+  private int cancelAttempt;
+
   @Column(name = "created_at", nullable = false, updatable = false)
   private Instant createdAt;
 
@@ -146,6 +169,86 @@ public class OrderShipment {
       status = OrderStatus.CANCELLED;
       updatedAt = now;
     }
+  }
+
+  /** First claim: freezes the share and its legs, and the cancel becomes REQUESTED. */
+  public void freezeCancel(
+      BigDecimal refund,
+      BigDecimal shipping,
+      BigDecimal wallet,
+      BigDecimal rest,
+      String route,
+      Instant now) {
+    cancelRefundAmount = refund;
+    cancelShippingRefund = shipping;
+    cancelWalletLeg = wallet;
+    cancelRestLeg = rest;
+    cancelRestRoute = route;
+    cancelState = "REQUESTED";
+    updatedAt = now;
+  }
+
+  /** A claim again: a FAILED cancel starts the next key, a REQUESTED one is reused. */
+  public void reclaim(Instant now) {
+    if ("FAILED".equals(cancelState)) {
+      cancelAttempt++;
+      cancelState = "REQUESTED";
+    }
+    updatedAt = now;
+  }
+
+  /** REQUESTED at this attempt becomes FAILED; anything else is left alone. */
+  public boolean failCancel(int attempt, Instant now) {
+    if (!"REQUESTED".equals(cancelState) || cancelAttempt != attempt) {
+      return false;
+    }
+    cancelState = "FAILED";
+    updatedAt = now;
+    return true;
+  }
+
+  /** REQUESTED at this attempt becomes CANCELLED and DONE; false when it is anything else. */
+  boolean commitCancel(int attempt, Instant now) {
+    if (!"REQUESTED".equals(cancelState) || cancelAttempt != attempt) {
+      return false;
+    }
+    status = OrderStatus.CANCELLED;
+    cancelState = "DONE";
+    updatedAt = now;
+    return true;
+  }
+
+  /** Shipping instead of cancelling: drops a FAILED claim (the attempt stays, keys stay unique). */
+  void dropFailedCancel() {
+    if ("FAILED".equals(cancelState)) {
+      cancelRefundAmount = null;
+      cancelShippingRefund = BigDecimal.ZERO;
+      cancelWalletLeg = null;
+      cancelRestLeg = null;
+      cancelRestRoute = null;
+      cancelState = null;
+    }
+  }
+
+  /**
+   * Card-leg key: attempt 0 is the plain key, a later one (after a reported FAILED) adds
+   * -r&lt;n&gt;.
+   */
+  public String cancelKey() {
+    return "ship-cancel-" + id + (cancelAttempt == 0 ? "" : "-r" + cancelAttempt);
+  }
+
+  public String cancelWalletKey() {
+    return "ship-cancel-wallet-" + id;
+  }
+
+  /** Holds a frozen cancel share (REQUESTED, FAILED or DONE). */
+  public boolean holdsCancelClaim() {
+    return cancelState != null;
+  }
+
+  public boolean isCancelled() {
+    return status == OrderStatus.CANCELLED;
   }
 
   public boolean isCancellable() {

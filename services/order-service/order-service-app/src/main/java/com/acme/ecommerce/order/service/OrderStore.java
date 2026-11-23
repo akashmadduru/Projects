@@ -70,7 +70,34 @@ public class OrderStore {
 
   /** What a cancel needs to know up front. */
   public record CancelPlan(
-      boolean alreadyCancelled, boolean refundNeeded, BigDecimal amount, String currency) {}
+      boolean alreadyCancelled,
+      boolean refundNeeded,
+      BigDecimal amount,
+      String currency,
+      boolean viaShipments) {
+    public CancelPlan(
+        boolean alreadyCancelled, boolean refundNeeded, BigDecimal amount, String currency) {
+      this(alreadyCancelled, refundNeeded, amount, currency, false);
+    }
+  }
+
+  /** One shipment's frozen cancel, for the card leg (the key changes only after a FAILED). */
+  public record Claimed(UUID shipmentId, int attempt, BigDecimal rest, String route, String key) {}
+
+  /** The shipments a claim put (or left) in REQUESTED, in freeze order. */
+  public record CancelClaim(UUID orderId, List<Claimed> claims) {}
+
+  /** The outcome of committing one shipment cancel; {@code changed=false} means someone did. */
+  public record CancelCommit(
+      boolean changed,
+      OrderResponse order,
+      ShipmentResponse shipment,
+      String previousOrderStatus,
+      boolean orderCancelled,
+      BigDecimal credit,
+      String walletKey,
+      UUID userId,
+      List<ReturnLine> lines) {}
 
   /** What a return refund needs to know up front. Wallet, rest and route are null until frozen. */
   public record ReturnRefundPlan(
@@ -386,8 +413,140 @@ public class OrderStore {
     boolean refund =
         o.getPaymentStatus() == PaymentStatus.PAID
             && (o.getPaymentId() != null || o.getWalletAmount().signum() > 0);
+    // Paid orders with shipments cancel shipment by shipment (never the cancel-<orderId> refund).
+    boolean viaShipments =
+        o.getStatus() != OrderStatus.PENDING_PAYMENT && !o.getShipments().isEmpty();
     return new CancelPlan(
-        false, refund, o.getTotalAmount().subtract(o.getWalletAmount()), o.getCurrency());
+        false,
+        refund,
+        o.getTotalAmount().subtract(o.getWalletAmount()),
+        o.getCurrency(),
+        viaShipments);
+  }
+
+  /**
+   * T1: locks the order, validates, then freezes each live shipment's share and legs (REQUESTED).
+   * {@code shipmentIds} null means every shipment (whole-order cancel). Already cancelled shipments
+   * are skipped, a REQUESTED claim is reused, a FAILED one starts the next card key.
+   */
+  @Transactional
+  public CancelClaim claimCancel(
+      UUID ownerOrNull, UUID sellerOrNull, UUID orderId, List<UUID> shipmentIds) {
+    Order o =
+        orders.lockById(orderId).orElseThrow(() -> new ResourceNotFoundException("Order", orderId));
+    if (ownerOrNull != null && !ownerOrNull.equals(o.getUserId())) {
+      throw new ResourceNotFoundException("Order", orderId);
+    }
+    List<OrderShipment> targets =
+        shipmentIds == null
+            ? o.getShipments()
+            : o.getShipments().stream().filter(s -> shipmentIds.contains(s.getId())).toList();
+    if (shipmentIds != null && targets.size() != shipmentIds.size()) {
+      throw new ResourceNotFoundException("Shipment", shipmentIds.get(0));
+    }
+    if (sellerOrNull != null
+        && targets.stream().anyMatch(s -> !sellerOrNull.equals(s.getSellerId()))) {
+      throw new ResourceNotFoundException("Shipment", shipmentIds.get(0));
+    }
+    List<OrderShipment> live = targets.stream().filter(s -> !s.isCancelled()).toList();
+    if (!live.isEmpty() && o.getStatus() == OrderStatus.PENDING_PAYMENT) {
+      throw new CodedException(
+          ErrorCode.INVALID_STATUS_TRANSITION, "Cannot cancel a shipment of an unpaid order");
+    }
+    if (!live.isEmpty() && shipmentIds != null && o.isRiskHold()) {
+      throw new CodedException(
+          ErrorCode.INVALID_STATUS_TRANSITION,
+          "Order is on risk hold - an admin must release it first");
+    }
+    if (live.stream().anyMatch(s -> !s.getStatus().isCancellable())) {
+      throw new CodedException(
+          ErrorCode.ORDER_NOT_CANCELLABLE, "A shipment past PACKED cannot be cancelled");
+    }
+    Instant now = Instant.now();
+    for (OrderShipment s : live) {
+      if (!s.holdsCancelClaim()) {
+        Order.CancelShare share = o.cancelShare(s);
+        Legs legs = legsFor(o, share.total(), null, s);
+        s.freezeCancel(
+            share.total(),
+            share.shipping(),
+            legs.wallet(),
+            legs.rest(),
+            route(o, "SOURCE", legs.rest()),
+            now);
+      } else {
+        s.reclaim(now);
+      }
+    }
+    orders.flush();
+    return new CancelClaim(
+        orderId,
+        live.stream()
+            .map(
+                s ->
+                    new Claimed(
+                        s.getId(),
+                        s.getCancelAttempt(),
+                        s.getCancelRestLeg(),
+                        s.getCancelRestRoute(),
+                        s.cancelKey()))
+            .toList());
+  }
+
+  /** T2f: the card leg was refused. Only a REQUESTED claim at this attempt becomes FAILED. */
+  @Transactional
+  public void failCancel(UUID orderId, UUID shipmentId, int attempt) {
+    Order o = orders.lockById(orderId).orElseThrow();
+    o.getShipments().stream()
+        .filter(s -> s.getId().equals(shipmentId))
+        .findFirst()
+        .ifPresent(s -> s.failCancel(attempt, Instant.now()));
+  }
+
+  /**
+   * T3, inside the caller's transaction (which adds the stock release, wallet credit and events):
+   * idempotent, a claim that is not REQUESTED at this attempt changes nothing.
+   */
+  @Transactional
+  public CancelCommit commitCancel(
+      UUID orderId, UUID shipmentId, int attempt, HistoryActor actor, String note) {
+    Order o = orders.lockById(orderId).orElseThrow();
+    OrderShipment s =
+        o.getShipments().stream()
+            .filter(x -> x.getId().equals(shipmentId))
+            .findFirst()
+            .orElseThrow(() -> new ResourceNotFoundException("Shipment", shipmentId));
+    String previous = o.getStatus().name();
+    Instant now = Instant.now();
+    BigDecimal wallet = s.getCancelWalletLeg();
+    BigDecimal rest = s.getCancelRestLeg();
+    String route = s.getCancelRestRoute();
+    if (!o.commitShipmentCancel(s, attempt, actor, note, now)) {
+      return new CancelCommit(false, null, null, previous, false, null, null, null, List.of());
+    }
+    boolean paysRest = !"NONE".equals(route);
+    BigDecimal moved = wallet.add(paysRest ? rest : BigDecimal.ZERO);
+    if (moved.signum() > 0 && o.getPaymentStatus() != PaymentStatus.COD_PENDING) {
+      o.recordRefund(moved, o.getShipments().stream().allMatch(OrderShipment::isCancelled));
+    }
+    orders.flush();
+    BigDecimal credit = wallet.add("DIRECT_WALLET".equals(route) ? rest : BigDecimal.ZERO);
+    return new CancelCommit(
+        true,
+        mapper.toResponse(o),
+        mapper.toShipment(o, s, now, props.getReturns().getWindowDays()),
+        previous,
+        o.getStatus() == OrderStatus.CANCELLED,
+        credit,
+        s.cancelWalletKey(),
+        o.getUserId(),
+        o.getItems().stream()
+            .filter(i -> shipmentId.equals(i.getShipmentId()))
+            .map(
+                i ->
+                    new ReturnLine(
+                        i.getProductId(), i.getVariantId(), i.getQuantity(), i.getOfferId()))
+            .toList());
   }
 
   @Transactional
@@ -413,7 +572,7 @@ public class OrderStore {
   @Transactional
   public ShipmentAdvance advance(
       UUID id, OrderStatus target, String note, String tracking, String carrier) {
-    Order o = findAny(id);
+    Order o = orders.lockById(id).orElseThrow(() -> new ResourceNotFoundException("Order", id));
     if (target == OrderStatus.SHIPPED
         && (tracking == null || tracking.isBlank())
         && !hasTracking(o)) {
@@ -452,8 +611,17 @@ public class OrderStore {
       String tracking,
       String carrier,
       HistoryActor actor) {
-    OrderShipment s = findShipment(shipmentId);
-    Order o = s.getOrder();
+    // Order row first, so a ship and a cancel of the same order never interleave (F-14).
+    UUID orderId =
+        shipments
+            .findOrderId(shipmentId)
+            .orElseThrow(() -> new ResourceNotFoundException("Shipment", shipmentId));
+    Order o = orders.lockById(orderId).orElseThrow();
+    OrderShipment s =
+        o.getShipments().stream()
+            .filter(x -> x.getId().equals(shipmentId))
+            .findFirst()
+            .orElseThrow(() -> new ResourceNotFoundException("Shipment", shipmentId));
     if ((sellerOrNull != null && !sellerOrNull.equals(s.getSellerId()))
         || (orderOrNull != null && !orderOrNull.equals(o.getId()))) {
       throw new ResourceNotFoundException("Shipment", shipmentId);
@@ -665,13 +833,25 @@ public class OrderStore {
     }
     // Siblings are read after this lock, so concurrent freezes see each other (never both first).
     Order o = orders.lockById(r.getOrder().getId()).orElseThrow();
-    BigDecimal refund = r.getRefundAmount().setScale(2, RoundingMode.HALF_UP);
+    Legs legs = legsFor(o, r.getRefundAmount().setScale(2, RoundingMode.HALF_UP), r, null);
+    r.freezeLegs(legs.wallet(), legs.rest(), route(o, r.getRefundTo(), legs.rest()));
+    return plan(r);
+  }
+
+  /** The wallet and card-rest parts of one refund. */
+  record Legs(BigDecimal wallet, BigDecimal rest) {}
+
+  /**
+   * The legs of {@code refund}, given the refunds already booked on the order: returns (REFUNDED or
+   * frozen) and cancels (frozen claims), except the one being frozen.
+   */
+  static Legs legsFor(Order o, BigDecimal refund, OrderReturn self, OrderShipment selfShipment) {
     BigDecimal walletPaid = o.getWalletAmount();
     BigDecimal total = o.getTotalAmount();
     BigDecimal siblingWallet = BigDecimal.ZERO;
     BigDecimal siblingRest = BigDecimal.ZERO;
     for (OrderReturn s : o.getReturns()) {
-      if (s == r || (s.getStatus() != ReturnStatus.REFUNDED && s.getWalletLegAmount() == null)) {
+      if (s == self || (s.getStatus() != ReturnStatus.REFUNDED && s.getWalletLegAmount() == null)) {
         continue;
       }
       BigDecimal sr = s.getRefundAmount().setScale(2, RoundingMode.HALF_UP);
@@ -683,6 +863,25 @@ public class OrderStore {
       siblingWallet = siblingWallet.add(sw);
       siblingRest = siblingRest.add(sr.subtract(sw)); // w + rest = R holds for frozen rows too
     }
+    for (OrderShipment c : o.getShipments()) {
+      if (c != selfShipment && c.holdsCancelClaim() && c.getCancelWalletLeg() != null) {
+        siblingWallet = siblingWallet.add(c.getCancelWalletLeg());
+        siblingRest = siblingRest.add(c.getCancelRestLeg());
+      }
+    }
+    return split(refund, walletPaid, total, siblingWallet, siblingRest);
+  }
+
+  /**
+   * w = min(round2(R*W/T), W - sibling wallet, R); rest = R - w; rest beyond the card room moves to
+   * the wallet. w + rest = R to the cent.
+   */
+  static Legs split(
+      BigDecimal refund,
+      BigDecimal walletPaid,
+      BigDecimal total,
+      BigDecimal siblingWallet,
+      BigDecimal siblingRest) {
     BigDecimal wallet =
         walletShare(refund, walletPaid, total)
             .min(walletPaid.subtract(siblingWallet))
@@ -694,8 +893,7 @@ public class OrderStore {
       wallet = wallet.add(rest.subtract(cardRoom));
       rest = cardRoom;
     }
-    r.freezeLegs(wallet, rest, route(o, r, rest));
-    return plan(r);
+    return new Legs(wallet, rest);
   }
 
   private static BigDecimal walletShare(BigDecimal refund, BigDecimal wallet, BigDecimal total) {
@@ -706,7 +904,7 @@ public class OrderStore {
   }
 
   /** Where the non-wallet remainder goes. COD and refundTo=WALLET go through payment-service. */
-  private static String route(Order o, OrderReturn r, BigDecimal rest) {
+  static String route(Order o, String refundTo, BigDecimal rest) {
     if (rest.signum() <= 0) {
       return "NONE";
     }
@@ -718,7 +916,7 @@ public class OrderStore {
       return "NONE"; // never paid: nothing to give back
     }
     boolean card = o.getPaymentMethod() == PaymentMethod.CARD && o.getPaymentId() != null;
-    return card && !"WALLET".equals(r.getRefundTo()) ? "PAYMENT_SOURCE" : "PAYMENT_WALLET";
+    return card && !"WALLET".equals(refundTo) ? "PAYMENT_SOURCE" : "PAYMENT_WALLET";
   }
 
   /** The wallet credit is committed before the card leg is attempted (AC-6). */

@@ -100,6 +100,33 @@ public class WalletCreditBacks {
     attempt(key);
   }
 
+  /**
+   * Insert-only: records a credit under the caller's key and joins the caller's transaction, so it
+   * commits or rolls back with the state change that earned it. A replayed key adds nothing. A
+   * database error propagates (the caller's transaction must fail). Deliver with {@link #tryNow}.
+   */
+  public void enqueue(UUID userId, BigDecimal amount, String currency, UUID orderId, String key) {
+    jdbc.sql(
+            "INSERT INTO orders.pending_wallet_credits"
+                + " (order_id, user_id, amount, currency, idem_key)"
+                + " VALUES (:o, :u, :a, :c, :k) ON CONFLICT (idem_key) DO NOTHING")
+        .param("o", orderId)
+        .param("u", userId)
+        .param("a", amount)
+        .param("c", currency)
+        .param("k", key)
+        .update();
+  }
+
+  /** One delivery attempt for a queued credit; never throws (the retry job does the rest). */
+  public void tryNow(String key) {
+    try {
+      attempt(key);
+    } catch (RuntimeException e) {
+      log.warn("Wallet credit {} could not be attempted now: {}", key, e.toString());
+    }
+  }
+
   @Scheduled(
       fixedDelayString = "${order.wallet-credit-retry-interval-ms:60000}",
       initialDelay = 60_000)
