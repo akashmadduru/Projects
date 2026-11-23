@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RequestBody;
     name = "payment-service",
     contextId = "paymentInternal",
     url = "${services.payment.url:}",
-    configuration = InternalFeignConfig.class)
+    configuration = {InternalFeignConfig.class, NoUserTokenFeignConfig.class})
 public interface PaymentFeignClient {
 
   record CreatePayment(
