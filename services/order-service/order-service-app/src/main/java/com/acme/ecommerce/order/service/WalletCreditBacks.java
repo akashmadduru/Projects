@@ -100,11 +100,7 @@ public class WalletCreditBacks {
     attempt(key);
   }
 
-  /**
-   * Insert-only: records a credit under the caller's key and joins the caller's transaction, so it
-   * commits or rolls back with the state change that earned it. A replayed key adds nothing. A
-   * database error propagates (the caller's transaction must fail). Deliver with {@link #tryNow}.
-   */
+  /** Insert-only, joins the caller's transaction: the durable credit commits with the state change. */
   public void enqueue(UUID userId, BigDecimal amount, String currency, UUID orderId, String key) {
     jdbc.sql(
             "INSERT INTO orders.pending_wallet_credits"
@@ -118,7 +114,6 @@ public class WalletCreditBacks {
         .update();
   }
 
-  /** One delivery attempt for a queued credit; never throws (the retry job does the rest). */
   public void tryNow(String key) {
     try {
       attempt(key);

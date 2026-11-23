@@ -9,7 +9,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface OrderShipmentRepository extends JpaRepository<OrderShipment, UUID> {
 
-  /** The owning order, read without loading the shipment (so the order can be locked first). */
   @org.springframework.data.jpa.repository.Query(
       "select s.order.id from OrderShipment s where s.id = :id")
   java.util.Optional<UUID> findOrderId(

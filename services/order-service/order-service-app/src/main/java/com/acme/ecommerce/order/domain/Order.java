@@ -453,10 +453,6 @@ public class Order {
     return true;
   }
 
-  /**
-   * Commits a claimed shipment cancel (false when the claim is not REQUESTED at this attempt). The
-   * order itself becomes CANCELLED when no live shipment remains, else its status is re-derived.
-   */
   public boolean commitShipmentCancel(
       OrderShipment s, int attempt, HistoryActor actor, String note, Instant now) {
     if (!s.commitCancel(attempt, now)) {
@@ -698,7 +694,6 @@ public class Order {
     return r;
   }
 
-  /** What a gross items amount is worth after the coupon and coins (shared by returns, cancels). */
   BigDecimal paidShare(BigDecimal gross) {
     BigDecimal totalDiscount = discountAmount.add(coinsValue);
     if (subtotalAmount.signum() > 0 && totalDiscount.signum() > 0) {
@@ -709,17 +704,12 @@ public class Order {
     return gross;
   }
 
-  /** The items and shipping parts of a shipment cancel. */
   public record CancelShare(BigDecimal items, BigDecimal shipping) {
     public BigDecimal total() {
       return items.add(shipping);
     }
   }
 
-  /**
-   * Quantity per line that is in no non-rejected return and in no cancelled or claimed shipment,
-   * counting {@code also} as cancelled.
-   */
   private Map<LineKey, Integer> uncovered(OrderShipment also) {
     Map<LineKey, Integer> left = remainingReturnable(null);
     for (OrderItem i : items) {
@@ -735,11 +725,7 @@ public class Order {
     return left;
   }
 
-  /**
-   * The refund of cancelling shipment {@code s}: its pro-rata items share, or, when it covers the
-   * last uncovered line, the remainder so all shares add up to the paid items value to the cent.
-   * Shipping goes to the completing share unless a return or another cancel already carries it.
-   */
+  /** Remainder rule: the share covering the last uncovered line is the remainder, so shares sum to the paid items value. */
   public CancelShare cancelShare(OrderShipment s) {
     BigDecimal gross =
         items.stream()

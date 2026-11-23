@@ -81,13 +81,10 @@ public class OrderStore {
     }
   }
 
-  /** One shipment's frozen cancel, for the card leg (the key changes only after a FAILED). */
   public record Claimed(UUID shipmentId, int attempt, BigDecimal rest, String route, String key) {}
 
-  /** The shipments a claim put (or left) in REQUESTED, in freeze order. */
   public record CancelClaim(UUID orderId, List<Claimed> claims) {}
 
-  /** The outcome of committing one shipment cancel; {@code changed=false} means someone did. */
   public record CancelCommit(
       boolean changed,
       OrderResponse order,
@@ -424,11 +421,6 @@ public class OrderStore {
         viaShipments);
   }
 
-  /**
-   * T1: locks the order, validates, then freezes each live shipment's share and legs (REQUESTED).
-   * {@code shipmentIds} null means every shipment (whole-order cancel). Already cancelled shipments
-   * are skipped, a REQUESTED claim is reused, a FAILED one starts the next card key.
-   */
   @Transactional
   public CancelClaim claimCancel(
       UUID ownerOrNull, UUID sellerOrNull, UUID orderId, List<UUID> shipmentIds) {
@@ -493,7 +485,6 @@ public class OrderStore {
             .toList());
   }
 
-  /** T2f: the card leg was refused. Only a REQUESTED claim at this attempt becomes FAILED. */
   @Transactional
   public void failCancel(UUID orderId, UUID shipmentId, int attempt) {
     Order o = orders.lockById(orderId).orElseThrow();
@@ -503,10 +494,6 @@ public class OrderStore {
         .ifPresent(s -> s.failCancel(attempt, Instant.now()));
   }
 
-  /**
-   * T3, inside the caller's transaction (which adds the stock release, wallet credit and events):
-   * idempotent, a claim that is not REQUESTED at this attempt changes nothing.
-   */
   @Transactional
   public CancelCommit commitCancel(
       UUID orderId, UUID shipmentId, int attempt, HistoryActor actor, String note) {
@@ -838,13 +825,8 @@ public class OrderStore {
     return plan(r);
   }
 
-  /** The wallet and card-rest parts of one refund. */
   record Legs(BigDecimal wallet, BigDecimal rest) {}
 
-  /**
-   * The legs of {@code refund}, given the refunds already booked on the order: returns (REFUNDED or
-   * frozen) and cancels (frozen claims), except the one being frozen.
-   */
   static Legs legsFor(Order o, BigDecimal refund, OrderReturn self, OrderShipment selfShipment) {
     BigDecimal walletPaid = o.getWalletAmount();
     BigDecimal total = o.getTotalAmount();
@@ -872,10 +854,7 @@ public class OrderStore {
     return split(refund, walletPaid, total, siblingWallet, siblingRest);
   }
 
-  /**
-   * w = min(round2(R*W/T), W - sibling wallet, R); rest = R - w; rest beyond the card room moves to
-   * the wallet. w + rest = R to the cent.
-   */
+  /** w = min(round2(R*W/T), W - sibling wallet, R); rest = R - w, so w + rest = R. */
   static Legs split(
       BigDecimal refund,
       BigDecimal walletPaid,

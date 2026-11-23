@@ -103,7 +103,6 @@ public class AdminOrderController {
     return lifecycle.cancelByAdmin(id, request.reason());
   }
 
-  /** Cancels one shipment of an order and refunds its share (404 if not on that order). */
   @PostMapping("/orders/{id}/shipments/{shipmentId}/cancel")
   @PreAuthorize("hasRole('ADMIN')")
   public OrderResponse cancelShipment(

@@ -98,7 +98,6 @@ public class OrderLifecycleService {
     return result.order();
   }
 
-  /** Admin: cancel one shipment of an order (404 when it is not on that order). */
   public OrderResponse adminCancelShipment(UUID orderId, UUID shipmentId, String reason) {
     return cancelShipments(
         HistoryActor.ADMIN,
@@ -109,7 +108,6 @@ public class OrderLifecycleService {
         List.of(shipmentId));
   }
 
-  /** Seller: cancel one of their own shipments (anything else is a 404). */
   public OrderResponse sellerCancelShipment(UUID userId, UUID shipmentId, String reason) {
     UUID sellerId = remote.approvedSellerId(userId);
     if (sellerId == null) {
@@ -125,11 +123,7 @@ public class OrderLifecycleService {
         List.of(shipmentId));
   }
 
-  /**
-   * T1 claim, then per shipment the strict card leg, then T3 commit (CANCELLED, stock release,
-   * durable wallet credit, events in one transaction), then one delivery attempt of the credit. No
-   * remote call runs inside a transaction. A replay finds nothing to claim and changes nothing.
-   */
+  /** T1 claim, card leg before wallet, T3 commit incl. the durable wallet credit; no remote call in a transaction. */
   private OrderResponse cancelShipments(
       HistoryActor actor,
       String note,
@@ -165,7 +159,6 @@ public class OrderLifecycleService {
     return ownerOrNull == null ? store.getAny(orderId) : store.get(ownerOrNull, orderId);
   }
 
-  /** The only remote money call: FAILED or unreachable leaves nothing changed (503). */
   private void cardLeg(UUID orderId, OrderStore.Claimed c) {
     boolean wallet = "PAYMENT_WALLET".equals(c.route());
     if ((!wallet && !"PAYMENT_SOURCE".equals(c.route())) || c.rest().signum() <= 0) {

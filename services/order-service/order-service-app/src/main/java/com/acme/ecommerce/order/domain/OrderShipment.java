@@ -71,7 +71,6 @@ public class OrderShipment {
   @Column(name = "amount", nullable = false)
   private BigDecimal amount = BigDecimal.ZERO;
 
-  /** Per-shipment cancel (F-14). The amounts are frozen on the first claim; state null = none. */
   @Column(name = "cancel_refund_amount")
   private BigDecimal cancelRefundAmount;
 
@@ -87,7 +86,6 @@ public class OrderShipment {
   @Column(name = "cancel_rest_route", length = 16)
   private String cancelRestRoute;
 
-  /** null, REQUESTED, FAILED or DONE. */
   @Column(name = "cancel_state", length = 12)
   private String cancelState;
 
@@ -171,7 +169,6 @@ public class OrderShipment {
     }
   }
 
-  /** First claim: freezes the share and its legs, and the cancel becomes REQUESTED. */
   public void freezeCancel(
       BigDecimal refund,
       BigDecimal shipping,
@@ -188,7 +185,6 @@ public class OrderShipment {
     updatedAt = now;
   }
 
-  /** A claim again: a FAILED cancel starts the next key, a REQUESTED one is reused. */
   public void reclaim(Instant now) {
     if ("FAILED".equals(cancelState)) {
       cancelAttempt++;
@@ -197,7 +193,6 @@ public class OrderShipment {
     updatedAt = now;
   }
 
-  /** REQUESTED at this attempt becomes FAILED; anything else is left alone. */
   public boolean failCancel(int attempt, Instant now) {
     if (!"REQUESTED".equals(cancelState) || cancelAttempt != attempt) {
       return false;
@@ -207,7 +202,6 @@ public class OrderShipment {
     return true;
   }
 
-  /** REQUESTED at this attempt becomes CANCELLED and DONE; false when it is anything else. */
   boolean commitCancel(int attempt, Instant now) {
     if (!"REQUESTED".equals(cancelState) || cancelAttempt != attempt) {
       return false;
@@ -218,7 +212,6 @@ public class OrderShipment {
     return true;
   }
 
-  /** Shipping instead of cancelling: drops a FAILED claim (the attempt stays, keys stay unique). */
   void dropFailedCancel() {
     if ("FAILED".equals(cancelState)) {
       cancelRefundAmount = null;
@@ -230,10 +223,7 @@ public class OrderShipment {
     }
   }
 
-  /**
-   * Card-leg key: attempt 0 is the plain key, a later one (after a reported FAILED) adds
-   * -r&lt;n&gt;.
-   */
+  /** Card-leg key: attempt 0 is the plain key, later ones add -r&lt;n&gt;. */
   public String cancelKey() {
     return "ship-cancel-" + id + (cancelAttempt == 0 ? "" : "-r" + cancelAttempt);
   }
@@ -242,7 +232,6 @@ public class OrderShipment {
     return "ship-cancel-wallet-" + id;
   }
 
-  /** Holds a frozen cancel share (REQUESTED, FAILED or DONE). */
   public boolean holdsCancelClaim() {
     return cancelState != null;
   }

@@ -76,7 +76,6 @@ public class SellerShipmentController {
     return store.sellerShipment(sellerId(jwt), id);
   }
 
-  /** Cancels one of the seller's own shipments (before it ships) and refunds its share. */
   @PostMapping("/{id}/cancel")
   public SellerShipmentResponse cancel(
       @AuthenticationPrincipal Jwt jwt,
