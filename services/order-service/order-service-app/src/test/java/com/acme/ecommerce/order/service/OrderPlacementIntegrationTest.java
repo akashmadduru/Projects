@@ -1461,4 +1461,87 @@ class OrderPlacementIntegrationTest extends AbstractOrderIntegrationTest {
     real.batch(shirt.toString(), true);
     assertThat(seen.get().headers()).doesNotContainKey("Authorization");
   }
+
+  // ---- COD payment row (F-20261119-15, B-10)
+  // -----------------------------------------------------
+
+  private PlaceOrderRequest codBuyNow() {
+    return new PlaceOrderRequest(
+        addressId,
+        PaymentMethodRequest.COD,
+        null,
+        List.of(new OrderLineRequest(shirt, 2, null, null)),
+        null,
+        null,
+        null);
+  }
+
+  private List<String> ensureRow(UUID orderId) {
+    return jdbc.queryForList(
+        "select status || '|' || (next_attempt_at > now() + interval '55 seconds')"
+            + " from orders.outbox where idem_key = ?",
+        String.class,
+        "ENSURE_COD_PAYMENT:" + orderId);
+  }
+
+  @Test
+  @DisplayName(
+      "AC-1: a COD order gets its row inline, payment_id is set and the repair row is DONE")
+  void codCreatesRowAndAttaches() {
+    when(remote.createPayment(any(), eq(user), any(), eq("INR"), eq("COD")))
+        .thenReturn(new PaymentResult("cod-pay-1", null, "COD_PENDING", null, null, null));
+
+    OrderService.Placement p =
+        orders.place(user, "c@example.com", "key-cod-" + UUID.randomUUID(), codBuyNow());
+
+    UUID id = p.order().id();
+    verify(remote)
+        .createPayment(
+            eq(id),
+            eq(user),
+            org.mockito.ArgumentMatchers.argThat(
+                (BigDecimal a) -> a.compareTo(p.order().totalAmount()) == 0),
+            eq("INR"),
+            eq("COD"));
+    assertThat(
+            jdbc.queryForObject(
+                "select payment_id from orders.orders where id = ?", String.class, id))
+        .isEqualTo("cod-pay-1");
+    assertThat(
+            jdbc.queryForObject(
+                "select status from orders.outbox where idem_key = ?",
+                String.class,
+                "ENSURE_COD_PAYMENT:" + id))
+        .isEqualTo("DONE");
+  }
+
+  @Test
+  @DisplayName("AC-2: payment-service down still places the COD order; the repair is recorded")
+  void codPaymentDownStillPlaces() {
+    when(remote.createPayment(any(), any(), any(), anyString(), eq("COD")))
+        .thenThrow(new IllegalStateException("payment-service down"));
+
+    OrderService.Placement p = orders.place(user, "c@example.com", "key-cod-down", codBuyNow());
+
+    UUID id = p.order().id();
+    assertThat(p.created()).isTrue();
+    assertThat(p.order().status()).isEqualTo(status(id));
+    assertThat(status(id)).isNotEqualTo("CANCELLED");
+    verify(remote, never()).restoreStockBestEffort(any());
+    verify(remote, never()).releaseCoinsBestEffort(any());
+    assertThat(
+            jdbc.queryForObject(
+                "select payment_id from orders.orders where id = ?", String.class, id))
+        .isNull();
+    assertThat(ensureRow(id)).containsExactly("PENDING|true");
+  }
+
+  @Test
+  @DisplayName("AC-2: a CARD order writes no ENSURE row (positive control for the COD cases)")
+  void cardWritesNoEnsureRow() {
+    OrderService.Placement p =
+        orders.place(user, "c@example.com", "key-card-" + UUID.randomUUID(), buyNow(shirt, 1));
+
+    assertThat(ensureRow(p.order().id())).isEmpty();
+  }
 }

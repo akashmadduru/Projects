@@ -86,6 +86,7 @@ public class OrderService {
   private final OrderProperties props;
   private final RiskService risks;
   private final TransactionTemplate tx;
+  private final CodPaymentRows codRows;
 
   public OrderService(
       OrderStore store,
@@ -97,7 +98,9 @@ public class OrderService {
       OrderEventPublisher events,
       OrderProperties props,
       RiskService risks,
-      TransactionTemplate tx) {
+      TransactionTemplate tx,
+      CodPaymentRows codRows) {
+    this.codRows = codRows;
     this.risks = risks;
     this.tx = tx;
     this.store = store;
@@ -264,8 +267,18 @@ public class OrderService {
     }
 
     OrderResponse saved;
+    boolean cod = method == PaymentMethod.COD;
     try {
-      saved = store.save(order);
+      saved =
+          tx.execute(
+              s -> {
+                OrderResponse o = store.save(order);
+                if (cod) {
+                  // Same commit as the order: a failed inline create is repaired by the relay.
+                  codRows.enqueueRepair(o.id());
+                }
+                return o;
+              });
     } catch (DataIntegrityViolationException race) {
       // A concurrent request with the same key won the unique constraint: return its order.
       Optional<OrderResponse> winner = store.findReplay(userId, idempotencyKey, req.addressId());
@@ -407,6 +420,9 @@ public class OrderService {
       PaymentResult p =
           remote.createPayment(saved.id(), userId, remainder, saved.currency(), method.name());
       store.attachPayment(saved.id(), p.paymentId());
+      if (method == PaymentMethod.COD) {
+        codRows.repairDone(saved.id());
+      }
       if (method == PaymentMethod.CARD) {
         paymentBlock = toBlock(p);
       }
@@ -415,7 +431,10 @@ public class OrderService {
         unwind(saved, "Payment could not be started", couponCode != null, coins > 0, true);
         throw e;
       }
-      log.warn("COD order {} placed but payment record not created: {}", saved.id(), e.toString());
+      log.warn(
+          "COD order {} placed but payment record not created, recorded for repair: {}",
+          saved.id(),
+          e.toString());
     }
 
     // The placed event is recorded before the clear so nothing in the clear can skip it.

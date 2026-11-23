@@ -78,6 +78,7 @@ class CartClearIntegrationTest extends AbstractOrderIntegrationTest {
   @Autowired private OrderRemote remote;
   @Autowired private OrderEventPublisher events;
   @Autowired private JobLock jobLock;
+  @Autowired private com.acme.ecommerce.order.service.CodPaymentRows codRows;
   @Autowired private JdbcClient jdbcClient;
   @Autowired private JdbcTemplate jdbc;
 
@@ -214,7 +215,7 @@ class CartClearIntegrationTest extends AbstractOrderIntegrationTest {
         "update orders.outbox set next_attempt_at = now() where idem_key = ?",
         "CLEAR_CART:" + orderId);
     // A relay instance created after the order was placed (a restart) delivers it.
-    new OutboxRelay(jdbcClient, remote, events, jobLock).relay();
+    new OutboxRelay(jdbcClient, remote, events, jobLock, codRows).relay();
 
     assertThat(clearRows(orderId)).containsExactly("DONE");
     verify(cartInternal, times(1))
@@ -281,7 +282,7 @@ class CartClearIntegrationTest extends AbstractOrderIntegrationTest {
     jdbc.update(
         "update orders.outbox set next_attempt_at = now() where idem_key = ?",
         "CLEAR_CART:" + orderId);
-    new OutboxRelay(jdbcClient, remote, events, jobLock).relay();
+    new OutboxRelay(jdbcClient, remote, events, jobLock, codRows).relay();
 
     assertThat(clearRows(orderId)).containsExactly("DONE");
     verify(cartInternal, times(1))

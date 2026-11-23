@@ -34,6 +34,7 @@ class OutboxRelayTest extends AbstractOrderIntegrationTest {
   @Autowired private JdbcTemplate jdbc;
   @Autowired private JdbcClient jdbcClient;
   @Autowired private JobLock jobLock;
+  @Autowired private com.acme.ecommerce.order.service.CodPaymentRows codRows;
 
   /** The database is shared with other test classes: leave no unknown or CLEAR_CART rows behind. */
   @AfterEach
@@ -237,7 +238,7 @@ class OutboxRelayTest extends AbstractOrderIntegrationTest {
     org.mockito.Mockito.reset(remote);
     jdbc.update(
         "update orders.outbox set next_attempt_at = now() where aggregate_id = ?", aggregate);
-    OutboxRelay restarted = new OutboxRelay(jdbcClient, remote, events, jobLock);
+    OutboxRelay restarted = new OutboxRelay(jdbcClient, remote, events, jobLock, codRows);
     restarted.relay();
 
     assertThat(status(aggregate)).isEqualTo("DONE");

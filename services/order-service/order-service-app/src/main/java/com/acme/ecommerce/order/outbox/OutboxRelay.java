@@ -4,6 +4,7 @@ import com.acme.ecommerce.common.web.job.JobLock;
 import com.acme.ecommerce.order.event.OrderEvent;
 import com.acme.ecommerce.order.event.OrderEventPublisher;
 import com.acme.ecommerce.order.outbox.Outbox.Kind;
+import com.acme.ecommerce.order.service.CodPaymentRows;
 import com.acme.ecommerce.order.service.OrderRemote;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import feign.FeignException;
@@ -12,6 +13,7 @@ import java.util.List;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -42,7 +44,8 @@ public class OutboxRelay {
 
   record Row(UUID id, UUID aggregateId, Kind kind, String payload, int attempts) {}
 
-  private static final List<String> KNOWN = Arrays.stream(Kind.values()).map(Kind::name).toList();
+  private static final List<String> ALL_KINDS =
+      Arrays.stream(Kind.values()).map(Kind::name).toList();
   private static final int UNKNOWN_SAMPLE = 5;
 
   /** Result of one pass, for logs and tests. */
@@ -52,9 +55,30 @@ public class OutboxRelay {
   private final OrderRemote remote;
   private final OrderEventPublisher events;
   private final JobLock jobLock;
+  private final CodPaymentRows codRows;
 
+  /** The kinds this build delivers; narrowed only by tests that play an older build. */
+  private final List<String> known;
+
+  @Autowired
   public OutboxRelay(
-      JdbcClient jdbc, OrderRemote remote, OrderEventPublisher events, JobLock jobLock) {
+      JdbcClient jdbc,
+      OrderRemote remote,
+      OrderEventPublisher events,
+      JobLock jobLock,
+      CodPaymentRows codRows) {
+    this(jdbc, remote, events, jobLock, codRows, ALL_KINDS);
+  }
+
+  OutboxRelay(
+      JdbcClient jdbc,
+      OrderRemote remote,
+      OrderEventPublisher events,
+      JobLock jobLock,
+      CodPaymentRows codRows,
+      List<String> known) {
+    this.known = known;
+    this.codRows = codRows;
     this.jdbc = jdbc;
     this.remote = remote;
     this.events = events;
@@ -105,7 +129,7 @@ public class OutboxRelay {
   private void reportUnknown() {
     Long count =
         jdbc.sql("SELECT count(*) FROM orders.outbox WHERE status = 'PENDING' AND kind NOT IN (:k)")
-            .param("k", KNOWN)
+            .param("k", known)
             .query(Long.class)
             .single();
     if (count == null || count == 0) {
@@ -115,7 +139,7 @@ public class OutboxRelay {
         jdbc.sql(
                 "SELECT id || ':' || kind FROM orders.outbox WHERE status = 'PENDING'"
                     + " AND kind NOT IN (:k) ORDER BY seq LIMIT :n")
-            .param("k", KNOWN)
+            .param("k", known)
             .param("n", UNKNOWN_SAMPLE)
             .query(String.class)
             .list();
@@ -138,7 +162,7 @@ public class OutboxRelay {
                     + "   AND e.aggregate_id = o.aggregate_id AND e.seq < o.seq)"
                     + " ORDER BY o.seq LIMIT :n")
             .param("n", BATCH)
-            .param("known", KNOWN)
+            .param("known", known)
             .query(
                 (rs, n) ->
                     new Row(
@@ -186,6 +210,8 @@ public class OutboxRelay {
       case COD_COLLECTED -> remote.codCollectedNow(id);
       case CLEAR_CART ->
           remote.clearCartNow(read(row.payload(), OrderRemote.ClearCartPayload.class));
+      case ENSURE_COD_PAYMENT ->
+          codRows.ensure(read(row.payload(), CodPaymentRows.Payload.class).orderId());
     }
   }
 

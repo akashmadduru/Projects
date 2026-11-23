@@ -33,7 +33,7 @@ class OrderServiceFetchProductsTest {
 
   @BeforeEach
   void setUp() {
-    orders = new OrderService(null, null, null, batch, null, null, null, null, null, null);
+    orders = new OrderService(null, null, null, batch, null, null, null, null, null, null, null);
   }
 
   private static ProductView view(UUID id) {

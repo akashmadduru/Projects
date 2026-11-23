@@ -31,11 +31,15 @@ class OutboxIntegrationTest extends AbstractOrderIntegrationTest {
 
   @MockitoBean private OrderRemote remote;
   @MockitoBean private OrderEventPublisher events;
+  @MockitoBean private com.acme.ecommerce.order.client.PaymentFeignClient payments;
 
   @Autowired private Outbox outbox;
   @Autowired private OutboxRelay relay;
   @Autowired private TransactionTemplate tx;
   @Autowired private JdbcTemplate jdbc;
+  @Autowired private org.springframework.jdbc.core.simple.JdbcClient jdbcClient;
+  @Autowired private com.acme.ecommerce.common.web.job.JobLock jobLock;
+  @Autowired private com.acme.ecommerce.order.service.CodPaymentRows codRows;
 
   private final UUID order = UUID.randomUUID();
 
@@ -178,5 +182,61 @@ class OutboxIntegrationTest extends AbstractOrderIntegrationTest {
     ArgumentCaptor<OrderEvent> sent = ArgumentCaptor.forClass(OrderEvent.class);
     verify(events).sendNow(eq(order), sent.capture());
     assertThat(sent.getValue()).usingRecursiveComparison().isEqualTo(event);
+  }
+
+  @Test
+  @DisplayName("A1: a row with a notBefore delay is not claimed before it is due, then is")
+  void notBeforeRowWaitsUntilDue() {
+    outbox.enqueue(
+        Kind.ENSURE_COD_PAYMENT,
+        order,
+        java.util.Map.of("orderId", UUID.randomUUID()),
+        "ENSURE_COD_PAYMENT:" + order,
+        java.time.Duration.ofSeconds(60));
+
+    relay.relay();
+
+    assertThat(statuses()).containsExactly("PENDING");
+    assertThat(attempts(Kind.ENSURE_COD_PAYMENT)).isZero();
+    assertThat(
+            jdbc.queryForObject(
+                "select extract(epoch from (next_attempt_at - now())) from orders.outbox"
+                    + " where aggregate_id = ?",
+                Double.class,
+                order))
+        .isBetween(55.0, 60.5);
+  }
+
+  @Test
+  @DisplayName(
+      "C9: an old-build relay (kind unknown to it) leaves an ENSURE row PENDING, no side effects")
+  void oldBuildRelayToleratesEnsureKind() {
+    // An old build's relay does not know ENSURE_COD_PAYMENT: play it with a relay whose kind list
+    // lacks it. The row sits on its own aggregate, as codRows.enqueueRepair writes it.
+    UUID ensureAggregate = UUID.randomUUID();
+    outbox.enqueue(
+        Kind.ENSURE_COD_PAYMENT,
+        ensureAggregate,
+        java.util.Map.of("orderId", UUID.randomUUID()),
+        "ENSURE_COD_PAYMENT:" + ensureAggregate);
+    outbox.enqueue(Kind.RESTORE_STOCK, order);
+    java.util.List<String> oldBuild =
+        java.util.Arrays.stream(Kind.values())
+            .map(Kind::name)
+            .filter(k -> !k.equals("ENSURE_COD_PAYMENT"))
+            .toList();
+    assertThat(oldBuild).contains("RESTORE_STOCK").doesNotContain("ENSURE_COD_PAYMENT");
+
+    new OutboxRelay(jdbcClient, remote, events, jobLock, codRows, oldBuild).relay();
+
+    verify(remote).restoreStockNow(order);
+    assertThat(statuses()).containsExactly("DONE");
+    assertThat(
+            jdbc.queryForList(
+                "select status || ':' || attempts from orders.outbox where aggregate_id = ?",
+                String.class,
+                ensureAggregate))
+        .containsExactly("PENDING:0");
+    jdbc.update("delete from orders.outbox where aggregate_id = ?", ensureAggregate);
   }
 }
