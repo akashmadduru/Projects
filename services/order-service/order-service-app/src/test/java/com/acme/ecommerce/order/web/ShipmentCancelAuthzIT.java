@@ -75,6 +75,9 @@ class ShipmentCancelAuthzIT extends AbstractCancelIT {
     UUID s1 = b.shipmentIds().get(0);
 
     sellerCancel(bearer("SELLER", other), s1).andExpect(status().isNotFound());
+    org.assertj.core.api.Assertions.assertThat(cancelState(s1))
+        .as("not cancelled by a stranger")
+        .isNull();
     sellerCancel(bearer("SELLER", pending), s1).andExpect(status().isForbidden());
     sellerCancel(null, s1).andExpect(status().isUnauthorized());
     sellerCancel(bearer("USER", owner), s1).andExpect(status().isForbidden());
@@ -93,6 +96,7 @@ class ShipmentCancelAuthzIT extends AbstractCancelIT {
     UUID admin = UUID.randomUUID();
 
     adminCancel(bearer("ADMIN", admin), other.orderId(), s1).andExpect(status().isNotFound());
+    org.assertj.core.api.Assertions.assertThat(cancelState(s1)).isNull();
     adminCancel(bearer("USER", admin), b.orderId(), s1).andExpect(status().isForbidden());
     adminCancel(bearer("SUPPORT", admin), b.orderId(), s1).andExpect(status().isForbidden());
     adminCancel(null, b.orderId(), s1).andExpect(status().isUnauthorized());

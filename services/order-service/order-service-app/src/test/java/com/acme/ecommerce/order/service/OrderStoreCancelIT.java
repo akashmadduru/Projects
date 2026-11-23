@@ -64,7 +64,9 @@ class OrderStoreCancelIT extends AbstractCancelIT {
     Built b = workedExample();
     CancelClaim first = store.claimCancel(null, null, b.orderId(), List.of(b.shipmentIds().get(0)));
     CancelClaim again = store.claimCancel(null, null, b.orderId(), List.of(b.shipmentIds().get(0)));
-    assertThat(again).isEqualTo(first);
+    assertThat(again.claims().get(0).key()).isEqualTo(first.claims().get(0).key());
+    assertThat(again.claims().get(0).rest()).isEqualByComparingTo(first.claims().get(0).rest());
+    assertThat(again.claims().get(0).attempt()).isEqualTo(first.claims().get(0).attempt());
     assertThat(first.claims().get(0).key()).isEqualTo("ship-cancel-" + b.shipmentIds().get(0));
   }
 

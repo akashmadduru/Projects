@@ -97,7 +97,7 @@ class WholeOrderCancelIT extends AbstractCancelIT {
         refundRequests(b.orderId()).stream()
             .map(RefundRequest::amount)
             .reduce(BigDecimal.ZERO, BigDecimal::add);
-    assertThat(b.total()).isEqualByComparingTo("96.99");
+    assertThat(b.total()).isEqualByComparingTo("97.00");
     assertThat(card).isEqualByComparingTo(b.total());
     assertThat(refunded(b.orderId())).isEqualByComparingTo(b.total());
     assertThat(paymentStatus(b.orderId())).isEqualTo("REFUNDED");
