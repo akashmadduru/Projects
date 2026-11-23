@@ -685,6 +685,7 @@ public class OrderStore {
       String comment,
       String refundTo,
       UUID shipmentId) {
+    orders.lockById(orderId); // order row first, like cancel (F-14)
     Order o = find(userId, orderId);
     OrderReturn r =
         o.requestReturn(

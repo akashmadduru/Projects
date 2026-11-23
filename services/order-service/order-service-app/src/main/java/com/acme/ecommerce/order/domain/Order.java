@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -714,7 +715,7 @@ public class Order {
     }
   }
 
-  private Map<LineKey, Integer> uncovered(OrderShipment also) {
+  private Map<LineKey, Integer> uncovered(Predicate<OrderShipment> covers) {
     Map<LineKey, Integer> left = remainingReturnable(null);
     for (OrderItem i : items) {
       OrderShipment s =
@@ -722,7 +723,7 @@ public class Order {
               .filter(x -> x.getId().equals(i.getShipmentId()))
               .findFirst()
               .orElse(null);
-      if (s != null && (s == also || s.isCancelled() || s.holdsCancelClaim())) {
+      if (s != null && covers.test(s)) {
         left.merge(new LineKey(i.getProductId(), i.getVariantId()), -i.getQuantity(), Integer::sum);
       }
     }
@@ -737,7 +738,8 @@ public class Order {
             .map(OrderItem::getLineTotal)
             .reduce(BigDecimal.ZERO, BigDecimal::add);
     BigDecimal zero = BigDecimal.ZERO.setScale(2);
-    if (!uncovered(s).values().stream().allMatch(q -> q == 0)) {
+    if (!uncovered(x -> x == s || x.isCancelled() || x.holdsCancelClaim()).values().stream()
+        .allMatch(q -> q == 0)) {
       return new CancelShare(paidShare(gross).setScale(2, RoundingMode.HALF_UP), zero);
     }
     BigDecimal taken = BigDecimal.ZERO;
@@ -763,14 +765,16 @@ public class Order {
 
   /** True when these lines, on top of earlier non-rejected returns, cover every order line. */
   private boolean completesOrder(Map<LineKey, Integer> lines) {
-    return remainingReturnable(null).entrySet().stream()
+    return uncovered(OrderShipment::isCancelled).entrySet().stream()
         .allMatch(e -> e.getValue() - lines.getOrDefault(e.getKey(), 0) == 0);
   }
 
   private boolean shippingAlreadyRefunded() {
     return returns.stream()
-        .anyMatch(
-            r -> r.getStatus() != ReturnStatus.REJECTED && r.getShippingRefund().signum() > 0);
+            .anyMatch(
+                r -> r.getStatus() != ReturnStatus.REJECTED && r.getShippingRefund().signum() > 0)
+        || shipments.stream()
+            .anyMatch(s -> s.holdsCancelClaim() && s.getCancelShippingRefund().signum() > 0);
   }
 
   private OrderShipment resolveReturnShipment(List<ReturnLine> lines, UUID hint) {
