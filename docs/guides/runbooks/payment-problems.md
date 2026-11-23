@@ -97,7 +97,7 @@ SELECT status, count(*) FROM orders.outbox WHERE kind = 'ENSURE_COD_PAYMENT' GRO
 ```
 A row that is `DEAD` (about 10 hours of failures, logged as "OUTBOX DEAD") has an order with no payment row: fix
 payment-service, then retry it from the admin outbox retry endpoint. A repair for a cancelled order, or an order that
-already has a row, goes DONE with no call. A WARN
+already has a row, goes DONE with no call. An ERROR
 "already has a ... payment row" means the order's payment id points at a non-COD row: it was left unchanged, ask a
 developer.
 
