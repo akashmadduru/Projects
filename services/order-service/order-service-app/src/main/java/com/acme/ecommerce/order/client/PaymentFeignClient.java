@@ -1,5 +1,6 @@
 package com.acme.ecommerce.order.client;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.math.BigDecimal;
 import java.util.UUID;
 import org.springframework.cloud.openfeign.FeignClient;
@@ -29,8 +30,12 @@ public interface PaymentFeignClient {
       String publishableKey) {}
 
   /** The fields of payment-service's PaymentResponse that the COD ensure needs (extras ignored). */
-  @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)
+  @JsonIgnoreProperties(ignoreUnknown = true)
   record PaymentRow(String paymentId, String status, String method, BigDecimal amount) {}
+
+  /** GET /internal/wallet/credits/{key}: always 200; a payment-service without it answers 404. */
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  record CreditLookup(boolean found, UUID userId, BigDecimal amount, String currency) {}
 
   record RefundRequest(
       BigDecimal amount, String reason, String idempotencyKey, String destination) {}
@@ -67,6 +72,9 @@ public interface PaymentFeignClient {
   /** Same POST as {@link #create}: idempotent by order id, the existing row wins. */
   @PostMapping("/internal/payments")
   PaymentRow ensureRow(@RequestBody CreatePayment request);
+
+  @org.springframework.web.bind.annotation.GetMapping("/internal/wallet/credits/{key}")
+  CreditLookup creditLookup(@PathVariable("key") String key);
 
   @PostMapping("/internal/payments/orders/{orderId}/refunds")
   RefundResult refund(@PathVariable("orderId") UUID orderId, @RequestBody RefundRequest request);

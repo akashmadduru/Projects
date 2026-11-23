@@ -207,7 +207,7 @@ public class OutboxRelay {
       case RELEASE_COUPON -> remote.releaseCouponNow(id);
       case RELEASE_COINS -> remote.releaseCoinsNow(id);
       case CANCEL_PAYMENT -> remote.cancelPaymentNow(id);
-      case COD_COLLECTED -> remote.codCollectedNow(id);
+      case COD_COLLECTED -> codRows.collect(id);
       case CLEAR_CART ->
           remote.clearCartNow(read(row.payload(), OrderRemote.ClearCartPayload.class));
       case ENSURE_COD_PAYMENT ->

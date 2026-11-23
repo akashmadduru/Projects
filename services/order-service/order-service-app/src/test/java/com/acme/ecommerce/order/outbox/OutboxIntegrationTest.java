@@ -73,9 +73,25 @@ class OutboxIntegrationTest extends AbstractOrderIntegrationTest {
     assertThat(statuses()).isEmpty();
   }
 
+  /** COD_COLLECTED now ensures the row first, so the order must exist (delivered, with a row). */
+  private void seedCollectedCod(UUID id) {
+    jdbc.update(
+        "insert into orders.orders (id, user_id, status, currency, total_amount, idempotency_key,"
+            + " address_id, ship_full_name, ship_line1, ship_city, ship_postal_code, ship_country,"
+            + " subtotal_amount, payment_method, wallet_amount, payment_status, payment_id,"
+            + " delivered_at)"
+            + " values (?, ?, 'DELIVERED', 'INR', 100, ?, ?, 'T', '1 Road', 'City', '560001', 'IN',"
+            + " 100, 'COD', 0, 'COD_COLLECTED', 'pay-1', now())",
+        id,
+        UUID.randomUUID(),
+        "seed-" + id,
+        UUID.randomUUID());
+  }
+
   @Test
   @DisplayName("due rows are delivered through the matching call and marked DONE")
   void deliversAndMarksDone() {
+    seedCollectedCod(order);
     outbox.enqueue(Kind.RESTORE_STOCK, order);
     outbox.enqueue(Kind.COD_COLLECTED, order);
 
@@ -131,6 +147,7 @@ class OutboxIntegrationTest extends AbstractOrderIntegrationTest {
   @Test
   @DisplayName("after the last allowed attempt the row is DEAD and no longer blocks the order")
   void deadAfterMaxAttempts() {
+    seedCollectedCod(order);
     doThrow(new IllegalStateException("inventory down")).when(remote).restoreStockNow(order);
     outbox.enqueue(Kind.RESTORE_STOCK, order);
     outbox.enqueue(Kind.COD_COLLECTED, order);

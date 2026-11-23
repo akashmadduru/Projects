@@ -161,7 +161,8 @@ public class OrderStore {
       BigDecimal remainder,
       boolean cod,
       boolean cancelled,
-      String paymentId) {}
+      String paymentId,
+      boolean collected) {}
 
   @Transactional(readOnly = true)
   public Optional<CodRowSpec> codRowSpec(UUID orderId) {
@@ -175,7 +176,13 @@ public class OrderStore {
                     o.getTotalAmount().subtract(o.getWalletAmount()),
                     o.getPaymentMethod() == PaymentMethod.COD,
                     o.getStatus() == OrderStatus.CANCELLED,
-                    o.getPaymentId()));
+                    o.getPaymentId(),
+                    o.getDeliveredAt() != null
+                        && List.of(
+                                PaymentStatus.COD_COLLECTED,
+                                PaymentStatus.PARTIALLY_REFUNDED,
+                                PaymentStatus.REFUNDED)
+                            .contains(o.getPaymentStatus())));
   }
 
   /** Attaches the payment id only if none is set; true when this call attached it. */
