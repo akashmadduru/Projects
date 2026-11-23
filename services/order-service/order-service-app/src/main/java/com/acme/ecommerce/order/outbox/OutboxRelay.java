@@ -6,6 +6,7 @@ import com.acme.ecommerce.order.event.OrderEventPublisher;
 import com.acme.ecommerce.order.outbox.Outbox.Kind;
 import com.acme.ecommerce.order.service.OrderRemote;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import feign.FeignException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
@@ -194,7 +195,9 @@ public class OutboxRelay {
     String error = e.toString();
     error = error.length() > 500 ? error.substring(0, 500) : error;
     boolean clearCart = row.kind() == Kind.CLEAR_CART;
-    boolean dead = attempts >= (clearCart ? CLEAR_CART_MAX_ATTEMPTS : MAX_ATTEMPTS);
+    boolean dead =
+        attempts >= (clearCart ? CLEAR_CART_MAX_ATTEMPTS : MAX_ATTEMPTS)
+            || (clearCart && permanentClientError(e));
     long backoff =
         Math.min(
             clearCart ? CLEAR_CART_MAX_BACKOFF_SECONDS : MAX_BACKOFF_SECONDS,
@@ -225,6 +228,15 @@ public class OutboxRelay {
           error);
     }
     return dead;
+  }
+
+  /** A 4xx other than 404/408/429 will not succeed on retry (validation drift): go DEAD now. */
+  private static boolean permanentClientError(RuntimeException e) {
+    if (!(e instanceof FeignException fe)) {
+      return false;
+    }
+    int s = fe.status();
+    return s >= 400 && s < 500 && s != 404 && s != 408 && s != 429;
   }
 
   private static <T> T read(String json, Class<T> type) {

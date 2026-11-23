@@ -174,6 +174,57 @@ class OutboxRelayTest extends AbstractOrderIntegrationTest {
     assertThat(secondsUntilNextAttempt(restore)).isBetween(3500L, 3600L);
   }
 
+  private static feign.FeignException feignStatus(int status) {
+    feign.Request request =
+        feign.Request.create(
+            feign.Request.HttpMethod.POST,
+            "http://cart-service/internal/carts/x/consumed",
+            java.util.Map.of(),
+            null,
+            java.nio.charset.StandardCharsets.UTF_8,
+            null);
+    return feign.FeignException.errorStatus(
+        "consumed",
+        feign.Response.builder()
+            .status(status)
+            .reason("r")
+            .request(request)
+            .headers(java.util.Map.of())
+            .build());
+  }
+
+  @Test
+  @DisplayName("CLEAR_CART: a 4xx other than 404/408/429 goes DEAD at once; those and 5xx retry")
+  void permanentClientErrorGoesDeadImmediately() {
+    UUID bad = clearCartRow(UUID.randomUUID(), 0);
+    UUID notFound = clearCartRow(UUID.randomUUID(), 0);
+    UUID timeout = clearCartRow(UUID.randomUUID(), 0);
+    UUID tooMany = clearCartRow(UUID.randomUUID(), 0);
+    UUID serverError = clearCartRow(UUID.randomUUID(), 0);
+    doThrow(feignStatus(400)).when(remote).clearCartNow(payloadFor(bad));
+    doThrow(feignStatus(404)).when(remote).clearCartNow(payloadFor(notFound));
+    doThrow(feignStatus(408)).when(remote).clearCartNow(payloadFor(timeout));
+    doThrow(feignStatus(429)).when(remote).clearCartNow(payloadFor(tooMany));
+    doThrow(feignStatus(503)).when(remote).clearCartNow(payloadFor(serverError));
+
+    relay.relay();
+
+    assertThat(status(bad)).isEqualTo("DEAD");
+    assertThat(status(notFound)).isEqualTo("PENDING");
+    assertThat(status(timeout)).isEqualTo("PENDING");
+    assertThat(status(tooMany)).isEqualTo("PENDING");
+    assertThat(status(serverError)).isEqualTo("PENDING");
+  }
+
+  private OrderRemote.ClearCartPayload payloadFor(UUID aggregate) {
+    UUID orderId =
+        jdbc.queryForObject(
+            "select (payload ->> 'orderId')::uuid from orders.outbox where aggregate_id = ?",
+            UUID.class,
+            aggregate);
+    return org.mockito.ArgumentMatchers.argThat(p -> p != null && p.orderId().equals(orderId));
+  }
+
   @Test
   @DisplayName("a CLEAR_CART row survives a restart: a new relay instance delivers it")
   void clearCartSurvivesRestart() {
