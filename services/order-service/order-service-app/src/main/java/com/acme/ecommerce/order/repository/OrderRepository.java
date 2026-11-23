@@ -24,7 +24,9 @@ public interface OrderRepository
 
   /** Sets the payment id only while it is still null; returns rows changed (0 or 1). */
   @org.springframework.data.jpa.repository.Modifying(clearAutomatically = true)
-  @Query("update Order o set o.paymentId = :paymentId where o.id = :id and o.paymentId is null")
+  @Query(
+      "update Order o set o.paymentId = :paymentId, o.version = o.version + 1"
+          + " where o.id = :id and o.paymentId is null")
   int attachPaymentIfAbsent(@Param("id") UUID id, @Param("paymentId") String paymentId);
 
   /** Row lock, so sibling returns of one order freeze their refund legs one at a time. */
