@@ -59,7 +59,7 @@ public class OrderStatusHistory {
     OrderStatusHistory h = new OrderStatusHistory();
     h.order = order;
     h.status = status;
-    h.note = note;
+    h.note = note != null && note.length() > 500 ? note.substring(0, 500) : note; // varchar(500)
     h.actor = actor;
     h.createdAt = at;
     h.shipmentId = shipmentId;

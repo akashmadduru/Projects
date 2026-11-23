@@ -70,16 +70,7 @@ public class WalletCreditBacks {
   public void creditBack(UUID userId, BigDecimal amount, String currency, UUID orderId) {
     String key = "order-wallet-back-" + orderId;
     try {
-      jdbc.sql(
-              "INSERT INTO orders.pending_wallet_credits"
-                  + " (order_id, user_id, amount, currency, idem_key)"
-                  + " VALUES (:o, :u, :a, :c, :k) ON CONFLICT (idem_key) DO NOTHING")
-          .param("o", orderId)
-          .param("u", userId)
-          .param("a", amount)
-          .param("c", currency)
-          .param("k", key)
-          .update();
+      enqueue(userId, amount, currency, orderId, key);
     } catch (RuntimeException e) {
       // Could not record it (order database trouble): one direct attempt, loudly logged.
       log.error("WALLET CREDIT NOT RECORDED for order {}: {}", orderId, e.toString());

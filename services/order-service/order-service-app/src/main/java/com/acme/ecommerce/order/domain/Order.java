@@ -522,6 +522,10 @@ public class Order {
     paymentStatus = full ? PaymentStatus.REFUNDED : PaymentStatus.PARTIALLY_REFUNDED;
   }
 
+  public void addRefunded(BigDecimal amount) {
+    refundedAmount = refundedAmount.add(amount);
+  }
+
   /** A payment landed after the order was cancelled and has been refunded in full. */
   public void recordLateRefund(Instant now) {
     recordRefund(totalAmount, true);

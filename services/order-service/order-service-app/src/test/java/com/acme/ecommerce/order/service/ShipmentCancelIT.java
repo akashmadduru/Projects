@@ -15,7 +15,8 @@ import static org.mockito.Mockito.when;
 import com.acme.ecommerce.common.core.error.CodedException;
 import com.acme.ecommerce.common.core.error.ErrorCode;
 import com.acme.ecommerce.order.client.PaymentFeignClient.RefundResult;
-import com.acme.ecommerce.order.client.SellerInternalFeignClient.SellerRef;
+import com.acme.ecommerce.order.domain.HistoryActor;
+import com.acme.ecommerce.order.domain.OrderStatus;
 import com.acme.ecommerce.order.domain.PaymentMethod;
 import com.acme.ecommerce.order.event.OrderEventType;
 import com.acme.ecommerce.order.support.AbstractCancelIT;
@@ -38,10 +39,8 @@ class ShipmentCancelIT extends AbstractCancelIT {
     Built b = workedExample();
     UUID s1 = b.shipmentIds().get(0);
     UUID s2 = b.shipmentIds().get(1);
-    UUID sellerUser = UUID.randomUUID();
-    when(sellers.byUser(sellerUser)).thenReturn(new SellerRef(b.sellerIds().get(0), "APPROVED"));
 
-    lifecycle.sellerCancelShipment(sellerUser, s1, "out of stock");
+    lifecycle.sellerCancelShipment(b.sellerIds().get(0), s1, "out of stock");
 
     // R1 = 1000 * 1700/2000 = 850: wallet 170, card 680, under the shipment-scoped keys
     verify(payments)
@@ -118,6 +117,7 @@ class ShipmentCancelIT extends AbstractCancelIT {
 
     assertThat(cancelState(s1)).isEqualTo("REQUESTED");
     assertThat(shipmentStatus(s1)).isEqualTo("PLACED");
+    assertThat(cancelledHistoryRows(s1)).isZero();
     assertThat(refunded(b.orderId())).isEqualByComparingTo("0");
     assertThat(walletRows(b.orderId())).isZero();
     assertThat(releaseRows(b.orderId(), s1)).isZero();
@@ -148,6 +148,7 @@ class ShipmentCancelIT extends AbstractCancelIT {
 
     assertThat(cancelState(s1)).isEqualTo("FAILED");
     assertThat(shipmentStatus(s1)).isEqualTo("PLACED");
+    assertThat(cancelledHistoryRows(s1)).isZero();
     assertThat(refunded(b.orderId())).isEqualByComparingTo("0");
     assertThat(walletRows(b.orderId())).isZero();
     assertThat(releaseRows(b.orderId(), s1)).isZero();
@@ -211,6 +212,80 @@ class ShipmentCancelIT extends AbstractCancelIT {
     assertThat(paymentStatus(b.orderId())).isEqualTo("COD_PENDING");
     assertThat(walletRows(b.orderId())).isZero();
     assertThat(releaseRows(b.orderId(), s1)).isEqualTo(1);
+  }
+
+  @Test
+  @DisplayName("a 500-character reason commits DONE on the admin and the seller path")
+  void longReason_commitsDone() {
+    Built b = workedExample();
+    String reason = "x".repeat(500);
+
+    lifecycle.adminCancelShipment(b.orderId(), b.shipmentIds().get(0), reason);
+    lifecycle.sellerCancelShipment(b.sellerIds().get(1), b.shipmentIds().get(1), reason);
+
+    assertThat(cancelState(b.shipmentIds().get(0))).isEqualTo("DONE");
+    assertThat(cancelState(b.shipmentIds().get(1))).isEqualTo("DONE");
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT max(length(note)) FROM orders.order_status_history WHERE order_id = ?",
+                Integer.class,
+                b.orderId()))
+        .isEqualTo(500);
+  }
+
+  @Test
+  @DisplayName("AC-7: a FAILED claim moved no money, so a sibling cancel is not completing")
+  void failedClaim_siblingCancelNotCompleting_shipWins() {
+    Built b = build(PaymentMethod.CARD, "200.00", "100.00", "50.00", "350.00", "1000.00", "600.00");
+    UUID s1 = b.shipmentIds().get(0);
+    UUID s2 = b.shipmentIds().get(1);
+    when(payments.refund(any(), any()))
+        .thenReturn(new RefundResult("PARTIALLY_REFUNDED", BigDecimal.TEN, "FAILED"));
+    assertThatThrownBy(() -> cancel(b, 0)).isInstanceOf(CodedException.class);
+    assertThat(cancelState(s1)).isEqualTo("FAILED");
+    when(payments.refund(any(), any()))
+        .thenReturn(new RefundResult("PARTIALLY_REFUNDED", BigDecimal.TEN, "SUCCEEDED"));
+
+    cancel(b, 1);
+
+    // S2 is 600 of 1600 lines, 1300 paid: 487.50, no shipping, no remainder
+    assertThat(shareOf(s2)).isEqualByComparingTo("487.50");
+    assertThat(shippingOf(s2)).isEqualByComparingTo("0");
+    jdbc.update("UPDATE orders.order_shipments SET status = 'PACKED' WHERE id = ?", s1);
+    store.advanceShipment(
+        b.orderId(), null, s1, OrderStatus.SHIPPED, "n", "TRK", "dhl", HistoryActor.ADMIN);
+
+    assertThat(shipmentStatus(s1)).isEqualTo("SHIPPED");
+    assertThat(refunded(b.orderId())).isEqualByComparingTo("487.50");
+    assertThat(orderStatus(b.orderId())).isNotEqualTo("CANCELLED");
+  }
+
+  @Test
+  @DisplayName("AC-11: an uncollected COD order with a wallet part records the wallet refund")
+  void codWithWallet_recordsWalletPart() {
+    Built b = build(PaymentMethod.COD, "0", "0", "0", "30.00", "100.00", "50.00");
+    UUID s1 = b.shipmentIds().get(0);
+
+    cancel(b, 0);
+
+    verify(payments, never()).refund(any(), any());
+    assertThat(walletRowAmount(s1)).isEqualByComparingTo("20.00");
+    assertThat(refunded(b.orderId())).isEqualByComparingTo("20.00");
+    assertThat(paymentStatus(b.orderId())).isEqualTo("COD_PENDING");
+  }
+
+  private BigDecimal shareOf(UUID shipmentId) {
+    return jdbc.queryForObject(
+        "SELECT cancel_refund_amount FROM orders.order_shipments WHERE id = ?",
+        BigDecimal.class,
+        shipmentId);
+  }
+
+  private BigDecimal shippingOf(UUID shipmentId) {
+    return jdbc.queryForObject(
+        "SELECT cancel_shipping_refund FROM orders.order_shipments WHERE id = ?",
+        BigDecimal.class,
+        shipmentId);
   }
 
   @Test

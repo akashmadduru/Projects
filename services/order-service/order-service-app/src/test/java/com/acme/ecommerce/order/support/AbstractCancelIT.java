@@ -107,6 +107,14 @@ public abstract class AbstractCancelIT extends AbstractOrderIntegrationTest {
         "SELECT refunded_amount FROM orders.orders WHERE id = ?", BigDecimal.class, orderId);
   }
 
+  protected int cancelledHistoryRows(UUID shipmentId) {
+    return jdbc.queryForObject(
+        "SELECT count(*) FROM orders.order_status_history"
+            + " WHERE shipment_id = ? AND status = 'CANCELLED'",
+        Integer.class,
+        shipmentId);
+  }
+
   protected int walletRows(UUID orderId) {
     return jdbc.queryForObject(
         "SELECT count(*) FROM orders.pending_wallet_credits WHERE order_id = ?",

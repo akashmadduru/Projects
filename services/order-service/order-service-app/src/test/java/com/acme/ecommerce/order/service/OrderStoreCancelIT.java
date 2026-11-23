@@ -185,6 +185,21 @@ class OrderStoreCancelIT extends AbstractCancelIT {
     assertThat(shipmentStatus(s1)).isEqualTo("SHIPPED");
     assertThat(cancelState(s1)).isNull();
     assertThat(amountOf(s1, "cancel_refund_amount")).isNull();
-    assertThat(attemptOf(s1)).isEqualTo(1);
+    assertThat(attemptOf(s1)).isEqualTo(2); // the drop spent attempt 1
+  }
+
+  @Test
+  @DisplayName("a FAILED claim dropped by a non-dispatch advance: the next claim uses the next key")
+  void droppedFailedClaim_nextClaimUsesNextKey() {
+    Built b = workedExample();
+    UUID s1 = b.shipmentIds().get(0);
+    store.claimCancel(null, null, b.orderId(), List.of(s1));
+    store.failCancel(b.orderId(), s1, 0);
+    store.advanceShipment(
+        b.orderId(), null, s1, OrderStatus.CONFIRMED, "n", null, null, HistoryActor.ADMIN);
+
+    CancelClaim again = store.claimCancel(null, null, b.orderId(), List.of(s1));
+
+    assertThat(again.claims().get(0).key()).isEqualTo("ship-cancel-" + s1 + "-r1");
   }
 }

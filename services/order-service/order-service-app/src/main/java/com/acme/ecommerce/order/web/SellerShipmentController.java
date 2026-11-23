@@ -2,6 +2,7 @@ package com.acme.ecommerce.order.web;
 
 import com.acme.ecommerce.common.core.error.CodedException;
 import com.acme.ecommerce.common.core.error.ErrorCode;
+import com.acme.ecommerce.order.api.dto.AdminRequests.CancelOrder;
 import com.acme.ecommerce.order.api.dto.AdminRequests.StatusUpdate;
 import com.acme.ecommerce.order.api.dto.SellerShipmentResponse;
 import com.acme.ecommerce.order.domain.OrderStatus;
@@ -80,9 +81,10 @@ public class SellerShipmentController {
   public SellerShipmentResponse cancel(
       @AuthenticationPrincipal Jwt jwt,
       @PathVariable UUID id,
-      @Valid @RequestBody com.acme.ecommerce.order.api.dto.AdminRequests.CancelOrder request) {
-    lifecycle.sellerCancelShipment(UUID.fromString(jwt.getSubject()), id, request.reason());
-    return store.sellerShipment(sellerId(jwt), id);
+      @Valid @RequestBody CancelOrder request) {
+    UUID sellerId = sellerId(jwt);
+    lifecycle.sellerCancelShipment(sellerId, id, request.reason());
+    return store.sellerShipment(sellerId, id);
   }
 
   private UUID sellerId(Jwt jwt) {

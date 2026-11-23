@@ -456,6 +456,7 @@ public class OrderStore {
     }
     Instant now = Instant.now();
     for (OrderShipment s : live) {
+      s.reclaim(now);
       if (!s.holdsCancelClaim()) {
         Order.CancelShare share = o.cancelShare(s);
         Legs legs = legsFor(o, share.total(), null, s);
@@ -466,8 +467,6 @@ public class OrderStore {
             legs.rest(),
             route(o, "SOURCE", legs.rest()),
             now);
-      } else {
-        s.reclaim(now);
       }
     }
     orders.flush();
@@ -513,8 +512,11 @@ public class OrderStore {
     }
     boolean paysRest = !"NONE".equals(route);
     BigDecimal moved = wallet.add(paysRest ? rest : BigDecimal.ZERO);
+    boolean all = o.getShipments().stream().allMatch(OrderShipment::isCancelled);
     if (moved.signum() > 0 && o.getPaymentStatus() != PaymentStatus.COD_PENDING) {
-      o.recordRefund(moved, o.getShipments().stream().allMatch(OrderShipment::isCancelled));
+      o.recordRefund(moved, all);
+    } else if (wallet.signum() > 0) {
+      o.addRefunded(wallet); // uncollected COD: only the wallet part was ever paid
     }
     orders.flush();
     BigDecimal credit = wallet.add("DIRECT_WALLET".equals(route) ? rest : BigDecimal.ZERO);

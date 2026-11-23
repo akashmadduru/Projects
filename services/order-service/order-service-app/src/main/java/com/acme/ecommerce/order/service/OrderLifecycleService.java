@@ -108,11 +108,7 @@ public class OrderLifecycleService {
         List.of(shipmentId));
   }
 
-  public OrderResponse sellerCancelShipment(UUID userId, UUID shipmentId, String reason) {
-    UUID sellerId = remote.approvedSellerId(userId);
-    if (sellerId == null) {
-      throw new CodedException(ErrorCode.FORBIDDEN, "An approved seller account is required");
-    }
+  public OrderResponse sellerCancelShipment(UUID sellerId, UUID shipmentId, String reason) {
     UUID orderId = store.shipmentRef(shipmentId).orderId();
     return cancelShipments(
         HistoryActor.SELLER,

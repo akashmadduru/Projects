@@ -185,12 +185,13 @@ public class OrderShipment {
     updatedAt = now;
   }
 
+  /** A FAILED claim moved no money: it starts over with the next key and is frozen again. */
   public void reclaim(Instant now) {
     if ("FAILED".equals(cancelState)) {
       cancelAttempt++;
-      cancelState = "REQUESTED";
+      cancelState = null;
+      updatedAt = now;
     }
-    updatedAt = now;
   }
 
   public boolean failCancel(int attempt, Instant now) {
@@ -214,6 +215,7 @@ public class OrderShipment {
 
   void dropFailedCancel() {
     if ("FAILED".equals(cancelState)) {
+      cancelAttempt++;
       cancelRefundAmount = null;
       cancelShippingRefund = BigDecimal.ZERO;
       cancelWalletLeg = null;
@@ -233,7 +235,7 @@ public class OrderShipment {
   }
 
   public boolean holdsCancelClaim() {
-    return cancelState != null;
+    return cancelState != null && !"FAILED".equals(cancelState); // FAILED moved no money
   }
 
   public boolean isCancelled() {
