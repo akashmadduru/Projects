@@ -2,6 +2,7 @@ package com.acme.ecommerce.order.outbox;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.time.Duration;
 import java.util.UUID;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Component;
@@ -29,7 +30,8 @@ public class Outbox {
     RELEASE_COINS,
     CANCEL_PAYMENT,
     COD_COLLECTED,
-    CLEAR_CART
+    CLEAR_CART,
+    ENSURE_COD_PAYMENT
   }
 
   private final JdbcClient jdbc;
@@ -52,6 +54,24 @@ public class Outbox {
         .param("k", kind.name())
         .param("p", toJson(payload))
         .param("i", idemKey)
+        .update();
+  }
+
+  /**
+   * Like {@link #enqueue(Kind, UUID, Object, String)} but the relay will not take the row before
+   * {@code notBefore} has passed (it must not race an inline delivery still in flight).
+   */
+  public void enqueue(
+      Kind kind, UUID aggregateId, Object payload, String idemKey, Duration notBefore) {
+    jdbc.sql(
+            "INSERT INTO orders.outbox (aggregate_id, kind, payload, idem_key, next_attempt_at)"
+                + " VALUES (:a, :k, CAST(:p AS jsonb), :i, now() + make_interval(secs => :d))"
+                + " ON CONFLICT (idem_key) DO NOTHING")
+        .param("a", aggregateId)
+        .param("k", kind.name())
+        .param("p", toJson(payload))
+        .param("i", idemKey)
+        .param("d", notBefore.toSeconds())
         .update();
   }
 
