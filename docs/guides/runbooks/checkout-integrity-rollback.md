@@ -45,5 +45,13 @@ order consumed, and repeating it is harmless, so retrying every `DEAD` `CLEAR_CA
 
 - `select kind, status, count(*) from orders.outbox group by 1, 2;` shows no `CLEAR_CART` `PENDING`
   rows after step 2.
-- The relay logs `OUTBOX DEAD` for a `CLEAR_CART` row that gave up after 400 attempts (about 26 h at
+- The relay logs `OUTBOX DEAD` for a `CLEAR_CART` row that got a 4xx other than 404, 408 or 429 (at
+  once, it cannot succeed on retry) or gave up after 400 attempts (about 26 h at
   a 4-minute cap); that is the alert to act on.
+
+## Data retention
+
+A `CLEAR_CART` outbox row keeps a per-user payload in `orders.outbox`: user id, order id and, per
+consumed line, product, variant, offer, quantity and added-at. There is no name, email or address, but
+it is behavioural data per user. Rows stay after they are `DONE`, and the privacy erasure flow does
+not touch `orders.outbox`. Backlog: [TD-BE-19](../../techdebt/backend.md#td-be-19).

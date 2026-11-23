@@ -39,6 +39,7 @@ Shortcuts taken while building customer accounts (login, Google SSO, user/cart/o
 | TD-BE-16 | Build tooling quirks on Windows (spotless bind mount, buildx entitlement, LF endings) | backend | Low | S | [backend.md](backend.md#td-be-16) |
 | TD-BE-17 | Inactive products are readable by anonymous callers (`/{id}`, `batch?detail=true`) | backend | Low | S | [backend.md](backend.md#td-be-17) |
 | TD-BE-18 | Detail batch still makes one stock-rows call per product | backend | Low | M | [backend.md](backend.md#td-be-18) |
+| TD-BE-19 | CLEAR_CART outbox payloads are retained and not covered by erasure | backend | Low | S | [backend.md](backend.md#td-be-19) |
 | TD-TEST-06 | Seed data cannot exercise the sale-price rule | testing | Low | S | [testing.md](testing.md#td-test-06) |
 | TD-RT-01 | Demo product averages disagree with rating-service | ratings | Med | S | [ratings.md](ratings.md#td-rt-01) |
 | TD-RT-02 | No scheduled reconcile of product rating fields | ratings | Med | M | [ratings.md](ratings.md#td-rt-02) |

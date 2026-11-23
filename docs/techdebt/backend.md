@@ -44,3 +44,10 @@ TD-BE-01, TD-BE-02, TD-BE-04 and TD-BE-05 were resolved by Phase 6; residual ris
 - **Where:** `OfferService.enrich` (called from `ProductCatalogService.detail`), per product, through `InventoryServiceClient.stockRows`.
 - **Risk:** `GET /api/products/batch?detail=true` skips variant stock but still makes about one inventory request per product, so a 50-product checkout costs up to 50 inventory calls inside one 5 s order-service read budget (`ORDER_PRODUCT_BATCH_READ_TIMEOUT_MS`). It is still far fewer calls than before, and checkout traffic stays the same shape. The unaffected backlog item B-4 is not changed by this.
 - **Fix:** Add a batched stock-rows endpoint to inventory-service (`/internal/inventory/stock/by-products`) and make `OfferService.enrich` take the rows for all products at once. Raised by F-20261119-11 (CTO condition 6).
+
+<a id="td-be-19"></a>
+## TD-BE-19 CLEAR_CART outbox payloads are retained and not covered by erasure
+- **Severity / Effort:** Low / S
+- **Where:** `OrderRemote.enqueueClearCart`; `orders.outbox` (kind `CLEAR_CART`).
+- **Risk:** The payload (product, variant, offer, quantity and added-at per line, per user) stays in `orders.outbox` after the row is `DONE`, and the erasure flow does not remove it. No direct PII, but it is per-user behavioural data kept indefinitely.
+- **Fix:** Purge `DONE` `CLEAR_CART` rows after N days, or null the payload when a row goes `DONE`, and add `orders.outbox` payloads that reference the user to the order-service erasure step. Raised by F-20261119-11 (security review of PR-C).
