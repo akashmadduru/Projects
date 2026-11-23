@@ -101,6 +101,10 @@ already has a row, goes DONE with no call. An ERROR
 "already has a ... payment row" means the order's payment id points at a non-COD row: it was left unchanged, ask a
 developer.
 
+A placement that takes longer than 60 seconds can leave a harmless COD_PENDING row on an order that is later CANCELLED
+(the repair ran while the order was still open). No money moves: cancelling a COD order is a no-op for payments and a
+COD_PENDING return routes to NONE. Leave the row alone.
+
 A COD order placed before this change, while payment-service was down, may still have no row. Its refund fails loudly
 with 404, the wallet is not credited and the return stays PICKED_UP, and there is no fallback credit. A 409 means the COD
 payment is still COD_PENDING (the order was never marked delivered and collected). Fix the cause, then retry. Older
