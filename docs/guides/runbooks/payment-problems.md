@@ -87,10 +87,31 @@ return with only a `return-wallet-<id>` or refund row is partly paid. The new co
 calls return the existing rows and nothing is paid twice, but the amounts are recomputed: check they match the rows
 found, and if not, settle by hand before retrying.
 
-**A COD refund that returns 404 leaves the return PICKED_UP.** A COD order placed while payment-service was down has no
-payment row (placement is best effort), and there is no fallback credit any more. The refund fails loudly with 404, the
-wallet is not credited and the return stays PICKED_UP. A 409 means the COD payment is still COD_PENDING (the order was
-never marked delivered and collected). Fix the cause, then retry. Backlog B-10 makes sure every COD order gets a payment row.
+**COD payment rows and the repair row (ENSURE_COD_PAYMENT).** Every new COD order gets a payment-service row (method
+COD, status COD_PENDING, amount = total minus wallet part) when it is placed. If payment-service is down at that moment,
+placement still succeeds and an outbox row `kind='ENSURE_COD_PAYMENT'` is saved with the order, on its own aggregate (so
+it never holds back the order's events). The relay creates the row 60 seconds or more after placement, retrying with the
+usual backoff; creating it twice is safe. Check the backlog with
+```sql
+SELECT status, count(*) FROM orders.outbox WHERE kind = 'ENSURE_COD_PAYMENT' GROUP BY status;
+```
+A row that is `DEAD` (about 10 hours of failures, logged as "OUTBOX DEAD") has an order with no payment row: fix
+payment-service, then retry it from the admin outbox retry endpoint. A repair for a cancelled order, or an order that
+already has a row, goes DONE with no call. A WARN
+"already has a ... payment row" means the order's payment id points at a non-COD row: it was left unchanged, ask a
+developer.
+
+A COD order placed before this change, while payment-service was down, may still have no row. Its refund fails loudly
+with 404, the wallet is not credited and the return stays PICKED_UP, and there is no fallback credit. A 409 means the COD
+payment is still COD_PENDING (the order was never marked delivered and collected). Fix the cause, then retry. Older
+orders without a row are handled in a follow-up change (backlog B-10, part B).
+
+**Rollback note.** Rolling order-service back leaves `ENSURE_COD_PAYMENT` rows PENDING: the older build skips kinds it does
+not know, reports them once per pass, and they do not delay any other order's rows. They are harmless. Optionally mark
+them DEAD so the report stops:
+```sql
+UPDATE orders.outbox SET status = 'DEAD' WHERE kind = 'ENSURE_COD_PAYMENT' AND status = 'PENDING';
+```
 
 **PENDING card leg.** Razorpay accepts a refund before it is done. The return stays PICKED_UP with `refundState=PENDING`
 and no stock release or event. `ReturnRefundWatch` re-checks it every `ORDER_RETURNS_REFUND_POLL_INTERVAL_MS` (default
