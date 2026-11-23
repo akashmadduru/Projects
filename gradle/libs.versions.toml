@@ -30,19 +30,19 @@
 
 [versions]
 # --- platform BOMs ---
-springBoot = "4.0.7"
+springBoot = "4.2.0"
 springCloud = "2025.1.2"
 
 # --- build plugins ---
-spotless = "8.9.0"
+spotless = "8.11.0"
 googleJavaFormat = "1.36.1"
 checkstyleTool = "13.9.0"
 
 # --- libraries not managed by the Boot/Cloud BOMs ---
-bouncycastle = "1.85"
-springdoc = "3.0.3"
+bouncycastle = "1.87"
+springdoc = "3.2.1"
 mapstruct = "1.6.3"
-lombok = "1.18.46"
+lombok = "1.18.48"
 # WHY 8.10.1 AND NOT NEWER: the `com.bucket4j:bucket4j-core` coordinate stops at
 # 8.10.1 on Maven Central; from 8.11 the project split into JDK-specific
 # artifacts (`bucket4j_jdk17-core`). 8.10.1 is the last release of the plain
@@ -52,7 +52,7 @@ lombok = "1.18.46"
 # regardless of replica count.
 bucket4j = "8.10.1"
 # Stripe Java SDK (payment-service). Not managed by the Boot BOM.
-stripeJava = "34.1.0"
+stripeJava = "34.2.0"
 # OpenPDF (order-service invoice PDFs). Not managed by the Boot BOM.
 openpdf = "2.0.3"
 # WHY THE AWS SDK v2 `bedrockruntime` CLIENT AND NOT SPRING AI (Cartwise AI-1 spike, 2026-11):
@@ -66,7 +66,7 @@ openpdf = "2.0.3"
 # `sts` is required at runtime for IRSA (web-identity) credentials in the default chain;
 # netty-nio-client is excluded in product-service-app (sync client only, and it would otherwise
 # be pulled onto the Boot-managed Netty line).
-awsSdk = "2.59.1"
+awsSdk = "2.59.6"
 # NOTE: Testcontainers is NOT pinned here. The Spring Boot 4.0.7 BOM already
 # manages it (currently 2.0.5). Importing a second Testcontainers BOM would
 # create a silent version conflict of exactly the kind that bit us with
