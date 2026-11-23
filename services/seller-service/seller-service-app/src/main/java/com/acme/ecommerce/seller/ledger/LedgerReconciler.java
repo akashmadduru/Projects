@@ -358,6 +358,14 @@ public class LedgerReconciler {
             currency);
         BigDecimal booked = saleAmount(d.shipmentId());
         if (booked == null) {
+          if ("CANCELLED"
+              .equals(
+                  jdbc.sql("SELECT status FROM ledger_shipments WHERE shipment_id = :s")
+                      .param("s", d.shipmentId())
+                      .query(String.class)
+                      .single())) {
+            throw new ResourceConflictException("SALE not booked: shipment is cancelled");
+          }
           throw new ResourceConflictException("SALE could not be booked (unknown seller?)");
         }
         return booked.compareTo(cents) == 0
