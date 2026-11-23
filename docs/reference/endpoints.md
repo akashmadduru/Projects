@@ -155,6 +155,7 @@ Request and response shapes for Phases 1–5 are in [api.md](api.md); later phas
 | GET | `/api/admin/orders/{id}` | AdminOrderController |
 | POST | `/api/admin/orders/{id}/cancel` | AdminOrderController |
 | POST | `/api/admin/orders/{id}/release-hold` | AdminOrderController |
+| POST | `/api/admin/orders/{id}/shipments/{shipmentId}/cancel` | AdminOrderController |
 | POST | `/api/admin/orders/{id}/shipments/{shipmentId}/status` | AdminOrderController |
 | POST | `/api/admin/orders/{id}/status` | AdminOrderController |
 | GET | `/api/admin/orders/stats` | AdminOrderController |
@@ -163,6 +164,7 @@ Request and response shapes for Phases 1–5 are in [api.md](api.md); later phas
 | POST | `/api/admin/returns/{id}/status` | AdminOrderController |
 | GET | `/api/seller/shipments` | SellerShipmentController |
 | GET | `/api/seller/shipments/{id}` | SellerShipmentController |
+| POST | `/api/seller/shipments/{id}/cancel` | SellerShipmentController |
 | POST | `/api/seller/shipments/{id}/status` | SellerShipmentController |
 | GET | `/internal/orders/{id}/brief` | InternalOrderLookupController |
 | POST | `/internal/orders/{id}/payment-result` | InternalOrderController |

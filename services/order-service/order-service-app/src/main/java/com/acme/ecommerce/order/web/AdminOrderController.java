@@ -103,6 +103,16 @@ public class AdminOrderController {
     return lifecycle.cancelByAdmin(id, request.reason());
   }
 
+  /** Cancels one shipment of an order and refunds its share (404 if not on that order). */
+  @PostMapping("/orders/{id}/shipments/{shipmentId}/cancel")
+  @PreAuthorize("hasRole('ADMIN')")
+  public OrderResponse cancelShipment(
+      @PathVariable UUID id,
+      @PathVariable UUID shipmentId,
+      @Valid @RequestBody CancelOrder request) {
+    return lifecycle.adminCancelShipment(id, shipmentId, request.reason());
+  }
+
   @GetMapping("/returns")
   public PagedModel<ReturnResponse> listReturns(
       @RequestParam(required = false) ReturnStatus status,

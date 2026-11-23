@@ -29,6 +29,8 @@ dependencies {
     // TD-TEST-01: order placement is tested against a real Postgres (Testcontainers).
     testImplementation libs.bundles.testing.unit
     testImplementation libs.bundles.testing.containers
+    // F-14: MockMvc for the cancel endpoint authorization matrix.
+    testImplementation libs.spring.boot.webmvc.test
 
     compileOnly libs.lombok
     annotationProcessor libs.lombok

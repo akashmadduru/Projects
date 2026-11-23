@@ -76,6 +76,16 @@ public class SellerShipmentController {
     return store.sellerShipment(sellerId(jwt), id);
   }
 
+  /** Cancels one of the seller's own shipments (before it ships) and refunds its share. */
+  @PostMapping("/{id}/cancel")
+  public SellerShipmentResponse cancel(
+      @AuthenticationPrincipal Jwt jwt,
+      @PathVariable UUID id,
+      @Valid @RequestBody com.acme.ecommerce.order.api.dto.AdminRequests.CancelOrder request) {
+    lifecycle.sellerCancelShipment(UUID.fromString(jwt.getSubject()), id, request.reason());
+    return store.sellerShipment(sellerId(jwt), id);
+  }
+
   private UUID sellerId(Jwt jwt) {
     UUID sellerId = remote.approvedSellerId(UUID.fromString(jwt.getSubject()));
     if (sellerId == null) {
