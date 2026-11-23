@@ -75,7 +75,8 @@ public class LedgerService {
    * Records what order-service announced for each shipment in {@code ledger_shipments}, the source
    * the reconcile job compares the ledger against. It commits in its own transaction so a failing
    * posting (or an outer rollback) never removes it, and it is monotonic: an older event (lower
-   * status rank) is ignored, so an out-of-order SHIPPED never overwrites DELIVERED. Shipment
+   * status rank) is ignored, so an out-of-order SHIPPED never overwrites DELIVERED. CANCELLED is
+   * terminal: once stored, nothing changes the row (not even a replay of CANCELLED). Shipment
    * amounts are treated as immutable once DELIVERED: a replay at the same rank carries the same
    * amount, so no timestamp tiebreak is kept.
    */
@@ -90,7 +91,7 @@ public class LedgerService {
                   + " VALUES (:sh, :o, :s, :st, COALESCE(CAST(:a AS numeric), 0), :c)"
                   + " ON CONFLICT (shipment_id) DO UPDATE SET status = EXCLUDED.status,"
                   + " amount = COALESCE(CAST(:a AS numeric), ledger_shipments.amount), updated_at = now()"
-                  + " WHERE COALESCE(array_position("
+                  + " WHERE ledger_shipments.status <> 'CANCELLED' AND COALESCE(array_position("
                   + STATUS_RANK
                   + ", EXCLUDED.status), 0) >= COALESCE(array_position("
                   + STATUS_RANK
@@ -118,7 +119,10 @@ public class LedgerService {
                 .query(String.class)
                 .optional()
                 .orElse(null))) {
-      log.warn("Delivery for cancelled shipment {} of order {} ignored - nothing booked", shipmentId, orderId);
+      log.warn(
+          "Delivery for cancelled shipment {} of order {} ignored - nothing booked",
+          shipmentId,
+          orderId);
       return;
     }
     UUID sellerId = p.sellerId() == null ? platformSeller : UUID.fromString(p.sellerId());

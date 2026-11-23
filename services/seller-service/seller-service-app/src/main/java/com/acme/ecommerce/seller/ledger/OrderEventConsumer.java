@@ -145,6 +145,15 @@ public class OrderEventConsumer {
         return;
       }
       if (parts.isEmpty()) {
+        if ("CANCELLED".equals(e.status())) {
+          // legacy order: shipmentId = orderId; the register row stops a later DELIVERED booking
+          ledger.track(
+              orderId,
+              List.of(
+                  new Part(e.orderId(), platformSeller, "CANCELLED", e.totalAmount(), List.of())),
+              currency);
+          return;
+        }
         if ("DELIVERED".equals(e.status()) && e.totalAmount() != null) {
           ledger.recordDelivered(
               orderId,
