@@ -418,11 +418,12 @@ public class OrderService {
       log.warn("COD order {} placed but payment record not created: {}", saved.id(), e.toString());
     }
 
-    if (!buyNow) {
-      remote.clearCart(saved.userId(), saved.id(), cart.items());
-    }
+    // The placed event is recorded before the clear so nothing in the clear can skip it.
     if (method == PaymentMethod.COD) {
       events.publish(placedType, saved);
+    }
+    if (!buyNow) {
+      remote.clearCart(saved.userId(), saved.id(), cart.items());
     }
     return new Placement(paymentBlock == null ? saved : saved.withPayment(paymentBlock), true);
   }

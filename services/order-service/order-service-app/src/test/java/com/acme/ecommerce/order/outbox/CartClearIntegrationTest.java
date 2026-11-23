@@ -52,6 +52,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
 /**
  * F-20261119-11 / TD-BE-03 with the real OrderRemote, outbox and relay (only the HTTP clients and
@@ -69,6 +70,8 @@ class CartClearIntegrationTest extends AbstractOrderIntegrationTest {
   @MockitoBean private UserInternalFeignClient usersInternal;
   @MockitoBean private RiskService risks;
   @MockitoBean private KafkaTemplate<String, OrderEvent> kafka;
+
+  @MockitoSpyBean private Outbox outboxSpy;
 
   @Autowired private OrderService orders;
   @Autowired private OutboxRelay relay;
@@ -187,14 +190,15 @@ class CartClearIntegrationTest extends AbstractOrderIntegrationTest {
     assertThat(clearRows(orderId)).containsExactly("PENDING");
     verify(cartInternal, times(1)).consumed(eq(user), any());
     // The row is in the database, not in memory: a relay instance started afterwards sees it.
-    // The bound: the first retry is due within the 240 s cap.
+    // An inline failure leaves it due immediately (the 240 s backoff cap itself is pinned in
+    // OutboxRelayTest.clearCartBackoffIsCappedPerKind).
     assertThat(
             jdbc.queryForObject(
                 "select extract(epoch from (next_attempt_at - now()))::bigint from orders.outbox"
                     + " where idem_key = ?",
                 Long.class,
                 "CLEAR_CART:" + orderId))
-        .isLessThanOrEqualTo(240L);
+        .isLessThanOrEqualTo(0L);
   }
 
   @Test
@@ -267,10 +271,19 @@ class CartClearIntegrationTest extends AbstractOrderIntegrationTest {
   @DisplayName("AC-18: the clear names only the lines the order consumed, never a later item")
   void clearCarriesOnlyTheConsumedLines() {
     UUID later = UUID.randomUUID();
+    // The inline clear fails, so only the stored payload can drive the retry.
+    cartServiceDown();
     UUID orderId = placeFromCart(user, "scoped-1").order().id();
-    // An item is added to the cart after the order was placed; the clear was built before it.
+    // An item is added to the cart after the order was placed; the relay delivers afterwards.
     cartHolds(later, 1);
+    reset(cartInternal);
+    when(cartInternal.consumed(any(), any())).thenReturn(new ConsumedLinesResponse(1));
+    jdbc.update(
+        "update orders.outbox set next_attempt_at = now() where idem_key = ?",
+        "CLEAR_CART:" + orderId);
+    new OutboxRelay(jdbcClient, remote, events, jobLock).relay();
 
+    assertThat(clearRows(orderId)).containsExactly("DONE");
     verify(cartInternal, times(1))
         .consumed(
             eq(user),
@@ -322,6 +335,48 @@ class CartClearIntegrationTest extends AbstractOrderIntegrationTest {
     verifyNoInteractions(cartInternal);
     verify(carts, never()).getCart();
     verify(carts, never()).clearCart();
+  }
+
+  @Test
+  @DisplayName("an outbox failure on the clear never fails a placed COD order or skips its event")
+  void enqueueFailureDoesNotFailACodOrder() {
+    doThrow(new IllegalStateException("outbox insert failed"))
+        .when(outboxSpy)
+        .enqueue(eq(Outbox.Kind.CLEAR_CART), any(), any(), anyString());
+
+    OrderService.Placement p =
+        orders.place(
+            user,
+            "c@example.com",
+            "cod-enq-1",
+            new PlaceOrderRequest(
+                addressId, PaymentMethodRequest.COD, null, null, null, null, null));
+
+    assertThat(p.created()).isTrue();
+    UUID orderId = p.order().id();
+    assertThat(p.order().paymentMethod()).isEqualTo("COD");
+    assertThat(
+            jdbc.queryForObject(
+                "select count(*) from orders.outbox where aggregate_id = ? and kind = 'ORDER_EVENT'"
+                    + " and payload::text like '%ORDER_PLACED%'",
+                Integer.class, orderId))
+        .isEqualTo(1);
+    assertThat(clearRows(orderId)).isEmpty();
+  }
+
+  @Test
+  @DisplayName("an outbox failure on the clear leaves the 409 for an already ordered cart as 409")
+  void enqueueFailureKeepsTheConflict() {
+    cartServiceDown();
+    placeFromCart(user, "conflict-enq-1");
+    doThrow(new IllegalStateException("outbox insert failed"))
+        .when(outboxSpy)
+        .enqueue(eq(Outbox.Kind.CLEAR_CART), any(), any(), anyString());
+
+    assertThatThrownBy(() -> placeFromCart(user, "conflict-enq-2"))
+        .isInstanceOf(CodedException.class)
+        .extracting(e -> ((CodedException) e).errorCode())
+        .isEqualTo(ErrorCode.RESOURCE_CONFLICT);
   }
 
   @Test

@@ -207,7 +207,14 @@ public class OrderRemote {
 
   /** Durable: removes the order's lines from the user's cart, now and then until it lands. */
   public void clearCart(UUID userId, UUID orderId, List<CartItemResponse> items) {
-    enqueueClearCart(userId, orderId, items);
+    try {
+      enqueueClearCart(userId, orderId, items);
+    } catch (RuntimeException e) {
+      // The order already exists: never fail it. The fingerprint guard still blocks a re-order.
+      log.warn(
+          "Order {} placed but its cart clear could not be recorded: {}", orderId, e.toString());
+      return;
+    }
     attemptClearCart(userId, orderId, items);
   }
 
