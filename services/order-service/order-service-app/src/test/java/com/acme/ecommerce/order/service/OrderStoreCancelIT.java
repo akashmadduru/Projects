@@ -23,12 +23,16 @@ class OrderStoreCancelIT extends AbstractCancelIT {
 
   private BigDecimal amountOf(UUID shipmentId, String column) {
     return jdbc.queryForObject(
-        "SELECT " + column + " FROM orders.order_shipments WHERE id = ?", BigDecimal.class, shipmentId);
+        "SELECT " + column + " FROM orders.order_shipments WHERE id = ?",
+        BigDecimal.class,
+        shipmentId);
   }
 
   private int attemptOf(UUID shipmentId) {
     return jdbc.queryForObject(
-        "SELECT cancel_attempt FROM orders.order_shipments WHERE id = ?", Integer.class, shipmentId);
+        "SELECT cancel_attempt FROM orders.order_shipments WHERE id = ?",
+        Integer.class,
+        shipmentId);
   }
 
   @Test
@@ -39,7 +43,9 @@ class OrderStoreCancelIT extends AbstractCancelIT {
     CancelClaim claim = store.claimCancel(null, null, b.orderId(), null);
 
     assertThat(claim.claims()).hasSize(3);
-    assertThat(claim.claims()).extracting(OrderStore.Claimed::shipmentId).containsExactlyElementsOf(b.shipmentIds());
+    assertThat(claim.claims())
+        .extracting(OrderStore.Claimed::shipmentId)
+        .containsExactlyElementsOf(b.shipmentIds());
     List<UUID> ids = b.shipmentIds();
     assertThat(amountOf(ids.get(0), "cancel_refund_amount")).isEqualByComparingTo("850.00");
     assertThat(amountOf(ids.get(1), "cancel_refund_amount")).isEqualByComparingTo("510.00");
@@ -124,18 +130,29 @@ class OrderStoreCancelIT extends AbstractCancelIT {
   @Test
   @DisplayName("T3 of the last live shipment cancels the order")
   void lastCommitCancelsTheOrder() {
-    Built b = build(com.acme.ecommerce.order.domain.PaymentMethod.CARD, "0", "0", "0", "0", "100.00", "50.00");
+    Built b =
+        build(
+            com.acme.ecommerce.order.domain.PaymentMethod.CARD,
+            "0",
+            "0",
+            "0",
+            "0",
+            "100.00",
+            "50.00");
     store.claimCancel(null, null, b.orderId(), null);
-    CancelCommit one = store.commitCancel(b.orderId(), b.shipmentIds().get(0), 0, HistoryActor.USER, "x");
+    CancelCommit one =
+        store.commitCancel(b.orderId(), b.shipmentIds().get(0), 0, HistoryActor.USER, "x");
     assertThat(one.orderCancelled()).isFalse();
-    CancelCommit two = store.commitCancel(b.orderId(), b.shipmentIds().get(1), 0, HistoryActor.USER, "x");
+    CancelCommit two =
+        store.commitCancel(b.orderId(), b.shipmentIds().get(1), 0, HistoryActor.USER, "x");
     assertThat(two.orderCancelled()).isTrue();
     assertThat(orderStatus(b.orderId())).isEqualTo(OrderStatus.CANCELLED.name());
     assertThat(paymentStatus(b.orderId())).isEqualTo("REFUNDED");
   }
 
   @Test
-  @DisplayName("shipping clears a FAILED claim (the attempt stays), and a REQUESTED claim blocks it")
+  @DisplayName(
+      "shipping clears a FAILED claim (the attempt stays), and a REQUESTED claim blocks it")
   void failedClaimIsClearedByShip() {
     Built b = workedExample();
     UUID s1 = b.shipmentIds().get(0);
@@ -145,14 +162,23 @@ class OrderStoreCancelIT extends AbstractCancelIT {
     assertThatThrownBy(
             () ->
                 store.advanceShipment(
-                    b.orderId(), null, s1, OrderStatus.SHIPPED, "n", "TRK", "dhl", HistoryActor.ADMIN))
+                    b.orderId(),
+                    null,
+                    s1,
+                    OrderStatus.SHIPPED,
+                    "n",
+                    "TRK",
+                    "dhl",
+                    HistoryActor.ADMIN))
         .isInstanceOfSatisfying(
-            CodedException.class, e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.RESOURCE_CONFLICT));
+            CodedException.class,
+            e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.RESOURCE_CONFLICT));
 
     store.failCancel(b.orderId(), s1, 0);
     store.claimCancel(null, null, b.orderId(), List.of(s1)); // attempt 1
     store.failCancel(b.orderId(), s1, 1);
-    store.advanceShipment(b.orderId(), null, s1, OrderStatus.SHIPPED, "n", "TRK", "dhl", HistoryActor.ADMIN);
+    store.advanceShipment(
+        b.orderId(), null, s1, OrderStatus.SHIPPED, "n", "TRK", "dhl", HistoryActor.ADMIN);
 
     assertThat(shipmentStatus(s1)).isEqualTo("SHIPPED");
     assertThat(cancelState(s1)).isNull();
