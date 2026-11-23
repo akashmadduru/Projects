@@ -109,6 +109,18 @@ public class LedgerService {
   @Transactional
   public void recordDelivered(UUID orderId, Part p, String currency) {
     UUID shipmentId = UUID.fromString(p.shipmentId());
+    // CANCELLED is terminal: the share lock makes a concurrent cancel wait for this booking (it
+    // then books before the cancel) or be seen here (nothing is booked); never booked-after-cancel.
+    if ("CANCELLED"
+        .equals(
+            jdbc.sql("SELECT status FROM ledger_shipments WHERE shipment_id = :s FOR SHARE")
+                .param("s", shipmentId)
+                .query(String.class)
+                .optional()
+                .orElse(null))) {
+      log.warn("Delivery for cancelled shipment {} of order {} ignored - nothing booked", shipmentId, orderId);
+      return;
+    }
     UUID sellerId = p.sellerId() == null ? platformSeller : UUID.fromString(p.sellerId());
     BigDecimal gross =
         p.amount() == null ? BigDecimal.ZERO : p.amount().setScale(2, RoundingMode.HALF_UP);
