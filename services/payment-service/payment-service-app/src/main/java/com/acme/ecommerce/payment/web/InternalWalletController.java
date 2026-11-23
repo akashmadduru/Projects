@@ -42,6 +42,9 @@ public class InternalWalletController {
 
   public record ReverseResult(boolean reversed) {}
 
+  /** Always 200; only these fields, never a balance or a transaction id. */
+  public record CreditLookup(boolean found, UUID userId, BigDecimal amount, String currency) {}
+
   private final WalletService wallet;
 
   public InternalWalletController(WalletService wallet) {
@@ -51,6 +54,15 @@ public class InternalWalletController {
   @GetMapping("/{userId}")
   public Balance balance(@PathVariable UUID userId) {
     return wallet.balance(userId);
+  }
+
+  /** Was a credit made under this key? Internal only; the answer names no balance or txn id. */
+  @GetMapping("/credits/{key}")
+  public CreditLookup credit(@PathVariable String key) {
+    return wallet
+        .findCredit(key)
+        .map(c -> new CreditLookup(true, c.userId(), c.amount(), c.currency()))
+        .orElse(new CreditLookup(false, null, null, null));
   }
 
   @PostMapping("/debit")

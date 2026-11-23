@@ -86,6 +86,20 @@ public class WalletRepository {
         .optional();
   }
 
+  /** A CREDIT row by its idempotency key: who got how much (no balance, no ids). */
+  public record Credit(UUID userId, BigDecimal amount, String currency) {}
+
+  public Optional<Credit> findCredit(String key) {
+    return jdbc.sql(
+            "SELECT user_id, amount, currency FROM payment.wallet_txns"
+                + " WHERE idempotency_key = :k AND type = 'CREDIT'")
+        .param("k", key)
+        .query(
+            (rs, n) ->
+                new Credit(rs.getObject(1, UUID.class), rs.getBigDecimal(2), rs.getString(3)))
+        .optional();
+  }
+
   public boolean txnExists(String key) {
     return jdbc.sql("SELECT EXISTS (SELECT 1 FROM payment.wallet_txns WHERE idempotency_key = :k)")
         .param("k", key)

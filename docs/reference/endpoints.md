@@ -174,7 +174,7 @@ Request and response shapes for Phases 1–5 are in [api.md](api.md); later phas
 | GET | `/internal/privacy/users/{userId}/export` | PrivacyExportController |
 | POST | `/internal/subscriptions/run-due` | InternalSubscriptionController |
 
-## payment-service (19)
+## payment-service (20)
 
 | Method | Path | Controller |
 |---|---|---|
@@ -195,6 +195,7 @@ Request and response shapes for Phases 1–5 are in [api.md](api.md); later phas
 | GET | `/internal/privacy/users/{userId}/deletion-blockers` | PrivacyBlockersController |
 | GET | `/internal/privacy/users/{userId}/export` | PrivacyExportController |
 | GET | `/internal/wallet/{userId}` | InternalWalletController |
+| GET | `/internal/wallet/credits/{key}` | InternalWalletController |
 | POST | `/internal/wallet/credit` | InternalWalletController |
 | POST | `/internal/wallet/debit` | InternalWalletController |
 

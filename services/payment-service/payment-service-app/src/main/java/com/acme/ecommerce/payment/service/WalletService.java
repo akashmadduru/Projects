@@ -11,6 +11,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -49,6 +50,11 @@ public class WalletService {
         .find(userId)
         .map(w -> new Balance(w.balance(), w.currency()))
         .orElse(new Balance(BigDecimal.ZERO.setScale(2), null));
+  }
+
+  /** Read-only lookup of a credit by key, for order-service's legacy COD refund check. */
+  public Optional<WalletRepository.Credit> findCredit(String key) {
+    return wallets.findCredit(key);
   }
 
   public WalletView view(UUID userId) {
