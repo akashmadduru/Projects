@@ -116,7 +116,7 @@ Shortcuts taken while building customer accounts (login, Google SSO, user/cart/o
 | TD-P9-08 | Payout run manual and simulated | phase9 | Med | M | [phase9.md](phase9.md#td-p9-08) |
 | TD-P9-10 | Ads: unauthenticated clicks, FE-driven beacons, substring keywords | phase9 | Med | M | [phase9.md](phase9.md#td-p9-10) |
 | TD-P9-11 | Seller lookups uncached; fixed fallback ratings | phase9 | Med | S | [phase9.md](phase9.md#td-p9-11) |
-| TD-P9-12 | Shipment lifecycle: no per-shipment cancel/refund, no SLA | phase9 | Med | M | [phase9.md](phase9.md#td-p9-12) |
+| TD-P9-12 | Shipment lifecycle: no seller SLA or auto-cancel | phase9 | Med | M | [phase9.md](phase9.md#td-p9-12) |
 | TD-P9-13 | Returns, invoices, delivery estimates per shipment shortcuts | phase9 | Med | M | [phase9.md](phase9.md#td-p9-13) |
 | TD-P9-15 | Wishlist/saved not offer-keyed; omitted offerId ambiguous | phase9 | Med | M | [phase9.md](phase9.md#td-p9-15) |
 | TD-P9-14 | Seller analytics approximate | phase9 | Low | S | [phase9.md](phase9.md#td-p9-14) |

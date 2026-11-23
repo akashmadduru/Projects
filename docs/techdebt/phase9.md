@@ -65,11 +65,11 @@ Phase 9 was built under "no tests, no HLD/LLD, record shortcuts as debt". The in
 - **Fix:** Shared short-TTL cache (Caffeine/Redis) with stale-while-error; pass sellerId in the JWT or token claims; cache rating in the offer row.
 
 <a id="td-p9-12"></a>
-## TD-P9-12 Shipment lifecycle and cancel/refund limits
+## TD-P9-12 Shipment lifecycle limits
 - **Severity / Effort:** Med / M
 - **Where:** order-service shipment service, seller shipment endpoints, cancel flow.
-- **Risk:** Shipment status copies the order lifecycle. A seller cannot cancel or reject a single shipment (only a whole-order cancel while every live shipment is `<= PACKED`), there is no per-shipment partial refund on cancel (order-level refund only), and no seller SLA or auto-cancel for stale shipments. Order status is derived on every shipment move (min live status, DELIVERED when all live delivered); `delivered_at` is when the LAST shipment was delivered, and COD is marked collected only when all shipments are delivered, not per shipment. The shipment timeline is synthesised (order-level rows are not stored per shipment). Extends [TD-P6-14](phase6.md#td-p6-14).
-- **Fix:** Per-shipment cancel/reject with refund of that shipment's value; SLA scheduler with auto-cancel; store shipment timeline rows.
+- **Risk:** Shipment status copies the order lifecycle. There is no seller SLA or auto-cancel for stale shipments. Order status is derived on every shipment move (min live status, DELIVERED when all live delivered); `delivered_at` is when the LAST shipment was delivered, and COD is marked collected only when all shipments are delivered, not per shipment. The shipment timeline is synthesised (order-level rows are not stored per shipment). Extends [TD-P6-14](phase6.md#td-p6-14).
+- **Fix:** SLA scheduler with auto-cancel; store shipment timeline rows.
 
 <a id="td-p9-13"></a>
 ## TD-P9-13 Returns, invoices and delivery estimates per shipment

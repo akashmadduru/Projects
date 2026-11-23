@@ -157,6 +157,31 @@ retries and a new `-r<n>` key is used. The wallet is not credited again.
 **Rollback.** Revert the images (order-service first, then payment-service). The V13 columns are ignored by old code. A
 return left PENDING completes under the old logic, which treats an accepted refund as done.
 
+## Shipment cancel (per-shipment refund)
+
+A cancel runs in three steps: claim the shipment (`cancel_state` REQUESTED), refund the card part under `ship-cancel-<shipmentId>`, then commit (DONE, stock release, wallet credit queued as `ship-cancel-wallet-<shipmentId>`, events). A failed card refund answers 503 and changes nothing.
+
+**Retrying the cancel clears a stuck REQUESTED** (the same key is replayed; a FAILED claim moves to `-r<n>`). A 409 "Shipment cancel must be completed" on a ship request means a sibling holds the shipping on the strength of this FAILED claim: retry the cancel; it clears.
+
+```sql
+-- claims stuck in REQUESTED
+SELECT id, order_id, cancel_attempt, updated_at FROM orders.order_shipments
+ WHERE cancel_state = 'REQUESTED' AND updated_at < now() - interval '15 minutes';
+-- wallet credits not yet delivered
+SELECT idem_key, order_id, amount, next_attempt_at FROM orders.pending_wallet_credits
+ WHERE idem_key LIKE 'ship-cancel-wallet-%' AND completed_at IS NULL;
+-- FAILED shipments whose siblings hold the shipping
+SELECT f.id AS failed_shipment, f.order_id, o.id AS sibling, o.cancel_shipping_refund
+  FROM orders.order_shipments f
+  JOIN orders.order_shipments o ON o.order_id = f.order_id AND o.id <> f.id
+ WHERE f.cancel_state = 'FAILED' AND o.cancel_state IN ('REQUESTED', 'DONE')
+   AND o.cancel_shipping_refund > 0;
+```
+
+**Persistent decline.** If the card refund keeps coming back FAILED, no API call completes the cancel. Manual path: refund the shipment's `cancel_rest_leg` in the provider dashboard, then have an engineer finish the cancel with a reviewed SQL change. Until then the shipment cannot ship while a sibling holds the shipping. An admin "force complete" action and a settlement watch for PENDING cancel refunds are on the backlog.
+
+**Rollback.** Before reverting order-service, drain REQUESTED claims (retry each until none remain). The V14 columns are ignored by old code.
+
 ## Double charge
 
 Log line `DOUBLE CHARGE` at ERROR carries both provider payment ids. It means the customer switched provider, paid
