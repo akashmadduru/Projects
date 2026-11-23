@@ -511,7 +511,7 @@ public class Order {
 
   /** Every line is returned and every live return is refunded (shipping does not matter). */
   public boolean fullyRefunded() {
-    return completesOrder(Map.of())
+    return completes(Map.of(), OrderShipment::isCancelled)
         && returns.stream()
             .map(OrderReturn::getStatus)
             .allMatch(EnumSet.of(ReturnStatus.REJECTED, ReturnStatus.REFUNDED)::contains);
@@ -765,7 +765,11 @@ public class Order {
 
   /** True when these lines, on top of earlier non-rejected returns, cover every order line. */
   private boolean completesOrder(Map<LineKey, Integer> lines) {
-    return uncovered(OrderShipment::isCancelled).entrySet().stream()
+    return completes(lines, x -> x.isCancelled() || x.holdsCancelClaim()); // as cancelShare does
+  }
+
+  private boolean completes(Map<LineKey, Integer> lines, Predicate<OrderShipment> covers) {
+    return uncovered(covers).entrySet().stream()
         .allMatch(e -> e.getValue() - lines.getOrDefault(e.getKey(), 0) == 0);
   }
 
@@ -934,14 +938,8 @@ public class Order {
     if ("REQUESTED".equals(s.getCancelState())) {
       throw new CodedException(ErrorCode.RESOURCE_CONFLICT, "Shipment cancel in progress");
     }
-    if ("FAILED".equals(s.getCancelState())
-        && shipments.stream()
-            .anyMatch(
-                o ->
-                    o != s
-                        && o.holdsCancelClaim()
-                        && o.getCancelShippingRefund().signum() > 0)) {
-      // a sibling holds the shipping on the strength of this claim: it must be completed first
+    if ("FAILED".equals(s.getCancelState()) && shippingAlreadyRefunded()) {
+      // s is FAILED, so it holds no claim itself: a sibling or a return holds the shipping
       throw new CodedException(ErrorCode.RESOURCE_CONFLICT, "Shipment cancel must be completed");
     }
     s.dropFailedCancel();

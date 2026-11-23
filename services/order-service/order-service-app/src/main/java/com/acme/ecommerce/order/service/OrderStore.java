@@ -512,7 +512,7 @@ public class OrderStore {
     }
     boolean paysRest = !"NONE".equals(route);
     BigDecimal moved = wallet.add(paysRest ? rest : BigDecimal.ZERO);
-    boolean all = o.getShipments().stream().allMatch(OrderShipment::isCancelled);
+    boolean all = o.fullyRefunded();
     if (moved.signum() > 0 && o.getPaymentStatus() != PaymentStatus.COD_PENDING) {
       o.recordRefund(moved, all);
     } else if (wallet.signum() > 0) {

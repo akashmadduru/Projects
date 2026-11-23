@@ -176,6 +176,10 @@ SELECT f.id AS failed_shipment, f.order_id, o.id AS sibling, o.cancel_shipping_r
   JOIN orders.order_shipments o ON o.order_id = f.order_id AND o.id <> f.id
  WHERE f.cancel_state = 'FAILED' AND o.cancel_state IN ('REQUESTED', 'DONE')
    AND o.cancel_shipping_refund > 0;
+-- FAILED shipments on orders where a return carries the shipping
+SELECT f.id AS failed_shipment, f.order_id, r.id AS return_id, r.shipping_refund
+  FROM orders.order_shipments f JOIN orders.order_returns r ON r.order_id = f.order_id
+ WHERE f.cancel_state = 'FAILED' AND r.status <> 'REJECTED' AND r.shipping_refund > 0;
 ```
 
 **Persistent decline.** If the card refund keeps coming back FAILED, no API call completes the cancel. Manual path: refund the shipment's `cancel_rest_leg` in the provider dashboard, then have an engineer finish the cancel with a reviewed SQL change. Until then the shipment cannot ship while a sibling holds the shipping. An admin "force complete" action and a settlement watch for PENDING cancel refunds are on the backlog.

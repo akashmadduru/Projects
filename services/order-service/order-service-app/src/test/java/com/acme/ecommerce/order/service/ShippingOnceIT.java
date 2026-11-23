@@ -2,6 +2,7 @@ package com.acme.ecommerce.order.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.acme.ecommerce.order.domain.HistoryActor;
 import com.acme.ecommerce.order.domain.Order.ReturnLine;
 import com.acme.ecommerce.order.domain.PaymentMethod;
 import com.acme.ecommerce.order.domain.ReturnReason;
@@ -81,6 +82,25 @@ class ShippingOnceIT extends AbstractCancelIT {
 
     assertThat(returnShipping(b.orderId())).isEqualByComparingTo("0");
     assertThat(cancelShipping(b.orderId())).isEqualByComparingTo("50.00");
+  }
+
+  @Test
+  @DisplayName("AC-7: a return while a sibling cancel is REQUESTED carries the shipping once")
+  void returnWhileCancelRequested_shippingOnce_orderRefunded() {
+    Built b = build(PaymentMethod.CARD, "200.00", "100.00", "50.00", "350.00", "1000.00", "600.00");
+    UUID s1 = b.shipmentIds().get(0);
+    UUID s2 = b.shipmentIds().get(1);
+    store.claimCancel(null, null, b.orderId(), List.of(s1)); // REQUESTED, S2 still uncovered
+    deliver(s2);
+
+    returnShipment(b, s2);
+    jdbc.update(
+        "UPDATE orders.order_returns SET status = 'REFUNDED' WHERE order_id = ?", b.orderId());
+    store.commitCancel(b.orderId(), s1, 0, HistoryActor.ADMIN, "n");
+
+    assertThat(returnShipping(b.orderId())).isEqualByComparingTo("50.00");
+    assertThat(cancelShipping(b.orderId())).isEqualByComparingTo("0");
+    assertThat(paymentStatus(b.orderId())).isEqualTo("REFUNDED");
   }
 
   @Test
