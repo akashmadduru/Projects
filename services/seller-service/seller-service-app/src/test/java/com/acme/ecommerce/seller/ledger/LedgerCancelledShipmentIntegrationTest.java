@@ -74,7 +74,8 @@ class LedgerCancelledShipmentIntegrationTest extends AbstractSellerIntegrationTe
         seller.toString(),
         status,
         new BigDecimal(amount),
-        List.of(new Item(UUID.randomUUID().toString(), "Secret Widget", 1, new BigDecimal(amount))));
+        List.of(
+            new Item(UUID.randomUUID().toString(), "Secret Widget", 1, new BigDecimal(amount))));
   }
 
   private void consume(String type, UUID order, String status, List<Part> parts) {
@@ -95,7 +96,8 @@ class LedgerCancelledShipmentIntegrationTest extends AbstractSellerIntegrationTe
   }
 
   private void consumeOne(UUID order, UUID shipment, UUID seller, String status, String amount) {
-    consume("SHIPMENT_STATUS_CHANGED", order, status, List.of(part(shipment, seller, status, amount)));
+    consume(
+        "SHIPMENT_STATUS_CHANGED", order, status, List.of(part(shipment, seller, status, amount)));
   }
 
   private long entries(UUID shipment, String type) {
@@ -210,14 +212,16 @@ class LedgerCancelledShipmentIntegrationTest extends AbstractSellerIntegrationTe
   // ---- AC-3 -------------------------------------------------------------------------------
 
   @Test
-  @DisplayName("AC-3: DELIVERED after CANCELLED books nothing, stays CANCELLED, warns with ids only")
+  @DisplayName(
+      "AC-3: DELIVERED after CANCELLED books nothing, stays CANCELLED, warns with ids only")
   void deliveredAfterCancelledBooksNothingAndWarns(CapturedOutput output) {
     UUID s = seller();
     UUID order = UUID.randomUUID();
     UUID sh = UUID.randomUUID();
     consumeOne(order, sh, s, "CANCELLED", "100.00");
 
-    assertThatCode(() -> consumeOne(order, sh, s, "DELIVERED", "777.77")).doesNotThrowAnyException();
+    assertThatCode(() -> consumeOne(order, sh, s, "DELIVERED", "777.77"))
+        .doesNotThrowAnyException();
 
     assertThat(entries(sh, "SALE")).isZero();
     assertThat(entries(sh, "COMMISSION")).isZero();
@@ -227,7 +231,11 @@ class LedgerCancelledShipmentIntegrationTest extends AbstractSellerIntegrationTe
     assertThat(regAmount(sh)).isEqualByComparingTo("100.00"); // the forged amount is not stored
 
     List<String> warns =
-        output.getAll().lines().filter(l -> l.contains("WARN") && l.contains(sh.toString())).toList();
+        output
+            .getAll()
+            .lines()
+            .filter(l -> l.contains("WARN") && l.contains(sh.toString()))
+            .toList();
     assertThat(warns).hasSize(1);
     String warn = warns.get(0); // positive anchor: the line is found by the shipment id
     assertThat(warn).contains(order.toString()).contains(sh.toString());
@@ -245,7 +253,8 @@ class LedgerCancelledShipmentIntegrationTest extends AbstractSellerIntegrationTe
     consumeOne(order, sh, s, "DELIVERED", "100.00");
     assertThat(allEntries(sh)).isEqualTo(3); // SALE, COMMISSION, FEE
 
-    assertThatCode(() -> consumeOne(order, sh, s, "CANCELLED", "100.00")).doesNotThrowAnyException();
+    assertThatCode(() -> consumeOne(order, sh, s, "CANCELLED", "100.00"))
+        .doesNotThrowAnyException();
 
     assertThat(allEntries(sh)).isEqualTo(3);
     assertThat(entries(sh, "SALE")).isEqualTo(1);
@@ -267,7 +276,8 @@ class LedgerCancelledShipmentIntegrationTest extends AbstractSellerIntegrationTe
     age(sh);
     OffsetDateTime before = regUpdatedAt(sh);
 
-    consumeOne(order, sh, other, "CANCELLED", "999.00"); // same-rank replay, other amount and seller
+    consumeOne(
+        order, sh, other, "CANCELLED", "999.00"); // same-rank replay, other amount and seller
     for (String earlier : List.of("PLACED", "CONFIRMED", "PACKED", "SHIPPED", "OUT_FOR_DELIVERY")) {
       consumeOne(order, sh, other, earlier, "555.00");
     }
@@ -286,7 +296,8 @@ class LedgerCancelledShipmentIntegrationTest extends AbstractSellerIntegrationTe
     UUID order = UUID.randomUUID();
     UUID s1 = UUID.randomUUID();
     UUID s2 = UUID.randomUUID();
-    List<Part> parts = List.of(part(s1, s, "CANCELLED", "50.00"), part(s2, s, "CANCELLED", "60.00"));
+    List<Part> parts =
+        List.of(part(s1, s, "CANCELLED", "50.00"), part(s2, s, "CANCELLED", "60.00"));
     consume("ORDER_CANCELLED", order, "CANCELLED", parts);
     age(s1);
     age(s2);
@@ -298,10 +309,11 @@ class LedgerCancelledShipmentIntegrationTest extends AbstractSellerIntegrationTe
     assertThatCode(() -> consume("SHIPMENT_STATUS_CHANGED", order, "CANCELLED", parts))
         .doesNotThrowAnyException();
 
-    assertThat(jdbc.sql("SELECT count(*) FROM ledger_shipments WHERE order_id = :o")
-            .param("o", order)
-            .query(Long.class)
-            .single())
+    assertThat(
+            jdbc.sql("SELECT count(*) FROM ledger_shipments WHERE order_id = :o")
+                .param("o", order)
+                .query(Long.class)
+                .single())
         .isEqualTo(2);
     assertThat(regUpdatedAt(s1)).isEqualTo(t1);
     assertThat(regUpdatedAt(s2)).isEqualTo(t2);
@@ -311,7 +323,8 @@ class LedgerCancelledShipmentIntegrationTest extends AbstractSellerIntegrationTe
   // ---- AC-6 -------------------------------------------------------------------------------
 
   @Test
-  @DisplayName("AC-6: every order of SHIPPED, DELIVERED, CANCELLED ends CANCELLED; books iff DELIVERED came first")
+  @DisplayName(
+      "AC-6: every order of SHIPPED, DELIVERED, CANCELLED ends CANCELLED; books iff DELIVERED came first")
   void allPermutationsOfShippedDeliveredCancelled() {
     UUID s = seller();
     List<List<String>> perms =
@@ -454,7 +467,8 @@ class LedgerCancelledShipmentIntegrationTest extends AbstractSellerIntegrationTe
     age(sh);
     reconciler.runNow().orElseThrow();
     UUID id =
-        jdbc.sql("SELECT id FROM ledger_discrepancies WHERE shipment_id = :s AND kind = 'MISSING_SALE'")
+        jdbc.sql(
+                "SELECT id FROM ledger_discrepancies WHERE shipment_id = :s AND kind = 'MISSING_SALE'")
             .param("s", sh)
             .query(UUID.class)
             .single();
@@ -525,7 +539,11 @@ class LedgerCancelledShipmentIntegrationTest extends AbstractSellerIntegrationTe
                     List.of(
                         new Part(null, s.toString(), "CANCELLED", BigDecimal.TEN, List.of()),
                         new Part(
-                            UUID.randomUUID().toString(), s.toString(), null, BigDecimal.TEN, List.of()))))
+                            UUID.randomUUID().toString(),
+                            s.toString(),
+                            null,
+                            BigDecimal.TEN,
+                            List.of()))))
         .doesNotThrowAnyException();
 
     assertThat(
@@ -559,7 +577,8 @@ class LedgerCancelledShipmentIntegrationTest extends AbstractSellerIntegrationTe
   }
 
   @Test
-  @DisplayName("concurrent CANCELLED and DELIVERED never deadlock and end CANCELLED, booked whole or not at all")
+  @DisplayName(
+      "concurrent CANCELLED and DELIVERED never deadlock and end CANCELLED, booked whole or not at all")
   void concurrentCancelAndDeliverNeverBookAfterCancel() throws Exception {
     UUID s = seller();
     var pool = Executors.newFixedThreadPool(2);
