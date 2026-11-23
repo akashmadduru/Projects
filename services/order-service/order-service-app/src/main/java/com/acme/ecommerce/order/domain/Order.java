@@ -930,6 +930,16 @@ public class Order {
     if ("REQUESTED".equals(s.getCancelState())) {
       throw new CodedException(ErrorCode.RESOURCE_CONFLICT, "Shipment cancel in progress");
     }
+    if ("FAILED".equals(s.getCancelState())
+        && shipments.stream()
+            .anyMatch(
+                o ->
+                    o != s
+                        && o.holdsCancelClaim()
+                        && o.getCancelShippingRefund().signum() > 0)) {
+      // a sibling holds the shipping on the strength of this claim: it must be completed first
+      throw new CodedException(ErrorCode.RESOURCE_CONFLICT, "Shipment cancel must be completed");
+    }
     s.dropFailedCancel();
     s.advance(target, tracking, carrierName, now);
     record(target, note, actor, now, s.getId());

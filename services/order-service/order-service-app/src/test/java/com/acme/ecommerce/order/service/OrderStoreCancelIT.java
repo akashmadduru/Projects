@@ -8,6 +8,7 @@ import com.acme.ecommerce.common.core.error.CodedException;
 import com.acme.ecommerce.common.core.error.ErrorCode;
 import com.acme.ecommerce.order.domain.HistoryActor;
 import com.acme.ecommerce.order.domain.OrderStatus;
+import com.acme.ecommerce.order.domain.PaymentMethod;
 import com.acme.ecommerce.order.service.OrderStore.CancelClaim;
 import com.acme.ecommerce.order.service.OrderStore.CancelCommit;
 import com.acme.ecommerce.order.support.AbstractCancelIT;
@@ -201,5 +202,50 @@ class OrderStoreCancelIT extends AbstractCancelIT {
     CancelClaim again = store.claimCancel(null, null, b.orderId(), List.of(s1));
 
     assertThat(again.claims().get(0).key()).isEqualTo("ship-cancel-" + s1 + "-r1");
+  }
+
+  private void shipExpecting409(Built b, UUID shipment) {
+    jdbc.update("UPDATE orders.order_shipments SET status = 'PACKED' WHERE id = ?", shipment);
+    assertThatThrownBy(
+            () ->
+                store.advanceShipment(
+                    b.orderId(),
+                    null,
+                    shipment,
+                    OrderStatus.SHIPPED,
+                    "n",
+                    "TRK",
+                    "dhl",
+                    HistoryActor.ADMIN))
+        .isInstanceOfSatisfying(
+            CodedException.class,
+            e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.RESOURCE_CONFLICT));
+    assertThat(cancelState(shipment)).isEqualTo("FAILED");
+    assertThat(shipmentStatus(shipment)).isEqualTo("PACKED");
+  }
+
+  @Test
+  @DisplayName("AC-7: S2 FAILED while S3 holds the shipping as completing: shipping S2 is a 409")
+  void failedClaim_siblingHoldsShipping_shipIsRefused() {
+    Built b = workedExample();
+    store.claimCancel(null, null, b.orderId(), null);
+    store.failCancel(b.orderId(), b.shipmentIds().get(1), 0);
+
+    shipExpecting409(b, b.shipmentIds().get(1));
+  }
+
+  @Test
+  @DisplayName("AC-7: S1 REQUESTED, S2 completes DONE with the shipping, S1 FAILED: shipping S1 is 409")
+  void siblingDoneWithShipping_thenFailed_shipIsRefused() {
+    Built b = build(PaymentMethod.CARD, "200.00", "100.00", "50.00", "350.00", "1000.00", "600.00");
+    UUID s1 = b.shipmentIds().get(0);
+    UUID s2 = b.shipmentIds().get(1);
+    store.claimCancel(null, null, b.orderId(), List.of(s1));
+    store.claimCancel(null, null, b.orderId(), List.of(s2));
+    assertThat(amountOf(s2, "cancel_shipping_refund")).isEqualByComparingTo("50.00");
+    store.commitCancel(b.orderId(), s2, 0, HistoryActor.ADMIN, "n");
+    store.failCancel(b.orderId(), s1, 0);
+
+    shipExpecting409(b, s1);
   }
 }
