@@ -170,4 +170,59 @@ class OrderEventConsumerTest {
 
     verifyNoInteractions(ledger);
   }
+
+  private OrderEvt event(String type, String status, List<Part> parts) {
+    return new OrderEvt(
+        type,
+        order,
+        status,
+        "PAID",
+        new BigDecimal("100.00"),
+        "INR",
+        parts,
+        null,
+        null,
+        null,
+        null,
+        null);
+  }
+
+  @Test
+  @DisplayName("a SHIPMENT_STATUS_CHANGED with a CANCELLED part is tracked and books nothing")
+  void shipmentStatusChangedCancelledTracksAndBooksNothing() {
+    List<Part> parts =
+        List.of(new Part(shipment, PLATFORM, "CANCELLED", new BigDecimal("100.00"), List.of()));
+
+    listener.onEvent(event("SHIPMENT_STATUS_CHANGED", "CANCELLED", parts));
+
+    verify(ledger).track(UUID.fromString(order), parts, "INR");
+    verify(ledger, org.mockito.Mockito.never()).recordDelivered(any(), any(), anyString());
+  }
+
+  @Test
+  @DisplayName("the same ORDER_CANCELLED twice does not throw and books nothing")
+  void duplicateOrderCancelledDoesNotThrow() {
+    List<Part> parts =
+        List.of(new Part(shipment, PLATFORM, "CANCELLED", new BigDecimal("100.00"), List.of()));
+
+    for (int i = 0; i < 2; i++) {
+      listener.onEvent(event("ORDER_CANCELLED", "CANCELLED", parts));
+    }
+
+    verify(ledger, org.mockito.Mockito.times(2)).track(UUID.fromString(order), parts, "INR");
+    verify(ledger, org.mockito.Mockito.never()).recordDelivered(any(), any(), anyString());
+  }
+
+  @Test
+  @DisplayName("a legacy CANCELLED event without shipments is tracked under shipmentId = orderId")
+  void legacyCancelledEventIsTracked() {
+    listener.onEvent(event("ORDER_STATUS_CHANGED", "CANCELLED", null));
+
+    verify(ledger)
+        .track(
+            UUID.fromString(order),
+            List.of(new Part(order, PLATFORM, "CANCELLED", new BigDecimal("100.00"), List.of())),
+            "INR");
+    verify(ledger, org.mockito.Mockito.never()).recordDelivered(any(), any(), anyString());
+  }
 }
