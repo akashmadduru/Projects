@@ -72,6 +72,11 @@ public class OrderLifecycleService {
     if (plan.alreadyCancelled()) {
       return ownerOrNull == null ? store.getAny(id) : store.get(ownerOrNull, id);
     }
+    if (plan.viaShipments()) {
+      // Paid orders cancel shipment by shipment, so a partly cancelled order is never refunded
+      // twice.
+      return cancelShipments(actor, note, ownerOrNull, null, id, null);
+    }
     boolean refunded = false;
     if (plan.refundNeeded()) {
       // Money first: if payment-service is down the order stays as it was and the caller gets 503.
@@ -86,14 +91,110 @@ public class OrderLifecycleService {
             s -> {
               Result r = store.cancel(ownerOrNull, id, actor, note, refundedFinal);
               if (r.changed()) {
-                afterCancel(r.order());
+                afterCancel(r.order(), true);
               }
               return r;
             });
     return result.order();
   }
 
-  private void afterCancel(OrderResponse order) {
+  /** Admin: cancel one shipment of an order (404 when it is not on that order). */
+  public OrderResponse adminCancelShipment(UUID orderId, UUID shipmentId, String reason) {
+    return cancelShipments(
+        HistoryActor.ADMIN,
+        "Shipment cancelled by admin: " + reason,
+        null,
+        null,
+        orderId,
+        List.of(shipmentId));
+  }
+
+  /** Seller: cancel one of their own shipments (anything else is a 404). */
+  public OrderResponse sellerCancelShipment(UUID userId, UUID shipmentId, String reason) {
+    UUID sellerId = remote.approvedSellerId(userId);
+    if (sellerId == null) {
+      throw new CodedException(ErrorCode.FORBIDDEN, "An approved seller account is required");
+    }
+    UUID orderId = store.shipmentRef(shipmentId).orderId();
+    return cancelShipments(
+        HistoryActor.SELLER,
+        "Shipment cancelled by seller: " + reason,
+        null,
+        sellerId,
+        orderId,
+        List.of(shipmentId));
+  }
+
+  /**
+   * T1 claim, then per shipment the strict card leg, then T3 commit (CANCELLED, stock release,
+   * durable wallet credit, events in one transaction), then one delivery attempt of the credit. No
+   * remote call runs inside a transaction. A replay finds nothing to claim and changes nothing.
+   */
+  private OrderResponse cancelShipments(
+      HistoryActor actor,
+      String note,
+      UUID ownerOrNull,
+      UUID sellerOrNull,
+      UUID orderId,
+      List<UUID> shipmentIds) {
+    OrderStore.CancelClaim claim =
+        store.claimCancel(ownerOrNull, sellerOrNull, orderId, shipmentIds);
+    for (OrderStore.Claimed c : claim.claims()) {
+      cardLeg(orderId, c);
+      OrderStore.CancelCommit done =
+          tx.execute(
+              s -> {
+                OrderStore.CancelCommit r =
+                    store.commitCancel(orderId, c.shipmentId(), c.attempt(), actor, note);
+                if (r.changed()) {
+                  afterShipmentCancel(orderId, c.shipmentId(), r);
+                }
+                return r;
+              });
+      if (done.changed()) {
+        log.info(
+            "Shipment {} of order {} cancelled (credit {})",
+            c.shipmentId(),
+            orderId,
+            done.credit());
+        if (done.credit().signum() > 0) {
+          remote.tryWalletCredit(done.walletKey());
+        }
+      }
+    }
+    return ownerOrNull == null ? store.getAny(orderId) : store.get(ownerOrNull, orderId);
+  }
+
+  /** The only remote money call: FAILED or unreachable leaves nothing changed (503). */
+  private void cardLeg(UUID orderId, OrderStore.Claimed c) {
+    boolean wallet = "PAYMENT_WALLET".equals(c.route());
+    if ((!wallet && !"PAYMENT_SOURCE".equals(c.route())) || c.rest().signum() <= 0) {
+      return;
+    }
+    String state =
+        remote.refund(orderId, c.rest(), "Shipment cancelled", c.key(), wallet ? "WALLET" : null);
+    if ("FAILED".equals(state)) {
+      store.failCancel(orderId, c.shipmentId(), c.attempt());
+      throw new CodedException(
+          ErrorCode.UPSTREAM_UNAVAILABLE, "The refund was declined; the cancel can be retried");
+    }
+  }
+
+  private void afterShipmentCancel(UUID orderId, UUID shipmentId, OrderStore.CancelCommit r) {
+    remote.releaseStock(orderId, shipmentId, r.lines());
+    if (r.credit().signum() > 0) {
+      remote.queueWalletCredit(
+          r.userId(), r.credit(), r.order().currency(), orderId, r.walletKey());
+    }
+    if (r.orderCancelled()) {
+      events.publishShipment(OrderEventType.SHIPMENT_STATUS_CHANGED, r.order(), r.shipment());
+      afterCancel(r.order(), false);
+    } else {
+      afterAdvance(new ShipmentAdvance(r.order(), r.shipment(), r.previousOrderStatus()));
+    }
+  }
+
+  private void afterCancel(OrderResponse order, boolean walletCreditBack) {
     // An unpaid card order (cancel, expiry or failed payment): stop its payment from being taken
     // later. Idempotent on the payment side, so the failed-payment path calling it is harmless.
     if ("CARD".equals(order.paymentMethod()) && "FAILED".equals(order.paymentStatus())) {
@@ -106,7 +207,7 @@ public class OrderLifecycleService {
     if (order.coinsRedeemed() > 0) {
       remote.releaseCoinsBestEffort(order.id());
     }
-    if (order.walletAmount().signum() > 0) {
+    if (walletCreditBack && order.walletAmount().signum() > 0) {
       remote.creditWalletBackBestEffort(
           order.userId(), order.walletAmount(), order.currency(), order.id());
     }
@@ -223,7 +324,7 @@ public class OrderLifecycleService {
               s -> {
                 Result failed = store.markPaymentFailed(orderId);
                 if (failed.changed()) {
-                  afterCancel(failed.order());
+                  afterCancel(failed.order(), true);
                 }
                 return failed;
               });
@@ -251,7 +352,7 @@ public class OrderLifecycleService {
             s -> {
               Result r = store.systemCancel(id, "Payment not completed");
               if (r.changed()) {
-                afterCancel(r.order());
+                afterCancel(r.order(), true);
               }
             });
       } catch (RuntimeException e) {
