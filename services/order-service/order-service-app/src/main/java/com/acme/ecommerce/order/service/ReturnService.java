@@ -32,9 +32,15 @@ public class ReturnService {
   private final OrderRemote remote;
   private final OrderEventPublisher events;
   private final TransactionTemplate tx;
+  private final CodPaymentRows codRows;
 
   public ReturnService(
-      OrderStore store, OrderRemote remote, OrderEventPublisher events, TransactionTemplate tx) {
+      OrderStore store,
+      OrderRemote remote,
+      OrderEventPublisher events,
+      TransactionTemplate tx,
+      CodPaymentRows codRows) {
+    this.codRows = codRows;
     this.store = store;
     this.remote = remote;
     this.events = events;
@@ -102,13 +108,21 @@ public class ReturnService {
 
   private ReturnResponse runLegs(ReturnRefundPlan plan) {
     UUID id = plan.returnId();
+    // A COD return that an older build already paid under return-rest-<id> is never paid twice.
+    boolean legacyPaid =
+        "PAYMENT_WALLET".equals(plan.route())
+            && !"SUCCEEDED".equals(plan.restState())
+            && codRows.prepareRefund(plan);
     if (plan.wallet().signum() > 0 && !plan.walletDone()) {
       remote.creditWallet(
           plan.userId(), plan.wallet(), plan.currency(), plan.orderId(), "return-wallet-" + id);
       store.markWalletLegDone(id);
     }
     String state = plan.restState();
-    if (!"NONE".equals(plan.route()) && !"SUCCEEDED".equals(state)) {
+    if (legacyPaid) {
+      store.setRestLegState(id, "SUCCEEDED");
+      state = "SUCCEEDED";
+    } else if (!"NONE".equals(plan.route()) && !"SUCCEEDED".equals(state)) {
       state = restLeg(plan);
     }
     if ("PENDING".equals(state)) {

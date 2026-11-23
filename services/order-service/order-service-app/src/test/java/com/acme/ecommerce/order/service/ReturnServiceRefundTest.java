@@ -43,7 +43,8 @@ class ReturnServiceRefundTest {
   private final OrderRemote remote = mock(OrderRemote.class);
   private final OrderEventPublisher events = mock(OrderEventPublisher.class);
   private final TransactionTemplate tx = mock(TransactionTemplate.class);
-  private final ReturnService service = new ReturnService(store, remote, events, tx);
+  private final CodPaymentRows codRows = mock(CodPaymentRows.class);
+  private final ReturnService service = new ReturnService(store, remote, events, tx, codRows);
 
   private static final java.time.Instant LEASE = java.time.Instant.parse("2026-11-21T10:00:00Z");
   private final UUID id = UUID.randomUUID();
