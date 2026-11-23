@@ -1,6 +1,10 @@
 package com.acme.ecommerce.payment.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
 import com.acme.ecommerce.payment.api.dto.CreatePaymentRequest;
@@ -30,6 +34,7 @@ class CodEnsureConcurrencyIntegrationTest extends AbstractPaymentIntegrationTest
   @Autowired private PaymentService service;
   @Autowired private JdbcClient jdbc;
   @MockitoSpyBean private RazorpayGateway razorpay;
+  @Autowired private com.acme.ecommerce.payment.repository.PaymentRepository payments;
 
   private static CreatePaymentRequest cod(UUID order, UUID user, String amount) {
     return new CreatePaymentRequest(
@@ -148,5 +153,31 @@ class CodEnsureConcurrencyIntegrationTest extends AbstractPaymentIntegrationTest
         .param("k", "control-" + user)
         .update();
     assertThat(walletTxns(user)).isEqualTo(1);
+  }
+
+  @Test
+  @DisplayName("a COD ensure over a pending card row returns it at once, no Razorpay wait")
+  void codEnsureOverCardRowDoesNotWait() {
+    UUID order = UUID.randomUUID();
+    UUID user = UUID.randomUUID();
+    payments.insert(
+        order,
+        user,
+        "CARD",
+        "RAZORPAY",
+        new BigDecimal("380.00"),
+        "INR",
+        "REQUIRES_PAYMENT",
+        null,
+        null,
+        "ORDER");
+    doReturn(true).when(razorpay).enabled();
+    clearInvocations(razorpay);
+
+    PaymentResponse r = service.create(cod(order, user, "380.00"));
+
+    assertThat(r.method()).isEqualTo("CARD");
+    assertThat(rows(order)).isEqualTo(1);
+    verify(razorpay, never()).enabled();
   }
 }

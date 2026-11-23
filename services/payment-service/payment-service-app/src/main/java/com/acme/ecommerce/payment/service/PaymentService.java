@@ -123,6 +123,9 @@ public class PaymentService {
     var existing = payments.findByOrderId(subject);
     if (existing.isPresent()) {
       Payment e = existing.get();
+      if ("COD".equals(req.method()) && !"COD".equals(e.method())) {
+        return view(e); // a COD ensure never waits on a card order; the caller sees the method
+      }
       return view(awaitsRazorpayOrder(e) ? awaitRazorpayOrder(e) : e);
     }
     String currency = req.currency().toUpperCase(Locale.ROOT);
