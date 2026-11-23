@@ -123,7 +123,10 @@ public class OrderLifecycleService {
         List.of(shipmentId));
   }
 
-  /** T1 claim, card leg before wallet, T3 commit incl. the durable wallet credit; no remote call in a transaction. */
+  /**
+   * T1 claim, card leg before wallet, T3 commit incl. the durable wallet credit; no remote call in
+   * a transaction.
+   */
   private OrderResponse cancelShipments(
       HistoryActor actor,
       String note,
