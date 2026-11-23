@@ -115,7 +115,8 @@ class CodEnsureConcurrencyIntegrationTest extends AbstractPaymentIntegrationTest
   }
 
   @Test
-  @DisplayName("AC-5: COD stays COD_PENDING through create and cancelUnpaid; only codCollected pays")
+  @DisplayName(
+      "AC-5: COD stays COD_PENDING through create and cancelUnpaid; only codCollected pays")
   void staysPendingUntilCollected() {
     UUID order = UUID.randomUUID();
     UUID user = UUID.randomUUID();
