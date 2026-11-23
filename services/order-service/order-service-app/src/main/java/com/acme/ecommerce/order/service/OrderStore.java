@@ -154,6 +154,36 @@ public class OrderStore {
     orders.findById(orderId).ifPresent(o -> o.attachPayment(paymentId));
   }
 
+  /** What the COD ensure needs from an order; read-only. */
+  public record CodRowSpec(
+      UUID userId,
+      String currency,
+      BigDecimal remainder,
+      boolean cod,
+      boolean cancelled,
+      String paymentId) {}
+
+  @Transactional(readOnly = true)
+  public Optional<CodRowSpec> codRowSpec(UUID orderId) {
+    return orders
+        .findById(orderId)
+        .map(
+            o ->
+                new CodRowSpec(
+                    o.getUserId(),
+                    o.getCurrency(),
+                    o.getTotalAmount().subtract(o.getWalletAmount()),
+                    o.getPaymentMethod() == PaymentMethod.COD,
+                    o.getStatus() == OrderStatus.CANCELLED,
+                    o.getPaymentId()));
+  }
+
+  /** Attaches the payment id only if none is set; true when this call attached it. */
+  @Transactional
+  public boolean attachPaymentIfAbsent(UUID orderId, String paymentId) {
+    return orders.attachPaymentIfAbsent(orderId, paymentId) == 1;
+  }
+
   /** The user has no previous non-cancelled order (drives first-order-only coupons). */
   @Transactional(readOnly = true)
   public boolean isFirstOrder(UUID userId) {
