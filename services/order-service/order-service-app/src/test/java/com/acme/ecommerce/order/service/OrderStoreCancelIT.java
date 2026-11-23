@@ -247,5 +247,15 @@ class OrderStoreCancelIT extends AbstractCancelIT {
     store.failCancel(b.orderId(), s1, 0);
 
     shipExpecting409(b, s1);
+
+    // the exit path: retrying the cancel re-freezes S1 as the completing one (S2 holds no shipping)
+    CancelClaim retry = store.claimCancel(null, null, b.orderId(), List.of(s1));
+    assertThat(retry.claims().get(0).attempt()).isEqualTo(1);
+    store.commitCancel(b.orderId(), s1, 1, HistoryActor.ADMIN, "n");
+
+    assertThat(amountOf(s1, "cancel_refund_amount")).isEqualByComparingTo("812.50");
+    assertThat(amountOf(s1, "cancel_shipping_refund")).isEqualByComparingTo("0");
+    assertThat(refunded(b.orderId())).isEqualByComparingTo("1350.00");
+    assertThat(orderStatus(b.orderId())).isEqualTo("CANCELLED");
   }
 }
