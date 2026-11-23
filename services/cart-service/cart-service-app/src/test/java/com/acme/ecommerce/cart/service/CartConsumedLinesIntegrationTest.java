@@ -71,6 +71,25 @@ class CartConsumedLinesIntegrationTest extends AbstractCartIntegrationTest {
   }
 
   @Test
+  @DisplayName("a user with no cart gets removed=0 and no cart row is created")
+  void noCartCreatesNothing() {
+    UUID stranger = UUID.randomUUID();
+    ConsumedLinesRequest request =
+        new ConsumedLinesRequest(
+            UUID.randomUUID(),
+            List.of(
+                new ConsumedLinesRequest.Line(
+                    UUID.randomUUID(), null, null, 1, Instant.parse("2026-11-20T10:00:00Z"))));
+
+    assertThat(carts.removeConsumed(stranger, request)).isZero();
+
+    assertThat(
+            jdbc.queryForObject(
+                "select count(*) from cart.carts where user_id = ?", Integer.class, stranger))
+        .isZero();
+  }
+
+  @Test
   @DisplayName("AC-16: a repeated call is a no-op and returns 0")
   void repeatIsIdempotent() {
     carts.addItem(user, item(UUID.randomUUID(), 1, null, null));

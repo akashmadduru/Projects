@@ -79,7 +79,10 @@ public class CartService {
    */
   @Transactional
   public int removeConsumed(UUID userId, ConsumedLinesRequest request) {
-    UUID cartId = carts.lockOrCreateCart(userId);
+    UUID cartId = carts.lockCartIfExists(userId).orElse(null);
+    if (cartId == null) {
+      return 0;
+    }
     int removed = 0;
     for (ConsumedLinesRequest.Line line : request.lines()) {
       removed += carts.deleteConsumed(cartId, line);

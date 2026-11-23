@@ -54,6 +54,14 @@ public class CartRepository {
         .single();
   }
 
+  /** Locks and returns the user's existing cart; never creates one. */
+  public Optional<UUID> lockCartIfExists(UUID userId) {
+    return jdbc.sql("SELECT id FROM cart.carts WHERE user_id = :userId FOR UPDATE")
+        .param("userId", userId)
+        .query(UUID.class)
+        .optional();
+  }
+
   public List<CartItemResponse> findItems(UUID userId) {
     return jdbc.sql(
             "SELECT i.product_id, i.variant_id, i.variant_label, i.offer_id, i.seller_id, i.quantity, i.name, i.unit_price, "
