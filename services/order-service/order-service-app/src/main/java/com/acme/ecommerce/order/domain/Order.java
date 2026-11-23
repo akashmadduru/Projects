@@ -725,10 +725,7 @@ public class Order {
     return left;
   }
 
-  /**
-   * Remainder rule: the share covering the last uncovered line is the remainder, so shares sum to
-   * the paid items value.
-   */
+  /** Remainder rule: the last uncovered line takes the remainder, so shares sum to the total. */
   public CancelShare cancelShare(OrderShipment s) {
     BigDecimal gross =
         items.stream()

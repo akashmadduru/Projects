@@ -100,9 +100,7 @@ public class WalletCreditBacks {
     attempt(key);
   }
 
-  /**
-   * Insert-only, joins the caller's transaction: the durable credit commits with the state change.
-   */
+  /** Insert-only in the caller's transaction: the durable credit commits with the state change. */
   public void enqueue(UUID userId, BigDecimal amount, String currency, UUID orderId, String key) {
     jdbc.sql(
             "INSERT INTO orders.pending_wallet_credits"
