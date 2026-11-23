@@ -47,14 +47,7 @@ public class Outbox {
 
   /** Records an effect with a payload, deduplicated by {@code idemKey}. */
   public void enqueue(Kind kind, UUID aggregateId, Object payload, String idemKey) {
-    jdbc.sql(
-            "INSERT INTO orders.outbox (aggregate_id, kind, payload, idem_key)"
-                + " VALUES (:a, :k, CAST(:p AS jsonb), :i) ON CONFLICT (idem_key) DO NOTHING")
-        .param("a", aggregateId)
-        .param("k", kind.name())
-        .param("p", toJson(payload))
-        .param("i", idemKey)
-        .update();
+    enqueue(kind, aggregateId, payload, idemKey, Duration.ZERO);
   }
 
   /**
