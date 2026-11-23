@@ -105,10 +105,39 @@ A placement that takes longer than 60 seconds can leave a harmless COD_PENDING r
 (the repair ran while the order was still open). No money moves: cancelling a COD order is a no-op for payments and a
 COD_PENDING return routes to NONE. Leave the row alone.
 
-A COD order placed before this change, while payment-service was down, may still have no row. Its refund fails loudly
-with 404, the wallet is not credited and the return stays PICKED_UP, and there is no fallback credit. A 409 means the COD
-payment is still COD_PENDING (the order was never marked delivered and collected). Fix the cause, then retry. Older
-orders without a row are handled in a follow-up change (backlog B-10, part B).
+COD orders placed before this change may have no payment row. They are repaired lazily, when they need it: a COD refund
+(admin refund or the retry of a stuck PICKED_UP return) and the COD_COLLECTED delivery step both ensure the row first, then
+carry on. Nothing else is needed for a stuck return: retry the refund. A return still PICKED_UP after the retry has a
+cause in the log: "COD LEGACY CREDIT MISMATCH" (see below), a 503 (payment-service down or too old to answer the credit
+lookup: deploy payment-service first, then retry), or a 409 "No usable COD payment row" (the order is cancelled, or its
+payment row is a card row: ask a developer).
+
+**Delivered legacy orders whose collect-mark went DEAD.** Before this change a delivery's `COD_COLLECTED` step got 404 for
+a rowless order and went DEAD after about 10 hours. Re-arm them in batches: delivery now ensures the row, then marks it
+collected. Run ONE statement, wait until the queue drains (`SELECT status, count(*) FROM orders.outbox WHERE
+kind = 'COD_COLLECTED' GROUP BY status;` shows no PENDING), then run the next. It touches only DEAD COD_COLLECTED rows,
+oldest first, at most 500 per statement:
+```sql
+UPDATE orders.outbox SET status = 'PENDING', attempts = 0, next_attempt_at = now()
+WHERE id IN (
+  SELECT id FROM orders.outbox
+  WHERE kind = 'COD_COLLECTED' AND status = 'DEAD'
+  ORDER BY created_at, seq
+  LIMIT 500);
+```
+A re-armed row for a cancelled order, or an order that was never delivered, creates no row and moves no money.
+
+**Legacy orders that keep no row.** A legacy COD order that was never delivered, never returned and never re-armed keeps no
+payment row. That is accepted: no money is involved on it.
+
+**"COD LEGACY CREDIT MISMATCH" (409 on a COD return refund).** Before F-09 a failed COD refund fell back to a wallet credit
+under the key `return-rest-<returnId>`. The refund found such a credit, but its user, amount or currency differs from the
+return's rest leg, so nothing was sent and the return stays PICKED_UP. A human settles it: find the return
+(`SELECT id, order_id, rest_leg_amount, status FROM orders.order_returns WHERE id = '<returnId>';` from the log line),
+find the credit
+(`SELECT user_id, amount, currency, created_at FROM payment.wallet_txns WHERE idempotency_key = 'return-rest-<returnId>';`),
+decide what the customer is owed, pay or adjust by hand with the finance team, then close the return by hand. Do not retry
+the refund until it is settled: it will answer 409 again.
 
 **Rollback note.** Rolling order-service back leaves `ENSURE_COD_PAYMENT` rows PENDING: the older build skips kinds it does
 not know, reports them once per pass, and they do not delay any other order's rows. They are harmless. Optionally mark
