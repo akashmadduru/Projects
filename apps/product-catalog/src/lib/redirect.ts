@@ -6,7 +6,10 @@
 export function safeNext(next: string | null | undefined, fallback = '/'): string {
   if (!next || !next.startsWith('/') || next.startsWith('//') || next.startsWith('/\\')) return fallback
   // The URL parser strips TAB/CR/LF, so "/\t/host" would become "//host"; refuse control characters.
-  if (/[\u0000-\u001F\u007F]/.test(next)) return fallback
+  for (let i = 0; i < next.length; i++) {
+    const code = next.charCodeAt(i)
+    if (code < 0x20 || code === 0x7f) return fallback
+  }
   return next
 }
 
