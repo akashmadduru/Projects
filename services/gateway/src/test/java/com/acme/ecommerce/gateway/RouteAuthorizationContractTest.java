@@ -14,6 +14,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import org.junit.jupiter.api.AfterAll;
@@ -27,11 +28,13 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.cloud.gateway.config.GatewayProperties;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.data.redis.core.ReactiveValueOperations;
+import org.springframework.http.server.PathContainer;
 import org.springframework.security.web.server.SecurityWebFilterChain;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.reactive.server.WebTestClient;
+import org.springframework.web.util.pattern.PathPatternParser;
 import reactor.core.publisher.Mono;
 
 /**
@@ -290,5 +293,55 @@ class RouteAuthorizationContractTest {
         .isEmpty();
     assertThat(stale).as("stale reviewed permit (no longer in the chain)").isEmpty();
     assertThat(REVIEWED_PERMITS).allSatisfy(p -> assertThat(p.reason()).isNotBlank());
+  }
+
+  // ---------------------------------------------------------------------------------------------
+  // AC-6, AC-7: every permit is backed by a route.
+  // ---------------------------------------------------------------------------------------------
+
+  /** Permits that are served by the gateway itself, so no route matches them. Reason required. */
+  private static final Map<String, String> UNROUTED_ALLOWED =
+      Map.of(
+          "/actuator/health", "served by the gateway's own actuator, not a route",
+          "/actuator/health/**", "served by the gateway's own actuator, not a route");
+
+  private static final PathPatternParser PARSER = new PathPatternParser();
+
+  private static boolean routed(RouteTable table, String probe) {
+    PathContainer path = PathContainer.parsePath(probe);
+    return table.rows().stream().anyMatch(row -> PARSER.parse(row.getValue()).matches(path));
+  }
+
+  @Test
+  @DisplayName("AC-6, AC-7: every permitted pattern matches at least one route (allow-list aside)")
+  void everyPermitHasARoute() {
+    RouteTable table = RouteTable.load();
+    EdgeRules rules = rules();
+    assertThat(rules.permits()).as("permits").isNotEmpty();
+
+    for (EdgeRules.Entry permit : rules.permits()) {
+      String probe = probePath(permit.pattern());
+      boolean routed = routed(table, probe);
+      if (UNROUTED_ALLOWED.containsKey(permit.pattern())) {
+        assertThat(routed)
+            .as("stale UNROUTED_ALLOWED entry %s: a route now matches it", permit.pattern())
+            .isFalse();
+      } else {
+        String what =
+            EdgeRules.ANY.equals(permit.method())
+                ? "PUBLIC_PATHS entry " + permit.pattern()
+                : "method-specific permit " + permit.method() + " " + permit.pattern();
+        assertThat(routed).as(what + " matches no route (probe " + probe + ")").isTrue();
+      }
+    }
+    UNROUTED_ALLOWED.forEach(
+        (pattern, reason) -> {
+          assertThat(reason).isNotBlank();
+          assertThat(rules.permits().stream().map(EdgeRules.Entry::pattern))
+              .as("UNROUTED_ALLOWED %s must be a real permit", pattern)
+              .contains(pattern);
+        });
+    // The Google leg is routed to auth-service, not just permitted.
+    assertThat(table.patternsById().get("auth-oauth2")).contains("/oauth2/**", "/login/oauth2/**");
   }
 }
