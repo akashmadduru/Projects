@@ -10,6 +10,7 @@ import com.acme.ecommerce.gateway.support.EdgeRules.Kind;
 import com.acme.ecommerce.gateway.support.RouteTable;
 import com.acme.ecommerce.gateway.support.StubHttpServer;
 import com.acme.ecommerce.gateway.support.TestKeys;
+import java.net.URI;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -621,5 +622,126 @@ class RouteAuthorizationContractTest {
       // With a valid token it passes security and reaches routing, which has no route: 404.
       assertThat(status("GET", path, CUSTOMER_TOKEN)).as("CUSTOMER GET " + path).isEqualTo(404);
     }
+  }
+
+  // ---------------------------------------------------------------------------------------------
+  // Edge cases: overlaps, path variants, bad tokens, CORS, seller.
+  // ---------------------------------------------------------------------------------------------
+
+  @Test
+  @DisplayName("overlaps: the narrow public path passes while its protected sibling gives 401")
+  void overlappingPublicAndProtectedPaths() {
+    // auth-secured owns /api/auth/2fa/** but 2fa/verify is public.
+    assertThat(status("POST", "/api/auth/2fa/verify", null))
+        .matches(RouteAuthorizationContractTest::passes);
+    expectProblem("POST", "/api/auth/2fa/contract-probe", null, 401, "UNAUTHENTICATED");
+    assertThat(status("POST", "/api/auth/email/verify", null))
+        .matches(RouteAuthorizationContractTest::passes);
+    expectProblem("POST", "/api/auth/email/verify/resend", null, 401, "UNAUTHENTICATED");
+    // First match wins: the caller's own record is authenticated, other profiles are public.
+    expectProblem("GET", "/api/sellers/me", null, 401, "UNAUTHENTICATED");
+    assertThat(status("GET", "/api/sellers/1", null))
+        .matches(RouteAuthorizationContractTest::passes);
+    assertThat(status("GET", "/api/orders/delivery-estimate", null))
+        .matches(RouteAuthorizationContractTest::passes);
+    expectProblem("GET", "/api/orders/1", null, 401, "UNAUTHENTICATED");
+    assertThat(status("POST", "/api/products/1/views", null))
+        .matches(RouteAuthorizationContractTest::passes);
+    expectProblem("POST", "/api/products/1", null, 401, "UNAUTHENTICATED");
+  }
+
+  @TestFactory
+  @DisplayName("path variants of a protected path never pass through without a token")
+  Stream<DynamicTest> pathVariantsAreNeverPassThrough() {
+    List<String> variants =
+        List.of(
+            "/api/orders/",
+            "/API/ORDERS",
+            "//api/orders",
+            "/api/admin/orders/..;/",
+            "/api/orders/%2e%2e/products");
+    return variants.stream()
+        .map(
+            variant ->
+                DynamicTest.dynamicTest(
+                    variant,
+                    () -> {
+                      // URI.create so the client does not re-encode or normalise the variant.
+                      int status =
+                          client
+                              .get()
+                              .uri(URI.create("http://localhost:" + port + variant))
+                              .exchange()
+                              .expectBody()
+                              .returnResult()
+                              .getStatus()
+                              .value();
+                      assertThat(status).as("anonymous GET " + variant).isIn(400, 401);
+                    }));
+  }
+
+  @Test
+  @DisplayName("HEAD, plain OPTIONS and a CORS preflight on a protected path")
+  void headOptionsAndPreflight() {
+    assertThat(status("HEAD", "/api/orders/1", null)).isEqualTo(401);
+    assertThat(status("OPTIONS", "/api/orders/1", null)).isEqualTo(401);
+
+    // A real preflight (allowed Origin + Access-Control-Request-Method) is answered by the CORS
+    // filter, which is not an auth bypass: the follow-up request is still 401.
+    client
+        .options()
+        .uri("/api/orders/1")
+        .header(HttpHeaders.ORIGIN, "http://localhost:5173")
+        .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "GET")
+        .exchange()
+        .expectStatus()
+        .isOk();
+    expectProblem("GET", "/api/orders/1", null, 401, "UNAUTHENTICATED");
+  }
+
+  @Test
+  @DisplayName("expired, malformed and wrong-signature tokens are 401, not pass-through")
+  void badTokensAreUnauthorized() {
+    String subject = "3f5c1c6a-8f1e-4f0a-9d3a-7d6a2f1b2c3d";
+    // Same kid, different key: the JWKS lookup succeeds but the signature does not verify.
+    TestKeys other = TestKeys.generate("route-contract-kid");
+    for (String bad :
+        List.of(
+            KEYS.expiredToken(subject),
+            "x.y",
+            other.accessToken(subject, "evil@example.com", "password", List.of(Roles.ADMIN)))) {
+      expectProblem("GET", "/api/orders/1", bad, 401, "UNAUTHENTICATED");
+    }
+  }
+
+  @TestFactory
+  @DisplayName("Q1: /api/seller/* is authenticated-only at the edge (no seller role rule)")
+  Stream<DynamicTest> sellerPathsAreAuthenticatedOnlyAtTheEdge() {
+    // FLAGGED FOR THE CEO (Q1): there is no edge role rule for /api/seller/**, so a plain CUSTOMER
+    // token passes the edge here exactly like a SELLER token; the owning services enforce the role.
+    // This asserts today's behaviour. Adding a seller rule is a production change needing sign-off,
+    // and rolePrefixesAreKnown fails until it gets a role assertion.
+    List<DynamicTest> tests = new ArrayList<>();
+    for (var row : RouteTable.load().rows()) {
+      if (!row.getValue().startsWith("/api/seller/")) {
+        continue;
+      }
+      String probe = probePath(row.getValue());
+      expectNoSellerRule(tests, row.getKey(), row.getValue(), probe, "CUSTOMER", CUSTOMER_TOKEN);
+      expectNoSellerRule(tests, row.getKey(), row.getValue(), probe, "SELLER", SELLER_TOKEN);
+    }
+    assertThat(tests).as("generated tests").isNotEmpty();
+    return tests.stream();
+  }
+
+  private void expectNoSellerRule(
+      List<DynamicTest> tests, String route, String pattern, String probe, String actor, String t) {
+    tests.add(
+        DynamicTest.dynamicTest(
+            row(route, pattern, "GET", actor),
+            () ->
+                assertThat(status("GET", probe, t))
+                    .as("%s on GET %s", actor, probe)
+                    .matches(RouteAuthorizationContractTest::passes)));
   }
 }
