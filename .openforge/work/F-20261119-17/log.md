@@ -1,0 +1,15 @@
+- 2026-11-23T17:07:46Z step 1 discover: worktree on F-08 head 48847f8; objective TD-TEST-04 (test-only).
+- 2026-11-23T17:08:27Z step 3 complexity: class M score 3 (CTO, security direct 2 + lines 1); prod-line expectation 0, cap 600. Needs design.md + ADR; no Owner design approval.
+- 2026-11-23T17:08:58Z step 2 requirements: 16 ACs (CPO). Q1 CEO ruling: /api/seller/** has no edge role rule; assert today's behaviour (authenticated), flag in report; seller-service enforces SELLER role downstream.
+- 2026-11-23T17:13:48Z step 4 architecture: design.md + ADR 0015 (Proposed) by Architect; test-only, 3 test files, reflective chain read + reviewed permits. Sent to CTO for acceptance.
+- 2026-11-23T17:14:28Z step 4 accepted: CTO ACCEPT with 4 conditions (spike introspection first; fallback table+probes; no src/main or build.gradle diff; Q1). CEO recorded ADR 0015 Accepted and copied the decision into design.md (CTO role write-limited).
+- 2026-11-23T17:15:41Z step 5 plan: 12 tasks (EM), AC-1..16 covered; T1 spike with MODE-A/MODE-B decision point.
+- 2026-11-23T17:15:58Z step 6 implement: forge-backend-engineer started on T1-T12 (Docker 29.9.3 up).
+- 2026-11-25T06:39:36Z step 6: engineer cut off by session end after c9edc10 (T2 RouteTable) + WIP test; CRLF noise only in src/main (verified ignore-eol). Engineer resumed.
+- 2026-11-25T07:41:13Z step 6: second cut-off. T1-T10 committed (head e87cc80, MODE-A). Guard demo (a) mutation found applied, uncommitted. Docker down; CEO ran docker desktop start (29.9.3). Engineer resumed at T11.
+- 2026-11-25T08:19:02Z step 6 done: head e87cc80, MODE-A, 1266 contract rows + 12 helper tests pass, guard demos a/b/c fail as expected, engineer verify PASS. CEO: 0 src/main/build.gradle diff. CEO verify (17V) and QA started.
+- 2026-11-25T08:20:15Z step 7 test: QA all 16 ACs evidenced, no vacuous streams. CEO verify PASS at e87cc80 (17V). step 8 review: reviewer + security started on review-input.diff (1481 lines).
+- 2026-11-25T08:22:39Z step 8 round 1 at e87cc80: reviewer APPROVE (3 minor, 3 nit); security REQUEST_CHANGES (1 major: no traversal probes from permit prefixes; 4 minor). Q1 seller edge rule + rate-limit coverage to backlog. Round 2 to engineer.
+- 2026-11-25T08:29:46Z step 6 round 2: head 57e9c94 (+166/-17 test/docs). All permit-prefix traversal probes 400, override/HEAD 401; no exposure. 1277+7 tests pass; engineer verify PASS. CEO: 0 src/main diff; CEO verify r2 + both re-reviews started.
+- 2026-11-25T08:30:27Z step 8 round 2 at 57e9c94: reviewer APPROVE (1 minor CUSTOMER-role classing, 2 nits), security APPROVE (1 nit auth reason wording). Accepted as known gaps; no further round.
+- 2026-11-25T08:31:12Z step 9 pr: CEO verify r2 PASS at 57e9c94; added CEO AC-13 summary line (gate regex needs 'pass'); forge-gate PASS. pr.md written. Awaiting Owner push approval (not pre-approved).

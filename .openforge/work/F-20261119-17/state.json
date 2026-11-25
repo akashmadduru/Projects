@@ -1,0 +1,10 @@
+{
+  "id": "F-20261119-17",
+  "slug": "gateway-route-authz",
+  "step": "pr",
+  "branch": "forge/F-20261119-17-gateway-route-authz",
+  "worktree": ".openforge/worktrees/F-20261119-17",
+  "base_sha": "48847f8f759572b273ded0411d22c7425e484ea9",
+  "implementer": "forge-backend-engineer",
+  "head_sha": "57e9c94409ad474984c164661896a2e846e40bbf"
+}

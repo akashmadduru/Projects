@@ -1,0 +1,446 @@
+diff --git a/docs/guides/runbooks/payment-problems.md b/docs/guides/runbooks/payment-problems.md
+index 98c807f..a120515 100644
+--- a/docs/guides/runbooks/payment-problems.md
++++ b/docs/guides/runbooks/payment-problems.md
+@@ -157,6 +157,35 @@ retries and a new `-r<n>` key is used. The wallet is not credited again.
+ **Rollback.** Revert the images (order-service first, then payment-service). The V13 columns are ignored by old code. A
+ return left PENDING completes under the old logic, which treats an accepted refund as done.
+ 
++## Shipment cancel (per-shipment refund)
++
++A cancel runs in three steps: claim the shipment (`cancel_state` REQUESTED), refund the card part under `ship-cancel-<shipmentId>`, then commit (DONE, stock release, wallet credit queued as `ship-cancel-wallet-<shipmentId>`, events). A failed card refund answers 503 and changes nothing.
++
++**Retrying the cancel clears a stuck REQUESTED** (the same key is replayed; a FAILED claim moves to `-r<n>`). A 409 "Shipment cancel must be completed" on a ship request means a sibling holds the shipping on the strength of this FAILED claim: retry the cancel; it clears.
++
++```sql
++-- claims stuck in REQUESTED
++SELECT id, order_id, cancel_attempt, updated_at FROM orders.order_shipments
++ WHERE cancel_state = 'REQUESTED' AND updated_at < now() - interval '15 minutes';
++-- wallet credits not yet delivered
++SELECT idem_key, order_id, amount, next_attempt_at FROM orders.pending_wallet_credits
++ WHERE idem_key LIKE 'ship-cancel-wallet-%' AND completed_at IS NULL;
++-- FAILED shipments whose siblings hold the shipping
++SELECT f.id AS failed_shipment, f.order_id, o.id AS sibling, o.cancel_shipping_refund
++  FROM orders.order_shipments f
++  JOIN orders.order_shipments o ON o.order_id = f.order_id AND o.id <> f.id
++ WHERE f.cancel_state = 'FAILED' AND o.cancel_state IN ('REQUESTED', 'DONE')
++   AND o.cancel_shipping_refund > 0;
++-- FAILED shipments on orders where a return carries the shipping
++SELECT f.id AS failed_shipment, f.order_id, r.id AS return_id, r.shipping_refund
++  FROM orders.order_shipments f JOIN orders.order_returns r ON r.order_id = f.order_id
++ WHERE f.cancel_state = 'FAILED' AND r.status <> 'REJECTED' AND r.shipping_refund > 0;
++```
++
++**Persistent decline.** If the card refund keeps coming back FAILED, no API call completes the cancel. Manual path: refund the shipment's `cancel_rest_leg` in the provider dashboard, then have an engineer finish the cancel with a reviewed SQL change. Until then the shipment cannot ship while a sibling holds the shipping. An admin "force complete" action and a settlement watch for PENDING cancel refunds are on the backlog.
++
++**Rollback.** Before reverting order-service, drain REQUESTED claims (retry each until none remain). The V14 columns are ignored by old code.
++
+ ## Double charge
+ 
+ Log line `DOUBLE CHARGE` at ERROR carries both provider payment ids. It means the customer switched provider, paid
+diff --git a/docs/phases/phase-09-marketplace-and-sellers.md b/docs/phases/phase-09-marketplace-and-sellers.md
+index 301553a..f6f21a1 100644
+--- a/docs/phases/phase-09-marketplace-and-sellers.md
++++ b/docs/phases/phase-09-marketplace-and-sellers.md
+@@ -11,7 +11,7 @@
+ | 1 | **Seller onboarding with KYC** (GST, PAN, bank account verification) | Amazon/Flipkart are marketplaces; catalogue growth comes from sellers | Seller is just a name on a product | **new** seller-service | L | ✅ Built, partial: format-only KYC, static encryption key ([TD-P9-09](../techdebt/phase9.md#td-p9-09)) |
+ | 2 | **Seller portal**: own listings, stock, prices, orders to fulfil | Sellers self-serve instead of the admin team | Admin-only catalogue | **new** seller app, product-service, order-service | L | ✅ Built inside the admin SPA (seller area); products go live without moderation ([TD-P9-21](../techdebt/phase9.md#td-p9-21), [TD-P9-18](../techdebt/phase9.md#td-p9-18)) |
+ | 3 | **Multiple sellers per product** with a "buy box" winner (price, rating, delivery speed) | Price competition; core marketplace mechanic | One seller per product | product-service, order-service | L | ✅ Built, partial: list price not re-synced on sell-out via orders (TD-P9-06 (fixed 2026-11-18)) |
+-| 4 | **Split orders per seller / per warehouse** (sub-orders, separate shipments) | Required once there is more than one seller | One order = one shipment | order-service | M | ✅ Built, partial: no per-shipment cancel/refund ([TD-P9-12](../techdebt/phase9.md#td-p9-12), [TD-P9-13](../techdebt/phase9.md#td-p9-13)) |
++| 4 | **Split orders per seller / per warehouse** (sub-orders, separate shipments) | Required once there is more than one seller | One order = one shipment | order-service | M | ✅ Built, partial: per-shipment cancel/refund done (F-20261119-14); still open: [TD-P9-12](../techdebt/phase9.md#td-p9-12), [TD-P9-13](../techdebt/phase9.md#td-p9-13)) |
+ | 5 | **Commission, settlement and payouts** to sellers | Sellers must get paid | — | **new** settlement module in payment-service | L | ✅ Built, partial: ledger in seller-service, simulated manual payouts ([TD-P9-20](../techdebt/phase9.md#td-p9-20), [TD-P9-08](../techdebt/phase9.md#td-p9-08)) |
+ | 6 | **Seller ratings and feedback** shown on PDP and seller page | Trust in third-party sellers | Static seller rating field | rating-service | S | ✅ Built in seller-service; feedback list not shown on the seller page ([TD-P9-17](../techdebt/phase9.md#td-p9-17)) |
+ | 7 | **Bulk catalogue upload** (CSV/Excel) and listing quality checks | Sellers list thousands of SKUs | One-by-one admin form | product-service, seller portal | M | ✅ Built, partial: CSV only, per-row transactions, no quality checks ([TD-P9-04](../techdebt/phase9.md#td-p9-04)) |
+diff --git a/docs/reference/events.md b/docs/reference/events.md
+index a9508e4..d97fb4e 100644
+--- a/docs/reference/events.md
++++ b/docs/reference/events.md
+@@ -21,6 +21,8 @@ compose network at `kafka:9092`; no host port is published. On AWS it is MSK
+ | `user.events` | broker default (1) | userId | user-service | `USER_DELETED` |
+ | `audit.events` | broker default (1) | resourceId | auth-service, and every service using `common-web`'s `AuditPublisher` | audit record: actor (user id, roles), action, resource type and id, before/after JSON, IP |
+ 
++`SHIPMENT_STATUS_CHANGED` can carry status `CANCELLED` when one shipment of an order is cancelled (per-shipment cancel). It has no `returnId` and no `refundAmount`, so seller-service reverses nothing for it; there is no schema change. `ORDER_CANCELLED` is sent once, when the last live shipment is cancelled.
++
+ `RETURN_REFUNDED` is published (through the outbox, in the same transaction as the REFUNDED status and the stock release) only after the refund money has settled, so a PENDING card refund publishes nothing until it settles.
+ 
+ Topics without a `KafkaTopicConfig` bean are auto-created with the broker default of 1 partition.
+diff --git a/docs/techdebt/README.md b/docs/techdebt/README.md
+index ef63372..593ad06 100644
+--- a/docs/techdebt/README.md
++++ b/docs/techdebt/README.md
+@@ -116,7 +116,7 @@ Shortcuts taken while building customer accounts (login, Google SSO, user/cart/o
+ | TD-P9-08 | Payout run manual and simulated | phase9 | Med | M | [phase9.md](phase9.md#td-p9-08) |
+ | TD-P9-10 | Ads: unauthenticated clicks, FE-driven beacons, substring keywords | phase9 | Med | M | [phase9.md](phase9.md#td-p9-10) |
+ | TD-P9-11 | Seller lookups uncached; fixed fallback ratings | phase9 | Med | S | [phase9.md](phase9.md#td-p9-11) |
+-| TD-P9-12 | Shipment lifecycle: no per-shipment cancel/refund, no SLA | phase9 | Med | M | [phase9.md](phase9.md#td-p9-12) |
++| TD-P9-12 | Shipment lifecycle: no seller SLA or auto-cancel | phase9 | Med | M | [phase9.md](phase9.md#td-p9-12) |
+ | TD-P9-13 | Returns, invoices, delivery estimates per shipment shortcuts | phase9 | Med | M | [phase9.md](phase9.md#td-p9-13) |
+ | TD-P9-15 | Wishlist/saved not offer-keyed; omitted offerId ambiguous | phase9 | Med | M | [phase9.md](phase9.md#td-p9-15) |
+ | TD-P9-14 | Seller analytics approximate | phase9 | Low | S | [phase9.md](phase9.md#td-p9-14) |
+diff --git a/docs/techdebt/phase9.md b/docs/techdebt/phase9.md
+index 9c44c76..0c91405 100644
+--- a/docs/techdebt/phase9.md
++++ b/docs/techdebt/phase9.md
+@@ -65,11 +65,11 @@ Phase 9 was built under "no tests, no HLD/LLD, record shortcuts as debt". The in
+ - **Fix:** Shared short-TTL cache (Caffeine/Redis) with stale-while-error; pass sellerId in the JWT or token claims; cache rating in the offer row.
+ 
+ <a id="td-p9-12"></a>
+-## TD-P9-12 Shipment lifecycle and cancel/refund limits
++## TD-P9-12 Shipment lifecycle limits
+ - **Severity / Effort:** Med / M
+ - **Where:** order-service shipment service, seller shipment endpoints, cancel flow.
+-- **Risk:** Shipment status copies the order lifecycle. A seller cannot cancel or reject a single shipment (only a whole-order cancel while every live shipment is `<= PACKED`), there is no per-shipment partial refund on cancel (order-level refund only), and no seller SLA or auto-cancel for stale shipments. Order status is derived on every shipment move (min live status, DELIVERED when all live delivered); `delivered_at` is when the LAST shipment was delivered, and COD is marked collected only when all shipments are delivered, not per shipment. The shipment timeline is synthesised (order-level rows are not stored per shipment). Extends [TD-P6-14](phase6.md#td-p6-14).
+-- **Fix:** Per-shipment cancel/reject with refund of that shipment's value; SLA scheduler with auto-cancel; store shipment timeline rows.
++- **Risk:** Shipment status copies the order lifecycle. There is no seller SLA or auto-cancel for stale shipments. Order status is derived on every shipment move (min live status, DELIVERED when all live delivered); `delivered_at` is when the LAST shipment was delivered, and COD is marked collected only when all shipments are delivered, not per shipment. The shipment timeline is synthesised (order-level rows are not stored per shipment). Extends [TD-P6-14](phase6.md#td-p6-14).
++- **Fix:** SLA scheduler with auto-cancel; store shipment timeline rows.
+ 
+ <a id="td-p9-13"></a>
+ ## TD-P9-13 Returns, invoices and delivery estimates per shipment
+diff --git a/docs/techdebt/remediation-plan.md b/docs/techdebt/remediation-plan.md
+index 12c0412..8707e3f 100644
+--- a/docs/techdebt/remediation-plan.md
++++ b/docs/techdebt/remediation-plan.md
+@@ -122,6 +122,7 @@ fixes grouped by service, then the larger Medium items by risk. Each row records
+ | 58 | [TD-BE-03](backend.md) | The cart clear after an order is durable and scoped. order-service records a `CLEAR_CART` outbox row (per-user aggregate, idem key per order) with the lines the order consumed, tries once inline, and the relay retries (4-minute backoff cap, 400 attempts, then DEAD and "OUTBOX DEAD" for an admin retry). cart-service `POST /internal/carts/{userId}/consumed` (X-Internal-Token, UUID path, at most 50 lines, quantity 1 to 99) deletes only lines in that user's cart that still match product, variant, offer, quantity and add time, so a line the user changed or added meanwhile survives, and another user's identical cart is untouched. Buy-now never clears. Rollback runbook: [checkout-integrity-rollback](../guides/runbooks/checkout-integrity-rollback.md); PR-A (relay tolerance) must be live before this (F-20261119-11, PR-C) | ✅ Fixed 2026-11-21 |
+ | 59 | [TD-BE-07](backend.md) | Resolved earlier by `DependencyBreakerCapability` (one Resilience4j breaker per host, I/O errors and 5xx count, an open breaker maps to 503); F-20261119-11 added the missing coverage: half-open recovery, 503 with no host call while open, and compensation (order CANCELLED, stock and coupon release enqueued) when a breaker opens after save (PR-A) | ✅ Fixed 2026-11-21 |
+ | 60 | [TD-BE-15](backend.md) | A cart without `addedAt` is refused with 503 before any order row exists (fail closed; the column is NOT NULL, so this only happens on contract drift), the unique fingerprint index closes the double-order race, and the cart clear is now durable (row 58) (F-20261119-11, PR-A and PR-C) | ✅ Fixed 2026-11-21 |
++| 61 | [TD-P9-12](phase9.md#td-p9-12) (cancel part) | A seller or admin cancels one shipment: its share is claimed under the order lock, the card part is refunded under a shipment-scoped key, then the cancel commits with stock release, a durable wallet credit and events. Shares add up to the paid items value to the cent and shipping is refunded once across returns and cancels. Runbook: [payment-problems](../guides/runbooks/payment-problems.md#shipment-cancel-per-shipment-refund). Still open: seller SLA and auto-cancel (F-20261119-14) | ✅ Fixed 2026-11-23 |
+ 
+ ## Needs the owner
+ 
+diff --git a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/domain/Order.java b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/domain/Order.java
+index 69158be..3477a74 100644
+--- a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/domain/Order.java
++++ b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/domain/Order.java
+@@ -29,6 +29,7 @@ import java.util.Map;
+ import java.util.Objects;
+ import java.util.UUID;
+ import java.util.function.Function;
++import java.util.function.Predicate;
+ import lombok.AccessLevel;
+ import lombok.Getter;
+ import lombok.NoArgsConstructor;
+@@ -510,7 +511,7 @@ public class Order {
+ 
+   /** Every line is returned and every live return is refunded (shipping does not matter). */
+   public boolean fullyRefunded() {
+-    return completesOrder(Map.of())
++    return completes(Map.of(), OrderShipment::isCancelled)
+         && returns.stream()
+             .map(OrderReturn::getStatus)
+             .allMatch(EnumSet.of(ReturnStatus.REJECTED, ReturnStatus.REFUNDED)::contains);
+@@ -714,7 +715,7 @@ public class Order {
+     }
+   }
+ 
+-  private Map<LineKey, Integer> uncovered(OrderShipment also) {
++  private Map<LineKey, Integer> uncovered(Predicate<OrderShipment> covers) {
+     Map<LineKey, Integer> left = remainingReturnable(null);
+     for (OrderItem i : items) {
+       OrderShipment s =
+@@ -722,7 +723,7 @@ public class Order {
+               .filter(x -> x.getId().equals(i.getShipmentId()))
+               .findFirst()
+               .orElse(null);
+-      if (s != null && (s == also || s.isCancelled() || s.holdsCancelClaim())) {
++      if (s != null && covers.test(s)) {
+         left.merge(new LineKey(i.getProductId(), i.getVariantId()), -i.getQuantity(), Integer::sum);
+       }
+     }
+@@ -737,7 +738,8 @@ public class Order {
+             .map(OrderItem::getLineTotal)
+             .reduce(BigDecimal.ZERO, BigDecimal::add);
+     BigDecimal zero = BigDecimal.ZERO.setScale(2);
+-    if (!uncovered(s).values().stream().allMatch(q -> q == 0)) {
++    if (!uncovered(x -> x == s || x.isCancelled() || x.holdsCancelClaim()).values().stream()
++        .allMatch(q -> q == 0)) {
+       return new CancelShare(paidShare(gross).setScale(2, RoundingMode.HALF_UP), zero);
+     }
+     BigDecimal taken = BigDecimal.ZERO;
+@@ -763,14 +765,20 @@ public class Order {
+ 
+   /** True when these lines, on top of earlier non-rejected returns, cover every order line. */
+   private boolean completesOrder(Map<LineKey, Integer> lines) {
+-    return remainingReturnable(null).entrySet().stream()
++    return completes(lines, x -> x.isCancelled() || x.holdsCancelClaim()); // as cancelShare does
++  }
++
++  private boolean completes(Map<LineKey, Integer> lines, Predicate<OrderShipment> covers) {
++    return uncovered(covers).entrySet().stream()
+         .allMatch(e -> e.getValue() - lines.getOrDefault(e.getKey(), 0) == 0);
+   }
+ 
+   private boolean shippingAlreadyRefunded() {
+     return returns.stream()
+-        .anyMatch(
+-            r -> r.getStatus() != ReturnStatus.REJECTED && r.getShippingRefund().signum() > 0);
++            .anyMatch(
++                r -> r.getStatus() != ReturnStatus.REJECTED && r.getShippingRefund().signum() > 0)
++        || shipments.stream()
++            .anyMatch(s -> s.holdsCancelClaim() && s.getCancelShippingRefund().signum() > 0);
+   }
+ 
+   private OrderShipment resolveReturnShipment(List<ReturnLine> lines, UUID hint) {
+@@ -930,14 +938,8 @@ public class Order {
+     if ("REQUESTED".equals(s.getCancelState())) {
+       throw new CodedException(ErrorCode.RESOURCE_CONFLICT, "Shipment cancel in progress");
+     }
+-    if ("FAILED".equals(s.getCancelState())
+-        && shipments.stream()
+-            .anyMatch(
+-                o ->
+-                    o != s
+-                        && o.holdsCancelClaim()
+-                        && o.getCancelShippingRefund().signum() > 0)) {
+-      // a sibling holds the shipping on the strength of this claim: it must be completed first
++    if ("FAILED".equals(s.getCancelState()) && shippingAlreadyRefunded()) {
++      // s is FAILED, so it holds no claim itself: a sibling or a return holds the shipping
+       throw new CodedException(ErrorCode.RESOURCE_CONFLICT, "Shipment cancel must be completed");
+     }
+     s.dropFailedCancel();
+diff --git a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/OrderStore.java b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/OrderStore.java
+index 2a9bb77..86347f9 100644
+--- a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/OrderStore.java
++++ b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/OrderStore.java
+@@ -512,7 +512,7 @@ public class OrderStore {
+     }
+     boolean paysRest = !"NONE".equals(route);
+     BigDecimal moved = wallet.add(paysRest ? rest : BigDecimal.ZERO);
+-    boolean all = o.getShipments().stream().allMatch(OrderShipment::isCancelled);
++    boolean all = o.fullyRefunded();
+     if (moved.signum() > 0 && o.getPaymentStatus() != PaymentStatus.COD_PENDING) {
+       o.recordRefund(moved, all);
+     } else if (wallet.signum() > 0) {
+@@ -685,6 +685,7 @@ public class OrderStore {
+       String comment,
+       String refundTo,
+       UUID shipmentId) {
++    orders.lockById(orderId); // order row first, like cancel (F-14)
+     Order o = find(userId, orderId);
+     OrderReturn r =
+         o.requestReturn(
+diff --git a/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/event/CancelEventShapeTest.java b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/event/CancelEventShapeTest.java
+new file mode 100644
+index 0000000..5e9e213
+--- /dev/null
++++ b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/event/CancelEventShapeTest.java
+@@ -0,0 +1,76 @@
++package com.acme.ecommerce.order.event;
++
++import static org.assertj.core.api.Assertions.assertThat;
++import static org.mockito.ArgumentMatchers.any;
++import static org.mockito.ArgumentMatchers.eq;
++import static org.mockito.Mockito.mock;
++import static org.mockito.Mockito.verify;
++import static org.mockito.Mockito.when;
++
++import com.acme.ecommerce.order.api.dto.OrderResponse;
++import com.acme.ecommerce.order.api.dto.ShipmentResponse;
++import com.acme.ecommerce.order.outbox.Outbox;
++import com.acme.ecommerce.order.outbox.Outbox.Kind;
++import java.math.BigDecimal;
++import java.util.List;
++import java.util.UUID;
++import org.junit.jupiter.api.DisplayName;
++import org.junit.jupiter.api.Test;
++import org.mockito.ArgumentCaptor;
++import org.springframework.kafka.core.KafkaTemplate;
++
++/**
++ * F-14 B2 (AC-8): cancel events carry no return id and no refund amount, so seller-service's
++ * OrderEventConsumer (which reverses only on RETURN_REFUNDED with both set) reverses nothing.
++ */
++class CancelEventShapeTest {
++
++  @SuppressWarnings("unchecked")
++  private final KafkaTemplate<String, OrderEvent> kafka = mock(KafkaTemplate.class);
++
++  private final Outbox outbox = mock(Outbox.class);
++  private final OrderEventPublisher publisher = new OrderEventPublisher(kafka, outbox);
++
++  private OrderResponse order() {
++    OrderResponse o = mock(OrderResponse.class);
++    when(o.id()).thenReturn(UUID.randomUUID());
++    when(o.items()).thenReturn(List.of());
++    when(o.subtotalAmount()).thenReturn(new BigDecimal("300.00"));
++    when(o.paymentStatus()).thenReturn("PARTIALLY_REFUNDED");
++    return o;
++  }
++
++  private OrderEvent captured() {
++    ArgumentCaptor<OrderEvent> c = ArgumentCaptor.forClass(OrderEvent.class);
++    verify(outbox).enqueue(eq(Kind.ORDER_EVENT), any(), c.capture(), any());
++    return c.getValue();
++  }
++
++  @Test
++  @DisplayName("SHIPMENT_STATUS_CHANGED CANCELLED has no returnId, refundAmount or return values")
++  void shipmentCancelled_noReturnFields() {
++    ShipmentResponse s = mock(ShipmentResponse.class);
++    when(s.id()).thenReturn(UUID.randomUUID());
++    when(s.status()).thenReturn("CANCELLED");
++
++    publisher.publishShipment(OrderEventType.SHIPMENT_STATUS_CHANGED, order(), s);
++
++    OrderEvent e = captured();
++    assertThat(e.status()).isEqualTo("CANCELLED");
++    assertThat(e.returnId()).isNull();
++    assertThat(e.returnShipmentId()).isNull();
++    assertThat(e.refundAmount()).isNull();
++    assertThat(e.returnItemsValue()).isNull();
++  }
++
++  @Test
++  @DisplayName("ORDER_CANCELLED has no returnId, refundAmount or return values")
++  void orderCancelled_noReturnFields() {
++    publisher.publish(OrderEventType.ORDER_CANCELLED, order());
++
++    OrderEvent e = captured();
++    assertThat(e.returnId()).isNull();
++    assertThat(e.refundAmount()).isNull();
++    assertThat(e.returnItemsValue()).isNull();
++  }
++}
+diff --git a/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/OrderStoreCancelIT.java b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/OrderStoreCancelIT.java
+index 6287181..aa57db4 100644
+--- a/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/OrderStoreCancelIT.java
++++ b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/OrderStoreCancelIT.java
+@@ -247,5 +247,15 @@ class OrderStoreCancelIT extends AbstractCancelIT {
+     store.failCancel(b.orderId(), s1, 0);
+ 
+     shipExpecting409(b, s1);
++
++    // the exit path: retrying the cancel re-freezes S1 as the completing one (S2 holds no shipping)
++    CancelClaim retry = store.claimCancel(null, null, b.orderId(), List.of(s1));
++    assertThat(retry.claims().get(0).attempt()).isEqualTo(1);
++    store.commitCancel(b.orderId(), s1, 1, HistoryActor.ADMIN, "n");
++
++    assertThat(amountOf(s1, "cancel_refund_amount")).isEqualByComparingTo("812.50");
++    assertThat(amountOf(s1, "cancel_shipping_refund")).isEqualByComparingTo("0");
++    assertThat(refunded(b.orderId())).isEqualByComparingTo("1350.00");
++    assertThat(orderStatus(b.orderId())).isEqualTo("CANCELLED");
+   }
+ }
+diff --git a/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/ShippingOnceIT.java b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/ShippingOnceIT.java
+new file mode 100644
+index 0000000..cdf57ea
+--- /dev/null
++++ b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/ShippingOnceIT.java
+@@ -0,0 +1,117 @@
++package com.acme.ecommerce.order.service;
++
++import static org.assertj.core.api.Assertions.assertThat;
++
++import com.acme.ecommerce.order.domain.HistoryActor;
++import com.acme.ecommerce.order.domain.Order.ReturnLine;
++import com.acme.ecommerce.order.domain.PaymentMethod;
++import com.acme.ecommerce.order.domain.ReturnReason;
++import com.acme.ecommerce.order.support.AbstractCancelIT;
++import com.acme.ecommerce.order.support.CancelFixture.Built;
++import java.math.BigDecimal;
++import java.util.List;
++import java.util.UUID;
++import org.junit.jupiter.api.DisplayName;
++import org.junit.jupiter.api.Test;
++
++/** F-14 B1 (AC-7): shipping is refunded once across returns and shipment cancels. */
++class ShippingOnceIT extends AbstractCancelIT {
++
++  private void deliver(UUID shipmentId) {
++    jdbc.update(
++        "UPDATE orders.order_shipments SET status = 'DELIVERED', delivered_at = now()"
++            + " WHERE id = ?",
++        shipmentId);
++  }
++
++  private void returnShipment(Built b, UUID shipmentId) {
++    UUID product =
++        jdbc.queryForObject(
++            "SELECT product_id FROM orders.order_items WHERE shipment_id = ?",
++            UUID.class,
++            shipmentId);
++    store.requestReturn(
++        b.userId(),
++        b.orderId(),
++        List.of(new ReturnLine(product, null, 1)),
++        ReturnReason.DAMAGED,
++        null,
++        "SOURCE",
++        shipmentId);
++  }
++
++  private BigDecimal returnShipping(UUID orderId) {
++    return jdbc.queryForObject(
++        "SELECT coalesce(sum(shipping_refund), 0) FROM orders.order_returns WHERE order_id = ?",
++        BigDecimal.class,
++        orderId);
++  }
++
++  private BigDecimal cancelShipping(UUID orderId) {
++    return jdbc.queryForObject(
++        "SELECT coalesce(sum(cancel_shipping_refund), 0) FROM orders.order_shipments"
++            + " WHERE order_id = ?",
++        BigDecimal.class,
++        orderId);
++  }
++
++  @Test
++  @DisplayName("AC-7: S1 and S2 cancelled, then S3 returned: the return carries the shipping once")
++  void cancelThenReturn_returnCarriesShipping() {
++    Built b = workedExample();
++    cancel(b, 0);
++    cancel(b, 1);
++    deliver(b.shipmentIds().get(2));
++
++    returnShipment(b, b.shipmentIds().get(2));
++
++    assertThat(cancelShipping(b.orderId())).isEqualByComparingTo("0");
++    assertThat(returnShipping(b.orderId())).isEqualByComparingTo("50.00");
++  }
++
++  @Test
++  @DisplayName("AC-7: S1 returned, then S2 and S3 cancelled: the last cancel carries the shipping")
++  void returnThenCancel_cancelCarriesShipping() {
++    Built b = workedExample();
++    deliver(b.shipmentIds().get(0));
++    returnShipment(b, b.shipmentIds().get(0));
++    assertThat(returnShipping(b.orderId())).isEqualByComparingTo("0");
++
++    cancel(b, 1);
++    cancel(b, 2);
++
++    assertThat(returnShipping(b.orderId())).isEqualByComparingTo("0");
++    assertThat(cancelShipping(b.orderId())).isEqualByComparingTo("50.00");
++  }
++
++  @Test
++  @DisplayName("AC-7: a return while a sibling cancel is REQUESTED carries the shipping once")
++  void returnWhileCancelRequested_shippingOnce_orderRefunded() {
++    Built b = build(PaymentMethod.CARD, "200.00", "100.00", "50.00", "350.00", "1000.00", "600.00");
++    UUID s1 = b.shipmentIds().get(0);
++    UUID s2 = b.shipmentIds().get(1);
++    store.claimCancel(null, null, b.orderId(), List.of(s1)); // REQUESTED, S2 still uncovered
++    deliver(s2);
++
++    returnShipment(b, s2);
++    jdbc.update(
++        "UPDATE orders.order_returns SET status = 'REFUNDED' WHERE order_id = ?", b.orderId());
++    store.commitCancel(b.orderId(), s1, 0, HistoryActor.ADMIN, "n");
++
++    assertThat(returnShipping(b.orderId())).isEqualByComparingTo("50.00");
++    assertThat(cancelShipping(b.orderId())).isEqualByComparingTo("0");
++    assertThat(paymentStatus(b.orderId())).isEqualTo("REFUNDED");
++  }
++
++  @Test
++  @DisplayName("AC-7: a single-shipment order returns shipping exactly as before")
++  void singleShipment_unchanged() {
++    Built b = build(PaymentMethod.CARD, "0", "0", "50.00", "0", "100.00");
++    deliver(b.shipmentIds().get(0));
++
++    returnShipment(b, b.shipmentIds().get(0));
++
++    assertThat(returnShipping(b.orderId())).isEqualByComparingTo("50.00");
++    assertThat(cancelShipping(b.orderId())).isEqualByComparingTo("0");
++  }
++}

@@ -1,0 +1,6 @@
+- 2026-11-25T14:42:53Z step 1 discover: worktree from F-18 305d540; objective.md written (CEO-originated, money path)
+- 2026-11-25T14:44:06Z step 2 requirements: CPO wrote 14 ACs; ROTATE/KEEP table cites sources; IDEMPOTENCY_KEY_REUSED is 422 (rule keys on code). Gate passed (CEO check).
+- 2026-11-25T14:44:28Z step 3 complexity: CTO score 2, class S, limit 300, no ADR
+- 2026-11-25T14:45:24Z step 4 design: architect design.md (shouldRotateKey in CheckoutPage.tsx; status-first keep for 408/429/5xx; unknown 409 keeps)
+- 2026-11-25T14:45:50Z step 5 plan: EM tasks.md, 3 tasks, all 14 ACs covered
+- 2026-11-25T14:49:23Z step 6 implement: engineer e2cb97e (+30/-1 prod, +180 test); CEO confirmed diff; blocked on F-18 lint fix, will rebase

@@ -1,0 +1,2275 @@
+diff --git a/apps/product-catalog/src/components/__tests__/GoogleSignInButton.test.tsx b/apps/product-catalog/src/components/__tests__/GoogleSignInButton.test.tsx
+new file mode 100644
+index 0000000..b440e2f
+--- /dev/null
++++ b/apps/product-catalog/src/components/__tests__/GoogleSignInButton.test.tsx
+@@ -0,0 +1,101 @@
++/**
++ * GoogleSignInButton and OrDivider (TD-TEST-02). The enabled flag is read from
++ * import.meta.env when the module loads, so each test stubs the env, resets the module graph and
++ * imports the component afresh.
++ */
++
++import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
++import { cleanup, fireEvent, render, screen } from '@testing-library/react'
++
++const redirect = vi.hoisted(() => ({
++  rememberPostLoginRedirect: vi.fn(),
++  takePostLoginRedirect: vi.fn(),
++  safeNext: vi.fn(),
++}))
++vi.mock('../../lib/redirect', () => redirect)
++
++const originalLocation = Object.getOwnPropertyDescriptor(window, 'location')
++const assign = vi.fn()
++
++async function load(flag?: string) {
++  // undefined means genuinely unset (nothing defines it in the test env), not the string 'undefined'
++  if (flag !== undefined) vi.stubEnv('VITE_GOOGLE_SSO_ENABLED', flag)
++  vi.resetModules()
++  return import('../GoogleSignInButton')
++}
++
++beforeEach(() => {
++  assign.mockReset()
++  redirect.rememberPostLoginRedirect.mockReset()
++  vi.stubEnv('VITE_AUTH_BASE_URL', 'http://auth.test:9000/')
++  Object.defineProperty(window, 'location', {
++    configurable: true,
++    value: { origin: 'http://shop.test', assign },
++  })
++})
++
++afterEach(() => {
++  cleanup()
++  vi.unstubAllEnvs()
++  vi.resetModules()
++  if (originalLocation) Object.defineProperty(window, 'location', originalLocation)
++})
++
++describe('GoogleSignInButton', () => {
++  it('remembers the next path and sends the browser to the Google sign-in URL', async () => {
++    const { GoogleSignInButton } = await load()
++    render(<GoogleSignInButton next="/checkout?x=1" />)
++
++    fireEvent.click(screen.getByRole('button', { name: 'Continue with Google' }))
++
++    expect(redirect.rememberPostLoginRedirect).toHaveBeenCalledTimes(1)
++    expect(redirect.rememberPostLoginRedirect).toHaveBeenCalledWith('/checkout?x=1')
++    expect(assign).toHaveBeenCalledTimes(1)
++    expect(assign).toHaveBeenCalledWith(
++      `http://auth.test:9000/oauth2/authorization/google?redirect_uri=${encodeURIComponent('http://shop.test/auth/callback')}`,
++    )
++    // remember happens before leaving the app
++    expect(redirect.rememberPostLoginRedirect.mock.invocationCallOrder[0]).toBeLessThan(
++      assign.mock.invocationCallOrder[0] ?? 0,
++    )
++  })
++
++  it('renders a custom label instead of the default', async () => {
++    const { GoogleSignInButton } = await load()
++    render(<GoogleSignInButton next="/" label="Sign up with Google" />)
++
++    expect(screen.getByRole('button', { name: 'Sign up with Google' })).toBeInTheDocument()
++    expect(screen.queryByText('Continue with Google')).not.toBeInTheDocument()
++  })
++
++  it('renders nothing when VITE_GOOGLE_SSO_ENABLED is "false"', async () => {
++    const { GoogleSignInButton } = await load('false')
++    const { container } = render(<GoogleSignInButton next="/" />)
++
++    expect(container).toBeEmptyDOMElement()
++    expect(screen.queryByRole('button')).not.toBeInTheDocument()
++  })
++
++  it.each([undefined, 'true', '', 'FALSE', '0'])('renders when VITE_GOOGLE_SSO_ENABLED is %j', async (flag) => {
++    const { GoogleSignInButton } = await load(flag)
++    render(<GoogleSignInButton next="/" />)
++
++    expect(screen.getByRole('button', { name: 'Continue with Google' })).toBeInTheDocument()
++  })
++})
++
++describe('OrDivider', () => {
++  it('renders nothing when VITE_GOOGLE_SSO_ENABLED is "false"', async () => {
++    const { OrDivider } = await load('false')
++    const { container } = render(<OrDivider />)
++
++    expect(container).toBeEmptyDOMElement()
++  })
++
++  it.each([undefined, 'true', 'anything'])('renders the "or" divider when the flag is %j', async (flag) => {
++    const { OrDivider } = await load(flag)
++    render(<OrDivider />)
++
++    expect(screen.getByText('or')).toBeInTheDocument()
++  })
++})
+diff --git a/apps/product-catalog/src/lib/redirect.test.ts b/apps/product-catalog/src/lib/redirect.test.ts
+new file mode 100644
+index 0000000..fcdd271
+--- /dev/null
++++ b/apps/product-catalog/src/lib/redirect.test.ts
+@@ -0,0 +1,69 @@
++/**
++ * lib/redirect (TD-TEST-02 review): safeNext accepts only same-origin absolute paths, and the
++ * remembered Google post-login destination is sanitised on the way in and consumed on the way out.
++ */
++
++import { afterEach, beforeEach, describe, expect, it } from 'vitest'
++import { rememberPostLoginRedirect, safeNext, takePostLoginRedirect } from './redirect'
++
++const KEY = 'pc.post-login-redirect'
++
++beforeEach(() => sessionStorage.clear())
++afterEach(() => sessionStorage.clear())
++
++describe('safeNext', () => {
++  it.each([
++    ['/a?b=1', '/a?b=1'],
++    ['/', '/'],
++    ['/orders/123#top', '/orders/123#top'],
++  ])('accepts %j', (input, expected) => {
++    expect(safeNext(input)).toBe(expected)
++  })
++
++  it.each<[string, string | null | undefined]>([
++    ['empty string', ''],
++    ['null', null],
++    ['undefined', undefined],
++    ['relative path', 'a'],
++    ['protocol-relative', '//x'],
++    ['protocol-relative with path', '//evil.example/x'],
++    ['backslash after slash', String.raw`/\x`],
++    ['absolute https URL', 'https://x'],
++    ['javascript URL', 'javascript:x'],
++    ['encoded protocol-relative (not a path start)', '%2F%2Fevil.example'],
++    // the URL parser strips TAB/CR/LF, so these become //evil.example
++    ['slash TAB slash', '/\t/evil.example'],
++    ['slash LF slash', '/\n/evil.example'],
++    ['slash CR slash', '/\r/evil.example'],
++    ['NUL control character', '/\u0000x'],
++    ['DEL control character', '/a\u007Fb'],
++  ])('rejects %s and returns the fallback', (_name, input) => {
++    expect(safeNext(input)).toBe('/')
++    expect(safeNext(input, '/home')).toBe('/home')
++  })
++})
++
++describe('rememberPostLoginRedirect / takePostLoginRedirect', () => {
++  it('stores a safe path and consumes the key when taken', () => {
++    rememberPostLoginRedirect('/checkout?x=1')
++    expect(sessionStorage.getItem(KEY)).toBe('/checkout?x=1')
++    expect(takePostLoginRedirect()).toBe('/checkout?x=1')
++    expect(sessionStorage.getItem(KEY)).toBeNull()
++    expect(takePostLoginRedirect()).toBe('/')
++  })
++
++  it.each(['//evil.example', String.raw`/\evil.example`, 'https://evil.example', 'javascript:alert(1)', ''])(
++    'stores the sanitised fallback instead of %j',
++    (hostile) => {
++      rememberPostLoginRedirect(hostile)
++      expect(sessionStorage.getItem(KEY)).toBe('/')
++      expect(takePostLoginRedirect()).toBe('/')
++    },
++  )
++
++  it('re-sanitises a hostile value planted in storage when taking it, and still consumes it', () => {
++    sessionStorage.setItem(KEY, '//evil.example')
++    expect(takePostLoginRedirect()).toBe('/')
++    expect(sessionStorage.getItem(KEY)).toBeNull()
++  })
++})
+diff --git a/apps/product-catalog/src/lib/redirect.ts b/apps/product-catalog/src/lib/redirect.ts
+index 53639c9..8e1b4f6 100644
+--- a/apps/product-catalog/src/lib/redirect.ts
++++ b/apps/product-catalog/src/lib/redirect.ts
+@@ -5,6 +5,8 @@
+ /** Accepts only same-origin absolute paths so `?next=` cannot become an open redirect. */
+ export function safeNext(next: string | null | undefined, fallback = '/'): string {
+   if (!next || !next.startsWith('/') || next.startsWith('//') || next.startsWith('/\\')) return fallback
++  // The URL parser strips TAB/CR/LF, so "/\t/host" would become "//host"; refuse control characters.
++  if (/[\u0000-\u001F\u007F]/.test(next)) return fallback
+   return next
+ }
+ 
+diff --git a/apps/product-catalog/src/pages/__tests__/AuthCallbackPage.test.tsx b/apps/product-catalog/src/pages/__tests__/AuthCallbackPage.test.tsx
+new file mode 100644
+index 0000000..c3b93d3
+--- /dev/null
++++ b/apps/product-catalog/src/pages/__tests__/AuthCallbackPage.test.tsx
+@@ -0,0 +1,155 @@
++/**
++ * AuthCallbackPage (TD-TEST-02): where the Google return lands the user. The auth store is set
++ * directly; the stored redirect uses the real lib/redirect through sessionStorage.
++ */
++
++import { afterEach, beforeEach, describe, expect, it } from 'vitest'
++import { cleanup, render, screen } from '@testing-library/react'
++import { MemoryRouter, Route, Routes, useLocation, useNavigationType } from 'react-router-dom'
++import { AuthCallbackPage } from '../AuthCallbackPage'
++import { useAuthStore } from '../../stores'
++
++const STORED = 'pc.post-login-redirect'
++
++function Probe() {
++  const loc = useLocation()
++  const type = useNavigationType()
++  return (
++    <p data-testid="where" data-nav={type}>
++      {loc.pathname}
++      {loc.search}
++    </p>
++  )
++}
++
++function renderAt(url: string) {
++  return render(
++    <MemoryRouter initialEntries={[url]}>
++      <Routes>
++        <Route path="/auth/callback" element={<AuthCallbackPage />} />
++        <Route path="*" element={<Probe />} />
++      </Routes>
++    </MemoryRouter>,
++  )
++}
++
++const whereText = () => screen.getByTestId('where').textContent
++
++beforeEach(() => {
++  sessionStorage.clear()
++  useAuthStore.setState({ status: 'unknown', mfaToken: null, user: null })
++})
++
++afterEach(() => {
++  cleanup()
++  sessionStorage.clear()
++  useAuthStore.setState({ status: 'unknown', mfaToken: null, user: null })
++})
++
++describe('AuthCallbackPage', () => {
++  it('sends ?error=<code> to the login page with the stored redirect, and consumes it', async () => {
++    sessionStorage.setItem(STORED, '/orders?tab=open')
++    useAuthStore.setState({ status: 'anonymous' })
++    renderAt('/auth/callback?error=AUTH_OIDC_EMAIL_UNVERIFIED')
++
++    expect((await screen.findByTestId('where')).textContent).toBe(
++      `/login?error=AUTH_OIDC_EMAIL_UNVERIFIED&next=${encodeURIComponent('/orders?tab=open')}`,
++    )
++    expect(sessionStorage.getItem(STORED)).toBeNull()
++    expect(screen.getByTestId('where')).toHaveAttribute('data-nav', 'REPLACE')
++  })
++
++  it('encodes an error value that needs it and falls back to "/" without a stored redirect', async () => {
++    renderAt('/auth/callback?error=' + encodeURIComponent('a b&c=d/é'))
++
++    expect((await screen.findByTestId('where')).textContent).toBe(
++      `/login?error=${encodeURIComponent('a b&c=d/é')}&next=%2F`,
++    )
++    const search = new URLSearchParams(whereText()?.split('?')[1])
++    expect(search.get('error')).toBe('a b&c=d/é')
++    expect(search.get('next')).toBe('/')
++  })
++
++  it('error wins over an authenticated session', async () => {
++    useAuthStore.setState({ status: 'authenticated' })
++    renderAt('/auth/callback?error=AUTH_OIDC_LOGIN_FAILED')
++
++    expect((await screen.findByTestId('where')).textContent).toBe('/login?error=AUTH_OIDC_LOGIN_FAILED&next=%2F')
++  })
++
++  it.each([
++    '//evil.example/x',
++    'https://evil.example',
++    String.raw`/\evil.example`, // a real backslash after the slash
++    '%2F%2Fevil.example',
++    '/\t/evil.example', // the URL parser strips the TAB: //evil.example
++    'javascript:alert(1)',
++    '',
++  ])(
++    'never builds the next URL from hostile stored value %s',
++    async (hostile) => {
++      sessionStorage.setItem(STORED, hostile)
++      renderAt('/auth/callback?error=AUTH_OIDC_LOGIN_FAILED')
++
++      expect((await screen.findByTestId('where')).textContent).toBe('/login?error=AUTH_OIDC_LOGIN_FAILED&next=%2F')
++      expect(sessionStorage.getItem(STORED)).toBeNull()
++    },
++  )
++
++  it('ignores a ?next= query parameter on the callback URL', async () => {
++    useAuthStore.setState({ status: 'authenticated' })
++    renderAt('/auth/callback?next=' + encodeURIComponent('//evil.example'))
++
++    expect((await screen.findByTestId('where')).textContent).toBe('/')
++  })
++
++  it('goes to the stored post-login path when authenticated, replacing the callback entry', async () => {
++    sessionStorage.setItem(STORED, '/checkout')
++    useAuthStore.setState({ status: 'authenticated' })
++    renderAt('/auth/callback')
++
++    expect((await screen.findByTestId('where')).textContent).toBe('/checkout')
++    expect(screen.getByTestId('where')).toHaveAttribute('data-nav', 'REPLACE')
++    expect(sessionStorage.getItem(STORED)).toBeNull()
++  })
++
++  it('defaults to "/" when authenticated with nothing stored', async () => {
++    useAuthStore.setState({ status: 'authenticated' })
++    renderAt('/auth/callback')
++
++    expect((await screen.findByTestId('where')).textContent).toBe('/')
++  })
++
++  it('sends an mfaToken to the login second-factor step, ahead of authenticated', async () => {
++    sessionStorage.setItem(STORED, '/account/profile')
++    useAuthStore.setState({ status: 'authenticated', mfaToken: 'mfa-123' })
++    renderAt('/auth/callback')
++
++    expect((await screen.findByTestId('where')).textContent).toBe(
++      `/login?next=${encodeURIComponent('/account/profile')}`,
++    )
++    expect(whereText()).not.toContain('error=')
++    expect(sessionStorage.getItem(STORED)).toBeNull()
++  })
++
++  it('sends an anonymous visitor without an error to login with AUTH_OIDC_LOGIN_FAILED', async () => {
++    sessionStorage.setItem(STORED, '/wishlist')
++    useAuthStore.setState({ status: 'anonymous' })
++    renderAt('/auth/callback')
++
++    expect((await screen.findByTestId('where')).textContent).toBe(
++      `/login?error=AUTH_OIDC_LOGIN_FAILED&next=${encodeURIComponent('/wishlist')}`,
++    )
++    expect(sessionStorage.getItem(STORED)).toBeNull()
++  })
++
++  it('does not navigate while the session status is loading and shows a status message', () => {
++    sessionStorage.setItem(STORED, '/checkout')
++    useAuthStore.setState({ status: 'unknown' })
++    renderAt('/auth/callback')
++
++    expect(screen.getByRole('status')).toHaveTextContent('Signing you in...')
++    expect(screen.queryByTestId('where')).not.toBeInTheDocument()
++    expect(sessionStorage.getItem(STORED)).toBe('/checkout')
++  })
++})
+diff --git a/apps/product-catalog/src/pages/__tests__/CheckoutPage.payment.test.tsx b/apps/product-catalog/src/pages/__tests__/CheckoutPage.payment.test.tsx
+new file mode 100644
+index 0000000..fc2e527
+--- /dev/null
++++ b/apps/product-catalog/src/pages/__tests__/CheckoutPage.payment.test.tsx
+@@ -0,0 +1,397 @@
++/**
++ * CheckoutPage part 2 (TD-TEST-02): payment method choices (card, COD rules, wallet), disabled
++ * states, and optional side calls that fail. Place payloads are covered in CheckoutPage.place.test.tsx.
++ */
++
++import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
++import { act, cleanup, screen, waitFor } from '@testing-library/react'
++import userEvent from '@testing-library/user-event'
++
++vi.mock('../../services/userApi', async () => (await import('./checkoutMocks')).userApiModule())
++vi.mock('../../services/orderApi', async () => (await import('./checkoutMocks')).orderApiModule())
++vi.mock('../../services/paymentApi', async () => (await import('./checkoutMocks')).paymentApiModule())
++vi.mock('../../services/engageApi', async () => (await import('./checkoutMocks')).engageApiModule())
++vi.mock('../../services/productApi', async () => (await import('./checkoutMocks')).productApiModule())
++vi.mock('../../components/ExchangeOffer', () => ({ ExchangeOffer: () => null }))
++vi.mock('../../components/PaymentPanel', () => ({ PaymentPanel: () => null }))
++
++import { api } from './checkoutMocks'
++import {
++  coins,
++  estimate,
++  placeButton,
++  problem,
++  radio,
++  ready,
++  renderCheckout,
++  resetApis,
++  resetCart,
++  seedApis,
++  seedCart,
++  summaryValue,
++  wallet,
++} from './checkoutTestUtils'
++
++// Subtotal 1250 + shipping 40 = total 1290 (INR)
++const TWO_LINES = [
++  { productId: 'p1', name: 'Blue Shirt', price: 500, qty: 2 },
++  { productId: 'p2', name: 'Steel Mug', price: 250, qty: 1 },
++]
++
++beforeEach(() => {
++  resetApis()
++  seedApis()
++  seedCart(TWO_LINES)
++})
++
++afterEach(() => {
++  cleanup()
++  resetApis()
++  resetCart()
++  vi.restoreAllMocks()
++})
++
++describe('wallet', () => {
++  it('lets the Wallet method be chosen when the balance covers the whole total', async () => {
++    api.wallet.mockResolvedValue(wallet(5000))
++    const user = userEvent.setup()
++    renderCheckout()
++    await ready()
++
++    const walletRadio = await screen.findByRole('radio', { name: /Wallet/ })
++    expect(walletRadio).toBeEnabled()
++    expect(screen.getByText('Pay in full from your ₹5,000.00 balance')).toBeInTheDocument()
++    // a covering balance has no partial-use checkbox
++    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
++
++    await user.click(walletRadio)
++    expect(radio(/Wallet/).checked).toBe(true)
++    expect(radio(/Pay online/).checked).toBe(false)
++    expect(summaryValue('Paid from wallet')).toBe('-₹1,290.00')
++    expect(summaryValue('To pay')).toBe('₹0.00')
++  })
++
++  it('disables the Wallet radio for a partial balance and offers the use-wallet checkbox', async () => {
++    api.wallet.mockResolvedValue(wallet(500))
++    const user = userEvent.setup()
++    renderCheckout()
++    await ready()
++
++    const walletRadio = await screen.findByRole('radio', { name: /Wallet/ })
++    expect(walletRadio).toBeDisabled()
++    expect(screen.getByText('Balance ₹500.00 does not cover this order')).toBeInTheDocument()
++    expect(screen.queryByText('Paid from wallet')).not.toBeInTheDocument()
++
++    await user.click(screen.getByRole('checkbox', { name: /Use wallet balance/ }))
++    expect(summaryValue('Paid from wallet')).toBe('-₹500.00')
++    expect(summaryValue('To pay')).toBe('₹790.00')
++    expect(radio(/Pay online/).checked).toBe(true)
++  })
++
++  it('labels the remainder "Due on delivery" when the method is COD', async () => {
++    api.wallet.mockResolvedValue(wallet(500))
++    const user = userEvent.setup()
++    renderCheckout()
++    await ready()
++
++    await user.click(radio(/Cash on Delivery/))
++    await user.click(await screen.findByRole('checkbox', { name: /Use wallet balance/ }))
++    expect(summaryValue('Paid from wallet')).toBe('-₹500.00')
++    expect(summaryValue('Due on delivery')).toBe('₹790.00')
++    expect(screen.queryByText('To pay')).not.toBeInTheDocument()
++  })
++
++  it('does not offer a wallet held in a different currency', async () => {
++    api.wallet.mockResolvedValue(wallet(5000, 'USD'))
++    renderCheckout()
++    await ready()
++    await waitFor(() => expect(api.wallet).toHaveBeenCalled())
++
++    expect(screen.queryByRole('radio', { name: /Wallet/ })).not.toBeInTheDocument()
++    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
++  })
++
++  it('does not offer an empty wallet', async () => {
++    api.wallet.mockResolvedValue(wallet(0))
++    renderCheckout()
++    await ready()
++
++    expect(screen.queryByRole('radio', { name: /Wallet/ })).not.toBeInTheDocument()
++  })
++})
++
++describe('Cash on Delivery rules', () => {
++  const codReason = () => document.getElementById('cod-reason')?.textContent
++
++  it('is available when the estimate allows it and the total is within the limit', async () => {
++    renderCheckout()
++    await ready()
++
++    expect(radio(/Cash on Delivery/)).toBeEnabled()
++    expect(codReason()).toBe('Pay when your order arrives')
++  })
++
++  it('is disabled with a reason when the estimate says COD is not available', async () => {
++    api.deliveryEstimate.mockResolvedValue(estimate({ codAvailable: false }))
++    renderCheckout()
++    await ready()
++
++    expect(radio(/Cash on Delivery/)).toBeDisabled()
++    expect(codReason()).toBe('Cash on Delivery is not available for this address.')
++  })
++
++  it('is disabled with a reason while there is no estimate', async () => {
++    api.deliveryEstimate.mockImplementation(() => new Promise(() => undefined))
++    renderCheckout()
++    await screen.findByRole('radio', { name: /Home/ })
++
++    expect(radio(/Cash on Delivery/)).toBeDisabled()
++    expect(codReason()).toBe('Choose a deliverable address to check Cash on Delivery.')
++  })
++
++  it('is disabled above 50000 for INR', async () => {
++    seedCart([{ productId: 'p1', name: 'TV', price: 60000, qty: 1 }])
++    renderCheckout()
++    await ready()
++
++    expect(radio(/Cash on Delivery/)).toBeDisabled()
++    expect(codReason()).toBe('Cash on Delivery is available up to ₹50,000.00.')
++  })
++
++  it('stays available right at the INR limit', async () => {
++    seedCart([{ productId: 'p1', name: 'TV', price: 49960, qty: 1 }]) // + 40 shipping = 50000
++    renderCheckout()
++    await ready()
++
++    expect(summaryValue('Total')).toBe('₹50,000.00')
++    expect(radio(/Cash on Delivery/)).toBeEnabled()
++  })
++
++  it('is disabled above 1000 for other currencies', async () => {
++    seedCart([{ productId: 'p1', name: 'Laptop', price: 1200, qty: 1, currency: 'USD' }])
++    api.deliveryEstimate.mockResolvedValue(estimate({ currency: 'USD', shippingFee: 0 }))
++    renderCheckout()
++    await ready()
++
++    expect(radio(/Cash on Delivery/)).toBeDisabled()
++    expect(codReason()).toBe('Cash on Delivery is available up to $1,000.00.')
++  })
++
++  it('reverts to CARD when COD was selected and becomes unavailable', async () => {
++    api.deliveryEstimate
++      .mockResolvedValueOnce(estimate({ codAvailable: true }))
++      .mockResolvedValueOnce(estimate({ pincode: '110001', codAvailable: false }))
++    const user = userEvent.setup()
++    renderCheckout()
++    await ready()
++
++    await user.click(radio(/Cash on Delivery/))
++    expect(radio(/Cash on Delivery/).checked).toBe(true)
++
++    await user.click(radio(/Office/))
++    await waitFor(() => expect(radio(/Cash on Delivery/)).toBeDisabled())
++    expect(radio(/Cash on Delivery/).checked).toBe(false)
++    expect(radio(/Pay online/).checked).toBe(true)
++  })
++})
++
++describe('disabled place button and error states', () => {
++  it('shows the address form and disables placing when there are no saved addresses', async () => {
++    api.listAddresses.mockResolvedValue([])
++    renderCheckout()
++
++    expect(await screen.findByRole('button', { name: 'Save and use this address' })).toBeInTheDocument()
++    expect(placeButton()).toBeDisabled()
++    expect(screen.queryByRole('radio', { name: /Home/ })).not.toBeInTheDocument()
++    expect(api.deliveryEstimate).not.toHaveBeenCalled()
++  })
++
++  it('disables placing while the add-address form is open, and enables it again on cancel', async () => {
++    const user = userEvent.setup()
++    renderCheckout()
++    await ready()
++    expect(placeButton()).toBeEnabled()
++
++    await user.click(screen.getByRole('button', { name: 'Add a new address' }))
++    expect(placeButton()).toBeDisabled()
++
++    await user.click(screen.getByRole('button', { name: /cancel/i }))
++    expect(placeButton()).toBeEnabled()
++  })
++
++  it('shows an error alert and no place button when the address load fails', async () => {
++    api.listAddresses.mockRejectedValue(problem(500, 'SERVER_ERROR', {}, 'Addresses are down'))
++    renderCheckout()
++
++    expect(await screen.findByRole('alert')).toHaveTextContent('Addresses are down')
++    expect(screen.queryByRole('button', { name: /place order/i })).not.toBeInTheDocument()
++  })
++
++  it('shows an error alert and disables placing for mixed currencies in the cart', async () => {
++    seedCart([
++      { productId: 'p1', name: 'Blue Shirt', price: 500, qty: 1 },
++      { productId: 'p2', name: 'Steel Mug', price: 10, qty: 1, currency: 'USD' },
++    ])
++    renderCheckout()
++    await ready()
++
++    expect(screen.getByRole('alert')).toHaveTextContent(
++      'Items in your cart use different currencies and cannot be ordered together.',
++    )
++    expect(placeButton()).toBeDisabled()
++  })
++
++  it('shows the estimate error, Shipping "—" and a disabled COD when the estimate fails', async () => {
++    api.deliveryEstimate.mockRejectedValue(problem(503, 'DELIVERY_DOWN', {}, 'Delivery check unavailable'))
++    renderCheckout()
++    await screen.findByText('Delivery check unavailable')
++
++    expect(summaryValue('Shipping')).toBe('—')
++    expect(radio(/Cash on Delivery/)).toBeDisabled()
++    expect(document.getElementById('cod-reason')).toHaveTextContent(
++      'Choose a deliverable address to check Cash on Delivery.',
++    )
++    expect(placeButton()).toBeEnabled() // the estimate is advisory; checkout still works
++  })
++})
++
++describe('optional services that fail hide only their own controls', () => {
++  const placeableAndQuiet = async () => {
++    expect(placeButton()).toBeEnabled()
++    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
++    expect(radio(/Pay online/)).toBeEnabled()
++    expect(summaryValue('Subtotal')).toBe('₹1,250.00')
++  }
++
++  it('wallet', async () => {
++    api.wallet.mockResolvedValue(wallet(5000))
++    const { unmount } = renderCheckout()
++    await ready()
++    expect(await screen.findByRole('radio', { name: /Wallet/ })).toBeInTheDocument()
++    unmount()
++
++    api.wallet.mockRejectedValue(new Error('down'))
++    renderCheckout()
++    await ready()
++    await waitFor(() => expect(api.wallet).toHaveBeenCalledTimes(2))
++
++    expect(screen.queryByRole('radio', { name: /Wallet/ })).not.toBeInTheDocument()
++    await placeableAndQuiet()
++  })
++
++  it('coins', async () => {
++    api.coins.mockResolvedValue(coins(500))
++    const { unmount } = renderCheckout()
++    await ready()
++    expect(await screen.findByText('Redeem coins')).toBeInTheDocument()
++    unmount()
++
++    api.coins.mockRejectedValue(new Error('down'))
++    renderCheckout()
++    await ready()
++    await waitFor(() => expect(api.coins).toHaveBeenCalledTimes(2))
++
++    expect(screen.queryByText('Redeem coins')).not.toBeInTheDocument()
++    await placeableAndQuiet()
++  })
++
++  it('membership', async () => {
++    api.membership.mockResolvedValue({ active: true, plan: 'PLUS', endsAt: null, benefits: [], plans: [] })
++    const { unmount } = renderCheckout()
++    await ready()
++    expect(await screen.findByText('Plus: free')).toBeInTheDocument()
++    unmount()
++
++    api.membership.mockRejectedValue(new Error('down'))
++    renderCheckout()
++    await ready()
++    await waitFor(() => expect(api.membership).toHaveBeenCalledTimes(2))
++
++    expect(screen.queryByText('Plus: free')).not.toBeInTheDocument()
++    expect(summaryValue('Shipping')).toBe('₹40.00')
++    await placeableAndQuiet()
++  })
++
++  it('payment config keeps the neutral online-payment wording', async () => {
++    api.paymentConfig.mockResolvedValue({
++      mode: 'RAZORPAY',
++      providers: [{ id: 'RAZORPAY', label: 'Razorpay', publicKey: 'k', methods: ['upi', 'card'], currencies: ['INR'] }],
++    })
++    const { unmount } = renderCheckout()
++    await ready()
++    expect(await screen.findByText('UPI or cards')).toBeInTheDocument()
++    unmount()
++
++    api.paymentConfig.mockRejectedValue(new Error('down'))
++    renderCheckout()
++    await ready()
++    await waitFor(() => expect(api.paymentConfig).toHaveBeenCalledTimes(2))
++
++    expect(screen.getByText('Pay securely online')).toBeInTheDocument()
++    await placeableAndQuiet()
++  })
++
++  it('available coupons', async () => {
++    api.availableCoupons.mockResolvedValue([
++      { code: 'SAVE50', description: 'Save fifty', discountAmount: 50, minOrderAmount: null },
++    ])
++    const { unmount } = renderCheckout()
++    await ready()
++    expect(await screen.findByRole('list', { name: 'Suggested coupons' })).toBeInTheDocument()
++    unmount()
++
++    api.availableCoupons.mockRejectedValue(new Error('down'))
++    renderCheckout()
++    await ready()
++    await waitFor(() => expect(api.availableCoupons).toHaveBeenCalledTimes(2))
++
++    expect(screen.queryByRole('list', { name: 'Suggested coupons' })).not.toBeInTheDocument()
++    expect(screen.getByLabelText('Have a coupon code?')).toBeInTheDocument() // manual entry still works
++    await placeableAndQuiet()
++  })
++})
++
++describe('stale async results', () => {
++  it('ignores a failed estimate for a pincode that is no longer selected', async () => {
++    let rejectFirst!: (e: unknown) => void
++    api.deliveryEstimate
++      .mockImplementationOnce(() => new Promise((_, rej) => (rejectFirst = rej)))
++      .mockResolvedValueOnce(estimate({ pincode: '110001', shippingFee: 90 }))
++    const user = userEvent.setup()
++    renderCheckout()
++    await screen.findByRole('radio', { name: /Office/ })
++
++    await user.click(radio(/Office/))
++    await waitFor(() => expect(summaryValue('Shipping')).toBe('₹90.00'))
++    await act(async () => {
++      rejectFirst(problem(500, 'LATE', {}, 'Late failure for the old pincode'))
++    })
++
++    expect(screen.queryByText('Late failure for the old pincode')).not.toBeInTheDocument()
++    expect(summaryValue('Shipping')).toBe('₹90.00')
++    expect(radio(/Cash on Delivery/)).toBeEnabled()
++  })
++
++  it('does not throw or log when responses arrive after the page unmounted (no-throw check only)', async () => {
++    const errors = vi.spyOn(console, 'error').mockImplementation(() => undefined)
++    const late: Array<() => void> = []
++    const later = <T,>(value: T) => new Promise<T>((res) => late.push(() => res(value)))
++    api.deliveryEstimate.mockImplementation(() => later(estimate()))
++    api.availableCoupons.mockImplementation(() => later([]))
++    api.paymentConfig.mockImplementation(() => later({ mode: 'SIMULATED' }))
++    api.wallet.mockImplementation(() => later(wallet(5000)))
++    api.coins.mockImplementation(() => later(coins(100)))
++    api.membership.mockImplementation(() => later({ active: true, plan: null, endsAt: null, benefits: [], plans: [] }))
++    const { unmount } = renderCheckout()
++    await screen.findByRole('radio', { name: /Home/ })
++
++    unmount()
++    await act(async () => {
++      for (const resolve of late) resolve()
++    })
++
++    expect(errors).not.toHaveBeenCalled()
++    expect(screen.queryByRole('button', { name: /place order/i })).not.toBeInTheDocument()
++  })
++
++})
+diff --git a/apps/product-catalog/src/pages/__tests__/CheckoutPage.place.test.tsx b/apps/product-catalog/src/pages/__tests__/CheckoutPage.place.test.tsx
+new file mode 100644
+index 0000000..fe8e931
+--- /dev/null
++++ b/apps/product-catalog/src/pages/__tests__/CheckoutPage.place.test.tsx
+@@ -0,0 +1,509 @@
++/**
++ * CheckoutPage part 3 (TD-TEST-02): placing the order. Request payloads per payment method,
++ * navigation, card payment hand-off, Buy Now items, double-click protection, Idempotency-Key reuse,
++ * and the OUT_OF_STOCK / PAYMENT_METHOD_UNAVAILABLE problems.
++ */
++
++import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
++import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react'
++import userEvent from '@testing-library/user-event'
++
++vi.mock('../../services/userApi', async () => (await import('./checkoutMocks')).userApiModule())
++vi.mock('../../services/orderApi', async () => (await import('./checkoutMocks')).orderApiModule())
++vi.mock('../../services/paymentApi', async () => (await import('./checkoutMocks')).paymentApiModule())
++vi.mock('../../services/engageApi', async () => (await import('./checkoutMocks')).engageApiModule())
++vi.mock('../../services/productApi', async () => (await import('./checkoutMocks')).productApiModule())
++vi.mock('../../components/ExchangeOffer', () => ({ ExchangeOffer: () => null }))
++vi.mock('../../components/PaymentPanel', async () => {
++  const React = await import('react')
++  return {
++    PaymentPanel: (props: { orderId: string; payment: { mode: string }; onSubmitted: () => void }) =>
++      React.createElement(
++        'div',
++        { 'data-testid': 'payment-panel', 'data-order': props.orderId, 'data-mode': props.payment.mode },
++        React.createElement('button', { type: 'button', onClick: props.onSubmitted }, 'Mock payment submitted'),
++      ),
++  }
++})
++
++import { api } from './checkoutMocks'
++import {
++  coins,
++  order,
++  placeButton,
++  problem,
++  product,
++  radio,
++  ready,
++  renderCheckout,
++  resetApis,
++  resetCart,
++  seedApis,
++  seedCart,
++  summaryValue,
++  wallet,
++} from './checkoutTestUtils'
++
++const ORDER_ID = 'abcdef12-3456-7890-abcd-ef1234567890'
++
++beforeEach(() => {
++  resetApis()
++  seedApis()
++})
++
++afterEach(() => {
++  cleanup()
++  resetApis()
++  resetCart()
++  vi.restoreAllMocks()
++})
++
++const landing = () => screen.findByTestId('landing')
++const requestOf = (call = 0) => api.place.mock.calls[call]?.[0]
++const keyOf = (call = 0) => api.place.mock.calls[call]?.[1] as string
++
++describe('cart orders', () => {
++  let attachServer: ReturnType<typeof seedCart>
++  beforeEach(() => {
++    attachServer = seedCart([
++      { productId: 'p1', name: 'Blue Shirt', price: 500, qty: 2 },
++      { productId: 'p2', name: 'Steel Mug', price: 250, qty: 1 },
++    ])
++  })
++
++  it('places a COD order, replaces history with /orders/<id> and re-attaches the cart', async () => {
++    const user = userEvent.setup()
++    renderCheckout()
++    await ready()
++
++    await user.click(radio(/Cash on Delivery/))
++    await user.click(screen.getByRole('button', { name: 'Place order' }))
++
++    const where = await landing()
++    expect(where).toHaveTextContent(`/orders/${ORDER_ID}`)
++    expect(where).toHaveAttribute('data-nav', 'REPLACE')
++    expect(where).toHaveAttribute('data-state', '{"placed":true}')
++    expect(api.place).toHaveBeenCalledTimes(1)
++    expect(requestOf()).toEqual({ addressId: 'a1', paymentMethod: 'COD' })
++    expect(keyOf()).toEqual(expect.any(String))
++    expect(attachServer).toHaveBeenCalledTimes(1)
++  })
++
++  it('sends the selected address id', async () => {
++    const user = userEvent.setup()
++    renderCheckout()
++    await ready()
++
++    await user.click(radio(/Office/))
++    await user.click(radio(/Cash on Delivery/))
++    await user.click(screen.getByRole('button', { name: 'Place order' }))
++
++    await landing()
++    expect(requestOf()).toEqual({ addressId: 'a2', paymentMethod: 'COD' })
++  })
++
++  it('hands a PENDING_PAYMENT card order to the payment panel without navigating', async () => {
++    api.place.mockResolvedValue(
++      order({
++        status: 'PENDING_PAYMENT',
++        paymentMethod: 'CARD',
++        totalAmount: 1290.5,
++        payment: { paymentId: 'pay1', status: 'REQUIRES_PAYMENT', mode: 'SIMULATED' },
++      }),
++    )
++    const user = userEvent.setup()
++    renderCheckout()
++    await ready()
++
++    await user.click(screen.getByRole('button', { name: 'Place order and pay' }))
++
++    expect(await screen.findByRole('heading', { name: 'Complete your payment' })).toBeInTheDocument()
++    expect(screen.getByText(/Order #abcdef12/)).toHaveTextContent('₹1,290.50')
++    expect(screen.getByTestId('payment-panel')).toHaveAttribute('data-order', ORDER_ID)
++    expect(screen.getByRole('link', { name: 'Pay later from the order page' })).toHaveAttribute(
++      'href',
++      `/orders/${ORDER_ID}`,
++    )
++    expect(requestOf()).toEqual({ addressId: 'a1', paymentMethod: 'CARD' })
++    expect(attachServer).toHaveBeenCalledTimes(1)
++    // nothing else on the page is editable and we have not left it
++    expect(screen.queryByTestId('landing')).not.toBeInTheDocument()
++    expect(screen.queryByRole('button', { name: /place order/i })).not.toBeInTheDocument()
++
++    await user.click(screen.getByRole('button', { name: 'Mock payment submitted' }))
++    const where = await landing()
++    expect(where).toHaveTextContent(`/orders/${ORDER_ID}?payment=return`)
++    expect(where).toHaveAttribute('data-nav', 'REPLACE')
++    expect(where).toHaveAttribute('data-state', '{"placed":true}')
++  })
++
++  it('goes straight to the order when a card order has no payment to collect', async () => {
++    api.place.mockResolvedValue(order({ status: 'PLACED', paymentMethod: 'CARD', payment: null }))
++    const user = userEvent.setup()
++    renderCheckout()
++    await ready()
++
++    await user.click(screen.getByRole('button', { name: 'Place order and pay' }))
++
++    expect(await landing()).toHaveTextContent(`/orders/${ORDER_ID}`)
++    expect(screen.queryByRole('heading', { name: 'Complete your payment' })).not.toBeInTheDocument()
++  })
++
++  it('sends paymentMethod WALLET and useWallet when the wallet covers the whole total', async () => {
++    api.wallet.mockResolvedValue(wallet(5000))
++    const user = userEvent.setup()
++    renderCheckout()
++    await ready()
++
++    await user.click(await screen.findByRole('radio', { name: /Wallet/ }))
++    await user.click(screen.getByRole('button', { name: 'Place order' }))
++
++    await landing()
++    expect(requestOf()).toEqual({ addressId: 'a1', paymentMethod: 'WALLET', useWallet: true })
++  })
++
++  it('sends useWallet for a partial wallet payment on top of the chosen method', async () => {
++    api.wallet.mockResolvedValue(wallet(500))
++    const user = userEvent.setup()
++    renderCheckout()
++    await ready()
++
++    await user.click(await screen.findByRole('checkbox', { name: /Use wallet balance/ }))
++    await user.click(screen.getByRole('button', { name: 'Place order and pay' }))
++
++    await landing()
++    expect(requestOf()).toEqual({ addressId: 'a1', paymentMethod: 'CARD', useWallet: true })
++  })
++
++  it('sends the validated coupon code and the redeemed coins', async () => {
++    api.validateCoupon.mockResolvedValue({ code: 'SAVE100', description: null, discountAmount: 100, currency: 'INR' })
++    api.coins.mockResolvedValue(coins(500))
++    const user = userEvent.setup()
++    renderCheckout()
++    await ready()
++
++    await user.type(screen.getByLabelText('Have a coupon code?'), 'save100')
++    await user.click(screen.getByRole('button', { name: 'Apply' }))
++    await waitFor(() => expect(summaryValue('Discount')).toBe('-₹100.00'))
++    fireEvent.change(await screen.findByRole('spinbutton', { name: 'Coins to redeem' }), { target: { value: '100' } })
++    await waitFor(() => expect(summaryValue(/^Coins/)).toBe('-₹100.00'))
++    await user.click(radio(/Cash on Delivery/))
++    await user.click(screen.getByRole('button', { name: 'Place order' }))
++
++    await landing()
++    expect(requestOf()).toEqual({
++      addressId: 'a1',
++      paymentMethod: 'COD',
++      couponCode: 'SAVE100',
++      coinsToRedeem: 100,
++    })
++  })
++})
++
++describe('Buy Now', () => {
++  it('sends an items array and leaves the cart alone', async () => {
++    const attachServer = seedCart()
++    api.place.mockResolvedValue(order())
++    const user = userEvent.setup()
++    renderCheckout('/checkout?buyNow=bn1&qty=3')
++    await ready()
++
++    await user.click(radio(/Cash on Delivery/))
++    await user.click(screen.getByRole('button', { name: 'Place order' }))
++
++    await landing()
++    expect(requestOf()).toEqual({
++      addressId: 'a1',
++      paymentMethod: 'COD',
++      items: [{ productId: 'bn1', quantity: 3 }],
++    })
++    expect(attachServer).not.toHaveBeenCalled()
++    // the cart line is not part of the summary
++    expect(api.productDetail).toHaveBeenCalledWith('bn1')
++  })
++
++  it('includes variantId and offerId from the URL', async () => {
++    api.productDetail.mockResolvedValue(
++      product({
++        variants: [
++          { id: 'v1', sku: 'S1', attributes: { color: 'Red', size: 'M' }, priceAmount: 250, salePrice: 200, imageUrl: null, active: true, availableQuantity: 5 },
++        ],
++      }),
++    )
++    const user = userEvent.setup()
++    renderCheckout('/checkout?buyNow=bn1&qty=2&variant=v1&offer=o9')
++    await ready()
++
++    expect(within(screen.getByRole('complementary')).getByText('Red / M')).toBeInTheDocument()
++    expect(summaryValue('Subtotal')).toBe('₹400.00') // variant sale price 200 x 2
++    await user.click(radio(/Cash on Delivery/))
++    await user.click(screen.getByRole('button', { name: 'Place order' }))
++
++    await landing()
++    expect(requestOf().items).toEqual([{ productId: 'bn1', offerId: 'o9', variantId: 'v1', quantity: 2 }])
++  })
++
++  it('falls back to the product price and omits the variant for an unknown variant id', async () => {
++    const user = userEvent.setup()
++    renderCheckout('/checkout?buyNow=bn1&qty=2&variant=missing')
++    await ready()
++
++    expect(summaryValue('Subtotal')).toBe('₹600.00') // product price 300 x 2
++    await user.click(radio(/Cash on Delivery/))
++    await user.click(screen.getByRole('button', { name: 'Place order' }))
++
++    await landing()
++    expect(requestOf().items).toEqual([{ productId: 'bn1', quantity: 2 }])
++  })
++
++  it.each([
++    ['0', 1],
++    ['abc', 1],
++    ['', 1],
++    ['-4', 1],
++    ['500', 99],
++    ['99', 99],
++    ['7', 7],
++    ['3.9', 3],
++  ])('clamps qty=%j to %i', async (qty, expected) => {
++    const user = userEvent.setup()
++    renderCheckout(`/checkout?buyNow=bn1&qty=${qty}`)
++    await ready()
++
++    await user.click(radio(/Cash on Delivery/))
++    await user.click(screen.getByRole('button', { name: 'Place order' }))
++
++    await landing()
++    expect(requestOf().items).toEqual([{ productId: 'bn1', quantity: expected }])
++  })
++
++  it('defaults the quantity to 1 when qty is missing', async () => {
++    const user = userEvent.setup()
++    renderCheckout('/checkout?buyNow=bn1')
++    await ready()
++
++    await user.click(radio(/Cash on Delivery/))
++    await user.click(screen.getByRole('button', { name: 'Place order' }))
++
++    await landing()
++    expect(requestOf().items).toEqual([{ productId: 'bn1', quantity: 1 }])
++  })
++})
++
++describe('in flight and idempotency', () => {
++  beforeEach(() => {
++    seedCart()
++  })
++
++  it('disables the button while placing and ignores a second click', async () => {
++    let resolve!: (o: ReturnType<typeof order>) => void
++    api.place.mockImplementation(() => new Promise((res) => (resolve = res)))
++    renderCheckout()
++    await ready()
++
++    fireEvent.click(placeButton())
++    const busy = await screen.findByRole('button', { name: 'Placing order...' })
++    expect(busy).toBeDisabled()
++    fireEvent.click(busy)
++    fireEvent.click(busy)
++    expect(api.place).toHaveBeenCalledTimes(1)
++
++    resolve(order())
++    expect(await landing()).toHaveTextContent(`/orders/${ORDER_ID}`)
++    expect(api.place).toHaveBeenCalledTimes(1)
++  })
++
++  it('shows the problem message after a 4xx, re-enables the button and retries with a NEW key', async () => {
++    api.place
++      .mockRejectedValueOnce(problem(400, 'COUPON_EXPIRED', {}, 'That coupon has expired'))
++      .mockResolvedValueOnce(order())
++    renderCheckout()
++    await ready()
++
++    fireEvent.click(placeButton())
++    expect(await screen.findByRole('alert')).toHaveTextContent('That coupon has expired')
++    expect(placeButton()).toBeEnabled()
++    expect(placeButton()).toHaveTextContent('Place order and pay')
++
++    fireEvent.click(placeButton())
++    await landing()
++    expect(api.place).toHaveBeenCalledTimes(2)
++    expect(keyOf(1)).not.toBe(keyOf(0))
++  })
++
++  it('reuses the SAME key when retrying after a 5xx', async () => {
++    api.place
++      .mockRejectedValueOnce(problem(503, 'UNAVAILABLE', {}, 'Orders are busy'))
++      .mockRejectedValueOnce(problem(500, 'BOOM', {}, 'Still busy'))
++      .mockResolvedValueOnce(order())
++    renderCheckout()
++    await ready()
++
++    fireEvent.click(placeButton())
++    expect(await screen.findByText('Orders are busy')).toBeInTheDocument()
++    fireEvent.click(placeButton())
++    expect(await screen.findByText('Still busy')).toBeInTheDocument()
++    fireEvent.click(placeButton())
++    await landing()
++
++    expect(api.place).toHaveBeenCalledTimes(3)
++    expect(keyOf(1)).toBe(keyOf(0))
++    expect(keyOf(2)).toBe(keyOf(0))
++  })
++
++  it('reuses the SAME key when retrying after a network failure', async () => {
++    api.place.mockRejectedValueOnce(new TypeError('Failed to fetch')).mockResolvedValueOnce(order())
++    renderCheckout()
++    await ready()
++
++    fireEvent.click(placeButton())
++    expect(await screen.findByRole('alert')).toHaveTextContent('Could not reach the server')
++    fireEvent.click(placeButton())
++    await landing()
++
++    expect(keyOf(1)).toBe(keyOf(0))
++  })
++
++  it('uses a NEW key when the request shape changed after a failure', async () => {
++    api.place.mockRejectedValueOnce(problem(503, 'UNAVAILABLE', {}, 'Orders are busy')).mockResolvedValueOnce(order())
++    const user = userEvent.setup()
++    renderCheckout()
++    await ready()
++
++    fireEvent.click(placeButton())
++    await screen.findByText('Orders are busy')
++    await user.click(radio(/Cash on Delivery/))
++    await user.click(screen.getByRole('button', { name: 'Place order' }))
++
++    await landing()
++    expect(requestOf(0).paymentMethod).toBe('CARD')
++    expect(requestOf(1).paymentMethod).toBe('COD')
++    expect(keyOf(1)).not.toBe(keyOf(0))
++  })
++
++  it('a freshly mounted checkout page generates its own key (does not cover "success clears the key")', async () => {
++    api.place.mockResolvedValue(order())
++    const { unmount } = renderCheckout()
++    await ready()
++    fireEvent.click(placeButton())
++    await landing()
++    unmount()
++
++    renderCheckout()
++    await ready()
++    fireEvent.click(placeButton())
++    await waitFor(() => expect(api.place).toHaveBeenCalledTimes(2))
++    expect(keyOf(1)).not.toBe(keyOf(0))
++  })
++})
++
++describe('problems from the order service', () => {
++  beforeEach(() => {
++    seedCart([
++      { productId: 'p1', name: 'Blue Shirt', price: 500, qty: 2 },
++      { productId: 'p2', name: 'Steel Mug', price: 250, qty: 1 },
++    ])
++  })
++
++  it('lists each OUT_OF_STOCK line with the product name, falling back to "Item"', async () => {
++    api.place.mockRejectedValue(
++      problem(409, 'OUT_OF_STOCK', {
++        items: [
++          { productId: 'p1', requested: 5, available: 2 },
++          { productId: 'unknown', requested: 1, available: 0 },
++        ],
++      }),
++    )
++    renderCheckout()
++    await ready()
++
++    fireEvent.click(placeButton())
++
++    // the stock list has no accessible name; it is the <ul role=alert> next to the error alert
++    const alerts = await screen.findAllByRole('alert')
++    const stock = alerts.find((a) => a.tagName === 'UL')!
++    const rows = within(stock).getAllByRole('listitem')
++    expect(rows).toHaveLength(2)
++    expect(rows[0]).toHaveTextContent('Blue Shirt: you asked for 5, only 2 available.')
++    expect(rows[1]).toHaveTextContent('Item: you asked for 1, only 0 available.')
++    expect(placeButton()).toBeEnabled()
++  })
++
++  it('clears the stock list on the next attempt', async () => {
++    api.place
++      .mockRejectedValueOnce(problem(409, 'OUT_OF_STOCK', { items: [{ productId: 'p1', requested: 5, available: 2 }] }))
++      .mockImplementationOnce(() => new Promise(() => undefined))
++    renderCheckout()
++    await ready()
++
++    fireEvent.click(placeButton())
++    await screen.findByText(/you asked for 5/)
++    fireEvent.click(placeButton())
++
++    await screen.findByRole('button', { name: 'Placing order...' })
++    expect(screen.queryByText(/you asked for 5/)).not.toBeInTheDocument()
++  })
++
++  it('treats OUT_OF_STOCK without an items array as a plain error', async () => {
++    api.place.mockRejectedValue(problem(409, 'OUT_OF_STOCK', {}, 'Not enough stock'))
++    renderCheckout()
++    await ready()
++
++    fireEvent.click(placeButton())
++
++    expect(await screen.findByRole('alert')).toHaveTextContent(
++      'Some items are out of stock or not available in the quantity you asked for.',
++    )
++    expect(screen.getAllByRole('alert')).toHaveLength(1) // no per-item stock list
++  })
++
++  it('switches to CARD and disables COD with a risk reason on PAYMENT_METHOD_UNAVAILABLE / RISK', async () => {
++    api.place.mockRejectedValue(problem(409, 'PAYMENT_METHOD_UNAVAILABLE', { reason: 'RISK' }))
++    const user = userEvent.setup()
++    renderCheckout()
++    await ready()
++
++    await user.click(radio(/Cash on Delivery/))
++    await user.click(screen.getByRole('button', { name: 'Place order' }))
++
++    expect(await screen.findByRole('alert')).toHaveTextContent(
++      'Cash on Delivery is not available for this order. Please choose online payment.',
++    )
++    expect(radio(/Pay online/).checked).toBe(true)
++    expect(radio(/Cash on Delivery/)).toBeDisabled()
++    expect(radio(/Cash on Delivery/).checked).toBe(false)
++    expect(document.getElementById('cod-reason')).toHaveTextContent(
++      'Cash on Delivery is not available for this order. Please pay online.',
++    )
++    expect(placeButton()).toBeEnabled()
++  })
++
++  it('keeps COD after PAYMENT_METHOD_UNAVAILABLE for a reason other than RISK', async () => {
++    api.place.mockRejectedValue(problem(409, 'PAYMENT_METHOD_UNAVAILABLE', { reason: 'REGION' }, 'COD not in region'))
++    const user = userEvent.setup()
++    renderCheckout()
++    await ready()
++
++    await user.click(radio(/Cash on Delivery/))
++    await user.click(screen.getByRole('button', { name: 'Place order' }))
++
++    expect(await screen.findByRole('alert')).toHaveTextContent(
++      'That payment method is not available for this order. Please choose another.',
++    )
++    expect(radio(/Cash on Delivery/)).toBeEnabled()
++    expect(radio(/Cash on Delivery/).checked).toBe(true)
++  })
++
++  it('dismisses the error alert', async () => {
++    api.place.mockRejectedValue(problem(400, 'BAD', {}, 'Something is off'))
++    const user = userEvent.setup()
++    renderCheckout()
++    await ready()
++
++    fireEvent.click(placeButton())
++    const alert = await screen.findByRole('alert')
++    await user.click(within(alert).getByRole('button'))
++
++    expect(screen.queryByText('Something is off')).not.toBeInTheDocument()
++  })
++})
+diff --git a/apps/product-catalog/src/pages/__tests__/CheckoutPage.summary.test.tsx b/apps/product-catalog/src/pages/__tests__/CheckoutPage.summary.test.tsx
+new file mode 100644
+index 0000000..7c9caf1
+--- /dev/null
++++ b/apps/product-catalog/src/pages/__tests__/CheckoutPage.summary.test.tsx
+@@ -0,0 +1,252 @@
++/**
++ * CheckoutPage part 1 (TD-TEST-02): first-address default, order summary lines and totals, empty
++ * and unavailable states. The service modules are mocked (./checkoutMocks); PaymentPanel and
++ * ExchangeOffer have their own coverage and are stubbed.
++ */
++
++import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
++import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react'
++import userEvent from '@testing-library/user-event'
++
++vi.mock('../../services/userApi', async () => (await import('./checkoutMocks')).userApiModule())
++vi.mock('../../services/orderApi', async () => (await import('./checkoutMocks')).orderApiModule())
++vi.mock('../../services/paymentApi', async () => (await import('./checkoutMocks')).paymentApiModule())
++vi.mock('../../services/engageApi', async () => (await import('./checkoutMocks')).engageApiModule())
++vi.mock('../../services/productApi', async () => (await import('./checkoutMocks')).productApiModule())
++vi.mock('../../components/ExchangeOffer', () => ({ ExchangeOffer: () => null }))
++vi.mock('../../components/PaymentPanel', () => ({ PaymentPanel: () => null }))
++
++import { api } from './checkoutMocks'
++import {
++  coins,
++  estimate,
++  problem,
++  ready,
++  radio,
++  renderCheckout,
++  resetApis,
++  resetCart,
++  seedApis,
++  seedCart,
++  summaryValue,
++  wallet,
++} from './checkoutTestUtils'
++
++const TWO_LINES = [
++  { productId: 'p1', name: 'Blue Shirt', price: 500, qty: 2 },
++  { productId: 'p2', name: 'Steel Mug', price: 250, qty: 1 },
++]
++
++beforeEach(() => {
++  resetApis()
++  seedApis()
++  seedCart(TWO_LINES)
++})
++
++afterEach(() => {
++  cleanup()
++  resetApis()
++  resetCart()
++  vi.restoreAllMocks()
++})
++
++describe('address and order summary', () => {
++  it('preselects the first address and lists each line with Qty and line total', async () => {
++    renderCheckout()
++    await ready()
++
++    expect(radio(/Home/).checked).toBe(true)
++    expect(radio(/Office/).checked).toBe(false)
++
++    const aside = within(screen.getByRole('complementary'))
++    const shirt = aside.getByText('Blue Shirt').closest('li')!
++    expect(shirt).toHaveTextContent('Qty 2')
++    expect(shirt).toHaveTextContent('₹1,000.00')
++    const mug = aside.getByText('Steel Mug').closest('li')!
++    expect(mug).toHaveTextContent('Qty 1')
++    expect(mug).toHaveTextContent('₹250.00')
++  })
++
++  it('Subtotal is the sum of price x quantity and the estimate is requested for it', async () => {
++    renderCheckout()
++    await ready()
++
++    expect(summaryValue('Subtotal')).toBe('₹1,250.00')
++    expect(api.deliveryEstimate).toHaveBeenCalledWith('560001', 1250, 'INR')
++    expect(api.availableCoupons).toHaveBeenCalledWith(1250, 'INR')
++  })
++
++  it('re-requests the estimate for another address and ignores the stale first answer', async () => {
++    let resolveFirst!: (v: ReturnType<typeof estimate>) => void
++    api.deliveryEstimate
++      .mockImplementationOnce(() => new Promise((res) => (resolveFirst = res)))
++      .mockResolvedValueOnce(estimate({ pincode: '110001', shippingFee: 90 }))
++    const user = userEvent.setup()
++    renderCheckout()
++    await screen.findByRole('radio', { name: /Office/ })
++
++    await user.click(radio(/Office/))
++    await waitFor(() => expect(summaryValue('Shipping')).toBe('₹90.00'))
++
++    // the answer for the previously selected pincode arrives late and must not overwrite it
++    await act(async () => {
++      resolveFirst(estimate({ pincode: '560001', shippingFee: 40 }))
++    })
++    expect(summaryValue('Shipping')).toBe('₹90.00')
++    expect(api.deliveryEstimate).toHaveBeenCalledWith('110001', 1250, 'INR')
++  })
++
++  it('shows a cart line of a variant with its label', async () => {
++    seedCart([{ productId: 'p1', name: 'Blue Shirt', price: 500, qty: 1, variantId: 'v1', variantLabel: 'Red / M' }])
++    renderCheckout()
++    await ready()
++
++    expect(within(screen.getByRole('complementary')).getByText('Red / M')).toBeInTheDocument()
++  })
++
++  it('skips cart lines that have no snapshot', async () => {
++    seedCart([{ productId: 'p1', name: 'Blue Shirt', price: 500, qty: 1 }])
++    const { useCartStore } = await import('../../stores')
++    useCartStore.setState({
++      items: [...useCartStore.getState().items, { productId: 'ghost', quantity: 5, addedAt: 9 }],
++    })
++    renderCheckout()
++    await ready()
++
++    expect(summaryValue('Subtotal')).toBe('₹500.00')
++    expect(screen.queryByText('Qty 5')).not.toBeInTheDocument()
++  })
++})
++
++describe('empty and unavailable', () => {
++  it('shows an empty cart with a Continue shopping link and no address list', async () => {
++    seedCart([])
++    renderCheckout()
++
++    expect(await screen.findByText('Your cart is empty')).toBeInTheDocument()
++    expect(screen.getByRole('link', { name: 'Continue shopping' })).toHaveAttribute('href', '/')
++    expect(screen.queryByRole('radio')).not.toBeInTheDocument()
++    expect(screen.queryByText('Shipping address')).not.toBeInTheDocument()
++    expect(screen.queryByRole('button', { name: /place order/i })).not.toBeInTheDocument()
++  })
++
++  it('shows "That product is not available" when the buyNow product fails to load', async () => {
++    api.productDetail.mockRejectedValue(problem(404, 'NOT_FOUND', {}, 'No such product'))
++    renderCheckout('/checkout?buyNow=missing')
++
++    expect(await screen.findByText('That product is not available')).toBeInTheDocument()
++    expect(screen.getByRole('link', { name: 'Continue shopping' })).toHaveAttribute('href', '/')
++    expect(screen.queryByText('Your cart is empty')).not.toBeInTheDocument()
++    expect(api.productDetail).toHaveBeenCalledWith('missing')
++  })
++
++  it('shows a loading state while the buyNow product loads, then the product line', async () => {
++    renderCheckout('/checkout?buyNow=bn1&qty=3')
++
++    expect(screen.getByRole('status', { name: 'Loading product' })).toBeInTheDocument()
++    await ready()
++    const aside = within(screen.getByRole('complementary'))
++    expect(aside.getByText('Buy Now Lamp')).toBeInTheDocument()
++    expect(aside.getByText('Qty 3')).toBeInTheDocument()
++    expect(summaryValue('Subtotal')).toBe('₹900.00')
++  })
++})
++
++describe('discount, coins, shipping and total', () => {
++  const applyCoupon = async (code = 'SAVE100') => {
++    const user = userEvent.setup()
++    await user.type(screen.getByLabelText('Have a coupon code?'), code)
++    await user.click(screen.getByRole('button', { name: 'Apply' }))
++  }
++
++  it('shows the server discount, coins and shipping, and Total = subtotal - discount - coins + shipping', async () => {
++    api.validateCoupon.mockResolvedValue({ code: 'SAVE100', description: null, discountAmount: 100, currency: 'INR' })
++    api.coins.mockResolvedValue(coins(500))
++    renderCheckout()
++    await ready()
++
++    await applyCoupon()
++    await waitFor(() => expect(summaryValue('Discount')).toBe('-₹100.00'))
++    expect(api.validateCoupon).toHaveBeenCalledWith('SAVE100', 1250, 'INR')
++
++    // usable coins are capped at 20% of (subtotal - discount) = 230
++    const input = await screen.findByRole('spinbutton', { name: 'Coins to redeem' })
++    fireEvent.change(input, { target: { value: '100' } })
++    await waitFor(() => expect(summaryValue(/^Coins/)).toBe('-₹100.00'))
++
++    expect(summaryValue('Shipping')).toBe('₹40.00')
++    expect(summaryValue('Total')).toBe('₹1,090.00') // 1250 - 100 - 100 + 40
++  })
++
++  it('caps redeemable coins at 20% of the subtotal', async () => {
++    api.coins.mockResolvedValue(coins(5000))
++    renderCheckout()
++    await ready()
++
++    const input = await screen.findByRole('spinbutton', { name: 'Coins to redeem' })
++    fireEvent.change(input, { target: { value: '5000' } })
++    await waitFor(() => expect(summaryValue(/^Coins/)).toBe('-₹250.00'))
++    expect(summaryValue('Total')).toBe('₹1,040.00') // 1250 - 250 + 40
++  })
++
++  it('never lets the total go below zero when the discount exceeds the subtotal', async () => {
++    api.validateCoupon.mockResolvedValue({ code: 'HUGE', description: null, discountAmount: 5000, currency: 'INR' })
++    api.deliveryEstimate.mockResolvedValue(estimate({ shippingFee: 0 }))
++    renderCheckout()
++    await ready()
++
++    await applyCoupon('HUGE')
++    await waitFor(() => expect(summaryValue('Discount')).toBe('-₹5,000.00'))
++    expect(summaryValue('Total')).toBe('₹0.00')
++  })
++
++  it('shows Free shipping when the estimate fee is zero', async () => {
++    api.deliveryEstimate.mockResolvedValue(estimate({ shippingFee: 0 }))
++    renderCheckout()
++    await ready()
++
++    expect(summaryValue('Shipping')).toBe('Free')
++    expect(summaryValue('Total')).toBe('₹1,250.00')
++  })
++
++  it('shows Shipping Free for a Plus member regardless of the estimate fee', async () => {
++    api.membership.mockResolvedValue({ active: true, plan: 'PLUS', endsAt: null, benefits: [], plans: [] })
++    renderCheckout()
++    await ready()
++
++    await waitFor(() => expect(summaryValue(/^Shipping/)).toBe('Free'))
++    expect(screen.getByText('Plus: free')).toBeInTheDocument()
++    expect(summaryValue('Total')).toBe('₹1,250.00')
++  })
++
++  it('shows an "Includes GST (18%)" line for an INR order', async () => {
++    renderCheckout()
++    await ready()
++
++    // total 1290 includes 18% GST: 1290 * 18 / 118
++    expect(summaryValue('Includes GST (18%)')).toBe('~₹196.78')
++    expect(screen.queryByText('Tax included')).not.toBeInTheDocument()
++  })
++
++  it('shows "Tax included" instead of GST for a non-INR order', async () => {
++    seedCart([{ productId: 'p1', name: 'Blue Shirt', price: 20, qty: 2, currency: 'USD' }])
++    api.deliveryEstimate.mockResolvedValue(estimate({ currency: 'USD', shippingFee: 5 }))
++    renderCheckout()
++    await ready()
++
++    expect(summaryValue('Tax included')).toBe('—')
++    expect(screen.queryByText(/Includes GST/)).not.toBeInTheDocument()
++    expect(summaryValue('Subtotal')).toBe('$40.00')
++    expect(summaryValue('Total')).toBe('$45.00')
++    expect(api.deliveryEstimate).toHaveBeenCalledWith('560001', 40, 'USD')
++  })
++
++  it('does not show a wallet or coin row when the services return empty balances', async () => {
++    api.wallet.mockResolvedValue(wallet(0))
++    renderCheckout()
++    await ready()
++
++    expect(screen.queryByText(/Paid from wallet/)).not.toBeInTheDocument()
++    expect(screen.queryByText(/^Coins/, { selector: 'dt' })).not.toBeInTheDocument()
++  })
++})
+diff --git a/apps/product-catalog/src/pages/__tests__/checkoutMocks.ts b/apps/product-catalog/src/pages/__tests__/checkoutMocks.ts
+new file mode 100644
+index 0000000..6681dc9
+--- /dev/null
++++ b/apps/product-catalog/src/pages/__tests__/checkoutMocks.ts
+@@ -0,0 +1,37 @@
++/**
++ * Test-only: the mocked network surface of CheckoutPage, shared by the CheckoutPage.*.test.tsx files.
++ * Kept free of component imports so a `vi.mock` factory can load it without a circular import:
++ *
++ *   vi.mock('../../services/userApi', async () => (await import('./checkoutMocks')).userApiModule())
++ */
++
++import { vi } from 'vitest'
++
++export const api = {
++  listAddresses: vi.fn(),
++  createAddress: vi.fn(),
++  deliveryEstimate: vi.fn(),
++  place: vi.fn(),
++  validateCoupon: vi.fn(),
++  availableCoupons: vi.fn(),
++  paymentConfig: vi.fn(),
++  wallet: vi.fn(),
++  coins: vi.fn(),
++  membership: vi.fn(),
++  productDetail: vi.fn(),
++}
++
++export const userApiModule = () => ({
++  userApi: { listAddresses: api.listAddresses, createAddress: api.createAddress },
++})
++export const orderApiModule = () => ({
++  orderApi: { deliveryEstimate: api.deliveryEstimate, place: api.place },
++})
++export const paymentApiModule = () => ({
++  paymentApi: { config: api.paymentConfig },
++  promotionApi: { validate: api.validateCoupon, available: api.availableCoupons },
++})
++export const engageApiModule = () => ({
++  engageApi: { wallet: api.wallet, coins: api.coins, membership: api.membership },
++})
++export const productApiModule = () => ({ productApi: { detail: api.productDetail, bySlug: vi.fn() } })
+diff --git a/apps/product-catalog/src/pages/__tests__/checkoutTestUtils.tsx b/apps/product-catalog/src/pages/__tests__/checkoutTestUtils.tsx
+new file mode 100644
+index 0000000..798d7ac
+--- /dev/null
++++ b/apps/product-catalog/src/pages/__tests__/checkoutTestUtils.tsx
+@@ -0,0 +1,166 @@
++/**
++ * Test-only helpers for the CheckoutPage.*.test.tsx files: fixtures, default API responses, a
++ * router harness and small DOM readers. The API mocks themselves live in ./checkoutMocks.
++ */
++
++import type { ReactElement } from 'react'
++import { render, screen, waitFor } from '@testing-library/react'
++import { MemoryRouter, Route, Routes, useLocation, useNavigationType } from 'react-router-dom'
++import { expect, vi } from 'vitest'
++import { CheckoutPage } from '../CheckoutPage'
++import { useCartStore } from '../../stores'
++import { api } from './checkoutMocks'
++import { ApiErrorImpl } from '../../lib/problem'
++import { sampleProduct } from '../../test/fixtures'
++import type { Address, DeliveryEstimate, Order, Product, Wallet, Coins } from '../../types'
++
++export function address(id: string, over: Partial<Address> = {}): Address {
++  return {
++    id,
++    label: id === 'a1' ? 'Home' : 'Office',
++    fullName: 'Ada Lovelace',
++    phone: null,
++    line1: '1 Analytical St',
++    line2: null,
++    city: 'Bengaluru',
++    state: 'KA',
++    postalCode: id === 'a1' ? '560001' : '110001',
++    country: 'IN',
++    isDefault: id === 'a1',
++    createdAt: '2026-11-01T00:00:00Z',
++    updatedAt: '2026-11-01T00:00:00Z',
++    ...over,
++  }
++}
++
++export function estimate(over: Partial<DeliveryEstimate> = {}): DeliveryEstimate {
++  return {
++    pincode: '560001',
++    serviceable: true,
++    estimatedDays: 3,
++    estimatedDeliveryDate: '2026-12-01',
++    shippingFee: 40,
++    freeShippingThreshold: 999,
++    currency: 'INR',
++    codAvailable: true,
++    ...over,
++  }
++}
++
++export function wallet(balance: number, currency: string | null = 'INR'): Wallet {
++  return { balance, currency, transactions: [] }
++}
++
++export function coins(balance: number, currency: string | null = 'INR'): Coins {
++  return { balance, value: balance, currency, history: [] }
++}
++
++export function order(over: Partial<Order> = {}): Order {
++  return {
++    id: 'abcdef12-3456-7890-abcd-ef1234567890',
++    status: 'PLACED',
++    currency: 'INR',
++    totalAmount: 1040,
++    placedAt: '2026-11-25T00:00:00Z',
++    cancelledAt: null,
++    items: [],
++    paymentMethod: 'COD',
++    paymentStatus: 'PENDING',
++    ...over,
++  } as unknown as Order
++}
++
++export const problem = (status: number, code: string, extra: Record<string, unknown> = {}, detail = `${code} detail`) =>
++  new ApiErrorImpl(status, { type: 'about:blank', title: code, status, detail, code, ...extra })
++
++export function product(over: Partial<Product> = {}): Product {
++  return { ...sampleProduct, id: 'bn1', name: 'Buy Now Lamp', priceAmount: 300, priceCurrency: 'INR', images: [], ...over }
++}
++
++/** Default happy-path responses: one cart-able address pair, INR estimate, no extras. */
++export function seedApis() {
++  api.listAddresses.mockResolvedValue([address('a1'), address('a2')])
++  api.createAddress.mockResolvedValue(address('a3'))
++  api.deliveryEstimate.mockResolvedValue(estimate())
++  api.availableCoupons.mockResolvedValue([])
++  api.validateCoupon.mockRejectedValue(problem(404, 'COUPON_INVALID', {}, 'Unknown coupon'))
++  api.paymentConfig.mockResolvedValue({ mode: 'SIMULATED' })
++  api.wallet.mockResolvedValue(wallet(0))
++  api.coins.mockResolvedValue(coins(0))
++  api.membership.mockResolvedValue({ active: false, plan: null, endsAt: null, benefits: [], plans: [] })
++  api.place.mockResolvedValue(order())
++  api.productDetail.mockResolvedValue(product())
++}
++
++export function resetApis() {
++  for (const fn of Object.values(api)) fn.mockReset()
++}
++
++/** One INR cart line: "Blue Shirt", 2 x 500. */
++export function seedCart(
++  items: { productId: string; name: string; price: number; qty: number; currency?: string; variantId?: string; variantLabel?: string }[] = [
++    { productId: 'p1', name: 'Blue Shirt', price: 500, qty: 2 },
++  ],
++) {
++  const attachServer = vi.fn().mockResolvedValue(undefined)
++  useCartStore.setState({
++    items: items.map((i, n) => ({
++      productId: i.productId,
++      ...(i.variantId ? { variantId: i.variantId, variantLabel: i.variantLabel } : {}),
++      quantity: i.qty,
++      addedAt: n,
++      snapshot: { name: i.name, priceAmount: i.price, priceCurrency: i.currency ?? 'INR' },
++    })),
++    saved: [],
++    serverBacked: false,
++    attachServer,
++  })
++  return attachServer
++}
++
++const initialAttachServer = useCartStore.getState().attachServer
++
++export function resetCart() {
++  useCartStore.setState({ items: [], saved: [], serverBacked: false, attachServer: initialAttachServer })
++}
++
++function Landing() {
++  const loc = useLocation()
++  const type = useNavigationType()
++  return (
++    <div data-testid="landing" data-nav={type} data-state={JSON.stringify(loc.state)}>
++      {loc.pathname}
++      {loc.search}
++    </div>
++  )
++}
++
++export function renderCheckout(url = '/checkout'): ReturnType<typeof render> {
++  const ui: ReactElement = (
++    <MemoryRouter initialEntries={[url]}>
++      <Routes>
++        <Route path="/checkout" element={<CheckoutPage />} />
++        <Route path="*" element={<Landing />} />
++      </Routes>
++    </MemoryRouter>
++  )
++  return render(ui)
++}
++
++/** Waits for the address list, the first-address delivery estimate and the side calls. */
++export async function ready() {
++  await screen.findByRole('button', { name: /place order/i })
++  await waitFor(() => expect(api.deliveryEstimate).toHaveBeenCalled())
++  await screen.findByText(/Delivery by/)
++}
++
++export const placeButton = () => screen.getByRole('button', { name: /place(ing)? order/i })
++
++/** The <dd> value beside a summary <dt> label. */
++export function summaryValue(label: string | RegExp): string {
++  const dt = screen.getByText(label, { selector: 'dt' })
++  return dt.parentElement?.querySelector('dd')?.textContent ?? ''
++}
++
++export const radio = (name: RegExp) => screen.getByRole('radio', { name }) as HTMLInputElement
++
+diff --git a/apps/product-catalog/src/stores/wishlistStore.server.test.ts b/apps/product-catalog/src/stores/wishlistStore.server.test.ts
+new file mode 100644
+index 0000000..d148414
+--- /dev/null
++++ b/apps/product-catalog/src/stores/wishlistStore.server.test.ts
+@@ -0,0 +1,361 @@
++/**
++ * Wishlist store, signed-in behaviour (TD-TEST-02): optimistic server mutations, reconcile and
++ * rollback, merge on sign-in in chunks of 200, detach, and what is (not) persisted. cartApi is mocked.
++ */
++
++import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
++import type { WishlistItemResponse } from '../types'
++import { ApiErrorImpl } from '../lib/problem'
++
++const api = vi.hoisted(() => ({
++  getWishlist: vi.fn(),
++  saveWishlistItem: vi.fn(),
++  removeWishlistItem: vi.fn(),
++  mergeWishlist: vi.fn(),
++}))
++vi.mock('../services/cartApi', () => ({ cartApi: api }))
++
++import { useWishlistStore } from './wishlistStore'
++import { useUiStore } from './uiStore'
++
++const snap = { name: 'Shirt', price: 499, currency: 'INR', imageUrl: 'https://img/x.png', variantLabel: 'Red / M' }
++
++const apiError = (detail: string) => new ApiErrorImpl(500, { type: 'about:blank', title: 'Server error', status: 500, detail })
++
++function row(productId: string, extra: Partial<WishlistItemResponse> = {}): WishlistItemResponse {
++  return {
++    productId,
++    name: 'Server ' + productId,
++    price: '120.50' as unknown as number, // the wire may carry a decimal string
++    currency: 'INR',
++    imageUrl: null,
++    variantId: null,
++    variantLabel: null,
++    addedAt: '2026-11-17T00:00:00Z',
++    ...extra,
++  }
++}
++
++function deferred<T>() {
++  let resolve!: (v: T) => void
++  let reject!: (e: unknown) => void
++  const promise = new Promise<T>((res, rej) => {
++    resolve = res
++    reject = rej
++  })
++  return { promise, resolve, reject }
++}
++
++/** Let pending promise continuations run (no timers involved). */
++const settle = async () => {
++  for (let i = 0; i < 20; i++) await Promise.resolve()
++}
++
++const toasts = () => useUiStore.getState().toasts.map((t) => t.message)
++const items = () => useWishlistStore.getState().items
++const serverState = (list = items()) => useWishlistStore.setState({ items: list, serverBacked: true })
++
++beforeEach(() => {
++  vi.useFakeTimers()
++  vi.resetAllMocks()
++  localStorage.clear()
++  useUiStore.setState({ toasts: [] })
++  useWishlistStore.setState({ items: [], serverBacked: false })
++})
++
++afterEach(() => {
++  vi.clearAllTimers()
++  vi.useRealTimers()
++  localStorage.clear()
++  useUiStore.setState({ toasts: [] })
++  useWishlistStore.setState({ items: [], serverBacked: false })
++})
++
++describe('server-backed mutations', () => {
++  it('adds optimistically and saves the full snapshot', async () => {
++    serverState([])
++    api.saveWishlistItem.mockResolvedValue(undefined)
++    useWishlistStore.getState().addItem('p1', snap, 'v1')
++    expect(items().map((i) => i.productId)).toEqual(['p1'])
++    expect(api.saveWishlistItem).toHaveBeenCalledWith({
++      productId: 'p1',
++      name: 'Shirt',
++      price: 499,
++      currency: 'INR',
++      imageUrl: 'https://img/x.png',
++      variantId: 'v1',
++      variantLabel: 'Red / M',
++    })
++    await settle()
++    expect(api.getWishlist).not.toHaveBeenCalled()
++  })
++
++  it('sends null for missing optional snapshot fields', () => {
++    serverState([])
++    api.saveWishlistItem.mockResolvedValue(undefined)
++    useWishlistStore.getState().addItem('p1', { name: 'A', price: 1, currency: 'USD' })
++    expect(api.saveWishlistItem).toHaveBeenCalledWith({
++      productId: 'p1',
++      name: 'A',
++      price: 1,
++      currency: 'USD',
++      imageUrl: null,
++      variantId: null,
++      variantLabel: null,
++    })
++  })
++
++  it('removes optimistically and calls removeWishlistItem(productId, variantId)', () => {
++    serverState([
++      { productId: 'p1', variantId: 'v1', addedAt: 1, snapshot: snap },
++      { productId: 'p1', addedAt: 2, snapshot: snap },
++    ])
++    api.removeWishlistItem.mockResolvedValue(undefined)
++    useWishlistStore.getState().removeItem('p1', 'v1')
++    expect(items().map((i) => i.variantId)).toEqual([undefined])
++    expect(api.removeWishlistItem).toHaveBeenCalledWith('p1', 'v1')
++  })
++
++  it('makes no call and no state change for an add without a snapshot', async () => {
++    serverState([])
++    useWishlistStore.getState().addItem('p1')
++    useWishlistStore.getState().toggleItem('p2')
++    await settle()
++    expect(items()).toEqual([])
++    expect(api.saveWishlistItem).not.toHaveBeenCalled()
++  })
++
++  it('keeps a single entry when adding an item that is already there', () => {
++    serverState([{ productId: 'p1', addedAt: 1, snapshot: snap }])
++    api.saveWishlistItem.mockResolvedValue(undefined)
++    useWishlistStore.getState().addItem('p1', snap)
++    expect(items()).toHaveLength(1)
++  })
++
++  it('clearWishlist removes every row on the server', () => {
++    serverState([
++      { productId: 'p1', addedAt: 1, snapshot: snap },
++      { productId: 'p2', variantId: 'v2', addedAt: 2, snapshot: snap },
++    ])
++    api.removeWishlistItem.mockResolvedValue(undefined)
++    useWishlistStore.getState().clearWishlist()
++    expect(items()).toEqual([])
++    expect(api.removeWishlistItem).toHaveBeenCalledWith('p1', undefined)
++    expect(api.removeWishlistItem).toHaveBeenCalledWith('p2', 'v2')
++  })
++})
++
++describe('failure and reconcile', () => {
++  it('notifies and reconciles from getWishlist when a save fails', async () => {
++    serverState([])
++    api.saveWishlistItem.mockRejectedValue(apiError('Wishlist is full'))
++    api.getWishlist.mockResolvedValue([row('srv1', { variantId: 'v9', imageUrl: 'https://i/1.png', variantLabel: 'L' })])
++    useWishlistStore.getState().addItem('p1', snap)
++    expect(items().map((i) => i.productId)).toEqual(['p1'])
++    await settle()
++    expect(toasts()).toEqual(['Wishlist is full'])
++    expect(api.getWishlist).toHaveBeenCalledTimes(1)
++    expect(items()).toEqual([
++      {
++        productId: 'srv1',
++        variantId: 'v9',
++        addedAt: Date.parse('2026-11-17T00:00:00Z'),
++        snapshot: { name: 'Server srv1', price: 120.5, currency: 'INR', imageUrl: 'https://i/1.png', variantLabel: 'L' },
++      },
++    ])
++  })
++
++  it('rolls back to the pre-mutation items when the reload also fails', async () => {
++    const before = [{ productId: 'p0', addedAt: 1, snapshot: snap }]
++    serverState(before)
++    api.saveWishlistItem.mockRejectedValue(new Error('offline'))
++    api.getWishlist.mockRejectedValue(new Error('offline'))
++    useWishlistStore.getState().addItem('p1', snap)
++    expect(items()).toHaveLength(2)
++    await settle()
++    expect(items()).toEqual(before)
++    expect(toasts()).toHaveLength(1)
++  })
++
++  it('rolls back a failed remove as well', async () => {
++    const before = [{ productId: 'p0', addedAt: 1, snapshot: snap }]
++    serverState(before)
++    api.removeWishlistItem.mockRejectedValue(new Error('offline'))
++    api.getWishlist.mockRejectedValue(new Error('offline'))
++    useWishlistStore.getState().removeItem('p0')
++    expect(items()).toEqual([])
++    await settle()
++    expect(items()).toEqual(before)
++  })
++
++  it('discards a reconcile that a later mutation superseded', async () => {
++    serverState([])
++    const reload = deferred<WishlistItemResponse[]>()
++    api.saveWishlistItem.mockRejectedValueOnce(new Error('offline')).mockResolvedValue(undefined)
++    api.getWishlist.mockReturnValue(reload.promise)
++    useWishlistStore.getState().addItem('p1', snap)
++    await settle()
++    expect(api.getWishlist).toHaveBeenCalledTimes(1)
++    // a later mutation starts while the reload is still in flight
++    useWishlistStore.getState().addItem('p2', snap)
++    reload.resolve([row('stale')])
++    await settle()
++    expect(items().map((i) => i.productId)).toEqual(['p1', 'p2'])
++  })
++
++  it('discards a failed reload that a later mutation superseded', async () => {
++    serverState([])
++    const reload = deferred<WishlistItemResponse[]>()
++    api.saveWishlistItem.mockRejectedValueOnce(new Error('offline')).mockResolvedValue(undefined)
++    api.getWishlist.mockReturnValue(reload.promise)
++    useWishlistStore.getState().addItem('p1', snap)
++    await settle()
++    useWishlistStore.getState().addItem('p2', snap)
++    reload.reject(new Error('offline'))
++    await settle()
++    expect(items().map((i) => i.productId)).toEqual(['p1', 'p2'])
++  })
++})
++
++describe('attachServer', () => {
++  const local = (n: number) =>
++    Array.from({ length: n }, (_, i) => ({ productId: 'p' + i, addedAt: i, snapshot: snap }))
++
++  it('merges anonymous items with snapshots and adopts the server rows', async () => {
++    useWishlistStore.setState({
++      items: [
++        { productId: 'p1', variantId: 'v1', addedAt: 1, snapshot: snap },
++        { productId: 'nosnap', addedAt: 2 },
++      ],
++      serverBacked: false,
++    })
++    api.mergeWishlist.mockResolvedValue([row('p1', { variantId: 'v1' }), row('p9')])
++    await useWishlistStore.getState().attachServer()
++    expect(api.mergeWishlist).toHaveBeenCalledTimes(1)
++    expect(api.mergeWishlist).toHaveBeenCalledWith([
++      {
++        productId: 'p1',
++        name: 'Shirt',
++        price: 499,
++        currency: 'INR',
++        imageUrl: 'https://img/x.png',
++        variantId: 'v1',
++        variantLabel: 'Red / M',
++      },
++    ])
++    expect(api.getWishlist).not.toHaveBeenCalled()
++    expect(useWishlistStore.getState().serverBacked).toBe(true)
++    expect(items()).toHaveLength(2)
++    expect(items()[0]).toMatchObject({
++      productId: 'p1',
++      variantId: 'v1',
++      snapshot: { price: 120.5, imageUrl: undefined, variantLabel: undefined },
++    })
++    expect(typeof items()[0]?.snapshot?.price).toBe('number')
++    expect(items()[1]?.variantId).toBeUndefined()
++  })
++
++  it('sends 250 items as two merge calls of 200 and 50', async () => {
++    useWishlistStore.setState({ items: local(250), serverBacked: false })
++    api.mergeWishlist.mockResolvedValueOnce([row('first')]).mockResolvedValueOnce([row('last')])
++    await useWishlistStore.getState().attachServer()
++    expect(api.mergeWishlist).toHaveBeenCalledTimes(2)
++    expect(api.mergeWishlist.mock.calls[0]?.[0]).toHaveLength(200)
++    expect(api.mergeWishlist.mock.calls[1]?.[0]).toHaveLength(50)
++    expect(api.mergeWishlist.mock.calls[1]?.[0][0].productId).toBe('p200')
++    // the last chunk's response is the final server list
++    expect(items().map((i) => i.productId)).toEqual(['last'])
++    expect(useWishlistStore.getState().serverBacked).toBe(true)
++  })
++
++  it('does not send items without a snapshot and loads via getWishlist instead', async () => {
++    useWishlistStore.setState({ items: [{ productId: 'nosnap', addedAt: 1 }], serverBacked: false })
++    api.getWishlist.mockResolvedValue([row('srv')])
++    await useWishlistStore.getState().attachServer()
++    expect(api.mergeWishlist).not.toHaveBeenCalled()
++    expect(items().map((i) => i.productId)).toEqual(['srv'])
++    expect(useWishlistStore.getState().serverBacked).toBe(true)
++  })
++
++  it('loads via getWishlist when there are no local items', async () => {
++    api.getWishlist.mockResolvedValue([row('srv')])
++    await useWishlistStore.getState().attachServer()
++    expect(api.mergeWishlist).not.toHaveBeenCalled()
++    expect(items().map((i) => i.productId)).toEqual(['srv'])
++    expect(useWishlistStore.getState().serverBacked).toBe(true)
++  })
++
++  it('does not merge again when already server-backed', async () => {
++    serverState([{ productId: 'p1', addedAt: 1, snapshot: snap }])
++    api.getWishlist.mockResolvedValue([row('srv')])
++    await useWishlistStore.getState().attachServer()
++    expect(api.mergeWishlist).not.toHaveBeenCalled()
++    expect(items().map((i) => i.productId)).toEqual(['srv'])
++  })
++
++  it('keeps local items, stays anonymous and notifies when the merge fails', async () => {
++    const mine = local(2)
++    useWishlistStore.setState({ items: mine, serverBacked: false })
++    api.mergeWishlist.mockRejectedValue(apiError('Merge refused'))
++    await useWishlistStore.getState().attachServer()
++    expect(toasts()).toEqual(['Merge refused'])
++    expect(items()).toEqual(mine)
++    expect(useWishlistStore.getState().serverBacked).toBe(false)
++    expect(api.getWishlist).not.toHaveBeenCalled()
++  })
++
++  it('becomes server-backed with the retried list when a load fails with no local items', async () => {
++    api.getWishlist.mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce([row('srv')])
++    await useWishlistStore.getState().attachServer()
++    expect(toasts()).toHaveLength(1)
++    expect(api.getWishlist).toHaveBeenCalledTimes(2)
++    expect(items().map((i) => i.productId)).toEqual(['srv'])
++    expect(useWishlistStore.getState().serverBacked).toBe(true)
++  })
++
++  it('becomes server-backed with an empty list when the retry fails too', async () => {
++    api.getWishlist.mockRejectedValue(new Error('offline'))
++    await useWishlistStore.getState().attachServer()
++    expect(items()).toEqual([])
++    expect(useWishlistStore.getState().serverBacked).toBe(true)
++  })
++})
++
++describe('detachServer and persistence', () => {
++  it('detachServer clears items and leaves server-backed mode', () => {
++    serverState([{ productId: 'p1', addedAt: 1, snapshot: snap }])
++    useWishlistStore.getState().detachServer()
++    expect(items()).toEqual([])
++    expect(useWishlistStore.getState().serverBacked).toBe(false)
++  })
++
++  it('detachServer discards an in-flight reconcile', async () => {
++    serverState([])
++    const reload = deferred<WishlistItemResponse[]>()
++    api.saveWishlistItem.mockRejectedValue(new Error('offline'))
++    api.getWishlist.mockReturnValue(reload.promise)
++    useWishlistStore.getState().addItem('p1', snap)
++    await settle()
++    useWishlistStore.getState().detachServer()
++    reload.resolve([row('stale')])
++    await settle()
++    expect(items()).toEqual([])
++  })
++
++  it('persists a server-backed list as an empty items array and never persists serverBacked', () => {
++    api.saveWishlistItem.mockResolvedValue(undefined)
++    serverState([])
++    useWishlistStore.getState().addItem('p1', snap)
++    const saved = JSON.parse(localStorage.getItem('wishlist-store') ?? '{}')
++    expect(saved.state).toEqual({ items: [] })
++    expect(saved.state).not.toHaveProperty('serverBacked')
++  })
++
++  it('persists the anonymous list again after detach', () => {
++    serverState([{ productId: 'p1', addedAt: 1, snapshot: snap }])
++    useWishlistStore.getState().detachServer()
++    useWishlistStore.getState().addItem('p2', snap)
++    const saved = JSON.parse(localStorage.getItem('wishlist-store') ?? '{}')
++    expect(saved.state.items.map((i: { productId: string }) => i.productId)).toEqual(['p2'])
++  })
++})
+diff --git a/apps/product-catalog/src/stores/wishlistStore.test.ts b/apps/product-catalog/src/stores/wishlistStore.test.ts
+new file mode 100644
+index 0000000..41c0eb8
+--- /dev/null
++++ b/apps/product-catalog/src/stores/wishlistStore.test.ts
+@@ -0,0 +1,143 @@
++/**
++ * Wishlist store, anonymous behaviour (TD-TEST-02): local add/remove/toggle/clear with no API call,
++ * duplicate and variant handling, and persistence to localStorage. cartApi is mocked.
++ */
++
++import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
++
++const api = vi.hoisted(() => ({
++  getWishlist: vi.fn(),
++  saveWishlistItem: vi.fn(),
++  removeWishlistItem: vi.fn(),
++  mergeWishlist: vi.fn(),
++}))
++vi.mock('../services/cartApi', () => ({ cartApi: api }))
++
++import { useWishlistStore } from './wishlistStore'
++
++const snap = { name: 'Shirt', price: 499, currency: 'INR' }
++
++function persisted(): { state: { items: unknown[] }; version: number } | null {
++  const raw = localStorage.getItem('wishlist-store')
++  return raw ? JSON.parse(raw) : null
++}
++
++beforeEach(() => {
++  vi.resetAllMocks()
++  localStorage.clear()
++  useWishlistStore.setState({ items: [], serverBacked: false })
++})
++
++afterEach(() => {
++  localStorage.clear()
++  useWishlistStore.setState({ items: [], serverBacked: false })
++})
++
++function expectNoApiCall() {
++  for (const fn of Object.values(api)) expect(fn).not.toHaveBeenCalled()
++}
++
++describe('anonymous wishlist', () => {
++  it('adds an item locally with a timestamp and no API call', () => {
++    useWishlistStore.getState().addItem('p1', snap)
++    const [item] = useWishlistStore.getState().items
++    expect(item).toMatchObject({ productId: 'p1', snapshot: snap })
++    expect(item?.variantId).toBeUndefined()
++    expect(typeof item?.addedAt).toBe('number')
++    expectNoApiCall()
++  })
++
++  it('adds an item without a snapshot when anonymous', () => {
++    useWishlistStore.getState().addItem('p1')
++    expect(useWishlistStore.getState().items).toHaveLength(1)
++    expectNoApiCall()
++  })
++
++  it('ignores a duplicate add of the same productId and variantId', () => {
++    const s = useWishlistStore.getState()
++    s.addItem('p1', snap, 'v1')
++    s.addItem('p1', snap, 'v1')
++    s.addItem('p2', snap)
++    s.addItem('p2', snap)
++    expect(useWishlistStore.getState().items).toHaveLength(2)
++    expectNoApiCall()
++  })
++
++  it('keeps the same product with a different variantId as a separate entry', () => {
++    const s = useWishlistStore.getState()
++    s.addItem('p1', snap, 'v1')
++    s.addItem('p1', snap, 'v2')
++    s.addItem('p1', snap)
++    expect(useWishlistStore.getState().items.map((i) => i.variantId)).toEqual(['v1', 'v2', undefined])
++  })
++
++  it('removes only the matching product and variant', () => {
++    const s = useWishlistStore.getState()
++    s.addItem('p1', snap, 'v1')
++    s.addItem('p1', snap, 'v2')
++    s.addItem('p2', snap)
++    s.removeItem('p1', 'v1')
++    expect(useWishlistStore.getState().items.map((i) => [i.productId, i.variantId])).toEqual([
++      ['p1', 'v2'],
++      ['p2', undefined],
++    ])
++    s.removeItem('p2')
++    expect(useWishlistStore.getState().items).toHaveLength(1)
++    s.removeItem('missing')
++    expect(useWishlistStore.getState().items).toHaveLength(1)
++    expectNoApiCall()
++  })
++
++  it('toggles an item in and out', () => {
++    const s = useWishlistStore.getState()
++    s.toggleItem('p1', snap, 'v1')
++    expect(useWishlistStore.getState().isInWishlist('p1', 'v1')).toBe(true)
++    s.toggleItem('p1', snap, 'v1')
++    expect(useWishlistStore.getState().isInWishlist('p1', 'v1')).toBe(false)
++    expect(useWishlistStore.getState().items).toEqual([])
++    expectNoApiCall()
++  })
++
++  it('isInWishlist distinguishes variants', () => {
++    useWishlistStore.getState().addItem('p1', snap, 'v1')
++    const s = useWishlistStore.getState()
++    expect(s.isInWishlist('p1', 'v1')).toBe(true)
++    expect(s.isInWishlist('p1', 'v2')).toBe(false)
++    expect(s.isInWishlist('p1')).toBe(false)
++    expect(s.isInWishlist('p2')).toBe(false)
++  })
++
++  it('getItemCount counts entries and clearWishlist empties locally', () => {
++    const s = useWishlistStore.getState()
++    expect(s.getItemCount()).toBe(0)
++    s.addItem('p1', snap)
++    s.addItem('p1', snap, 'v1')
++    s.addItem('p2', snap)
++    expect(useWishlistStore.getState().getItemCount()).toBe(3)
++    useWishlistStore.getState().clearWishlist()
++    expect(useWishlistStore.getState().getItemCount()).toBe(0)
++    expectNoApiCall()
++  })
++})
++
++describe('anonymous persistence', () => {
++  it('writes the anonymous list to localStorage under wishlist-store', () => {
++    useWishlistStore.getState().addItem('p1', snap, 'v1')
++    const saved = persisted()
++    expect(saved?.version).toBe(1)
++    expect(saved?.state.items).toEqual([
++      expect.objectContaining({ productId: 'p1', variantId: 'v1', snapshot: snap }),
++    ])
++    expect(saved?.state).not.toHaveProperty('serverBacked')
++  })
++
++  it('updates the persisted list on remove and clear', () => {
++    const s = useWishlistStore.getState()
++    s.addItem('p1', snap)
++    s.addItem('p2', snap)
++    s.removeItem('p1')
++    expect(persisted()?.state.items).toHaveLength(1)
++    useWishlistStore.getState().clearWishlist()
++    expect(persisted()?.state.items).toEqual([])
++  })
++})
+diff --git a/docs/techdebt/testing.md b/docs/techdebt/testing.md
+index f7c3689..3f6913d 100644
+--- a/docs/techdebt/testing.md
++++ b/docs/techdebt/testing.md
+@@ -14,6 +14,7 @@ Index: [README](README.md)
+ - **Severity / Effort:** Med / M
+ - **Where:** `apps/product-catalog/src/pages/CheckoutPage.tsx`, `pages/AuthCallbackPage.tsx`, `components/GoogleSignInButton.tsx`, `stores/wishlistStore.ts`.
+ - **Risk:** Progress 2026-11-17: `stores/authStore.test.ts` (login, second factor, profile failure drops the token, a failing cart sync does not block sign-in, logout when the server call fails, session restore with a pending Google 2FA challenge) and `stores/cartStore.test.ts` (99 cap, quantity 0 removes, sign-in merge then adopt, failed merge keeps the anonymous cart, a signed-in cart never persisted locally, optimistic add with rollback). Still untested: the checkout page flow, the Google callback fallback paths and the wishlist store.
++- **Progress 2026-11-25:** added component and store tests for `pages/CheckoutPage.tsx` (`CheckoutPage.summary`, `.payment` and `.place` tests: summary and totals, COD and wallet rules, optional-service failures, place payloads, Buy Now, Idempotency-Key reuse, OUT_OF_STOCK and risk handling), `pages/AuthCallbackPage.tsx`, `components/GoogleSignInButton.tsx` (with `OrDivider`) and `stores/wishlistStore.ts` (anonymous and server-backed). Still open: the Playwright e2e (register, add to cart, checkout).
+ - **Fix:** Component tests for checkout and the callback page; one Playwright e2e covering register, add to cart, checkout.
+ 
+ <a id="td-test-04"></a>

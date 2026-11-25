@@ -1,0 +1,1645 @@
+diff --git a/docs/techdebt/README.md b/docs/techdebt/README.md
+index 68b75c1..0e813f1 100644
+--- a/docs/techdebt/README.md
++++ b/docs/techdebt/README.md
+@@ -28,7 +28,6 @@ Shortcuts taken while building customer accounts (login, Google SSO, user/cart/o
+ | TD-P6-14 | Return refunds skip shipping; COD refunds only marked | phase6 | Med | M | [phase6.md](phase6.md#td-p6-14) |
+ | TD-P6-15 | Invoice PDF is a minimal hand-written PDF (no rupee glyph) | phase6 | Med | S | [phase6.md](phase6.md#td-p6-15) |
+ | TD-P6-17 | Shipping/tax/COD rules hard-wired; client-side estimates | phase6 | Med | M | [phase6.md](phase6.md#td-p6-17) |
+-| TD-TEST-04 | Gateway route/authorization contract untested | testing | Med | M | [testing.md](testing.md#td-test-04) |
+ | TD-BE-03 | Cart clear after order is best-effort (stale cart only; re-order refused since TD-BE-15) | backend | Low | M | [backend.md](backend.md#td-be-03) |
+ | TD-BE-06 | Sequential product lookups in checkout | backend | Med | M | [backend.md](backend.md#td-be-06) |
+ | TD-BE-07 | No Feign circuit breakers in order-service | backend | Med | S | [backend.md](backend.md#td-be-07) |
+@@ -189,7 +188,7 @@ These were found during Phase 9 integration and fixed. Residuals are tracked in
+ - TD-BE-13 "No cap on distinct cart lines / wishlist size": resolved in review fixes (cart max 50 lines, wishlist max 500, 409 `CART_LIMIT` / `WISHLIST_LIMIT`).
+ - TD-FE-04 data loss: resolved (quantities clamped to 99, merge chunked, local items kept when merge fails). Remaining: no retry until next sign-in.
+ - TD-SEC-07 "rating-service not runnable in compose/gateway": resolved by the ratings feature (rating_db, Dockerfile, compose on 8084, gateway route, `roles`-based admin check). Related product-service listener bug (rating events failed to deserialize; denormalization stub) also fixed.
+-- "RouteAuthorizationContractTest not updated": that test does not exist in `services/gateway/src/test`; it is only referenced in a `SecurityConfig` javadoc. Reframed as TD-TEST-04.
++- "RouteAuthorizationContractTest not updated": that test does not exist in `services/gateway/src/test`; it is only referenced in a `SecurityConfig` javadoc. Reframed as TD-TEST-04; fixed by `RouteAuthorizationContractTest` (F-20261119-17).
+ - "Update platform error catalogue": done in [API reference](../reference/api.md).
+ - Phase 7: the first-build notes for variant stock via JWT forwarding, non-variant returns, non-variant wishlist, alert payload, and "Deals RBAC unverified" were superseded by the integration fixes above and not filed as items. Gateway body-size and Maven Central notes were merged into TD-P7-14 and TD-P6-06. Test-data notes from the commerce and integration agents were merged into TD-P7-20. Roadmap item 5 (PDP pincode check) was already built in Phase 6 and has no Phase 7 debt.
+ - Phase 8: first-build notes superseded by integration fixes (coins currency, wallet/gift-card inbox entries, invoice lines, admin SENDING status) are listed under "Resolved by Phase 8" and not filed as items. The frontend agent's `[p8-fe]` bullets in [frontend.md](frontend.md) were moved into [TD-P8-18](phase8.md#td-p8-18). Duplicates merged: campaign audience (engage + integration) into TD-P8-02, campaign send (engage + admin) into TD-P8-03, no-tests notes into TD-P8-01. The "wallet single currency / coins deviation" notes are kept as separate items (TD-P8-07, TD-P8-09). The `GET /internal/orders/last-order-dates` shape note was folded into TD-P8-02.
+diff --git a/docs/techdebt/phase9.md b/docs/techdebt/phase9.md
+index 9c44c76..ad6954b 100644
+--- a/docs/techdebt/phase9.md
++++ b/docs/techdebt/phase9.md
+@@ -8,10 +8,10 @@ Phase 9 was built under "no tests, no HLD/LLD, record shortcuts as debt". The in
+ ## TD-P9-01 No tests for Phase 9; existing specs likely stale
+ - **Severity / Effort:** High / L
+ - **Where:** `services/seller-service` (new), product-service offers/buy box/bulk upload, inventory-service warehouses and reservation routing, order-service shipments, cart-service offer lines; admin seller portal and admin seller/payout/warehouse screens; storefront seller page, sponsored grid, shipment order page.
+-- **Progress 2026-11-17:** the stale admin specs were re-run: guards.spec fixed (role-aware landing), the admin suite passes 139/139; seller suspension and KYC masking, product moderation and the stock-totals reconcile have tests. Still untested: seller ledger arithmetic (commission, fee, reversals), buy-box scoring, warehouse routing and splits, shipment status derivation, the gateway route contract.
++- **Progress 2026-11-17:** the stale admin specs were re-run: guards.spec fixed (role-aware landing), the admin suite passes 139/139; seller suspension and KYC masking, product moderation and the stock-totals reconcile have tests. Still untested: seller ledger arithmetic (commission, fee, reversals), buy-box scoring, warehouse routing and splits, shipment status derivation.
+ - **Progress 2026-11-18:** a seller-service Testcontainers suite covers the ledger (postings once per shipment, return reversal once, payout hold, never paid twice, carry-forward). Still untested: onboarding/KYC, offers and buy box, split shipments, ads, the seller portal and admin specs.
+ - **Risk:** The only safety net is the one-off e2e script. Ledger arithmetic (commission, fee, reversals), buy-box scoring, warehouse routing and derived order status have no unit or contract tests. In the admin app the guest-only redirect is now role-aware (`homeRouteFor`) and dashboard/products/categories/inventory now require `ADMIN` or `CATALOG_MANAGER`, so `guards.spec`, `LoginView.spec` and `ProductsView.spec` may fail (not re-run). Extends [TD-P8-01](phase8.md#td-p8-01), [TD-P7-01](phase7.md#td-p7-01), [TD-ADM-01](admin.md#td-adm-01).
+-- **Fix:** Ledger idempotency and reversal tests, buy-box table tests, reservation routing/split tests, shipment-status derivation tests, gateway route contract test ([TD-TEST-04](testing.md#td-test-04)); update the admin specs; Playwright for apply, approve, list, sell, fulfil, payout.
++- **Fix:** Ledger idempotency and reversal tests, buy-box table tests, reservation routing/split tests, shipment-status derivation tests, gateway route contract test (done: RouteAuthorizationContractTest, F-20261119-17); update the admin specs; Playwright for apply, approve, list, sell, fulfil, payout.
+ 
+ <a id="td-p9-02"></a>
+ ## TD-P9-02 Legacy stock totals still exist beside warehouse stock
+diff --git a/docs/techdebt/remediation-plan.md b/docs/techdebt/remediation-plan.md
+index 7a26655..a48f7c6 100644
+--- a/docs/techdebt/remediation-plan.md
++++ b/docs/techdebt/remediation-plan.md
+@@ -108,6 +108,7 @@ fixes grouped by service, then the larger Medium items by risk. Each row records
+ | 54 | [TD-P7-19](phase7.md) | Variant attributes are key/value input pairs (values may contain `,` and `=`). Product create/update accept `variants` and save them in the same transaction (a bad variant rolls the create back); the admin sends one request, so the "product created without variants" state is gone. Found and fixed on the way: `PUT /api/products/{id}` deleted every image row and file when `images` was omitted, which the admin does whenever images were not touched. Deals: the product picker searches the catalog (20 results, debounced) instead of loading the first 200; listed deals get names from `/api/products/batch`; variant options show SKU plus options; the list pages 20 at a time on the client (promotion-service returns the full list; deals are hand-curated). Kept by decision: Deals stay ADMIN-only and `quantityLimit` required (a deal sets a price; an unlimited deal is the costly mistake). Q&A moderation stays with TD-P7-13 | ✅ Fixed 2026-11-18 |
+ | 55 | [TD-P8-24](phase8.md#td-p8-24) | Wire `USER_REFERRAL_IP_HASH_SALT` through `config.env`, Terraform, the `app` secret and Helm `secretEnv`, and fail closed (refuse to start) under the `prod` profile when it is blank. Until then each replica hashes with its own random key, so the IP check is weak (fails safe: no wrong refusals) | 🔲 Open |
+ | 56 | [TD-SEC-15](infra-security.md#td-sec-15) | Post-deploy check that the Google OIDC callback URL is correct behind the gateway (Gateway 5.0.2 strips `X-Forwarded-*` unless `trusted-proxies` is set); then set trusted-proxies or pin the redirect URI. Same root cause as backlog B-1 | 🔲 Open |
++| 57 | TD-TEST-04 | Gateway route/authorization contract test: `RouteAuthorizationContractTest` parses the routes from `application.yml`, reads the real security chain and asserts every route is protected, every public entry is routed and reviewed, `/api/admin/**` is role-restricted, `/actuator` is closed and unmapped paths deny by default. Flagged, not fixed: `/api/seller/**` is authenticated-only at the edge (no seller role rule) | ✅ Fixed 2026-11-25 |
+ 
+ ## Needs the owner
+ 
+diff --git a/docs/techdebt/testing.md b/docs/techdebt/testing.md
+index f7c3689..b12961e 100644
+--- a/docs/techdebt/testing.md
++++ b/docs/techdebt/testing.md
+@@ -16,13 +16,6 @@ Index: [README](README.md)
+ - **Risk:** Progress 2026-11-17: `stores/authStore.test.ts` (login, second factor, profile failure drops the token, a failing cart sync does not block sign-in, logout when the server call fails, session restore with a pending Google 2FA challenge) and `stores/cartStore.test.ts` (99 cap, quantity 0 removes, sign-in merge then adopt, failed merge keeps the anonymous cart, a signed-in cart never persisted locally, optimistic add with rollback). Still untested: the checkout page flow, the Google callback fallback paths and the wishlist store.
+ - **Fix:** Component tests for checkout and the callback page; one Playwright e2e covering register, add to cart, checkout.
+ 
+-<a id="td-test-04"></a>
+-## TD-TEST-04 Gateway route/authorization contract untested
+-- **Severity / Effort:** Med / M
+-- **Where:** `services/gateway/src/main/java/.../config/SecurityConfig.java` (javadoc names `RouteAuthorizationContractTest`, which does not exist); `services/gateway/src/test`.
+-- **Risk:** The javadoc says route table and security rules must be asserted against each other. New routes `/api/users`, `/api/cart`, `/api/wishlist`, `/api/orders` rely on deny-by-default with no test.
+-- **Fix:** Add the test it describes, parsing `application.yml` routes and asserting each requires authentication.
+-
+ <a id="td-test-06"></a>
+ ## TD-TEST-06 Seed data cannot exercise the sale-price rule
+ - **Severity / Effort:** Low / S
+diff --git a/services/gateway/src/test/java/com/acme/ecommerce/gateway/RouteAuthorizationContractTest.java b/services/gateway/src/test/java/com/acme/ecommerce/gateway/RouteAuthorizationContractTest.java
+new file mode 100644
+index 0000000..4f98621
+--- /dev/null
++++ b/services/gateway/src/test/java/com/acme/ecommerce/gateway/RouteAuthorizationContractTest.java
+@@ -0,0 +1,853 @@
++package com.acme.ecommerce.gateway;
++
++import static org.assertj.core.api.Assertions.assertThat;
++import static org.mockito.ArgumentMatchers.any;
++import static org.mockito.Mockito.when;
++
++import com.acme.ecommerce.common.security.Roles;
++import com.acme.ecommerce.gateway.support.EdgeRules;
++import com.acme.ecommerce.gateway.support.EdgeRules.Kind;
++import com.acme.ecommerce.gateway.support.RouteTable;
++import com.acme.ecommerce.gateway.support.StubHttpServer;
++import com.acme.ecommerce.gateway.support.TestKeys;
++import java.net.URI;
++import java.time.Duration;
++import java.util.ArrayList;
++import java.util.LinkedHashSet;
++import java.util.List;
++import java.util.Map;
++import java.util.Set;
++import java.util.TreeSet;
++import java.util.stream.Stream;
++import org.junit.jupiter.api.AfterAll;
++import org.junit.jupiter.api.BeforeEach;
++import org.junit.jupiter.api.DisplayName;
++import org.junit.jupiter.api.DynamicTest;
++import org.junit.jupiter.api.Test;
++import org.junit.jupiter.api.TestFactory;
++import org.mockito.Mockito;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.boot.test.context.SpringBootTest;
++import org.springframework.boot.test.web.server.LocalServerPort;
++import org.springframework.cloud.gateway.config.GatewayProperties;
++import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
++import org.springframework.data.redis.core.ReactiveValueOperations;
++import org.springframework.http.HttpHeaders;
++import org.springframework.http.HttpMethod;
++import org.springframework.http.MediaType;
++import org.springframework.http.server.PathContainer;
++import org.springframework.security.web.server.SecurityWebFilterChain;
++import org.springframework.test.context.DynamicPropertyRegistry;
++import org.springframework.test.context.DynamicPropertySource;
++import org.springframework.test.context.bean.override.mockito.MockitoBean;
++import org.springframework.test.web.reactive.server.WebTestClient;
++import org.springframework.web.util.pattern.PathPatternParser;
++import reactor.core.publisher.Mono;
++
++/**
++ * TD-TEST-04: the route table in {@code application.yml} and the authorization table in {@code
++ * SecurityConfig} are two halves of one statement. This contract asserts them against each other
++ * through the REAL security chain on a real Netty port, so a route that silently loses protection,
++ * a public entry with no route, or a drifted role rule fails the build.
++ *
++ * <p>No downstream is reachable (Eureka off, no load-balancer instances), so a request that passes
++ * security shows up as a 5xx/404 from routing, never as 401/403: a 401 or 403 can only come from
++ * the edge's rules.
++ */
++@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
++class RouteAuthorizationContractTest {
++
++  private static final TestKeys KEYS = TestKeys.generate("route-contract-kid");
++  private static final StubHttpServer JWKS = StubHttpServer.start(KEYS::jwksJson);
++
++  @LocalServerPort private int port;
++
++  @MockitoBean private ReactiveStringRedisTemplate redis;
++
++  @Autowired private GatewayProperties liveRoutes;
++
++  @Autowired private SecurityWebFilterChain securityChain;
++
++  private WebTestClient client;
++
++  @DynamicPropertySource
++  static void gatewayProperties(DynamicPropertyRegistry registry) {
++    registry.add("gateway.jwt.jwks-uri", () -> JWKS.baseUrl() + "/.well-known/jwks.json");
++    registry.add("eureka.client.enabled", () -> "false");
++    registry.add("gateway.rate-limit.enabled", () -> "false");
++  }
++
++  @AfterAll
++  static void stopJwks() {
++    JWKS.close();
++  }
++
++  @BeforeEach
++  void setUp() {
++    @SuppressWarnings("unchecked")
++    ReactiveValueOperations<String, String> ops = Mockito.mock(ReactiveValueOperations.class);
++    when(redis.opsForValue()).thenReturn(ops);
++    // Deny-list miss: no token is revoked.
++    when(ops.get(any())).thenReturn(Mono.empty());
++    client =
++        WebTestClient.bindToServer()
++            .baseUrl("http://localhost:" + port)
++            .responseTimeout(Duration.ofSeconds(20))
++            .build();
++  }
++
++  @Test
++  @DisplayName("AC-1: routes are parsed from application.yml and match the live route ids")
++  void routesAreParsedFromApplicationYml() {
++    RouteTable table = RouteTable.load();
++
++    assertThat(table.routes()).as("parsed routes").isNotEmpty();
++    table
++        .routes()
++        .forEach(
++            route ->
++                assertThat(route.patterns()).as("Path patterns of " + route.id()).isNotEmpty());
++    List<String> liveIds = liveRoutes.getRoutes().stream().map(r -> r.getId()).toList();
++    table.assertSameIdsAs(liveIds);
++    // Anchors: the routes the contract is about, so an empty-but-consistent parse cannot pass.
++    assertThat(table.routeIds())
++        .contains("auth-public", "auth-secured", "user", "cart", "order", "seller", "support");
++    assertThat(client).isNotNull();
++  }
++
++  @Test
++  @DisplayName("AC-2: EdgeRules reads the real chain and classifies by first match")
++  void edgeRulesReadTheRealChain() {
++    EdgeRules rules = EdgeRules.read(securityChain);
++
++    assertThat(rules.entries()).as("chain entries").isNotEmpty();
++    // First-match overlaps, decided by the real rules (not by a copy of them).
++    assertThat(rules.classify("GET", "/api/sellers/me").decision().kind())
++        .isEqualTo(Kind.AUTHENTICATED);
++    assertThat(rules.classify("GET", "/api/sellers/1").decision().kind()).isEqualTo(Kind.PERMIT);
++    assertThat(rules.classify("POST", "/api/sellers/1").decision().kind())
++        .isEqualTo(Kind.AUTHENTICATED);
++    assertThat(rules.classify("GET", "/api/orders/delivery-estimate").decision().kind())
++        .isEqualTo(Kind.PERMIT);
++    assertThat(rules.classify("GET", "/api/orders/1").decision().kind())
++        .isEqualTo(Kind.AUTHENTICATED);
++    assertThat(rules.classify("GET", "/api/admin/orders/1").decision().kind()).isEqualTo(Kind.ROLE);
++    assertThat(rules.classify("GET", "/actuator/env").decision().kind()).isEqualTo(Kind.DENY);
++    assertThat(rules.classify("GET", "/actuator/health").decision().kind()).isEqualTo(Kind.PERMIT);
++  }
++
++  // ---------------------------------------------------------------------------------------------
++  // Fixtures.
++  // ---------------------------------------------------------------------------------------------
++
++  private static final List<String> METHODS = List.of("GET", "POST", "PUT", "PATCH", "DELETE");
++
++  private static final String CUSTOMER = "CUSTOMER";
++
++  private static final String CUSTOMER_TOKEN = token(CUSTOMER);
++  private static final String ADMIN_TOKEN = token(Roles.ADMIN);
++  private static final String SUPPORT_TOKEN = token(Roles.SUPPORT);
++  private static final String FINANCE_TOKEN = token(Roles.FINANCE);
++  private static final String CATALOG_MANAGER_TOKEN = token(Roles.CATALOG_MANAGER);
++  private static final String SELLER_TOKEN = token(Roles.SELLER);
++
++  private static String token(String role) {
++    return KEYS.accessTokenValidFor(
++        "3f5c1c6a-8f1e-4f0a-9d3a-7d6a2f1b2c3d",
++        role.toLowerCase() + "@example.com",
++        "password",
++        List.of(role),
++        java.time.Duration.ofHours(6));
++  }
++
++  /** Not rejected by the edge's rules: anything but 401/403 (downstream is unreachable here). */
++  static boolean passes(int status) {
++    return status != 401 && status != 403;
++  }
++
++  /**
++   * A concrete request path for a pattern: {@code **} to a segment, {@code *} and {@code {x}} to 1.
++   */
++  static String probePath(String pattern) {
++    return pattern.replace("**", "contract-probe").replaceAll("\\{[^/]+}", "1").replace("*", "1");
++  }
++
++  private EdgeRules rules() {
++    return EdgeRules.read(securityChain);
++  }
++
++  /** The five documented classes of AC-2. */
++  static String classOf(EdgeRules.Entry entry) {
++    return switch (entry.decision().kind()) {
++      case PERMIT ->
++          EdgeRules.ANY.equals(entry.method()) ? "public-any-method" : "public-method-specific";
++      case AUTHENTICATED -> "authenticated";
++      case ROLE -> "role-restricted";
++      case DENY -> "denied";
++    };
++  }
++
++  private static final Set<String> CLASSES =
++      Set.of(
++          "public-any-method",
++          "public-method-specific",
++          "authenticated",
++          "role-restricted",
++          "denied");
++
++  /** A reviewed permit: method (or ANY), pattern, and why it is allowed without a token. */
++  record Permit(String method, String pattern, String reason) {
++    String key() {
++      return method + " " + pattern;
++    }
++  }
++
++  private static Permit permit(String method, String pattern, String reason) {
++    return new Permit(method, pattern, reason);
++  }
++
++  /**
++   * Every permit the edge may have, each with a written reason. A new {@code permitAll} fails
++   * {@link #permitsAreReviewed} until it is added here (AC-12); a removed one leaves a stale entry.
++   */
++  static final List<Permit> REVIEWED_PERMITS =
++      List.of(
++          permit("ANY", "/actuator/health", "liveness/readiness probe"),
++          permit("ANY", "/actuator/health/**", "liveness/readiness probe groups"),
++          permit("ANY", "/api/auth/login", "no token before login"),
++          permit("ANY", "/api/auth/register", "no token before registration"),
++          permit("ANY", "/api/auth/refresh", "refresh cookie, not a bearer token"),
++          permit("ANY", "/api/auth/logout", "refresh cookie, not a bearer token"),
++          permit(
++              "ANY",
++              "/api/auth/password/forgot",
++              "pre-authentication; /api/auth/ is exempt from the gateway rate limiter, abuse control: see backlog"),
++          permit("ANY", "/api/auth/password/reset", "pre-authentication, reset token"),
++          permit("ANY", "/api/auth/email/verify", "pre-authentication, emailed token"),
++          permit(
++              "ANY",
++              "/api/auth/otp/request",
++              "OTP login is pre-authentication; /api/auth/ is exempt from the gateway rate limiter, abuse control: see backlog"),
++          permit(
++              "ANY",
++              "/api/auth/otp/verify",
++              "OTP login is pre-authentication; /api/auth/ is exempt from the gateway rate limiter, abuse control: see backlog"),
++          permit("ANY", "/api/auth/2fa/verify", "second factor, authenticated by the mfaToken"),
++          permit("ANY", "/.well-known/jwks.json", "public keys; circular to protect"),
++          permit("ANY", "/oauth2/**", "Google leg; state and PKCE are the controls"),
++          permit("ANY", "/login/oauth2/**", "Google leg; state and PKCE are the controls"),
++          permit("GET", "/api/products", "public catalog read"),
++          permit("GET", "/api/products/**", "public catalog read"),
++          permit("GET", "/api/categories", "public catalog read"),
++          permit("GET", "/api/categories/**", "public catalog read"),
++          permit(
++              "POST",
++              "/api/products/*/views",
++              "anonymous view tracking; rate-limited per client IP by RateLimitWebFilter (write limit)"),
++          permit("GET", "/sitemap.xml", "SEO sitemap"),
++          permit("GET", "/api/ratings/products/*", "public review list"),
++          permit("GET", "/api/ratings/products/*/summary", "public rating summary"),
++          permit("GET", "/api/ratings/products/*/questions", "public Q&A"),
++          permit("GET", "/api/ratings/questions/*/answers", "public Q&A"),
++          permit("GET", "/api/ratings/media/*", "public review media"),
++          permit("GET", "/api/promotions/offers", "public offers"),
++          permit("GET", "/api/promotions/deals/active", "public deals"),
++          permit("GET", "/api/promotions/exchange/programs", "public exchange programs"),
++          permit(
++              "GET", "/api/recommendations/products/*/bought-together", "public recommendations"),
++          permit("GET", "/api/orders/delivery-estimate", "pincode delivery estimate"),
++          permit("GET", "/api/push/vapid-public-key", "VAPID public key is public"),
++          permit("GET", "/api/lists/shared/*", "shared-list public view"),
++          permit("GET", "/api/payments/config", "publishable provider config"),
++          permit("POST", "/api/payments/webhook", "Stripe-Signature verified downstream"),
++          permit(
++              "POST", "/api/payments/webhook/razorpay", "X-Razorpay-Signature verified downstream"),
++          permit("GET", "/api/sellers/*", "public seller profile"),
++          permit("GET", "/api/sellers/*/feedback", "public seller feedback"),
++          permit(
++              "POST",
++              "/api/ads/*/click",
++              "ad click beacon, no JWT; rate-limited per client IP by RateLimitWebFilter (write limit)"),
++          permit(
++              "POST",
++              "/api/ads/impressions",
++              "ad impression beacon, no JWT; rate-limited per client IP by RateLimitWebFilter (write limit)"),
++          permit("GET", "/api/support/articles", "help-centre read"),
++          permit("GET", "/api/support/articles/*", "help-centre read"),
++          permit("POST", "/api/support/articles/*/feedback", "article feedback"),
++          permit(
++              "POST",
++              "/api/support/chat",
++              "chatbot reads the JWT itself when present; rate-limited per IP (or per user) by RateLimitWebFilter (write limit)"));
++
++  // ---------------------------------------------------------------------------------------------
++  // AC-2 and AC-12: classification table and the reviewed permit list.
++  // ---------------------------------------------------------------------------------------------
++
++  @Test
++  @DisplayName("AC-2: every route pattern x method gets one of the five documented classes")
++  void classificationTable() {
++    EdgeRules rules = rules();
++    List<String> table = new ArrayList<>();
++    for (var row : RouteTable.load().rows()) {
++      String probe = probePath(row.getValue());
++      for (String method : METHODS) {
++        EdgeRules.Entry entry = rules.classify(method, probe);
++        String cls = classOf(entry);
++        assertThat(cls).as("%s %s %s", row.getKey(), method, probe).isIn(CLASSES);
++        table.add(
++            String.format(
++                "%-14s %-6s %-48s %-22s via %s", row.getKey(), method, probe, cls, entry));
++      }
++    }
++    assertThat(table).as("classification rows").isNotEmpty();
++    System.out.println("ROUTE AUTHORIZATION CLASSIFICATION TABLE\n" + String.join("\n", table));
++  }
++
++  @Test
++  @DisplayName("AC-12: the permits in the chain equal the reviewed permit list")
++  void permitsAreReviewed() {
++    Set<String> chain = new LinkedHashSet<>();
++    rules().permits().forEach(e -> chain.add(e.method() + " " + e.pattern()));
++    Set<String> reviewed = new LinkedHashSet<>();
++    REVIEWED_PERMITS.forEach(p -> reviewed.add(p.key()));
++
++    assertThat(chain).as("permits in the chain").isNotEmpty();
++    Set<String> unreviewed = new TreeSet<>(chain);
++    unreviewed.removeAll(reviewed);
++    Set<String> stale = new TreeSet<>(reviewed);
++    stale.removeAll(chain);
++    assertThat(unreviewed)
++        .as("unreviewed permit (add to REVIEWED_PERMITS with a reason, or remove the permitAll)")
++        .isEmpty();
++    assertThat(stale).as("stale reviewed permit (no longer in the chain)").isEmpty();
++    assertThat(REVIEWED_PERMITS).allSatisfy(p -> assertThat(p.reason()).isNotBlank());
++  }
++
++  // ---------------------------------------------------------------------------------------------
++  // AC-6, AC-7: every permit is backed by a route.
++  // ---------------------------------------------------------------------------------------------
++
++  /** Permits that are served by the gateway itself, so no route matches them. Reason required. */
++  private static final Map<String, String> UNROUTED_ALLOWED =
++      Map.of(
++          "/actuator/health", "served by the gateway's own actuator, not a route",
++          "/actuator/health/**", "served by the gateway's own actuator, not a route");
++
++  private static final PathPatternParser PARSER = new PathPatternParser();
++
++  private static boolean routed(RouteTable table, String probe) {
++    PathContainer path = PathContainer.parsePath(probe);
++    return table.rows().stream().anyMatch(row -> PARSER.parse(row.getValue()).matches(path));
++  }
++
++  @Test
++  @DisplayName("AC-6, AC-7: every permitted pattern matches at least one route (allow-list aside)")
++  void everyPermitHasARoute() {
++    RouteTable table = RouteTable.load();
++    EdgeRules rules = rules();
++    assertThat(rules.permits()).as("permits").isNotEmpty();
++
++    for (EdgeRules.Entry permit : rules.permits()) {
++      String probe = probePath(permit.pattern());
++      boolean routed = routed(table, probe);
++      if (UNROUTED_ALLOWED.containsKey(permit.pattern())) {
++        assertThat(routed)
++            .as("stale UNROUTED_ALLOWED entry %s: a route now matches it", permit.pattern())
++            .isFalse();
++      } else {
++        String what =
++            EdgeRules.ANY.equals(permit.method())
++                ? "PUBLIC_PATHS entry " + permit.pattern()
++                : "method-specific permit " + permit.method() + " " + permit.pattern();
++        assertThat(routed).as(what + " matches no route (probe " + probe + ")").isTrue();
++      }
++    }
++    UNROUTED_ALLOWED.forEach(
++        (pattern, reason) -> {
++          assertThat(reason).isNotBlank();
++          assertThat(rules.permits().stream().map(EdgeRules.Entry::pattern))
++              .as("UNROUTED_ALLOWED %s must be a real permit", pattern)
++              .contains(pattern);
++        });
++    // The Google leg is routed to auth-service, not just permitted.
++    assertThat(table.patternsById().get("auth-oauth2")).contains("/oauth2/**", "/login/oauth2/**");
++  }
++
++  // ---------------------------------------------------------------------------------------------
++  // Driving the real chain.
++  // ---------------------------------------------------------------------------------------------
++
++  /** Sends the request through the real chain and returns the status code. */
++  private int status(String method, String path, String token) {
++    return client
++        .method(HttpMethod.valueOf(method))
++        .uri(path)
++        .headers(
++            h -> {
++              if (token != null) {
++                h.set(HttpHeaders.AUTHORIZATION, "Bearer " + token);
++              }
++            })
++        .exchange()
++        .expectBody()
++        .returnResult()
++        .getStatus()
++        .value();
++  }
++
++  private void expectProblem(String method, String path, String token, int status, String code) {
++    client
++        .method(HttpMethod.valueOf(method))
++        .uri(path)
++        .headers(
++            h -> {
++              if (token != null) {
++                h.set(HttpHeaders.AUTHORIZATION, "Bearer " + token);
++              }
++            })
++        .exchange()
++        .expectStatus()
++        .isEqualTo(status)
++        .expectHeader()
++        .contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON)
++        .expectBody()
++        .jsonPath("$.status")
++        .isEqualTo(status)
++        .jsonPath("$.code")
++        .isEqualTo(code);
++  }
++
++  private static String row(String route, String pattern, String method, String actor) {
++    return route + " " + pattern + " " + method + " " + actor;
++  }
++
++  // ---------------------------------------------------------------------------------------------
++  // AC-3, AC-4, AC-5: behavioural probes.
++  // ---------------------------------------------------------------------------------------------
++
++  @TestFactory
++  @DisplayName("AC-3: non-public routes need a token (401 problem) and accept a CUSTOMER token")
++  Stream<DynamicTest> nonPublicRoutesRequireAToken() {
++    EdgeRules rules = rules();
++    RouteTable table = RouteTable.load();
++    List<DynamicTest> tests = new ArrayList<>();
++    Set<String> coveredRoutes = new TreeSet<>();
++    Set<String> coveredPatterns = new TreeSet<>();
++    for (var row : table.rows()) {
++      String probe = probePath(row.getValue());
++      for (String method : METHODS) {
++        EdgeRules.Entry entry = rules.classify(method, probe);
++        if (entry.decision().kind() == EdgeRules.Kind.PERMIT) {
++          continue;
++        }
++        coveredRoutes.add(row.getKey());
++        coveredPatterns.add(row.getValue());
++        tests.add(
++            DynamicTest.dynamicTest(
++                row(row.getKey(), row.getValue(), method, "anonymous"),
++                () -> expectProblem(method, probe, null, 401, "UNAUTHENTICATED")));
++        if (entry.decision().kind() == EdgeRules.Kind.AUTHENTICATED) {
++          tests.add(
++              DynamicTest.dynamicTest(
++                  row(row.getKey(), row.getValue(), method, "CUSTOMER"),
++                  () ->
++                      assertThat(status(method, probe, CUSTOMER_TOKEN))
++                          .as("CUSTOMER on authenticated %s %s", method, probe)
++                          .matches(RouteAuthorizationContractTest::passes)));
++        }
++      }
++    }
++    assertThat(tests).as("generated tests").isNotEmpty();
++    assertThat(coveredRoutes).contains("user", "cart", "order");
++    assertThat(coveredPatterns)
++        .contains("/api/users/**", "/api/cart/**", "/api/wishlist/**", "/api/orders/**");
++    return tests.stream();
++  }
++
++  @TestFactory
++  @DisplayName("AC-4: every reviewed public entry passes the edge with no token")
++  Stream<DynamicTest> publicEntriesPassWithoutToken() {
++    List<DynamicTest> tests = new ArrayList<>();
++    for (Permit permit : REVIEWED_PERMITS) {
++      String probe = probePath(permit.pattern());
++      List<String> methods =
++          EdgeRules.ANY.equals(permit.method()) ? List.of("GET", "POST") : List.of(permit.method());
++      for (String method : methods) {
++        tests.add(
++            DynamicTest.dynamicTest(
++                row("public", permit.pattern(), method, "anonymous"),
++                () ->
++                    assertThat(status(method, probe, null))
++                        .as("anonymous %s %s must pass the edge", method, probe)
++                        .matches(RouteAuthorizationContractTest::passes)));
++      }
++    }
++    assertThat(tests).as("generated tests").isNotEmpty();
++    assertThat(REVIEWED_PERMITS.stream().map(Permit::pattern)).contains("/actuator/health");
++    return tests.stream();
++  }
++
++  @TestFactory
++  @DisplayName("AC-5: method-specific permits are method-bound (other methods give 401)")
++  Stream<DynamicTest> methodSpecificPermitsAreMethodBound() {
++    EdgeRules rules = rules();
++    List<DynamicTest> tests = new ArrayList<>();
++    Set<String> covered = new TreeSet<>();
++    for (Permit permit : REVIEWED_PERMITS) {
++      if (EdgeRules.ANY.equals(permit.method())) {
++        continue;
++      }
++      String probe = probePath(permit.pattern());
++      for (String method : METHODS) {
++        // Another permit may legitimately open this method on the same path.
++        if (rules.classify(method, probe).decision().kind() == EdgeRules.Kind.PERMIT) {
++          continue;
++        }
++        covered.add(method + " " + probe);
++        tests.add(
++            DynamicTest.dynamicTest(
++                row("method-bound", permit.pattern(), method, "anonymous"),
++                () -> expectProblem(method, probe, null, 401, "UNAUTHENTICATED")));
++      }
++    }
++    // The literal examples from the requirements, on concrete ids.
++    for (String example :
++        List.of(
++            "POST /api/products/1",
++            "PUT /api/products/1",
++            "DELETE /api/products/1",
++            "POST /api/ratings/products/1",
++            "POST /api/categories/1")) {
++      String method = example.substring(0, example.indexOf(' '));
++      String path = example.substring(example.indexOf(' ') + 1);
++      tests.add(
++          DynamicTest.dynamicTest(
++              row("method-bound", path, method, "anonymous"),
++              () -> expectProblem(method, path, null, 401, "UNAUTHENTICATED")));
++    }
++    assertThat(tests).as("generated tests").isNotEmpty();
++    assertThat(covered)
++        .contains(
++            "POST /api/products/contract-probe",
++            "PUT /api/products/contract-probe",
++            "DELETE /api/products/contract-probe",
++            "POST /api/ratings/products/1",
++            "POST /api/categories/contract-probe");
++    return tests.stream();
++  }
++
++  // ---------------------------------------------------------------------------------------------
++  // AC-8, AC-9: role restriction.
++  // ---------------------------------------------------------------------------------------------
++
++  private static final Map<String, Set<String>> EXPECTED_ROLE_RULES =
++      Map.of(
++          "/api/admin/**",
++          Set.of(
++              Roles.ROLE_ADMIN,
++              Roles.ROLE_SUPPORT,
++              Roles.ROLE_FINANCE,
++              Roles.ROLE_CATALOG_MANAGER));
++
++  @TestFactory
++  @DisplayName("AC-8: every /api/admin/ route path is role-restricted")
++  Stream<DynamicTest> adminPathsAreRoleRestricted() {
++    List<DynamicTest> tests = new ArrayList<>();
++    Set<String> covered = new TreeSet<>();
++    Map<String, String> actors =
++        Map.of(
++            "ADMIN", ADMIN_TOKEN,
++            "SUPPORT", SUPPORT_TOKEN,
++            "FINANCE", FINANCE_TOKEN,
++            "CATALOG_MANAGER", CATALOG_MANAGER_TOKEN);
++    for (var row : RouteTable.load().rows()) {
++      if (!row.getValue().startsWith("/api/admin/")) {
++        continue;
++      }
++      covered.add(row.getKey());
++      String probe = probePath(row.getValue());
++      for (String method : List.of("GET", "POST")) {
++        tests.add(
++            DynamicTest.dynamicTest(
++                row(row.getKey(), row.getValue(), method, "anonymous"),
++                () -> expectProblem(method, probe, null, 401, "UNAUTHENTICATED")));
++        tests.add(
++            DynamicTest.dynamicTest(
++                row(row.getKey(), row.getValue(), method, "CUSTOMER"),
++                () -> expectProblem(method, probe, CUSTOMER_TOKEN, 403, "FORBIDDEN")));
++        new TreeSet<>(actors.keySet())
++            .forEach(
++                actor ->
++                    tests.add(
++                        DynamicTest.dynamicTest(
++                            row(row.getKey(), row.getValue(), method, actor),
++                            () ->
++                                assertThat(status(method, probe, actors.get(actor)))
++                                    .as("%s on %s %s", actor, method, probe)
++                                    .matches(RouteAuthorizationContractTest::passes))));
++      }
++    }
++    assertThat(tests).as("generated tests").isNotEmpty();
++    assertThat(covered)
++        .as("routes that contribute /api/admin/ patterns")
++        .contains(
++            "auth-secured",
++            "product",
++            "inventory",
++            "order",
++            "rating",
++            "payment",
++            "promotion",
++            "notification",
++            "seller",
++            "support");
++    return tests.stream();
++  }
++
++  @Test
++  @DisplayName("AC-9: the role-restricted prefixes are exactly the known ones")
++  void rolePrefixesAreKnown() {
++    Map<String, Set<String>> actual = new java.util.TreeMap<>();
++    rules().roleRules().forEach(e -> actual.put(e.pattern(), e.decision().roles()));
++
++    assertThat(actual)
++        .as(
++            "A role rule was added or changed at the edge. Add a role assertion for it here and"
++                + " update EXPECTED_ROLE_RULES")
++        .isEqualTo(EXPECTED_ROLE_RULES);
++
++    // Pin EVERY rule that is neither a PERMIT nor plain AUTHENTICATED (the only two the
++    // behavioural probes understand): a new denyAll or a rule for an unknown role must fail here.
++    Map<String, String> restricted = new java.util.TreeMap<>();
++    rules().entries().stream()
++        .filter(e -> e.decision().kind() == Kind.DENY || e.decision().kind() == Kind.ROLE)
++        .forEach(e -> restricted.put(e.method() + " " + e.pattern(), e.decision().toString()));
++    assertThat(restricted)
++        .as(
++            "A DENY or role rule was added or changed at the edge. Add an assertion for it and"
++                + " update this pinned map")
++        .isEqualTo(
++            Map.of(
++                "ANY /actuator/**",
++                "DENY",
++                "ANY /api/admin/**",
++                "ROLE" + new TreeSet<>(EXPECTED_ROLE_RULES.get("/api/admin/**"))));
++  }
++
++  // ---------------------------------------------------------------------------------------------
++  // AC-10, AC-11: actuator closed, unmapped paths deny by default.
++  // ---------------------------------------------------------------------------------------------
++
++  @Test
++  @DisplayName("AC-10: /actuator is closed (401 anonymous, 403 ADMIN) except health")
++  void actuatorIsClosed() {
++    for (String path : List.of("/actuator/env", "/actuator/shutdown", "/actuator/anything")) {
++      expectProblem("GET", path, null, 401, "UNAUTHENTICATED");
++      expectProblem("GET", path, ADMIN_TOKEN, 403, "FORBIDDEN");
++    }
++    for (String path : List.of("/actuator/health", "/actuator/health/liveness")) {
++      assertThat(status("GET", path, null))
++          .as("anonymous GET " + path)
++          .matches(RouteAuthorizationContractTest::passes);
++    }
++  }
++
++  @Test
++  @DisplayName("AC-11: a path no route and no rule names is denied by default")
++  void unmappedPathsDenyByDefault() {
++    for (String path : List.of("/api/zz-unmapped/x", "/internal/x")) {
++      expectProblem("GET", path, null, 401, "UNAUTHENTICATED");
++      // With a valid token it passes security and reaches routing, which has no route: 404.
++      assertThat(status("GET", path, CUSTOMER_TOKEN)).as("CUSTOMER GET " + path).isEqualTo(404);
++    }
++  }
++
++  // ---------------------------------------------------------------------------------------------
++  // Edge cases: overlaps, path variants, bad tokens, CORS, seller.
++  // ---------------------------------------------------------------------------------------------
++
++  @Test
++  @DisplayName("overlaps: the narrow public path passes while its protected sibling gives 401")
++  void overlappingPublicAndProtectedPaths() {
++    // auth-secured owns /api/auth/2fa/** but 2fa/verify is public.
++    assertThat(status("POST", "/api/auth/2fa/verify", null))
++        .matches(RouteAuthorizationContractTest::passes);
++    expectProblem("POST", "/api/auth/2fa/contract-probe", null, 401, "UNAUTHENTICATED");
++    assertThat(status("POST", "/api/auth/email/verify", null))
++        .matches(RouteAuthorizationContractTest::passes);
++    expectProblem("POST", "/api/auth/email/verify/resend", null, 401, "UNAUTHENTICATED");
++    // First match wins: the caller's own record is authenticated, other profiles are public.
++    expectProblem("GET", "/api/sellers/me", null, 401, "UNAUTHENTICATED");
++    assertThat(status("GET", "/api/sellers/1", null))
++        .matches(RouteAuthorizationContractTest::passes);
++    assertThat(status("GET", "/api/orders/delivery-estimate", null))
++        .matches(RouteAuthorizationContractTest::passes);
++    expectProblem("GET", "/api/orders/1", null, 401, "UNAUTHENTICATED");
++    assertThat(status("POST", "/api/products/1/views", null))
++        .matches(RouteAuthorizationContractTest::passes);
++    expectProblem("POST", "/api/products/1", null, 401, "UNAUTHENTICATED");
++  }
++
++  @TestFactory
++  @DisplayName("path variants of a protected path never pass through without a token")
++  Stream<DynamicTest> pathVariantsAreNeverPassThrough() {
++    List<String> variants =
++        List.of(
++            "/api/orders/",
++            "/API/ORDERS",
++            "//api/orders",
++            "/api/admin/orders/..;/",
++            "/api/orders/%2e%2e/products");
++    return variants.stream()
++        .map(
++            variant ->
++                DynamicTest.dynamicTest(
++                    variant,
++                    () -> {
++                      // URI.create so the client does not re-encode or normalise the variant.
++                      int status =
++                          client
++                              .get()
++                              .uri(URI.create("http://localhost:" + port + variant))
++                              .exchange()
++                              .expectBody()
++                              .returnResult()
++                              .getStatus()
++                              .value();
++                      assertThat(status).as("anonymous GET " + variant).isIn(400, 401);
++                    }));
++  }
++
++  @Test
++  @DisplayName("HEAD, plain OPTIONS and a CORS preflight on a protected path")
++  void headOptionsAndPreflight() {
++    assertThat(status("HEAD", "/api/orders/1", null)).isEqualTo(401);
++    assertThat(status("OPTIONS", "/api/orders/1", null)).isEqualTo(401);
++
++    // A real preflight (allowed Origin + Access-Control-Request-Method) is answered by the CORS
++    // filter, which is not an auth bypass: the follow-up request is still 401.
++    client
++        .options()
++        .uri("/api/orders/1")
++        .header(HttpHeaders.ORIGIN, "http://localhost:5173")
++        .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "GET")
++        .exchange()
++        .expectStatus()
++        .isOk();
++    expectProblem("GET", "/api/orders/1", null, 401, "UNAUTHENTICATED");
++  }
++
++  @Test
++  @DisplayName("expired, malformed and wrong-signature tokens are 401, not pass-through")
++  void badTokensAreUnauthorized() {
++    String subject = "3f5c1c6a-8f1e-4f0a-9d3a-7d6a2f1b2c3d";
++    // Same kid, different key: the JWKS lookup succeeds but the signature does not verify.
++    TestKeys other = TestKeys.generate("route-contract-kid");
++    for (String bad :
++        List.of(
++            KEYS.expiredToken(subject),
++            "x.y",
++            other.accessToken(subject, "evil@example.com", "password", List.of(Roles.ADMIN)))) {
++      expectProblem("GET", "/api/orders/1", bad, 401, "UNAUTHENTICATED");
++    }
++  }
++
++  @TestFactory
++  @DisplayName("Q1: /api/seller/* is authenticated-only at the edge (no seller role rule)")
++  Stream<DynamicTest> sellerPathsAreAuthenticatedOnlyAtTheEdge() {
++    // FLAGGED FOR THE CEO (Q1): there is no edge role rule for /api/seller/**, so a plain CUSTOMER
++    // token passes the edge here exactly like a SELLER token; the owning services enforce the role.
++    // This asserts today's behaviour. Adding a seller rule is a production change needing sign-off,
++    // and rolePrefixesAreKnown fails until it gets a role assertion.
++    List<DynamicTest> tests = new ArrayList<>();
++    for (var row : RouteTable.load().rows()) {
++      if (!row.getValue().startsWith("/api/seller/")) {
++        continue;
++      }
++      String probe = probePath(row.getValue());
++      expectNoSellerRule(tests, row.getKey(), row.getValue(), probe, "CUSTOMER", CUSTOMER_TOKEN);
++      expectNoSellerRule(tests, row.getKey(), row.getValue(), probe, "SELLER", SELLER_TOKEN);
++    }
++    assertThat(tests).as("generated tests").isNotEmpty();
++    return tests.stream();
++  }
++
++  private void expectNoSellerRule(
++      List<DynamicTest> tests, String route, String pattern, String probe, String actor, String t) {
++    tests.add(
++        DynamicTest.dynamicTest(
++            row(route, pattern, "GET", actor),
++            () ->
++                assertThat(status("GET", probe, t))
++                    .as("%s on GET %s", actor, probe)
++                    .matches(RouteAuthorizationContractTest::passes)));
++  }
++
++  // ---------------------------------------------------------------------------------------------
++  // Round 2: traversal from a permit prefix, method override, HEAD.
++  // ---------------------------------------------------------------------------------------------
++
++  /** Raw request line: the URI is sent as written so the client does not normalise it. */
++  private int rawStatus(String method, String rawPath, java.util.function.Consumer<HttpHeaders> h) {
++    int status =
++        client
++            .method(HttpMethod.valueOf(method))
++            .uri(URI.create("http://localhost:" + port + rawPath))
++            .headers(h)
++            .exchange()
++            .expectBody()
++            .returnResult()
++            .getStatus()
++            .value();
++    System.out.println("PROBE " + method + " " + rawPath + " -> " + status);
++    return status;
++  }
++
++  @TestFactory
++  @DisplayName("traversal probes that start from a permit prefix are rejected with 400")
++  Stream<DynamicTest> traversalFromAPermitPrefixIsRejected() {
++    List<String[]> probes =
++        List.of(
++            new String[] {"GET", "/api/products/%2e%2e/admin/theme"},
++            new String[] {"GET", "/api/products/..;/seller/offers"},
++            new String[] {"GET", "/api/products/%2E%2E/%2E%2E/api/orders/1"},
++            new String[] {"GET", "/api/sellers/..;/admin/payouts"},
++            new String[] {"GET", "/api/sellers/me%2f"},
++            new String[] {"POST", "/api/auth/login/..;/me"},
++            new String[] {"GET", "/api/products/1%2f..%2f..%2fadmin/theme"},
++            new String[] {"GET", "/api/categories//..//admin/theme"});
++    return probes.stream()
++        .map(
++            p ->
++                DynamicTest.dynamicTest(
++                    p[0] + " " + p[1],
++                    () ->
++                        assertThat(rawStatus(p[0], p[1], h -> {}))
++                            .as("anonymous %s %s must be rejected, not passed through", p[0], p[1])
++                            .isEqualTo(400)));
++  }
++
++  @TestFactory
++  @DisplayName("trailing slash and path parameters on the authenticated seller record never pass")
++  Stream<DynamicTest> sellerMeVariantsNeverPassThrough() {
++    return Stream.of("/api/sellers/me/", "/api/sellers/me;x=1")
++        .map(
++            path ->
++                DynamicTest.dynamicTest(
++                    "GET " + path,
++                    () ->
++                        assertThat(rawStatus("GET", path, h -> {}))
++                            .as("anonymous GET %s", path)
++                            .isIn(400, 401)));
++  }
++
++  @Test
++  @DisplayName("method-override parameters and headers do not turn a protected write into a read")
++  void methodOverrideDoesNotBypass() {
++    assertThat(rawStatus("POST", "/api/products/1?_method=DELETE", h -> {})).isEqualTo(401);
++    assertThat(rawStatus("POST", "/api/products/1", h -> h.set("X-HTTP-Method-Override", "GET")))
++        .isEqualTo(401);
++    assertThat(rawStatus("HEAD", "/api/sellers/me", h -> {})).isEqualTo(401);
++  }
++}
+diff --git a/services/gateway/src/test/java/com/acme/ecommerce/gateway/support/EdgeRules.java b/services/gateway/src/test/java/com/acme/ecommerce/gateway/support/EdgeRules.java
+new file mode 100644
+index 0000000..b6c5e6a
+--- /dev/null
++++ b/services/gateway/src/test/java/com/acme/ecommerce/gateway/support/EdgeRules.java
+@@ -0,0 +1,328 @@
++package com.acme.ecommerce.gateway.support;
++
++import com.acme.ecommerce.common.security.Roles;
++import com.acme.ecommerce.gateway.config.SecurityConfig;
++import java.lang.reflect.Field;
++import java.util.ArrayList;
++import java.util.Arrays;
++import java.util.Collection;
++import java.util.LinkedHashSet;
++import java.util.List;
++import java.util.Set;
++import java.util.TreeSet;
++import org.springframework.http.HttpMethod;
++import org.springframework.http.server.PathContainer;
++import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
++import org.springframework.mock.web.server.MockServerWebExchange;
++import org.springframework.security.authentication.TestingAuthenticationToken;
++import org.springframework.security.authorization.ReactiveAuthorizationManager;
++import org.springframework.security.core.Authentication;
++import org.springframework.security.web.server.SecurityWebFilterChain;
++import org.springframework.security.web.server.authorization.AuthorizationContext;
++import org.springframework.security.web.server.authorization.AuthorizationWebFilter;
++import org.springframework.security.web.server.util.matcher.OrServerWebExchangeMatcher;
++import org.springframework.test.util.ReflectionTestUtils;
++import org.springframework.web.server.ServerWebExchange;
++import org.springframework.web.util.pattern.PathPattern;
++import reactor.core.publisher.Mono;
++
++/**
++ * The gateway's REAL authorization rules, read back out of the {@link SecurityWebFilterChain} bean.
++ *
++ * <p>Not a copy of {@code SecurityConfig}: the ordered matcher list is taken from the {@code
++ * AuthorizationWebFilter} that actually runs, and each rule's decision is obtained by invoking the
++ * rule's own {@link ReactiveAuthorizationManager} with an anonymous, a CUSTOMER and each privileged
++ * authority. Coupled to Spring Security 7.0.x internals (field names below); the {@link #selfCheck}
++ * fails loudly ("EdgeRules could not read the chain") rather than returning a table that is
++ * silently empty or wrong.
++ *
++ * <p>Spring Security 7.0.6 names, recorded by the Task 1 spike: {@code AuthorizationWebFilter
++ * .authorizationManager} (an {@code ObservationReactiveAuthorizationManager} whose {@code delegate}
++ * is a {@code DelegatingReactiveAuthorizationManager}); its {@code mappings} is a {@code
++ * List<ServerWebExchangeMatcherEntry>} with {@code matcher} and {@code entry}; {@code
++ * OrServerWebExchangeMatcher.matchers}; {@code PathPatternParserServerWebExchangeMatcher.pattern}
++ * and {@code .method}. The manager method is {@code authorize} (7.x; {@code check} is deprecated).
++ */
++public final class EdgeRules {
++
++  /** What a rule does to a request. */
++  public enum Kind {
++    PERMIT,
++    DENY,
++    AUTHENTICATED,
++    ROLE
++  }
++
++  /** The decision of one rule. {@code roles} is only populated for {@link Kind#ROLE}. */
++  public record Decision(Kind kind, Set<String> roles) {
++    @Override
++    public String toString() {
++      return kind == Kind.ROLE ? "ROLE" + roles : kind.name();
++    }
++  }
++
++  /**
++   * One ordered rule. {@code method} is {@code ANY} or an HTTP method name; {@code catchAll} marks
++   * the final {@code anyExchange()} rule, whose pattern is {@code "<any exchange>"}.
++   */
++  public record Entry(String method, String pattern, Decision decision, boolean catchAll) {
++    boolean matches(String requestMethod, String path) {
++      if (catchAll) {
++        return true;
++      }
++      if (!ANY.equals(method) && !method.equalsIgnoreCase(requestMethod)) {
++        return false;
++      }
++      return PathPatternHolder.parse(pattern).matches(PathContainer.parsePath(path));
++    }
++
++    @Override
++    public String toString() {
++      return method + " " + pattern + " -> " + decision;
++    }
++  }
++
++  public static final String ANY = "ANY";
++
++  /** Authorities probed to discover which roles a rule admits (CUSTOMER is probed separately). */
++  private static final List<String> PRIVILEGED =
++      List.of(
++          Roles.ROLE_ADMIN,
++          Roles.ROLE_SUPPORT,
++          Roles.ROLE_FINANCE,
++          Roles.ROLE_CATALOG_MANAGER,
++          Roles.ROLE_SELLER,
++          Roles.ROLE_VIEWER);
++
++  private final List<Entry> entries;
++
++  public EdgeRules(List<Entry> entries) {
++    this.entries = List.copyOf(entries);
++  }
++
++  /** Reads the real chain and runs the self-check against the real {@code PUBLIC_PATHS}. */
++  public static EdgeRules read(SecurityWebFilterChain chain) {
++    EdgeRules rules = new EdgeRules(readEntries(chain));
++    rules.selfCheck(publicPaths());
++    return rules;
++  }
++
++  /** {@code SecurityConfig.PUBLIC_PATHS}, reflected from the private static field. */
++  public static List<String> publicPaths() {
++    Object value = ReflectionTestUtils.getField(SecurityConfig.class, "PUBLIC_PATHS");
++    if (!(value instanceof String[] paths) || paths.length == 0) {
++      throw new IllegalStateException("EdgeRules could not read the chain: PUBLIC_PATHS is empty");
++    }
++    return Arrays.asList(paths);
++  }
++
++  public List<Entry> entries() {
++    return entries;
++  }
++
++  /** The first rule that matches, which is exactly how the real chain decides. */
++  public Entry classify(String method, String path) {
++    for (Entry entry : entries) {
++      if (entry.matches(method, path)) {
++        return entry;
++      }
++    }
++    throw new IllegalStateException("EdgeRules could not read the chain: no rule matches " + path);
++  }
++
++  /** Every PERMIT rule, in chain order. */
++  public List<Entry> permits() {
++    return entries.stream().filter(e -> e.decision().kind() == Kind.PERMIT).toList();
++  }
++
++  /** Every ROLE rule, in chain order. */
++  public List<Entry> roleRules() {
++    return entries.stream().filter(e -> e.decision().kind() == Kind.ROLE).toList();
++  }
++
++  /**
++   * Fails unless the table has the known anchors, so a Spring Security upgrade that changes the
++   * internals cannot make the contract pass on an empty or mis-read table.
++   */
++  public void selfCheck(Collection<String> publicPaths) {
++    String prefix = "EdgeRules could not read the chain: ";
++    if (entries.isEmpty()) {
++      throw new IllegalStateException(prefix + "no entries");
++    }
++    if (publicPaths.isEmpty()) {
++      throw new IllegalStateException(prefix + "PUBLIC_PATHS is empty");
++    }
++    for (String path : publicPaths) {
++      boolean found =
++          entries.stream()
++              .anyMatch(
++                  e ->
++                      !e.catchAll()
++                          && ANY.equals(e.method())
++                          && e.pattern().equals(path)
++                          && e.decision().kind() == Kind.PERMIT);
++      if (!found) {
++        throw new IllegalStateException(
++            prefix + "PUBLIC_PATHS entry " + path + " is not an ANY PERMIT");
++      }
++    }
++    requireKind("/actuator/**", Kind.DENY, prefix);
++    requireKind("/api/admin/**", Kind.ROLE, prefix);
++    Entry last = entries.get(entries.size() - 1);
++    if (!last.catchAll() || last.decision().kind() != Kind.AUTHENTICATED) {
++      throw new IllegalStateException(
++          prefix + "last entry is not the catch-all AUTHENTICATED: " + last);
++    }
++  }
++
++  private void requireKind(String pattern, Kind kind, String prefix) {
++    boolean ok =
++        entries.stream()
++            .anyMatch(
++                e -> !e.catchAll() && e.pattern().equals(pattern) && e.decision().kind() == kind);
++    if (!ok) {
++      throw new IllegalStateException(prefix + pattern + " is not " + kind);
++    }
++  }
++
++  // ---------------------------------------------------------------------------------------------
++  // Reading the chain.
++  // ---------------------------------------------------------------------------------------------
++
++  @SuppressWarnings("unchecked")
++  private static List<Entry> readEntries(SecurityWebFilterChain chain) {
++    String prefix = "EdgeRules could not read the chain: ";
++    List<org.springframework.web.server.WebFilter> filters =
++        chain.getWebFilters().collectList().block();
++    Object authorizationFilter =
++        filters == null
++            ? null
++            : filters.stream()
++                .filter(AuthorizationWebFilter.class::isInstance)
++                .findFirst()
++                .orElse(null);
++    if (authorizationFilter == null) {
++      throw new IllegalStateException(prefix + "no AuthorizationWebFilter");
++    }
++    Object manager = field(authorizationFilter, "authorizationManager");
++    // Unwrap observation decorators until the delegating manager (the one with `mappings`).
++    for (int depth = 0; depth < 6 && manager != null && !hasField(manager, "mappings"); depth++) {
++      manager = field(manager, "delegate");
++    }
++    if (manager == null) {
++      throw new IllegalStateException(prefix + "no DelegatingReactiveAuthorizationManager");
++    }
++    List<?> mappings = (List<?>) field(manager, "mappings");
++    List<Entry> out = new ArrayList<>();
++    for (int index = 0; index < mappings.size(); index++) {
++      Object mapping = mappings.get(index);
++      Object matcher = field(mapping, "matcher");
++      ReactiveAuthorizationManager<AuthorizationContext> rule =
++          (ReactiveAuthorizationManager<AuthorizationContext>) field(mapping, "entry");
++      Decision decision = decide(rule);
++      requireSupportedMatcher(matcher, index, mappings.size() - 1);
++      if (matcher instanceof OrServerWebExchangeMatcher or) {
++        for (Object single : (List<?>) field(or, "matchers")) {
++          PathPattern pattern = (PathPattern) field(single, "pattern");
++          HttpMethod method = (HttpMethod) field(single, "method");
++          out.add(
++              new Entry(
++                  method == null ? ANY : method.name(),
++                  pattern.getPatternString(),
++                  decision,
++                  false));
++        }
++      } else {
++        out.add(new Entry(ANY, "<any exchange>", decision, true));
++      }
++    }
++    return out;
++  }
++
++  /**
++   * Only {@code OrServerWebExchangeMatcher} (pathMatchers) entries are understood, plus the {@code
++   * anyExchange} matcher, which must be last. Anything else is a rule shape this contract cannot
++   * classify, so it fails loudly instead of being read as a catch-all.
++   */
++  static void requireSupportedMatcher(Object matcher, int index, int lastIndex) {
++    if (!(matcher instanceof OrServerWebExchangeMatcher) && index != lastIndex) {
++      throw new IllegalStateException(
++          "EdgeRules could not read the chain: unsupported matcher "
++              + (matcher == null ? "null" : matcher.getClass().getName())
++              + " at index "
++              + index);
++    }
++  }
++
++  private static Decision decide(ReactiveAuthorizationManager<AuthorizationContext> rule) {
++    if (granted(rule, Mono.empty())) {
++      return new Decision(Kind.PERMIT, Set.of());
++    }
++    if (granted(rule, Mono.just(auth("ROLE_CUSTOMER")))) {
++      return new Decision(Kind.AUTHENTICATED, Set.of());
++    }
++    Set<String> admitted = new TreeSet<>();
++    for (String authority : PRIVILEGED) {
++      if (granted(rule, Mono.just(auth(authority)))) {
++        admitted.add(authority);
++      }
++    }
++    return admitted.isEmpty()
++        ? new Decision(Kind.DENY, Set.of())
++        : new Decision(Kind.ROLE, new LinkedHashSet<>(admitted));
++  }
++
++  private static Authentication auth(String authority) {
++    return new TestingAuthenticationToken("probe", "n/a", authority);
++  }
++
++  private static boolean granted(
++      ReactiveAuthorizationManager<AuthorizationContext> rule,
++      Mono<Authentication> authentication) {
++    ServerWebExchange exchange =
++        MockServerWebExchange.from(MockServerHttpRequest.get("/x").build());
++    var result = rule.authorize(authentication, new AuthorizationContext(exchange)).block();
++    return result != null && result.isGranted();
++  }
++
++  private static Object field(Object target, String name) {
++    Class<?> type = target.getClass();
++    while (type != null) {
++      for (Field f : type.getDeclaredFields()) {
++        if (f.getName().equals(name)) {
++          return ReflectionTestUtils.getField(target, name);
++        }
++      }
++      type = type.getSuperclass();
++    }
++    throw new IllegalStateException(
++        "EdgeRules could not read the chain: "
++            + target.getClass().getName()
++            + " has no field '"
++            + name
++            + "'");
++  }
++
++  private static boolean hasField(Object target, String name) {
++    Class<?> type = target.getClass();
++    while (type != null) {
++      for (Field f : type.getDeclaredFields()) {
++        if (f.getName().equals(name)) {
++          return true;
++        }
++      }
++      type = type.getSuperclass();
++    }
++    return false;
++  }
++
++  /** Compiled-pattern cache using the same parser Spring's {@code pathMatchers} uses. */
++  private static final class PathPatternHolder {
++    private static final org.springframework.web.util.pattern.PathPatternParser PARSER =
++        new org.springframework.web.util.pattern.PathPatternParser();
++
++    static PathPattern parse(String pattern) {
++      return PARSER.parse(pattern);
++    }
++  }
++}
+diff --git a/services/gateway/src/test/java/com/acme/ecommerce/gateway/support/EdgeRulesTest.java b/services/gateway/src/test/java/com/acme/ecommerce/gateway/support/EdgeRulesTest.java
+new file mode 100644
+index 0000000..e052245
+--- /dev/null
++++ b/services/gateway/src/test/java/com/acme/ecommerce/gateway/support/EdgeRulesTest.java
+@@ -0,0 +1,107 @@
++package com.acme.ecommerce.gateway.support;
++
++import static org.assertj.core.api.Assertions.assertThat;
++import static org.assertj.core.api.Assertions.assertThatCode;
++import static org.assertj.core.api.Assertions.assertThatThrownBy;
++
++import com.acme.ecommerce.gateway.support.EdgeRules.Decision;
++import com.acme.ecommerce.gateway.support.EdgeRules.Entry;
++import com.acme.ecommerce.gateway.support.EdgeRules.Kind;
++import java.util.ArrayList;
++import java.util.List;
++import java.util.Set;
++import org.junit.jupiter.api.Test;
++
++/** The self-check and first-match logic of {@link EdgeRules}, on hand-built stub tables. */
++class EdgeRulesTest {
++
++  private static final Decision PERMIT = new Decision(Kind.PERMIT, Set.of());
++  private static final Decision AUTHENTICATED = new Decision(Kind.AUTHENTICATED, Set.of());
++  private static final Decision DENY = new Decision(Kind.DENY, Set.of());
++  private static final Decision ROLE = new Decision(Kind.ROLE, Set.of("ROLE_ADMIN"));
++
++  private static List<Entry> goodTable() {
++    List<Entry> table = new ArrayList<>();
++    table.add(new Entry("ANY", "/actuator/**", DENY, false));
++    table.add(new Entry("ANY", "/api/auth/login", PERMIT, false));
++    table.add(new Entry("GET", "/api/sellers/me", AUTHENTICATED, false));
++    table.add(new Entry("GET", "/api/sellers/*", PERMIT, false));
++    table.add(new Entry("ANY", "/api/admin/**", ROLE, false));
++    table.add(new Entry("ANY", "<any exchange>", AUTHENTICATED, true));
++    return table;
++  }
++
++  @Test
++  void aWellFormedTablePassesTheSelfCheck() {
++    assertThatCode(() -> new EdgeRules(goodTable()).selfCheck(List.of("/api/auth/login")))
++        .doesNotThrowAnyException();
++  }
++
++  @Test
++  void anEmptyTableFailsTheSelfCheck() {
++    assertThatThrownBy(() -> new EdgeRules(List.of()).selfCheck(List.of("/api/auth/login")))
++        .isInstanceOf(IllegalStateException.class)
++        .hasMessageContaining("EdgeRules could not read the chain");
++  }
++
++  @Test
++  void aPublicPathThatIsNotAPermitFailsTheSelfCheck() {
++    assertThatThrownBy(
++            () -> new EdgeRules(goodTable()).selfCheck(List.of("/api/auth/login", "/oauth2/**")))
++        .hasMessageContaining("EdgeRules could not read the chain")
++        .hasMessageContaining("/oauth2/**");
++  }
++
++  @Test
++  void aMissingAnchorFailsTheSelfCheck() {
++    List<Entry> noActuator = new ArrayList<>(goodTable());
++    noActuator.remove(0);
++    assertThatThrownBy(() -> new EdgeRules(noActuator).selfCheck(List.of("/api/auth/login")))
++        .hasMessageContaining("/actuator/**");
++
++    List<Entry> noAdmin = new ArrayList<>(goodTable());
++    noAdmin.remove(4);
++    assertThatThrownBy(() -> new EdgeRules(noAdmin).selfCheck(List.of("/api/auth/login")))
++        .hasMessageContaining("/api/admin/**");
++  }
++
++  @Test
++  void aLastEntryThatIsNotTheAuthenticatedCatchAllFailsTheSelfCheck() {
++    List<Entry> permissiveTail = new ArrayList<>(goodTable());
++    permissiveTail.set(5, new Entry("ANY", "<any exchange>", PERMIT, true));
++    assertThatThrownBy(() -> new EdgeRules(permissiveTail).selfCheck(List.of("/api/auth/login")))
++        .hasMessageContaining("catch-all AUTHENTICATED");
++
++    List<Entry> noCatchAll = new ArrayList<>(goodTable());
++    noCatchAll.remove(5);
++    assertThatThrownBy(() -> new EdgeRules(noCatchAll).selfCheck(List.of("/api/auth/login")))
++        .hasMessageContaining("catch-all AUTHENTICATED");
++  }
++
++  @Test
++  void classifyIsFirstMatchAndMethodAware() {
++    EdgeRules rules = new EdgeRules(goodTable());
++
++    assertThat(rules.classify("GET", "/api/sellers/me").decision()).isEqualTo(AUTHENTICATED);
++    assertThat(rules.classify("GET", "/api/sellers/1").decision()).isEqualTo(PERMIT);
++    // Method-bound: POST does not match the GET permit and falls through to the catch-all.
++    assertThat(rules.classify("POST", "/api/sellers/1").decision()).isEqualTo(AUTHENTICATED);
++    assertThat(rules.classify("DELETE", "/api/admin/x").decision()).isEqualTo(ROLE);
++    assertThat(rules.classify("GET", "/actuator/env").decision()).isEqualTo(DENY);
++    assertThat(rules.classify("GET", "/nothing/here").catchAll()).isTrue();
++  }
++
++  @Test
++  void aNonOrMatcherIsOnlyAllowedAtTheLastIndex() {
++    Object stray = new Object();
++
++    // The anyExchange matcher at the last index is fine.
++    assertThatCode(() -> EdgeRules.requireSupportedMatcher(stray, 5, 5)).doesNotThrowAnyException();
++    // The same matcher earlier in the chain is a shape we cannot classify.
++    assertThatThrownBy(() -> EdgeRules.requireSupportedMatcher(stray, 3, 5))
++        .isInstanceOf(IllegalStateException.class)
++        .hasMessageContaining("EdgeRules could not read the chain: unsupported matcher")
++        .hasMessageContaining("java.lang.Object")
++        .hasMessageContaining("at index 3");
++  }
++}
+diff --git a/services/gateway/src/test/java/com/acme/ecommerce/gateway/support/RouteTable.java b/services/gateway/src/test/java/com/acme/ecommerce/gateway/support/RouteTable.java
+new file mode 100644
+index 0000000..0af82be
+--- /dev/null
++++ b/services/gateway/src/test/java/com/acme/ecommerce/gateway/support/RouteTable.java
+@@ -0,0 +1,132 @@
++package com.acme.ecommerce.gateway.support;
++
++import java.io.IOException;
++import java.util.ArrayList;
++import java.util.Collection;
++import java.util.LinkedHashMap;
++import java.util.List;
++import java.util.Map;
++import java.util.TreeSet;
++import org.springframework.boot.context.properties.bind.Bindable;
++import org.springframework.boot.context.properties.bind.Binder;
++import org.springframework.boot.context.properties.source.ConfigurationPropertySources;
++import org.springframework.boot.env.YamlPropertySourceLoader;
++import org.springframework.cloud.gateway.route.RouteDefinition;
++import org.springframework.core.env.PropertySource;
++import org.springframework.core.io.ClassPathResource;
++import org.springframework.core.io.Resource;
++
++/**
++ * The gateway's routes as written in {@code application.yml}, never as a hand-kept list.
++ *
++ * <p>Loads the YAML with Boot's own {@link YamlPropertySourceLoader}, keeps the default document
++ * (the one without {@code spring.config.activate.on-profile}), and binds the routes key to {@link
++ * RouteDefinition} with {@link Binder}, which is the binding Spring Cloud Gateway itself uses. So
++ * the comma split of {@code Path=a,b} is the framework's, not ours.
++ *
++ * <p>Fails loudly: zero routes, a route without a {@code Path} predicate and any non-{@code Path}
++ * predicate are errors, so a route shape this contract does not understand cannot be silently
++ * skipped.
++ */
++public final class RouteTable {
++
++  /** The routes key, same as {@code GatewayProperties}' prefix plus {@code routes}. */
++  static final String ROUTES_KEY = "spring.cloud.gateway.server.webflux.routes";
++
++  /** One route: its id and every {@code Path=} pattern, in file order. */
++  public record Route(String id, List<String> patterns) {}
++
++  private final List<Route> routes;
++
++  private RouteTable(List<Route> routes) {
++    this.routes = List.copyOf(routes);
++  }
++
++  /** Parses the main {@code application.yml} from the classpath. */
++  public static RouteTable load() {
++    return parse(new ClassPathResource("application.yml"));
++  }
++
++  /** Parses any YAML resource; used with in-memory fixtures to test the fail-loud rules. */
++  public static RouteTable parse(Resource yaml) {
++    List<PropertySource<?>> documents;
++    try {
++      documents = new YamlPropertySourceLoader().load("route-table", yaml);
++    } catch (IOException failure) {
++      throw new IllegalStateException("RouteTable could not read " + yaml, failure);
++    }
++    PropertySource<?> defaults =
++        documents.stream()
++            .filter(d -> !d.containsProperty("spring.config.activate.on-profile"))
++            .findFirst()
++            .orElseThrow(
++                () -> new IllegalStateException("RouteTable found no default YAML document"));
++
++    List<RouteDefinition> definitions =
++        new Binder(ConfigurationPropertySources.from(defaults))
++            .bind(ROUTES_KEY, Bindable.listOf(RouteDefinition.class))
++            .orElse(List.of());
++    if (definitions.isEmpty()) {
++      throw new IllegalStateException("RouteTable found zero routes under " + ROUTES_KEY);
++    }
++
++    List<Route> parsed = new ArrayList<>();
++    for (RouteDefinition definition : definitions) {
++      List<String> patterns = new ArrayList<>();
++      definition
++          .getPredicates()
++          .forEach(
++              predicate -> {
++                if (!"Path".equals(predicate.getName())) {
++                  throw new IllegalStateException(
++                      "RouteTable: route '"
++                          + definition.getId()
++                          + "' has a "
++                          + predicate.getName()
++                          + " predicate; extend the contract to handle it");
++                }
++                patterns.addAll(predicate.getArgs().values());
++              });
++      if (patterns.isEmpty()) {
++        throw new IllegalStateException(
++            "RouteTable: route '" + definition.getId() + "' has no Path predicate");
++      }
++      parsed.add(new Route(definition.getId(), patterns));
++    }
++    return new RouteTable(parsed);
++  }
++
++  public List<Route> routes() {
++    return routes;
++  }
++
++  public List<String> routeIds() {
++    return routes.stream().map(Route::id).toList();
++  }
++
++  /** Route id to its patterns, in file order. */
++  public Map<String, List<String>> patternsById() {
++    Map<String, List<String>> out = new LinkedHashMap<>();
++    routes.forEach(r -> out.put(r.id(), r.patterns()));
++    return out;
++  }
++
++  /** Every pattern of every route as (routeId, pattern) rows, in file order. */
++  public List<Map.Entry<String, String>> rows() {
++    List<Map.Entry<String, String>> out = new ArrayList<>();
++    for (Route route : routes) {
++      route.patterns().forEach(p -> out.add(Map.entry(route.id(), p)));
++    }
++    return out;
++  }
++
++  /** Fails unless the parsed ids equal the live {@code GatewayProperties} route ids. */
++  public void assertSameIdsAs(Collection<String> liveIds) {
++    var parsedIds = new TreeSet<>(routeIds());
++    var live = new TreeSet<>(liveIds);
++    if (!parsedIds.equals(live)) {
++      throw new IllegalStateException(
++          "RouteTable ids " + parsedIds + " differ from the live gateway routes " + live);
++    }
++  }
++}
+diff --git a/services/gateway/src/test/java/com/acme/ecommerce/gateway/support/RouteTableTest.java b/services/gateway/src/test/java/com/acme/ecommerce/gateway/support/RouteTableTest.java
+new file mode 100644
+index 0000000..f574ffb
+--- /dev/null
++++ b/services/gateway/src/test/java/com/acme/ecommerce/gateway/support/RouteTableTest.java
+@@ -0,0 +1,105 @@
++package com.acme.ecommerce.gateway.support;
++
++import static org.assertj.core.api.Assertions.assertThat;
++import static org.assertj.core.api.Assertions.assertThatThrownBy;
++
++import java.nio.charset.StandardCharsets;
++import java.util.List;
++import org.junit.jupiter.api.Test;
++import org.springframework.core.io.ByteArrayResource;
++import org.springframework.core.io.Resource;
++
++/** The fail-loud rules of {@link RouteTable}, on small in-memory YAML fixtures. */
++class RouteTableTest {
++
++  private static final String HEAD =
++      "spring:\n"
++          + "  cloud:\n"
++          + "    gateway:\n"
++          + "      server:\n"
++          + "        webflux:\n"
++          + "          routes:\n";
++
++  private static Resource yaml(String text) {
++    return new ByteArrayResource(text.getBytes(StandardCharsets.UTF_8));
++  }
++
++  /** One route list item at the right indentation; predicates are the raw predicate strings. */
++  private static String route(String id, String... predicates) {
++    StringBuilder out = new StringBuilder("            - id: " + id + "\n");
++    out.append("              uri: lb://X\n");
++    if (predicates.length == 0) {
++      out.append("              predicates: []\n");
++    } else {
++      out.append("              predicates:\n");
++      for (String predicate : predicates) {
++        out.append("                - ").append(predicate).append("\n");
++      }
++    }
++    return out.toString();
++  }
++
++  @Test
++  void parsesIdsAndCommaSplitPatterns() {
++    RouteTable table =
++        RouteTable.parse(yaml(HEAD + route("a", "Path=/x,/y/**") + route("b", "Path=/z")));
++
++    assertThat(table.patternsById()).containsEntry("a", List.of("/x", "/y/**"));
++    assertThat(table.routeIds()).containsExactly("a", "b");
++    assertThat(table.rows()).hasSize(3);
++  }
++
++  @Test
++  void ignoresTheProfileSpecificDocument() {
++    String prodDocument =
++        "---\n"
++            + "spring:\n"
++            + "  config:\n"
++            + "    activate:\n"
++            + "      on-profile: prod\n"
++            + "  cloud:\n"
++            + "    gateway:\n"
++            + "      server:\n"
++            + "        webflux:\n"
++            + "          routes:\n"
++            + route("prod-only", "Path=/p");
++
++    RouteTable table = RouteTable.parse(yaml(HEAD + route("a", "Path=/x") + prodDocument));
++
++    assertThat(table.routeIds()).containsExactly("a");
++  }
++
++  @Test
++  void zeroRoutesFails() {
++    assertThatThrownBy(() -> RouteTable.parse(yaml("spring:\n  application:\n    name: x\n")))
++        .isInstanceOf(IllegalStateException.class)
++        .hasMessageContaining("zero routes");
++  }
++
++  @Test
++  void routeWithoutPathPredicateFails() {
++    assertThatThrownBy(() -> RouteTable.parse(yaml(HEAD + route("nopath"))))
++        .isInstanceOf(IllegalStateException.class)
++        .hasMessageContaining("nopath")
++        .hasMessageContaining("no Path predicate");
++  }
++
++  @Test
++  void nonPathPredicateFailsWithExtendTheContract() {
++    assertThatThrownBy(
++            () -> RouteTable.parse(yaml(HEAD + route("hosty", "Path=/x", "Host=example.com"))))
++        .isInstanceOf(IllegalStateException.class)
++        .hasMessageContaining("hosty")
++        .hasMessageContaining("extend the contract");
++  }
++
++  @Test
++  void idMismatchWithLiveRoutesFails() {
++    RouteTable table = RouteTable.parse(yaml(HEAD + route("a", "Path=/x")));
++
++    table.assertSameIdsAs(List.of("a"));
++    assertThatThrownBy(() -> table.assertSameIdsAs(List.of("a", "b")))
++        .isInstanceOf(IllegalStateException.class)
++        .hasMessageContaining("differ from the live gateway routes");
++  }
++}
+diff --git a/services/gateway/src/test/java/com/acme/ecommerce/gateway/support/TestKeys.java b/services/gateway/src/test/java/com/acme/ecommerce/gateway/support/TestKeys.java
+index bce9ac8..70304d1 100644
+--- a/services/gateway/src/test/java/com/acme/ecommerce/gateway/support/TestKeys.java
++++ b/services/gateway/src/test/java/com/acme/ecommerce/gateway/support/TestKeys.java
+@@ -80,6 +80,17 @@ public final class TestKeys {
+         Instant.now().plusSeconds(600));
+   }
+ 
++  /** A valid access token that stays valid for {@code lifetime}, for long-running suites. */
++  public String accessTokenValidFor(
++      String subject,
++      String email,
++      String authMethod,
++      List<String> roles,
++      java.time.Duration lifetime) {
++    Instant now = Instant.now();
++    return token(subject, email, authMethod, roles, ISSUER, AUDIENCE, now, now.plus(lifetime));
++  }
++
+   /** A valid access token with an explicit {@code iat}, for deny-list cutoff tests. */
+   public String accessTokenIssuedAt(String subject, Instant issuedAt) {
+     return token(

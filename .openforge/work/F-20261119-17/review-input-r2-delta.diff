@@ -1,0 +1,301 @@
+diff --git a/docs/techdebt/phase9.md b/docs/techdebt/phase9.md
+index 0162015..ad6954b 100644
+--- a/docs/techdebt/phase9.md
++++ b/docs/techdebt/phase9.md
+@@ -8,7 +8,7 @@ Phase 9 was built under "no tests, no HLD/LLD, record shortcuts as debt". The in
+ ## TD-P9-01 No tests for Phase 9; existing specs likely stale
+ - **Severity / Effort:** High / L
+ - **Where:** `services/seller-service` (new), product-service offers/buy box/bulk upload, inventory-service warehouses and reservation routing, order-service shipments, cart-service offer lines; admin seller portal and admin seller/payout/warehouse screens; storefront seller page, sponsored grid, shipment order page.
+-- **Progress 2026-11-17:** the stale admin specs were re-run: guards.spec fixed (role-aware landing), the admin suite passes 139/139; seller suspension and KYC masking, product moderation and the stock-totals reconcile have tests. Still untested: seller ledger arithmetic (commission, fee, reversals), buy-box scoring, warehouse routing and splits, shipment status derivation, the gateway route contract.
++- **Progress 2026-11-17:** the stale admin specs were re-run: guards.spec fixed (role-aware landing), the admin suite passes 139/139; seller suspension and KYC masking, product moderation and the stock-totals reconcile have tests. Still untested: seller ledger arithmetic (commission, fee, reversals), buy-box scoring, warehouse routing and splits, shipment status derivation.
+ - **Progress 2026-11-18:** a seller-service Testcontainers suite covers the ledger (postings once per shipment, return reversal once, payout hold, never paid twice, carry-forward). Still untested: onboarding/KYC, offers and buy box, split shipments, ads, the seller portal and admin specs.
+ - **Risk:** The only safety net is the one-off e2e script. Ledger arithmetic (commission, fee, reversals), buy-box scoring, warehouse routing and derived order status have no unit or contract tests. In the admin app the guest-only redirect is now role-aware (`homeRouteFor`) and dashboard/products/categories/inventory now require `ADMIN` or `CATALOG_MANAGER`, so `guards.spec`, `LoginView.spec` and `ProductsView.spec` may fail (not re-run). Extends [TD-P8-01](phase8.md#td-p8-01), [TD-P7-01](phase7.md#td-p7-01), [TD-ADM-01](admin.md#td-adm-01).
+ - **Fix:** Ledger idempotency and reversal tests, buy-box table tests, reservation routing/split tests, shipment-status derivation tests, gateway route contract test (done: RouteAuthorizationContractTest, F-20261119-17); update the admin specs; Playwright for apply, approve, list, sell, fulfil, payout.
+diff --git a/services/gateway/src/test/java/com/acme/ecommerce/gateway/RouteAuthorizationContractTest.java b/services/gateway/src/test/java/com/acme/ecommerce/gateway/RouteAuthorizationContractTest.java
+index 4803543..4f98621 100644
+--- a/services/gateway/src/test/java/com/acme/ecommerce/gateway/RouteAuthorizationContractTest.java
++++ b/services/gateway/src/test/java/com/acme/ecommerce/gateway/RouteAuthorizationContractTest.java
+@@ -152,11 +152,12 @@ class RouteAuthorizationContractTest {
+   private static final String SELLER_TOKEN = token(Roles.SELLER);
+ 
+   private static String token(String role) {
+-    return KEYS.accessToken(
++    return KEYS.accessTokenValidFor(
+         "3f5c1c6a-8f1e-4f0a-9d3a-7d6a2f1b2c3d",
+         role.toLowerCase() + "@example.com",
+         "password",
+-        List.of(role));
++        List.of(role),
++        java.time.Duration.ofHours(6));
+   }
+ 
+   /** Not rejected by the edge's rules: anything but 401/403 (downstream is unreachable here). */
+@@ -217,11 +218,20 @@ class RouteAuthorizationContractTest {
+           permit("ANY", "/api/auth/register", "no token before registration"),
+           permit("ANY", "/api/auth/refresh", "refresh cookie, not a bearer token"),
+           permit("ANY", "/api/auth/logout", "refresh cookie, not a bearer token"),
+-          permit("ANY", "/api/auth/password/forgot", "pre-authentication"),
++          permit(
++              "ANY",
++              "/api/auth/password/forgot",
++              "pre-authentication; /api/auth/ is exempt from the gateway rate limiter, abuse control: see backlog"),
+           permit("ANY", "/api/auth/password/reset", "pre-authentication, reset token"),
+           permit("ANY", "/api/auth/email/verify", "pre-authentication, emailed token"),
+-          permit("ANY", "/api/auth/otp/request", "OTP login is pre-authentication"),
+-          permit("ANY", "/api/auth/otp/verify", "OTP login is pre-authentication"),
++          permit(
++              "ANY",
++              "/api/auth/otp/request",
++              "OTP login is pre-authentication; /api/auth/ is exempt from the gateway rate limiter, abuse control: see backlog"),
++          permit(
++              "ANY",
++              "/api/auth/otp/verify",
++              "OTP login is pre-authentication; /api/auth/ is exempt from the gateway rate limiter, abuse control: see backlog"),
+           permit("ANY", "/api/auth/2fa/verify", "second factor, authenticated by the mfaToken"),
+           permit("ANY", "/.well-known/jwks.json", "public keys; circular to protect"),
+           permit("ANY", "/oauth2/**", "Google leg; state and PKCE are the controls"),
+@@ -230,7 +240,10 @@ class RouteAuthorizationContractTest {
+           permit("GET", "/api/products/**", "public catalog read"),
+           permit("GET", "/api/categories", "public catalog read"),
+           permit("GET", "/api/categories/**", "public catalog read"),
+-          permit("POST", "/api/products/*/views", "anonymous view tracking"),
++          permit(
++              "POST",
++              "/api/products/*/views",
++              "anonymous view tracking; rate-limited per client IP by RateLimitWebFilter (write limit)"),
+           permit("GET", "/sitemap.xml", "SEO sitemap"),
+           permit("GET", "/api/ratings/products/*", "public review list"),
+           permit("GET", "/api/ratings/products/*/summary", "public rating summary"),
+@@ -251,12 +264,21 @@ class RouteAuthorizationContractTest {
+               "POST", "/api/payments/webhook/razorpay", "X-Razorpay-Signature verified downstream"),
+           permit("GET", "/api/sellers/*", "public seller profile"),
+           permit("GET", "/api/sellers/*/feedback", "public seller feedback"),
+-          permit("POST", "/api/ads/*/click", "ad click beacon, no JWT"),
+-          permit("POST", "/api/ads/impressions", "ad impression beacon, no JWT"),
++          permit(
++              "POST",
++              "/api/ads/*/click",
++              "ad click beacon, no JWT; rate-limited per client IP by RateLimitWebFilter (write limit)"),
++          permit(
++              "POST",
++              "/api/ads/impressions",
++              "ad impression beacon, no JWT; rate-limited per client IP by RateLimitWebFilter (write limit)"),
+           permit("GET", "/api/support/articles", "help-centre read"),
+           permit("GET", "/api/support/articles/*", "help-centre read"),
+           permit("POST", "/api/support/articles/*/feedback", "article feedback"),
+-          permit("POST", "/api/support/chat", "chatbot reads the JWT itself when present"));
++          permit(
++              "POST",
++              "/api/support/chat",
++              "chatbot reads the JWT itself when present; rate-limited per IP (or per user) by RateLimitWebFilter (write limit)"));
+ 
+   // ---------------------------------------------------------------------------------------------
+   // AC-2 and AC-12: classification table and the reviewed permit list.
+@@ -594,6 +616,23 @@ class RouteAuthorizationContractTest {
+             "A role rule was added or changed at the edge. Add a role assertion for it here and"
+                 + " update EXPECTED_ROLE_RULES")
+         .isEqualTo(EXPECTED_ROLE_RULES);
++
++    // Pin EVERY rule that is neither a PERMIT nor plain AUTHENTICATED (the only two the
++    // behavioural probes understand): a new denyAll or a rule for an unknown role must fail here.
++    Map<String, String> restricted = new java.util.TreeMap<>();
++    rules().entries().stream()
++        .filter(e -> e.decision().kind() == Kind.DENY || e.decision().kind() == Kind.ROLE)
++        .forEach(e -> restricted.put(e.method() + " " + e.pattern(), e.decision().toString()));
++    assertThat(restricted)
++        .as(
++            "A DENY or role rule was added or changed at the edge. Add an assertion for it and"
++                + " update this pinned map")
++        .isEqualTo(
++            Map.of(
++                "ANY /actuator/**",
++                "DENY",
++                "ANY /api/admin/**",
++                "ROLE" + new TreeSet<>(EXPECTED_ROLE_RULES.get("/api/admin/**"))));
+   }
+ 
+   // ---------------------------------------------------------------------------------------------
+@@ -744,4 +783,71 @@ class RouteAuthorizationContractTest {
+                     .as("%s on GET %s", actor, probe)
+                     .matches(RouteAuthorizationContractTest::passes)));
+   }
++
++  // ---------------------------------------------------------------------------------------------
++  // Round 2: traversal from a permit prefix, method override, HEAD.
++  // ---------------------------------------------------------------------------------------------
++
++  /** Raw request line: the URI is sent as written so the client does not normalise it. */
++  private int rawStatus(String method, String rawPath, java.util.function.Consumer<HttpHeaders> h) {
++    int status =
++        client
++            .method(HttpMethod.valueOf(method))
++            .uri(URI.create("http://localhost:" + port + rawPath))
++            .headers(h)
++            .exchange()
++            .expectBody()
++            .returnResult()
++            .getStatus()
++            .value();
++    System.out.println("PROBE " + method + " " + rawPath + " -> " + status);
++    return status;
++  }
++
++  @TestFactory
++  @DisplayName("traversal probes that start from a permit prefix are rejected with 400")
++  Stream<DynamicTest> traversalFromAPermitPrefixIsRejected() {
++    List<String[]> probes =
++        List.of(
++            new String[] {"GET", "/api/products/%2e%2e/admin/theme"},
++            new String[] {"GET", "/api/products/..;/seller/offers"},
++            new String[] {"GET", "/api/products/%2E%2E/%2E%2E/api/orders/1"},
++            new String[] {"GET", "/api/sellers/..;/admin/payouts"},
++            new String[] {"GET", "/api/sellers/me%2f"},
++            new String[] {"POST", "/api/auth/login/..;/me"},
++            new String[] {"GET", "/api/products/1%2f..%2f..%2fadmin/theme"},
++            new String[] {"GET", "/api/categories//..//admin/theme"});
++    return probes.stream()
++        .map(
++            p ->
++                DynamicTest.dynamicTest(
++                    p[0] + " " + p[1],
++                    () ->
++                        assertThat(rawStatus(p[0], p[1], h -> {}))
++                            .as("anonymous %s %s must be rejected, not passed through", p[0], p[1])
++                            .isEqualTo(400)));
++  }
++
++  @TestFactory
++  @DisplayName("trailing slash and path parameters on the authenticated seller record never pass")
++  Stream<DynamicTest> sellerMeVariantsNeverPassThrough() {
++    return Stream.of("/api/sellers/me/", "/api/sellers/me;x=1")
++        .map(
++            path ->
++                DynamicTest.dynamicTest(
++                    "GET " + path,
++                    () ->
++                        assertThat(rawStatus("GET", path, h -> {}))
++                            .as("anonymous GET %s", path)
++                            .isIn(400, 401)));
++  }
++
++  @Test
++  @DisplayName("method-override parameters and headers do not turn a protected write into a read")
++  void methodOverrideDoesNotBypass() {
++    assertThat(rawStatus("POST", "/api/products/1?_method=DELETE", h -> {})).isEqualTo(401);
++    assertThat(rawStatus("POST", "/api/products/1", h -> h.set("X-HTTP-Method-Override", "GET")))
++        .isEqualTo(401);
++    assertThat(rawStatus("HEAD", "/api/sellers/me", h -> {})).isEqualTo(401);
++  }
+ }
+diff --git a/services/gateway/src/test/java/com/acme/ecommerce/gateway/support/EdgeRules.java b/services/gateway/src/test/java/com/acme/ecommerce/gateway/support/EdgeRules.java
+index f59f038..b6c5e6a 100644
+--- a/services/gateway/src/test/java/com/acme/ecommerce/gateway/support/EdgeRules.java
++++ b/services/gateway/src/test/java/com/acme/ecommerce/gateway/support/EdgeRules.java
+@@ -1,5 +1,6 @@
+ package com.acme.ecommerce.gateway.support;
+ 
++import com.acme.ecommerce.common.security.Roles;
+ import com.acme.ecommerce.gateway.config.SecurityConfig;
+ import java.lang.reflect.Field;
+ import java.util.ArrayList;
+@@ -86,12 +87,12 @@ public final class EdgeRules {
+   /** Authorities probed to discover which roles a rule admits (CUSTOMER is probed separately). */
+   private static final List<String> PRIVILEGED =
+       List.of(
+-          "ROLE_ADMIN",
+-          "ROLE_SUPPORT",
+-          "ROLE_FINANCE",
+-          "ROLE_CATALOG_MANAGER",
+-          "ROLE_SELLER",
+-          "ROLE_VIEWER");
++          Roles.ROLE_ADMIN,
++          Roles.ROLE_SUPPORT,
++          Roles.ROLE_FINANCE,
++          Roles.ROLE_CATALOG_MANAGER,
++          Roles.ROLE_SELLER,
++          Roles.ROLE_VIEWER);
+ 
+   private final List<Entry> entries;
+ 
+@@ -213,11 +214,13 @@ public final class EdgeRules {
+     }
+     List<?> mappings = (List<?>) field(manager, "mappings");
+     List<Entry> out = new ArrayList<>();
+-    for (Object mapping : mappings) {
++    for (int index = 0; index < mappings.size(); index++) {
++      Object mapping = mappings.get(index);
+       Object matcher = field(mapping, "matcher");
+       ReactiveAuthorizationManager<AuthorizationContext> rule =
+           (ReactiveAuthorizationManager<AuthorizationContext>) field(mapping, "entry");
+       Decision decision = decide(rule);
++      requireSupportedMatcher(matcher, index, mappings.size() - 1);
+       if (matcher instanceof OrServerWebExchangeMatcher or) {
+         for (Object single : (List<?>) field(or, "matchers")) {
+           PathPattern pattern = (PathPattern) field(single, "pattern");
+@@ -236,6 +239,21 @@ public final class EdgeRules {
+     return out;
+   }
+ 
++  /**
++   * Only {@code OrServerWebExchangeMatcher} (pathMatchers) entries are understood, plus the {@code
++   * anyExchange} matcher, which must be last. Anything else is a rule shape this contract cannot
++   * classify, so it fails loudly instead of being read as a catch-all.
++   */
++  static void requireSupportedMatcher(Object matcher, int index, int lastIndex) {
++    if (!(matcher instanceof OrServerWebExchangeMatcher) && index != lastIndex) {
++      throw new IllegalStateException(
++          "EdgeRules could not read the chain: unsupported matcher "
++              + (matcher == null ? "null" : matcher.getClass().getName())
++              + " at index "
++              + index);
++    }
++  }
++
+   private static Decision decide(ReactiveAuthorizationManager<AuthorizationContext> rule) {
+     if (granted(rule, Mono.empty())) {
+       return new Decision(Kind.PERMIT, Set.of());
+diff --git a/services/gateway/src/test/java/com/acme/ecommerce/gateway/support/EdgeRulesTest.java b/services/gateway/src/test/java/com/acme/ecommerce/gateway/support/EdgeRulesTest.java
+index 2441d11..e052245 100644
+--- a/services/gateway/src/test/java/com/acme/ecommerce/gateway/support/EdgeRulesTest.java
++++ b/services/gateway/src/test/java/com/acme/ecommerce/gateway/support/EdgeRulesTest.java
+@@ -90,4 +90,18 @@ class EdgeRulesTest {
+     assertThat(rules.classify("GET", "/actuator/env").decision()).isEqualTo(DENY);
+     assertThat(rules.classify("GET", "/nothing/here").catchAll()).isTrue();
+   }
++
++  @Test
++  void aNonOrMatcherIsOnlyAllowedAtTheLastIndex() {
++    Object stray = new Object();
++
++    // The anyExchange matcher at the last index is fine.
++    assertThatCode(() -> EdgeRules.requireSupportedMatcher(stray, 5, 5)).doesNotThrowAnyException();
++    // The same matcher earlier in the chain is a shape we cannot classify.
++    assertThatThrownBy(() -> EdgeRules.requireSupportedMatcher(stray, 3, 5))
++        .isInstanceOf(IllegalStateException.class)
++        .hasMessageContaining("EdgeRules could not read the chain: unsupported matcher")
++        .hasMessageContaining("java.lang.Object")
++        .hasMessageContaining("at index 3");
++  }
+ }
+diff --git a/services/gateway/src/test/java/com/acme/ecommerce/gateway/support/TestKeys.java b/services/gateway/src/test/java/com/acme/ecommerce/gateway/support/TestKeys.java
+index bce9ac8..70304d1 100644
+--- a/services/gateway/src/test/java/com/acme/ecommerce/gateway/support/TestKeys.java
++++ b/services/gateway/src/test/java/com/acme/ecommerce/gateway/support/TestKeys.java
+@@ -80,6 +80,17 @@ public final class TestKeys {
+         Instant.now().plusSeconds(600));
+   }
+ 
++  /** A valid access token that stays valid for {@code lifetime}, for long-running suites. */
++  public String accessTokenValidFor(
++      String subject,
++      String email,
++      String authMethod,
++      List<String> roles,
++      java.time.Duration lifetime) {
++    Instant now = Instant.now();
++    return token(subject, email, authMethod, roles, ISSUER, AUDIENCE, now, now.plus(lifetime));
++  }
++
+   /** A valid access token with an explicit {@code iat}, for deny-list cutoff tests. */
+   public String accessTokenIssuedAt(String subject, Instant issuedAt) {
+     return token(

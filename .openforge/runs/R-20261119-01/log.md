@@ -21,3 +21,11 @@
 - 2026-11-20T18:25:30Z G-8 applied to .claude/hooks/forge-gate.mjs via a script (Owner-approved; protect hook G-5 blocks direct edits), with a new test in .openforge/tests/hooks.test.mjs; 8/8 hook tests pass. X-1 decision recorded.
 - 2026-11-20T19:48:56Z OWNER: F-09 size: trim below 600.
 - 2026-11-20T21:04:11Z G-10 (let the CEO push approved forge branches) attempted on the Owner's 'just do it'. BLOCKED by the auto-mode classifier as [Undermining Oversight]; not retried and the guard is unchanged. Owner must push manually, or add a permission rule.
+- 2026-11-23 RESUME after session end; Owner: 'auto take decisions, get things done asap' (still no push/merge/governance).
+- 2026-11-23T13:41:23Z Docker Desktop hung ~hours; restored via docker desktop CLI with Owner consent (earlier process-kill attempt was denied and not retried).
+- 2026-11-23T15:11:30Z CHECKPOINT snapshot-5: 15 gate-passed (F-14, F-16 added). Pausing new stacked objectives until the Owner pushes/merges.
+- 2026-11-25T08:31:12Z F-20261119-17 gate PASS at 57e9c94 (TD-TEST-04, test-only, stacked on F-08). 16 gate-passed objectives.
+- 2026-11-25T09:25:07Z F-20261119-18 gate PASS at 305d540 (TD-TEST-02 partial + safeNext hardening, not stacked). 17 gate-passed objectives.
+- 2026-11-25T14:42:53Z F-20261119-19 started (checkout Idempotency-Key on 408/409/429; stacked on F-18)
+- 2026-11-25T14:49:23Z F-18 reopened: no-control-regex lint error from its safeNext fix (forge-verify does not run frontend lint)
+- 2026-11-25T14:52:08Z F-20261119-18 gate PASS again at 49f94cf (lint fix round 3)

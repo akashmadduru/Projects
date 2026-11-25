@@ -1,0 +1,21 @@
+- 2026-11-21 CEO: discover; objective.md written; CPO launched (research in F-10 worktree, worktree deferred)
+- 2026-11-21 CPO: requirements.md 13 ACs (double-reverse and uncapped reversal confirmed). CEO: split (AC-9..12 deferred), Q1 provisional default pending Owner, worktree created at 820e5a8; CTO launched
+- 2026-11-21 CTO: class M (5), limit 600, 10 design criteria; architect launched
+- 2026-11-21 Architect: design.md + ADR 0012 (Proposed), ~416 prod lines, seller-service only, ledger_shipments table for reconcile; CTO acceptance launched
+- 2026-11-21 CTO: design accepted with 9 conditions (transcribed); ADR 0012 Accepted (fee still provisional); EM launched
+- 2026-11-21 EM: tasks.md T1..T10; engineer launched for T1-T5 (split across two runs because of the turn limit)
+- 2026-11-21 Engineer T1-T5: head c316236, seller-service 24 tests pass; guard tests shown failing on old code (cap -135 vs -100, double reversal 2 rows); 298 prod lines so far. Engineer launched for T6-T10.
+- 2026-11-21 Engineer T6-T9: head f63f848, STOPPED under CTO condition 8 at 651 prod lines (CEO recount: A 820e5a8..c316236 = 298, B c316236..f63f848 = 353). Guard demos and verify not done. CTO size ruling requested.
+- 2026-11-21 CTO size ruling: split at c316236 (A 298, B 353); recorded in complexity.md. Detached verify worktree F-20261119-13A at c316236; PR-A reviews and the B trim launched in parallel.
+- 2026-11-21 PR-A review @c316236: security approve (6 minor), reviewer request_changes (major: AC-13 test is in B). CEO ruling: AC-13 to part B, A never ships alone, A's minors land in B. Reviewer asked to re-rule A; B engineer gets the minors.
+- 2026-11-21 PR-A re-ruled @c316236: reviewer APPROVE (AC-1..6) under the scope ruling; security approve. PR-A approved by both (history/*-A-c316236*). Waiting on PR-A verify and part B.
+- 2026-11-21 CEO verify PR-A @c316236: env reference --check FAIL (environment-variables.md hand-edited, 4 SELLER_LEDGER_RECONCILE_* vars undescribed in env-descriptions.json). Same failure at B head; sent to the B engineer. Since A never ships alone, the fix lands in B.
+- 2026-11-21 Engineer part B: head d811b88a333b69b4b87381eb0a6170a120a663fe, part B 392 prod lines; trim + 5 sec-fixes + review-fixes + env fix; engineer verify PASS (verify-B.md). CEO verify + part-B reviews launched.
+- 2026-11-21 Security part B @d811b88: REQUEST_CHANGES (major: the admin-entered repair amount is unbounded and missing from the audit, so one admin can create seller balance up to 10^12; plus 4 minors). Waiting on the code reviewer, then one fix round.
+- 2026-11-21 Reviewer part B @d811b88: approve (7 minor, 5 nits). With security's major, a fix round is required.
+- 2026-11-23 Session restart: the fix2 engineer was interrupted at 1662edc (clean); resumed.
+- 2026-11-23 Engineer fix2: head 1662edc4084dd4bcf9fc26cba9283025c3179624, part B 496 prod lines; engineer verify PASS; 3 guards shown, the row lock not test-proven (defence in depth). CEO verify + delta reviews launched.
+- 2026-11-23 Security delta @1662edc: APPROVE (3 minor: BigDecimal exponent DoS by an authed admin, the cap fails open on null expected, a silent lock-loser). Waiting on the code reviewer.
+- 2026-11-23 Reviewer delta @1662edc: APPROVE. Both approve. CEO decision (Owner said 'auto decide, asap'): ship with the remaining minors as PR follow-ups (audit amount when a SALE is already present, exponent DoS by an authed admin, the cap fails open on null expected, a lock-loser trace, test strengthening). No further round. Next: CEO verify result, QA, gate, pr.md.
+- 2026-11-23 CEO: requirements.md AC-9..12 relabelled MOVED-AC-n (moved to F-14, per the earlier ruling) so the gate scopes correctly. Not a weakening: they are F-14's AC-1..AC-3 and AC-5..AC-11.
+- 2026-11-23 QA PASS (AC-1..8, 13) at 1662edc; forge-gate PASS (2 parts: 298/496); pr.md written (fee policy flagged for the Owner). Awaiting Owner push approval.

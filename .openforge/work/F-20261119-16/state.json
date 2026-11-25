@@ -1,0 +1,9 @@
+{
+  "id": "F-20261119-16",
+  "step": "pr",
+  "branch": "forge/F-20261119-16-seller-cancel-terminal",
+  "worktree": ".openforge/worktrees/F-20261119-16",
+  "base_sha": "1662edc4084dd4bcf9fc26cba9283025c3179624",
+  "implementer": "forge-backend-engineer",
+  "head_sha": "3e349239bd801b2df09017840ee3cab700971b9b"
+}

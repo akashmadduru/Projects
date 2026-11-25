@@ -5,3 +5,12 @@
 - 2026-11-21 Architect: design.md + ADR 0011 (Proposed), est ~320 prod lines; CTO acceptance launched
 - 2026-11-21 CTO: design accepted with 11 conditions (transcribed); ADR 0011 Accepted; EM launched
 - 2026-11-21 EM: tasks.md T1..T10, all ACs and C1..C11 covered; backend engineer launched
+- 2026-11-21 Engineer: head b4cd26c (T1-T10), engineer verify PASS (rerun after Docker-load flake); CEO verify + reviews launched
+- 2026-11-21 Review @b4cd26c: reviewer approve (2 minor, 4 nits), security approve (2 minor). CEO: small fix round after CEO verify finishes (untested SCHEDULED guard on privacy erasure, WARN on suppressed enqueue, corrupt-null payload, status 400, regex).
+- 2026-11-21 CEO: verify at b4cd26c interrupted by session end; skipped, will verify at post-fix head; fix-round engineer launched
+- 2026-11-21 Engineer: fix round head e705f22 (4 commits), engineer verify PASS (verify.md); CEO verify + delta reviews launched
+- 2026-11-21 Delta review @e705f22: security approve (0 findings); reviewer request_changes (major: OutboxMigrationIT regex uses Java "\b" = backspace, so the guard is vacuous). Tiny fix after CEO verify finishes.
+- 2026-11-21 Engineer: regex fix head 7c72263 (test-only), guard shown to bite; CEO verify + delta reviews launched
+- 2026-11-21 Final delta review @7c72263: reviewer approve (0), security approve (0). Waiting on CEO verify, then QA.
+- 2026-11-21 CEO verify PASS at 7c72263 (recorded in evidence.md); QA launched
+- 2026-11-21 QA PASS AC-1..11 at 7c72263; forge-gate PASS (417 prod lines, M); pr.md written with C7 rollback. Awaiting Owner push approval.

@@ -1,0 +1,505 @@
+diff --git a/docs/guides/runbooks/checkout-integrity-rollback.md b/docs/guides/runbooks/checkout-integrity-rollback.md
+index 7fa74af..3516d27 100644
+--- a/docs/guides/runbooks/checkout-integrity-rollback.md
++++ b/docs/guides/runbooks/checkout-integrity-rollback.md
+@@ -45,5 +45,13 @@ order consumed, and repeating it is harmless, so retrying every `DEAD` `CLEAR_CA
+ 
+ - `select kind, status, count(*) from orders.outbox group by 1, 2;` shows no `CLEAR_CART` `PENDING`
+   rows after step 2.
+-- The relay logs `OUTBOX DEAD` for a `CLEAR_CART` row that gave up after 400 attempts (about 26 h at
++- The relay logs `OUTBOX DEAD` for a `CLEAR_CART` row that got a 4xx other than 404, 408 or 429 (at
++  once, it cannot succeed on retry) or gave up after 400 attempts (about 26 h at
+   a 4-minute cap); that is the alert to act on.
++
++## Data retention
++
++A `CLEAR_CART` outbox row keeps a per-user payload in `orders.outbox`: user id, order id and, per
++consumed line, product, variant, offer, quantity and added-at. There is no name, email or address, but
++it is behavioural data per user. Rows stay after they are `DONE`, and the privacy erasure flow does
++not touch `orders.outbox`. Backlog: [TD-BE-19](../../techdebt/backend.md#td-be-19).
+diff --git a/docs/techdebt/README.md b/docs/techdebt/README.md
+index e2dac3a..ef63372 100644
+--- a/docs/techdebt/README.md
++++ b/docs/techdebt/README.md
+@@ -39,6 +39,7 @@ Shortcuts taken while building customer accounts (login, Google SSO, user/cart/o
+ | TD-BE-16 | Build tooling quirks on Windows (spotless bind mount, buildx entitlement, LF endings) | backend | Low | S | [backend.md](backend.md#td-be-16) |
+ | TD-BE-17 | Inactive products are readable by anonymous callers (`/{id}`, `batch?detail=true`) | backend | Low | S | [backend.md](backend.md#td-be-17) |
+ | TD-BE-18 | Detail batch still makes one stock-rows call per product | backend | Low | M | [backend.md](backend.md#td-be-18) |
++| TD-BE-19 | CLEAR_CART outbox payloads are retained and not covered by erasure | backend | Low | S | [backend.md](backend.md#td-be-19) |
+ | TD-TEST-06 | Seed data cannot exercise the sale-price rule | testing | Low | S | [testing.md](testing.md#td-test-06) |
+ | TD-RT-01 | Demo product averages disagree with rating-service | ratings | Med | S | [ratings.md](ratings.md#td-rt-01) |
+ | TD-RT-02 | No scheduled reconcile of product rating fields | ratings | Med | M | [ratings.md](ratings.md#td-rt-02) |
+diff --git a/docs/techdebt/backend.md b/docs/techdebt/backend.md
+index 060c826..8ea4abb 100644
+--- a/docs/techdebt/backend.md
++++ b/docs/techdebt/backend.md
+@@ -44,3 +44,10 @@ TD-BE-01, TD-BE-02, TD-BE-04 and TD-BE-05 were resolved by Phase 6; residual ris
+ - **Where:** `OfferService.enrich` (called from `ProductCatalogService.detail`), per product, through `InventoryServiceClient.stockRows`.
+ - **Risk:** `GET /api/products/batch?detail=true` skips variant stock but still makes about one inventory request per product, so a 50-product checkout costs up to 50 inventory calls inside one 5 s order-service read budget (`ORDER_PRODUCT_BATCH_READ_TIMEOUT_MS`). It is still far fewer calls than before, and checkout traffic stays the same shape. The unaffected backlog item B-4 is not changed by this.
+ - **Fix:** Add a batched stock-rows endpoint to inventory-service (`/internal/inventory/stock/by-products`) and make `OfferService.enrich` take the rows for all products at once. Raised by F-20261119-11 (CTO condition 6).
++
++<a id="td-be-19"></a>
++## TD-BE-19 CLEAR_CART outbox payloads are retained and not covered by erasure
++- **Severity / Effort:** Low / S
++- **Where:** `OrderRemote.enqueueClearCart`; `orders.outbox` (kind `CLEAR_CART`).
++- **Risk:** The payload (product, variant, offer, quantity and added-at per line, per user) stays in `orders.outbox` after the row is `DONE`, and the erasure flow does not remove it. No direct PII, but it is per-user behavioural data kept indefinitely.
++- **Fix:** Purge `DONE` `CLEAR_CART` rows after N days, or null the payload when a row goes `DONE`, and add `orders.outbox` payloads that reference the user to the order-service erasure step. Raised by F-20261119-11 (security review of PR-C).
+diff --git a/services/cart-service/cart-service-app/src/main/java/com/acme/ecommerce/cart/repository/CartRepository.java b/services/cart-service/cart-service-app/src/main/java/com/acme/ecommerce/cart/repository/CartRepository.java
+index d4844ac..a2269c5 100644
+--- a/services/cart-service/cart-service-app/src/main/java/com/acme/ecommerce/cart/repository/CartRepository.java
++++ b/services/cart-service/cart-service-app/src/main/java/com/acme/ecommerce/cart/repository/CartRepository.java
+@@ -54,6 +54,14 @@ public class CartRepository {
+         .single();
+   }
+ 
++  /** Locks and returns the user's existing cart; never creates one. */
++  public Optional<UUID> lockCartIfExists(UUID userId) {
++    return jdbc.sql("SELECT id FROM cart.carts WHERE user_id = :userId FOR UPDATE")
++        .param("userId", userId)
++        .query(UUID.class)
++        .optional();
++  }
++
+   public List<CartItemResponse> findItems(UUID userId) {
+     return jdbc.sql(
+             "SELECT i.product_id, i.variant_id, i.variant_label, i.offer_id, i.seller_id, i.quantity, i.name, i.unit_price, "
+diff --git a/services/cart-service/cart-service-app/src/main/java/com/acme/ecommerce/cart/service/CartService.java b/services/cart-service/cart-service-app/src/main/java/com/acme/ecommerce/cart/service/CartService.java
+index ebf62c0..2ff5028 100644
+--- a/services/cart-service/cart-service-app/src/main/java/com/acme/ecommerce/cart/service/CartService.java
++++ b/services/cart-service/cart-service-app/src/main/java/com/acme/ecommerce/cart/service/CartService.java
+@@ -79,7 +79,10 @@ public class CartService {
+    */
+   @Transactional
+   public int removeConsumed(UUID userId, ConsumedLinesRequest request) {
+-    UUID cartId = carts.lockOrCreateCart(userId);
++    UUID cartId = carts.lockCartIfExists(userId).orElse(null);
++    if (cartId == null) {
++      return 0;
++    }
+     int removed = 0;
+     for (ConsumedLinesRequest.Line line : request.lines()) {
+       removed += carts.deleteConsumed(cartId, line);
+diff --git a/services/cart-service/cart-service-app/src/test/java/com/acme/ecommerce/cart/service/CartConsumedLinesIntegrationTest.java b/services/cart-service/cart-service-app/src/test/java/com/acme/ecommerce/cart/service/CartConsumedLinesIntegrationTest.java
+index 46106e6..0c571be 100644
+--- a/services/cart-service/cart-service-app/src/test/java/com/acme/ecommerce/cart/service/CartConsumedLinesIntegrationTest.java
++++ b/services/cart-service/cart-service-app/src/test/java/com/acme/ecommerce/cart/service/CartConsumedLinesIntegrationTest.java
+@@ -70,6 +70,25 @@ class CartConsumedLinesIntegrationTest extends AbstractCartIntegrationTest {
+     assertThat(carts.get(user).items()).isEmpty();
+   }
+ 
++  @Test
++  @DisplayName("a user with no cart gets removed=0 and no cart row is created")
++  void noCartCreatesNothing() {
++    UUID stranger = UUID.randomUUID();
++    ConsumedLinesRequest request =
++        new ConsumedLinesRequest(
++            UUID.randomUUID(),
++            List.of(
++                new ConsumedLinesRequest.Line(
++                    UUID.randomUUID(), null, null, 1, Instant.parse("2026-11-20T10:00:00Z"))));
++
++    assertThat(carts.removeConsumed(stranger, request)).isZero();
++
++    assertThat(
++            jdbc.queryForObject(
++                "select count(*) from cart.carts where user_id = ?", Integer.class, stranger))
++        .isZero();
++  }
++
+   @Test
+   @DisplayName("AC-16: a repeated call is a no-op and returns 0")
+   void repeatIsIdempotent() {
+diff --git a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/client/CartInternalFeignClient.java b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/client/CartInternalFeignClient.java
+index d3fd0b9..586b070 100644
+--- a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/client/CartInternalFeignClient.java
++++ b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/client/CartInternalFeignClient.java
+@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.RequestBody;
+     name = "cart-service",
+     contextId = "cartInternalClient",
+     url = "${services.cart.url:}",
+-    configuration = InternalFeignConfig.class)
++    configuration = {InternalFeignConfig.class, NoUserTokenFeignConfig.class})
+ public interface CartInternalFeignClient {
+ 
+   @PostMapping("/internal/carts/{userId}/consumed")
+diff --git a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/client/NoUserTokenFeignConfig.java b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/client/NoUserTokenFeignConfig.java
+new file mode 100644
+index 0000000..34b15e5
+--- /dev/null
++++ b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/client/NoUserTokenFeignConfig.java
+@@ -0,0 +1,30 @@
++package com.acme.ecommerce.order.client;
++
++import feign.Capability;
++import feign.RequestInterceptor;
++import org.springframework.context.annotation.Bean;
++
++/**
++ * Per-client configuration (not component-scanned) for service-to-service clients that authenticate
++ * with X-Internal-Token only: removes the Authorization header the global forwarding interceptor
++ * may have copied from the inbound request, so a user's bearer never reaches an internal endpoint.
++ * Implemented as a Capability that wraps every interceptor of the client, so the header is gone
++ * whatever order the interceptors run in.
++ */
++public class NoUserTokenFeignConfig {
++
++  @Bean
++  public Capability stripUserTokenCapability() {
++    return new StripUserToken();
++  }
++
++  public static final class StripUserToken implements Capability {
++    @Override
++    public RequestInterceptor enrich(RequestInterceptor interceptor) {
++      return template -> {
++        interceptor.apply(template);
++        template.removeHeader("Authorization");
++      };
++    }
++  }
++}
+diff --git a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/outbox/OutboxRelay.java b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/outbox/OutboxRelay.java
+index 1f2e7a8..440eaf7 100644
+--- a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/outbox/OutboxRelay.java
++++ b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/outbox/OutboxRelay.java
+@@ -6,6 +6,7 @@ import com.acme.ecommerce.order.event.OrderEventPublisher;
+ import com.acme.ecommerce.order.outbox.Outbox.Kind;
+ import com.acme.ecommerce.order.service.OrderRemote;
+ import com.fasterxml.jackson.core.JsonProcessingException;
++import feign.FeignException;
+ import java.util.Arrays;
+ import java.util.List;
+ import java.util.UUID;
+@@ -194,7 +195,9 @@ public class OutboxRelay {
+     String error = e.toString();
+     error = error.length() > 500 ? error.substring(0, 500) : error;
+     boolean clearCart = row.kind() == Kind.CLEAR_CART;
+-    boolean dead = attempts >= (clearCart ? CLEAR_CART_MAX_ATTEMPTS : MAX_ATTEMPTS);
++    boolean dead =
++        attempts >= (clearCart ? CLEAR_CART_MAX_ATTEMPTS : MAX_ATTEMPTS)
++            || (clearCart && permanentClientError(e));
+     long backoff =
+         Math.min(
+             clearCart ? CLEAR_CART_MAX_BACKOFF_SECONDS : MAX_BACKOFF_SECONDS,
+@@ -227,6 +230,15 @@ public class OutboxRelay {
+     return dead;
+   }
+ 
++  /** A 4xx other than 404/408/429 will not succeed on retry (validation drift): go DEAD now. */
++  private static boolean permanentClientError(RuntimeException e) {
++    if (!(e instanceof FeignException fe)) {
++      return false;
++    }
++    int s = fe.status();
++    return s >= 400 && s < 500 && s != 404 && s != 408 && s != 429;
++  }
++
+   private static <T> T read(String json, Class<T> type) {
+     try {
+       return Outbox.JSON.readValue(json, type);
+diff --git a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/OrderRemote.java b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/OrderRemote.java
+index dfb8d71..29d09f0 100644
+--- a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/OrderRemote.java
++++ b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/OrderRemote.java
+@@ -207,7 +207,14 @@ public class OrderRemote {
+ 
+   /** Durable: removes the order's lines from the user's cart, now and then until it lands. */
+   public void clearCart(UUID userId, UUID orderId, List<CartItemResponse> items) {
+-    enqueueClearCart(userId, orderId, items);
++    try {
++      enqueueClearCart(userId, orderId, items);
++    } catch (RuntimeException e) {
++      // The order already exists: never fail it. The fingerprint guard still blocks a re-order.
++      log.warn(
++          "Order {} placed but its cart clear could not be recorded: {}", orderId, e.toString());
++      return;
++    }
+     attemptClearCart(userId, orderId, items);
+   }
+ 
+diff --git a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/OrderService.java b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/OrderService.java
+index 56b4586..ca2bb75 100644
+--- a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/OrderService.java
++++ b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/OrderService.java
+@@ -418,12 +418,13 @@ public class OrderService {
+       log.warn("COD order {} placed but payment record not created: {}", saved.id(), e.toString());
+     }
+ 
+-    if (!buyNow) {
+-      remote.clearCart(saved.userId(), saved.id(), cart.items());
+-    }
++    // The placed event is recorded before the clear so nothing in the clear can skip it.
+     if (method == PaymentMethod.COD) {
+       events.publish(placedType, saved);
+     }
++    if (!buyNow) {
++      remote.clearCart(saved.userId(), saved.id(), cart.items());
++    }
+     return new Placement(paymentBlock == null ? saved : saved.withPayment(paymentBlock), true);
+   }
+ 
+diff --git a/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/client/CartInternalFeignClientHeadersTest.java b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/client/CartInternalFeignClientHeadersTest.java
+new file mode 100644
+index 0000000..19c1252
+--- /dev/null
++++ b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/client/CartInternalFeignClientHeadersTest.java
+@@ -0,0 +1,88 @@
++package com.acme.ecommerce.order.client;
++
++import static org.assertj.core.api.Assertions.assertThat;
++
++import com.acme.ecommerce.cart.api.dto.ConsumedLinesRequest;
++import com.acme.ecommerce.cart.api.dto.ConsumedLinesResponse;
++import com.acme.ecommerce.common.web.feign.CorrelationAndAuthForwardingInterceptor;
++import com.acme.ecommerce.order.config.OrderProperties;
++import feign.Capability;
++import feign.Feign;
++import feign.Request;
++import feign.RequestInterceptor;
++import feign.Response;
++import java.util.ArrayList;
++import java.util.Map;
++import java.util.UUID;
++import java.util.concurrent.atomic.AtomicReference;
++import org.junit.jupiter.api.AfterEach;
++import org.junit.jupiter.api.DisplayName;
++import org.junit.jupiter.api.Test;
++import org.springframework.cloud.openfeign.support.SpringMvcContract;
++import org.springframework.mock.web.MockHttpServletRequest;
++import org.springframework.web.context.request.RequestContextHolder;
++import org.springframework.web.context.request.ServletRequestAttributes;
++
++class CartInternalFeignClientHeadersTest {
++
++  @AfterEach
++  void clear() {
++    RequestContextHolder.resetRequestAttributes();
++  }
++
++  private Request captureCall(boolean withStripper) {
++    OrderProperties props = new OrderProperties();
++    props.getInternal().setToken("secret-token");
++    AtomicReference<Request> seen = new AtomicReference<>();
++    Feign.Builder b =
++        Feign.builder()
++            .contract(new SpringMvcContract())
++            .encoder((o, t, template) -> template.body("{}"))
++            .decoder((r, t) -> new ConsumedLinesResponse(0))
++            .client(
++                (req, opts) -> {
++                  seen.set(req);
++                  return Response.builder().status(200).request(req).headers(Map.of()).build();
++                })
++            // Same order Spring builds: global forwarding interceptor, then per-client token.
++            .requestInterceptor(new CorrelationAndAuthForwardingInterceptor())
++            .requestInterceptor(
++                (RequestInterceptor) new InternalFeignConfig().internalTokenInterceptor(props));
++    if (withStripper) {
++      b.addCapability((Capability) new NoUserTokenFeignConfig().stripUserTokenCapability());
++    }
++    CartInternalFeignClient client = b.target(CartInternalFeignClient.class, "http://cart-service");
++
++    MockHttpServletRequest inbound = new MockHttpServletRequest();
++    inbound.addHeader("Authorization", "Bearer user-jwt");
++    RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(inbound));
++    client.consumed(
++        UUID.randomUUID(), new ConsumedLinesRequest(UUID.randomUUID(), new ArrayList<>()));
++    return seen.get();
++  }
++
++  @Test
++  @DisplayName("internal cart call inside a request context: X-Internal-Token and no Authorization")
++  void carriesInternalTokenAndNoBearer() {
++    Request sent = captureCall(true);
++    assertThat(sent.headers().get("X-Internal-Token")).containsExactly("secret-token");
++    assertThat(sent.headers()).doesNotContainKey("Authorization");
++  }
++
++  @Test
++  @DisplayName("without the stripper the global interceptor would leak the user bearer")
++  void withoutStripperBearerLeaks() {
++    Request sent = captureCall(false);
++    assertThat(sent.headers().get("Authorization")).containsExactly("Bearer user-jwt");
++  }
++
++  @Test
++  @DisplayName("the client is wired to the stripper and the token config")
++  void clientReferencesBothConfigs() {
++    var cfg =
++        CartInternalFeignClient.class
++            .getAnnotation(org.springframework.cloud.openfeign.FeignClient.class)
++            .configuration();
++    assertThat(cfg).contains(InternalFeignConfig.class, NoUserTokenFeignConfig.class);
++  }
++}
+diff --git a/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/outbox/CartClearIntegrationTest.java b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/outbox/CartClearIntegrationTest.java
+index ebe6d65..5a0a151 100644
+--- a/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/outbox/CartClearIntegrationTest.java
++++ b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/outbox/CartClearIntegrationTest.java
+@@ -52,6 +52,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
+ import org.springframework.jdbc.core.simple.JdbcClient;
+ import org.springframework.kafka.core.KafkaTemplate;
+ import org.springframework.test.context.bean.override.mockito.MockitoBean;
++import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
+ 
+ /**
+  * F-20261119-11 / TD-BE-03 with the real OrderRemote, outbox and relay (only the HTTP clients and
+@@ -70,6 +71,8 @@ class CartClearIntegrationTest extends AbstractOrderIntegrationTest {
+   @MockitoBean private RiskService risks;
+   @MockitoBean private KafkaTemplate<String, OrderEvent> kafka;
+ 
++  @MockitoSpyBean private Outbox outboxSpy;
++
+   @Autowired private OrderService orders;
+   @Autowired private OutboxRelay relay;
+   @Autowired private OrderRemote remote;
+@@ -187,14 +190,15 @@ class CartClearIntegrationTest extends AbstractOrderIntegrationTest {
+     assertThat(clearRows(orderId)).containsExactly("PENDING");
+     verify(cartInternal, times(1)).consumed(eq(user), any());
+     // The row is in the database, not in memory: a relay instance started afterwards sees it.
+-    // The bound: the first retry is due within the 240 s cap.
++    // An inline failure leaves it due immediately (the 240 s backoff cap itself is pinned in
++    // OutboxRelayTest.clearCartBackoffIsCappedPerKind).
+     assertThat(
+             jdbc.queryForObject(
+                 "select extract(epoch from (next_attempt_at - now()))::bigint from orders.outbox"
+                     + " where idem_key = ?",
+                 Long.class,
+                 "CLEAR_CART:" + orderId))
+-        .isLessThanOrEqualTo(240L);
++        .isLessThanOrEqualTo(0L);
+   }
+ 
+   @Test
+@@ -267,10 +271,19 @@ class CartClearIntegrationTest extends AbstractOrderIntegrationTest {
+   @DisplayName("AC-18: the clear names only the lines the order consumed, never a later item")
+   void clearCarriesOnlyTheConsumedLines() {
+     UUID later = UUID.randomUUID();
++    // The inline clear fails, so only the stored payload can drive the retry.
++    cartServiceDown();
+     UUID orderId = placeFromCart(user, "scoped-1").order().id();
+-    // An item is added to the cart after the order was placed; the clear was built before it.
++    // An item is added to the cart after the order was placed; the relay delivers afterwards.
+     cartHolds(later, 1);
++    reset(cartInternal);
++    when(cartInternal.consumed(any(), any())).thenReturn(new ConsumedLinesResponse(1));
++    jdbc.update(
++        "update orders.outbox set next_attempt_at = now() where idem_key = ?",
++        "CLEAR_CART:" + orderId);
++    new OutboxRelay(jdbcClient, remote, events, jobLock).relay();
+ 
++    assertThat(clearRows(orderId)).containsExactly("DONE");
+     verify(cartInternal, times(1))
+         .consumed(
+             eq(user),
+@@ -324,6 +337,48 @@ class CartClearIntegrationTest extends AbstractOrderIntegrationTest {
+     verify(carts, never()).clearCart();
+   }
+ 
++  @Test
++  @DisplayName("an outbox failure on the clear never fails a placed COD order or skips its event")
++  void enqueueFailureDoesNotFailACodOrder() {
++    doThrow(new IllegalStateException("outbox insert failed"))
++        .when(outboxSpy)
++        .enqueue(eq(Outbox.Kind.CLEAR_CART), any(), any(), anyString());
++
++    OrderService.Placement p =
++        orders.place(
++            user,
++            "c@example.com",
++            "cod-enq-1",
++            new PlaceOrderRequest(
++                addressId, PaymentMethodRequest.COD, null, null, null, null, null));
++
++    assertThat(p.created()).isTrue();
++    UUID orderId = p.order().id();
++    assertThat(p.order().paymentMethod()).isEqualTo("COD");
++    assertThat(
++            jdbc.queryForObject(
++                "select count(*) from orders.outbox where aggregate_id = ? and kind = 'ORDER_EVENT'"
++                    + " and payload::text like '%ORDER_PLACED%'",
++                Integer.class, orderId))
++        .isEqualTo(1);
++    assertThat(clearRows(orderId)).isEmpty();
++  }
++
++  @Test
++  @DisplayName("an outbox failure on the clear leaves the 409 for an already ordered cart as 409")
++  void enqueueFailureKeepsTheConflict() {
++    cartServiceDown();
++    placeFromCart(user, "conflict-enq-1");
++    doThrow(new IllegalStateException("outbox insert failed"))
++        .when(outboxSpy)
++        .enqueue(eq(Outbox.Kind.CLEAR_CART), any(), any(), anyString());
++
++    assertThatThrownBy(() -> placeFromCart(user, "conflict-enq-2"))
++        .isInstanceOf(CodedException.class)
++        .extracting(e -> ((CodedException) e).errorCode())
++        .isEqualTo(ErrorCode.RESOURCE_CONFLICT);
++  }
++
+   @Test
+   @DisplayName("a WALLET order from the cart records the clear with the paid status")
+   void walletCartOrderRecordsTheClear() {
+diff --git a/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/outbox/OutboxRelayTest.java b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/outbox/OutboxRelayTest.java
+index 7e178cd..1e48b91 100644
+--- a/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/outbox/OutboxRelayTest.java
++++ b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/outbox/OutboxRelayTest.java
+@@ -174,6 +174,57 @@ class OutboxRelayTest extends AbstractOrderIntegrationTest {
+     assertThat(secondsUntilNextAttempt(restore)).isBetween(3500L, 3600L);
+   }
+ 
++  private static feign.FeignException feignStatus(int status) {
++    feign.Request request =
++        feign.Request.create(
++            feign.Request.HttpMethod.POST,
++            "http://cart-service/internal/carts/x/consumed",
++            java.util.Map.of(),
++            null,
++            java.nio.charset.StandardCharsets.UTF_8,
++            null);
++    return feign.FeignException.errorStatus(
++        "consumed",
++        feign.Response.builder()
++            .status(status)
++            .reason("r")
++            .request(request)
++            .headers(java.util.Map.of())
++            .build());
++  }
++
++  @Test
++  @DisplayName("CLEAR_CART: a 4xx other than 404/408/429 goes DEAD at once; those and 5xx retry")
++  void permanentClientErrorGoesDeadImmediately() {
++    UUID bad = clearCartRow(UUID.randomUUID(), 0);
++    UUID notFound = clearCartRow(UUID.randomUUID(), 0);
++    UUID timeout = clearCartRow(UUID.randomUUID(), 0);
++    UUID tooMany = clearCartRow(UUID.randomUUID(), 0);
++    UUID serverError = clearCartRow(UUID.randomUUID(), 0);
++    doThrow(feignStatus(400)).when(remote).clearCartNow(payloadFor(bad));
++    doThrow(feignStatus(404)).when(remote).clearCartNow(payloadFor(notFound));
++    doThrow(feignStatus(408)).when(remote).clearCartNow(payloadFor(timeout));
++    doThrow(feignStatus(429)).when(remote).clearCartNow(payloadFor(tooMany));
++    doThrow(feignStatus(503)).when(remote).clearCartNow(payloadFor(serverError));
++
++    relay.relay();
++
++    assertThat(status(bad)).isEqualTo("DEAD");
++    assertThat(status(notFound)).isEqualTo("PENDING");
++    assertThat(status(timeout)).isEqualTo("PENDING");
++    assertThat(status(tooMany)).isEqualTo("PENDING");
++    assertThat(status(serverError)).isEqualTo("PENDING");
++  }
++
++  private OrderRemote.ClearCartPayload payloadFor(UUID aggregate) {
++    UUID orderId =
++        jdbc.queryForObject(
++            "select (payload ->> 'orderId')::uuid from orders.outbox where aggregate_id = ?",
++            UUID.class,
++            aggregate);
++    return org.mockito.ArgumentMatchers.argThat(p -> p != null && p.orderId().equals(orderId));
++  }
++
+   @Test
+   @DisplayName("a CLEAR_CART row survives a restart: a new relay instance delivers it")
+   void clearCartSurvivesRestart() {

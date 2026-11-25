@@ -46,6 +46,7 @@ Lift the outbox into `libs/common-web` (a generic `Outbox`, a relay with a plugg
 ## Consequences
 - **Deletion and Kafka are decoupled.** A deletion completes even when Kafka is down, and the event is durable. Consumers may see duplicates, which is fine because they are idempotent (SET-constant and DELETE statements).
 - **Two copies of the relay logic now exist** until the lift trigger fires. Any fix to one copy must be checked against the other.
+- **One event per user relies on auth-service disabling deleted accounts.** The idempotency key is `USER_DELETED:<userId>`, so a second deletion of the same userId is suppressed (and logged at WARN with the userId). That is correct only while a deleted account cannot sign in or request deletion again, which auth-service guarantees by disabling it.
 - **Rollback.** Before a code rollback, drain or hand-publish the PENDING and DEAD rows, because the old code never reads the outbox. V6 stays in place.
 - **TD-P6-33 closes for payment, promotion and seller** as "no producers". Product, inventory, rating and auth audit remain.
 

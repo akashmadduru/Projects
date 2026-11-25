@@ -1,0 +1,11 @@
+{
+  "id": "F-20261119-19",
+  "slug": "checkout-idempotency-retry",
+  "step": "implement",
+  "branch": "forge/F-20261119-19-checkout-idempotency-retry",
+  "worktree": ".openforge/worktrees/F-20261119-19",
+  "base_sha": "305d540e3aade9a2e06b69c2021e305910056c6e",
+  "stacked_on": "F-20261119-18",
+  "implementer": "forge-frontend-engineer",
+  "head_sha": null
+}
