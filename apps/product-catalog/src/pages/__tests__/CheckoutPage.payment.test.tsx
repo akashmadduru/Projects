@@ -4,7 +4,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 vi.mock('../../services/userApi', async () => (await import('./checkoutMocks')).userApiModule())
@@ -264,10 +264,16 @@ describe('optional services that fail hide only their own controls', () => {
   }
 
   it('wallet', async () => {
+    api.wallet.mockResolvedValue(wallet(5000))
+    const { unmount } = renderCheckout()
+    await ready()
+    expect(await screen.findByRole('radio', { name: /Wallet/ })).toBeInTheDocument()
+    unmount()
+
     api.wallet.mockRejectedValue(new Error('down'))
     renderCheckout()
     await ready()
-    await waitFor(() => expect(api.wallet).toHaveBeenCalled())
+    await waitFor(() => expect(api.wallet).toHaveBeenCalledTimes(2))
 
     expect(screen.queryByRole('radio', { name: /Wallet/ })).not.toBeInTheDocument()
     await placeableAndQuiet()
@@ -290,10 +296,16 @@ describe('optional services that fail hide only their own controls', () => {
   })
 
   it('membership', async () => {
+    api.membership.mockResolvedValue({ active: true, plan: 'PLUS', endsAt: null, benefits: [], plans: [] })
+    const { unmount } = renderCheckout()
+    await ready()
+    expect(await screen.findByText('Plus: free')).toBeInTheDocument()
+    unmount()
+
     api.membership.mockRejectedValue(new Error('down'))
     renderCheckout()
     await ready()
-    await waitFor(() => expect(api.membership).toHaveBeenCalled())
+    await waitFor(() => expect(api.membership).toHaveBeenCalledTimes(2))
 
     expect(screen.queryByText('Plus: free')).not.toBeInTheDocument()
     expect(summaryValue('Shipping')).toBe('₹40.00')
@@ -351,16 +363,16 @@ describe('stale async results', () => {
 
     await user.click(radio(/Office/))
     await waitFor(() => expect(summaryValue('Shipping')).toBe('₹90.00'))
-    rejectFirst(problem(500, 'LATE', {}, 'Late failure for the old pincode'))
-    await Promise.resolve()
-    await Promise.resolve()
+    await act(async () => {
+      rejectFirst(problem(500, 'LATE', {}, 'Late failure for the old pincode'))
+    })
 
     expect(screen.queryByText('Late failure for the old pincode')).not.toBeInTheDocument()
     expect(summaryValue('Shipping')).toBe('₹90.00')
     expect(radio(/Cash on Delivery/)).toBeEnabled()
   })
 
-  it('does not throw or log when responses arrive after the page unmounted', async () => {
+  it('does not throw or log when responses arrive after the page unmounted (no-throw check only)', async () => {
     const errors = vi.spyOn(console, 'error').mockImplementation(() => undefined)
     const late: Array<() => void> = []
     const later = <T,>(value: T) => new Promise<T>((res) => late.push(() => res(value)))
@@ -374,9 +386,9 @@ describe('stale async results', () => {
     await screen.findByRole('radio', { name: /Home/ })
 
     unmount()
-    for (const resolve of late) resolve()
-    await Promise.resolve()
-    await Promise.resolve()
+    await act(async () => {
+      for (const resolve of late) resolve()
+    })
 
     expect(errors).not.toHaveBeenCalled()
     expect(screen.queryByRole('button', { name: /place order/i })).not.toBeInTheDocument()

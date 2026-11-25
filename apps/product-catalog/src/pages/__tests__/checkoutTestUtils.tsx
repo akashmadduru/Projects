@@ -4,7 +4,7 @@
  */
 
 import type { ReactElement } from 'react'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes, useLocation, useNavigationType } from 'react-router-dom'
 import { expect, vi } from 'vitest'
 import { CheckoutPage } from '../CheckoutPage'
@@ -13,8 +13,6 @@ import { api } from './checkoutMocks'
 import { ApiErrorImpl } from '../../lib/problem'
 import { sampleProduct } from '../../test/fixtures'
 import type { Address, DeliveryEstimate, Order, Product, Wallet, Coins } from '../../types'
-
-export const STORED_KEY = 'pc.post-login-redirect'
 
 export function address(id: string, over: Partial<Address> = {}): Address {
   return {
@@ -166,6 +164,3 @@ export function summaryValue(label: string | RegExp): string {
 
 export const radio = (name: RegExp) => screen.getByRole('radio', { name }) as HTMLInputElement
 
-export function summary() {
-  return within(screen.getByRole('complementary'))
-}

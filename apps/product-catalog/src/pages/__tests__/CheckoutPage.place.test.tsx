@@ -381,7 +381,7 @@ describe('in flight and idempotency', () => {
     expect(keyOf(1)).not.toBe(keyOf(0))
   })
 
-  it('generates a distinct key for each separate checkout page', async () => {
+  it('a freshly mounted checkout page generates its own key (does not cover "success clears the key")', async () => {
     api.place.mockResolvedValue(order())
     const { unmount } = renderCheckout()
     await ready()

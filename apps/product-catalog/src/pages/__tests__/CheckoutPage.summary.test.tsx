@@ -5,7 +5,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 vi.mock('../../services/userApi', async () => (await import('./checkoutMocks')).userApiModule())
@@ -89,9 +89,9 @@ describe('address and order summary', () => {
     await waitFor(() => expect(summaryValue('Shipping')).toBe('₹90.00'))
 
     // the answer for the previously selected pincode arrives late and must not overwrite it
-    resolveFirst(estimate({ pincode: '560001', shippingFee: 40 }))
-    await Promise.resolve()
-    await Promise.resolve()
+    await act(async () => {
+      resolveFirst(estimate({ pincode: '560001', shippingFee: 40 }))
+    })
     expect(summaryValue('Shipping')).toBe('₹90.00')
     expect(api.deliveryEstimate).toHaveBeenCalledWith('110001', 1250, 'INR')
   })
