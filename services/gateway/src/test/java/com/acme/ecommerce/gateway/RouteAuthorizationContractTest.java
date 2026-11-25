@@ -17,10 +17,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestFactory;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -28,6 +31,9 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.cloud.gateway.config.GatewayProperties;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.data.redis.core.ReactiveValueOperations;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
 import org.springframework.http.server.PathContainer;
 import org.springframework.security.web.server.SecurityWebFilterChain;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -343,5 +349,168 @@ class RouteAuthorizationContractTest {
         });
     // The Google leg is routed to auth-service, not just permitted.
     assertThat(table.patternsById().get("auth-oauth2")).contains("/oauth2/**", "/login/oauth2/**");
+  }
+
+  // ---------------------------------------------------------------------------------------------
+  // Driving the real chain.
+  // ---------------------------------------------------------------------------------------------
+
+  /** Sends the request through the real chain and returns the status code. */
+  private int status(String method, String path, String token) {
+    return client
+        .method(HttpMethod.valueOf(method))
+        .uri(path)
+        .headers(
+            h -> {
+              if (token != null) {
+                h.set(HttpHeaders.AUTHORIZATION, "Bearer " + token);
+              }
+            })
+        .exchange()
+        .expectBody()
+        .returnResult()
+        .getStatus()
+        .value();
+  }
+
+  private void expectProblem(String method, String path, String token, int status, String code) {
+    client
+        .method(HttpMethod.valueOf(method))
+        .uri(path)
+        .headers(
+            h -> {
+              if (token != null) {
+                h.set(HttpHeaders.AUTHORIZATION, "Bearer " + token);
+              }
+            })
+        .exchange()
+        .expectStatus()
+        .isEqualTo(status)
+        .expectHeader()
+        .contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON)
+        .expectBody()
+        .jsonPath("$.status")
+        .isEqualTo(status)
+        .jsonPath("$.code")
+        .isEqualTo(code);
+  }
+
+  private static String row(String route, String pattern, String method, String actor) {
+    return route + " " + pattern + " " + method + " " + actor;
+  }
+
+  // ---------------------------------------------------------------------------------------------
+  // AC-3, AC-4, AC-5: behavioural probes.
+  // ---------------------------------------------------------------------------------------------
+
+  @TestFactory
+  @DisplayName("AC-3: non-public routes need a token (401 problem) and accept a CUSTOMER token")
+  Stream<DynamicTest> nonPublicRoutesRequireAToken() {
+    EdgeRules rules = rules();
+    RouteTable table = RouteTable.load();
+    List<DynamicTest> tests = new ArrayList<>();
+    Set<String> coveredRoutes = new TreeSet<>();
+    Set<String> coveredPatterns = new TreeSet<>();
+    for (var row : table.rows()) {
+      String probe = probePath(row.getValue());
+      for (String method : METHODS) {
+        EdgeRules.Entry entry = rules.classify(method, probe);
+        if (entry.decision().kind() == EdgeRules.Kind.PERMIT) {
+          continue;
+        }
+        coveredRoutes.add(row.getKey());
+        coveredPatterns.add(row.getValue());
+        tests.add(
+            DynamicTest.dynamicTest(
+                row(row.getKey(), row.getValue(), method, "anonymous"),
+                () -> expectProblem(method, probe, null, 401, "UNAUTHENTICATED")));
+        if (entry.decision().kind() == EdgeRules.Kind.AUTHENTICATED) {
+          tests.add(
+              DynamicTest.dynamicTest(
+                  row(row.getKey(), row.getValue(), method, "CUSTOMER"),
+                  () ->
+                      assertThat(status(method, probe, CUSTOMER_TOKEN))
+                          .as("CUSTOMER on authenticated %s %s", method, probe)
+                          .matches(RouteAuthorizationContractTest::passes)));
+        }
+      }
+    }
+    assertThat(tests).as("generated tests").isNotEmpty();
+    assertThat(coveredRoutes).contains("user", "cart", "order");
+    assertThat(coveredPatterns)
+        .contains("/api/users/**", "/api/cart/**", "/api/wishlist/**", "/api/orders/**");
+    return tests.stream();
+  }
+
+  @TestFactory
+  @DisplayName("AC-4: every reviewed public entry passes the edge with no token")
+  Stream<DynamicTest> publicEntriesPassWithoutToken() {
+    List<DynamicTest> tests = new ArrayList<>();
+    for (Permit permit : REVIEWED_PERMITS) {
+      String probe = probePath(permit.pattern());
+      List<String> methods =
+          EdgeRules.ANY.equals(permit.method()) ? List.of("GET", "POST") : List.of(permit.method());
+      for (String method : methods) {
+        tests.add(
+            DynamicTest.dynamicTest(
+                row("public", permit.pattern(), method, "anonymous"),
+                () ->
+                    assertThat(status(method, probe, null))
+                        .as("anonymous %s %s must pass the edge", method, probe)
+                        .matches(RouteAuthorizationContractTest::passes)));
+      }
+    }
+    assertThat(tests).as("generated tests").isNotEmpty();
+    assertThat(REVIEWED_PERMITS.stream().map(Permit::pattern)).contains("/actuator/health");
+    return tests.stream();
+  }
+
+  @TestFactory
+  @DisplayName("AC-5: method-specific permits are method-bound (other methods give 401)")
+  Stream<DynamicTest> methodSpecificPermitsAreMethodBound() {
+    EdgeRules rules = rules();
+    List<DynamicTest> tests = new ArrayList<>();
+    Set<String> covered = new TreeSet<>();
+    for (Permit permit : REVIEWED_PERMITS) {
+      if (EdgeRules.ANY.equals(permit.method())) {
+        continue;
+      }
+      String probe = probePath(permit.pattern());
+      for (String method : METHODS) {
+        // Another permit may legitimately open this method on the same path.
+        if (rules.classify(method, probe).decision().kind() == EdgeRules.Kind.PERMIT) {
+          continue;
+        }
+        covered.add(method + " " + probe);
+        tests.add(
+            DynamicTest.dynamicTest(
+                row("method-bound", permit.pattern(), method, "anonymous"),
+                () -> expectProblem(method, probe, null, 401, "UNAUTHENTICATED")));
+      }
+    }
+    // The literal examples from the requirements, on concrete ids.
+    for (String example :
+        List.of(
+            "POST /api/products/1",
+            "PUT /api/products/1",
+            "DELETE /api/products/1",
+            "POST /api/ratings/products/1",
+            "POST /api/categories/1")) {
+      String method = example.substring(0, example.indexOf(' '));
+      String path = example.substring(example.indexOf(' ') + 1);
+      tests.add(
+          DynamicTest.dynamicTest(
+              row("method-bound", path, method, "anonymous"),
+              () -> expectProblem(method, path, null, 401, "UNAUTHENTICATED")));
+    }
+    assertThat(tests).as("generated tests").isNotEmpty();
+    assertThat(covered)
+        .contains(
+            "POST /api/products/contract-probe",
+            "PUT /api/products/contract-probe",
+            "DELETE /api/products/contract-probe",
+            "POST /api/ratings/products/1",
+            "POST /api/categories/contract-probe");
+    return tests.stream();
   }
 }
