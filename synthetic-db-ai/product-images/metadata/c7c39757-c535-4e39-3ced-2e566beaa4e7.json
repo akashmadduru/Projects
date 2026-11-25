@@ -1,0 +1,13 @@
+{
+ "product_id": "c7c39757-c535-4e39-3ced-2e566beaa4e7",
+ "name": "Lisu Top Max",
+ "prompt": "studio packshot photo of a Rose Gold Lisu Top Max, made of wood, women's clothing, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 4258409482,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:37:29",
+ "file_path": "product-images/images/c7c39757-c535-4e39-3ced-2e566beaa4e7.jpg",
+ "file_size": 20702
+}

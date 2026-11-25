@@ -1,0 +1,15 @@
+{
+ "product_id": "79240522-5e90-425e-452e-dc704680d844",
+ "name": "Ritrapi Office Chair Pro",
+ "prompt": "studio packshot photo of a Olive Ritrapi Office Chair Pro, made of nylon, furniture, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 356565266,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:38:47",
+ "file_path": "static/images/79240522-5e90-425e-452e-dc704680d844.jpg",
+ "file_size": 35325,
+ "uploaded": false,
+ "s3_url": null
+}

@@ -1,0 +1,13 @@
+{
+ "product_id": "31e78332-8a4b-4aa3-50c4-bd6aa60006cc",
+ "name": "Taloex Omega-3 Elite",
+ "prompt": "studio packshot photo of a Grey Taloex Omega-3 Elite, made of stainless steel, supplements, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3172877381,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-15T23:55:14",
+ "file_path": "product-images/images/31e78332-8a4b-4aa3-50c4-bd6aa60006cc.jpg",
+ "file_size": 38326
+}

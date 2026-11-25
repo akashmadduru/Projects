@@ -19,18 +19,17 @@ import com.acme.ecommerce.order.client.ProductViewFeignClient.ProductView;
 import com.acme.ecommerce.order.client.ProductViewFeignClient.Variant;
 import com.acme.ecommerce.order.client.PromotionFeignClient;
 import com.acme.ecommerce.order.client.PromotionFeignClient.DealClaimItem;
-import com.acme.ecommerce.order.error.RiskBlockedException;
 import com.acme.ecommerce.order.client.PromotionFeignClient.DealKey;
 import com.acme.ecommerce.order.client.PromotionFeignClient.DealPrice;
 import com.acme.ecommerce.order.client.PromotionFeignClient.Validation;
 import com.acme.ecommerce.order.client.RemoteCalls;
 import com.acme.ecommerce.order.client.UserFeignClient;
 import com.acme.ecommerce.order.config.OrderProperties;
-import com.acme.ecommerce.order.domain.HistoryActor;
 import com.acme.ecommerce.order.domain.Order;
 import com.acme.ecommerce.order.domain.Order.Allocation;
 import com.acme.ecommerce.order.domain.PaymentMethod;
 import com.acme.ecommerce.order.domain.Pricing;
+import com.acme.ecommerce.order.error.RiskBlockedException;
 import com.acme.ecommerce.order.event.OrderEventPublisher;
 import com.acme.ecommerce.order.event.OrderEventType;
 import com.acme.ecommerce.user.api.dto.AddressResponse;
@@ -50,6 +49,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Checkout orchestration: cart, address and product lookups are remote calls made on the REQUEST
@@ -83,6 +83,7 @@ public class OrderService {
   private final OrderEventPublisher events;
   private final OrderProperties props;
   private final RiskService risks;
+  private final TransactionTemplate tx;
 
   public OrderService(
       OrderStore store,
@@ -93,8 +94,10 @@ public class OrderService {
       OrderRemote remote,
       OrderEventPublisher events,
       OrderProperties props,
-      RiskService risks) {
+      RiskService risks,
+      TransactionTemplate tx) {
     this.risks = risks;
+    this.tx = tx;
     this.store = store;
     this.carts = carts;
     this.users = users;
@@ -127,7 +130,8 @@ public class OrderService {
     }
 
     boolean buyNow = req.items() != null && !req.items().isEmpty();
-    List<Line> lines = buyNow ? buyNowLines(req.items()) : cartLines();
+    CartSnapshot cart = buyNow ? null : cartSnapshot();
+    List<Line> lines = buyNow ? buyNowLines(req.items()) : cart.lines();
     PaymentMethod method = PaymentMethod.valueOf(req.paymentMethod().name());
 
     AddressResponse address =
@@ -153,7 +157,8 @@ public class OrderService {
             : req.couponCode().trim().toUpperCase(Locale.ROOT);
     BigDecimal discount = BigDecimal.ZERO;
     if (couponCode != null) {
-      Validation v = remote.validateCoupon(
+      Validation v =
+          remote.validateCoupon(
               couponCode, order.getSubtotalAmount(), currency, store.isFirstOrder(userId));
       discount = v.discountAmount() == null ? BigDecimal.ZERO : v.discountAmount();
     }
@@ -231,7 +236,9 @@ public class OrderService {
             : risks.assess(userId, price.total(), currency);
     if (method == PaymentMethod.COD && remainder.signum() > 0 && risk.blocksCod()) {
       throw new RiskBlockedException(
-          "Cash on delivery is not available for this order (" + String.join("; ", risk.reasons()) + ")");
+          "Cash on delivery is not available for this order ("
+              + String.join("; ", risk.reasons())
+              + ")");
     }
     if (method == PaymentMethod.COD
         && remainder.signum() > 0
@@ -250,6 +257,9 @@ public class OrderService {
     order.switchPaymentMethod(method);
     order.applyMoney(coins, price.coinsValue(), walletAmount, member, subscriptionId);
     order.begin(price, couponCode, estimate.estimatedDeliveryDate(), Instant.now());
+    if (cart != null && cart.fingerprint() != null) {
+      order.consumeCart(cart.fingerprint());
+    }
 
     OrderResponse saved;
     try {
@@ -257,15 +267,30 @@ public class OrderService {
     } catch (DataIntegrityViolationException race) {
       // A concurrent request with the same key won the unique constraint: return its order.
       Optional<OrderResponse> winner = store.findReplay(userId, idempotencyKey, req.addressId());
-      if (winner.isEmpty()) {
+      if (winner.isPresent()) {
+        return new Placement(winner.get(), false);
+      }
+      // Otherwise this exact cart is already an order (another tab, or a new-key retry after the
+      // cart clear failed): refuse instead of ordering it twice, and retry the clear.
+      Optional<UUID> existing =
+          cart == null || cart.fingerprint() == null
+              ? Optional.empty()
+              : store.findActiveOrderForCart(userId, cart.fingerprint());
+      if (existing.isEmpty()) {
         throw race;
       }
-      return new Placement(winner.get(), false);
+      clearCartBestEffort(existing.get());
+      throw new CodedException(
+          ErrorCode.RESOURCE_CONFLICT,
+          "This cart has already been ordered (order " + existing.get() + ")");
     }
 
     List<OrderRemote.StockLine> stockLines =
         saved.items().stream()
-            .map(i -> new OrderRemote.StockLine(i.productId(), i.variantId(), i.offerId(), i.quantity()))
+            .map(
+                i ->
+                    new OrderRemote.StockLine(
+                        i.productId(), i.variantId(), i.offerId(), i.quantity()))
             .toList();
 
     List<Allocation> allocations;
@@ -323,7 +348,9 @@ public class OrderService {
         remote.redeemCoupon(
             couponCode, userId, saved.id(), saved.subtotalAmount(), saved.currency(), firstOrder);
       } catch (RuntimeException e) {
-        abandon(saved.id(), "Coupon could not be applied", false);
+        // Release too: a timeout can hide a redemption that did commit, and release by order id
+        // is a no-op when nothing was redeemed.
+        abandon(saved.id(), "Coupon could not be applied", true);
         throw e;
       }
     }
@@ -332,7 +359,8 @@ public class OrderService {
       try {
         remote.redeemCoins(userId, coins, saved.id());
       } catch (RuntimeException e) {
-        abandon(saved.id(), "Coins could not be redeemed", couponCode != null);
+        // Same reasoning as the coupon: release by order id is safe if nothing was taken.
+        unwind(saved, "Coins could not be redeemed", couponCode != null, true, false);
         throw e;
       }
     }
@@ -342,6 +370,8 @@ public class OrderService {
         remote.debitWallet(userId, walletAmount, currency, saved.id());
       } catch (RuntimeException e) {
         unwind(saved, "Wallet could not be charged", couponCode != null, coins > 0, false);
+        // The debit may have committed before the failure (a timeout): give it back if it did.
+        remote.reverseWalletDebitDurable(userId, walletAmount, currency, saved.id());
         throw e;
       }
     }
@@ -352,8 +382,15 @@ public class OrderService {
             : OrderEventType.ORDER_PLACED;
     PaymentBlockResponse paymentBlock = null;
     if (method == PaymentMethod.WALLET) {
-      OrderResponse paid = store.markPaid(saved.id(), null).order();
-      events.publish(placedType, paid);
+      // Paid status and its ORDER_PLACED event commit together (outbox, TD-P6-01).
+      UUID savedId = saved.id();
+      OrderResponse paid =
+          tx.execute(
+              s -> {
+                OrderResponse o = store.markPaid(savedId, null).order();
+                events.publish(placedType, o);
+                return o;
+              });
       if (!buyNow) {
         clearCartBestEffort(saved.id());
       }
@@ -434,7 +471,10 @@ public class OrderService {
         p.paymentId(), p.status(), p.mode(), p.clientSecret(), p.publishableKey());
   }
 
-  private List<Line> cartLines() {
+  /** The cart's lines and its fingerprint (null when a line has no added-at instant). */
+  private record CartSnapshot(List<Line> lines, String fingerprint) {}
+
+  private CartSnapshot cartSnapshot() {
     CartResponse cart = call("cart-service", carts::getCart);
     if (cart == null || cart.items() == null || cart.items().isEmpty()) {
       throw new CodedException(ErrorCode.CART_EMPTY, "Your cart is empty");
@@ -445,11 +485,37 @@ public class OrderService {
     }
     List<Line> lines = new ArrayList<>();
     for (CartItemResponse i : cart.items()) {
-      lines.add(new Line(i.productId(), i.variantId(), i.variantLabel(), i.quantity(), i.offerId()));
+      lines.add(
+          new Line(i.productId(), i.variantId(), i.variantLabel(), i.quantity(), i.offerId()));
     }
-    return lines;
+    return new CartSnapshot(lines, cartFingerprint(cart.items()));
   }
 
+  /**
+   * SHA-256 over every line's product, variant, offer, quantity and added-at instant, in a stable
+   * order. The added-at instant is what tells "the same cart read twice" from "the same items
+   * added again after the last order cleared the cart", so without it there is no fingerprint.
+   */
+  static String cartFingerprint(List<CartItemResponse> items) {
+    List<String> parts = new ArrayList<>();
+    for (CartItemResponse i : items) {
+      if (i.addedAt() == null) {
+        return null;
+      }
+      parts.add(
+          i.productId() + "|" + i.variantId() + "|" + i.offerId() + "|" + i.quantity() + "|"
+              + i.addedAt().toEpochMilli());
+    }
+    java.util.Collections.sort(parts);
+    try {
+      byte[] hash =
+          java.security.MessageDigest.getInstance("SHA-256")
+              .digest(String.join("\n", parts).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+      return java.util.HexFormat.of().formatHex(hash);
+    } catch (java.security.NoSuchAlgorithmException e) {
+      throw new IllegalStateException(e);
+    }
+  }
 
   private static List<Line> buyNowLines(List<OrderLineRequest> items) {
     record Key(UUID productId, UUID variantId, UUID offerId) {}
@@ -468,7 +534,11 @@ public class OrderService {
       }
       lines.add(
           new Line(
-              e.getKey().productId(), e.getKey().variantId(), null, e.getValue(), e.getKey().offerId()));
+              e.getKey().productId(),
+              e.getKey().variantId(),
+              null,
+              e.getValue(),
+              e.getKey().offerId()));
     }
     return lines;
   }
@@ -488,7 +558,8 @@ public class OrderService {
       views.add(fetchProduct(line.productId()));
     }
     List<DealPrice> deals =
-        remote.dealPrices(userId, lines.stream().map(l -> new DealKey(l.productId(), l.variantId())).toList());
+        remote.dealPrices(
+            userId, lines.stream().map(l -> new DealKey(l.productId(), l.variantId())).toList());
     Order order = null;
     String currency = null;
     for (int n = 0; n < lines.size(); n++) {
@@ -503,7 +574,8 @@ public class OrderService {
             product.variants() == null
                 ? null
                 : product.variants().stream()
-                    .filter(v -> line.variantId().equals(v.id()) && !Boolean.FALSE.equals(v.active()))
+                    .filter(
+                        v -> line.variantId().equals(v.id()) && !Boolean.FALSE.equals(v.active()))
                     .findFirst()
                     .orElse(null);
         if (variant == null) {
@@ -538,7 +610,7 @@ public class OrderService {
           }
         }
       }
-      if (!product.active() || unit == null) {
+      if (!Boolean.TRUE.equals(product.active()) || unit == null) {
         throw new CodedException(
             ErrorCode.PRODUCT_UNAVAILABLE, "Product is no longer available: " + product.name());
       }
@@ -562,7 +634,8 @@ public class OrderService {
                 .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
       }
       String lineCurrency = product.priceCurrency();
-      if (currency == null) {
+      // The first line creates the order; both are set together, tested together for clarity.
+      if (order == null || currency == null) {
         currency = lineCurrency;
         order =
             Order.draft(

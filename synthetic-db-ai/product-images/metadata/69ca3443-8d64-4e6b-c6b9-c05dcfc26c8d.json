@@ -1,0 +1,13 @@
+{
+ "product_id": "69ca3443-8d64-4e6b-c6b9-c05dcfc26c8d",
+ "name": "Orrize Sketch Pad Gen 3",
+ "prompt": "studio packshot photo of a Olive Orrize Sketch Pad Gen 3, made of cotton, art supplies, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1296393945,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:34:49",
+ "file_path": "product-images/images/69ca3443-8d64-4e6b-c6b9-c05dcfc26c8d.jpg",
+ "file_size": 59861
+}

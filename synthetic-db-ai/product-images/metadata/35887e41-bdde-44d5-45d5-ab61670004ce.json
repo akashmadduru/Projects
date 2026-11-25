@@ -1,0 +1,13 @@
+{
+ "product_id": "35887e41-bdde-44d5-45d5-ab61670004ce",
+ "name": "Lumionor Heating Pad Ultra",
+ "prompt": "studio packshot photo of a Silver Lumionor Heating Pad Ultra, made of aluminium, personal wellness, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2946842223,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:06:48",
+ "file_path": "product-images/images/35887e41-bdde-44d5-45d5-ab61670004ce.jpg",
+ "file_size": 58996
+}

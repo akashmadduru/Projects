@@ -1,5 +1,6 @@
 package com.acme.ecommerce.promotion.event;
 
+import com.acme.ecommerce.common.web.kafka.KafkaJson;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -10,10 +11,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
-import org.springframework.kafka.listener.DefaultErrorHandler;
-import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
-import org.springframework.kafka.support.serializer.JsonDeserializer;
-import org.springframework.util.backoff.FixedBackOff;
 
 /** Consumer wiring for {@code order.events}; malformed records are logged and skipped. */
 @Configuration(proxyBeanMethods = false)
@@ -28,11 +25,7 @@ public class OrderKafkaConfig {
     return new DefaultKafkaConsumerFactory<>(
         props,
         StringDeserializer::new,
-        () -> {
-          JsonDeserializer<OrderEvent> json = new JsonDeserializer<>(OrderEvent.class, false);
-          json.addTrustedPackages("com.acme.ecommerce.promotion.event");
-          return new ErrorHandlingDeserializer<>(json);
-        });
+        () -> KafkaJson.eventDeserializer(OrderEvent.class, "com.acme.ecommerce.promotion.event"));
   }
 
   @Bean
@@ -42,7 +35,8 @@ public class OrderKafkaConfig {
     ConcurrentKafkaListenerContainerFactory<String, OrderEvent> factory =
         new ConcurrentKafkaListenerContainerFactory<>();
     factory.setConsumerFactory(orderEventConsumerFactory);
-    factory.setCommonErrorHandler(com.acme.ecommerce.common.web.kafka.DlqErrorHandlers.create(bootstrapServers));
+    factory.setCommonErrorHandler(
+        com.acme.ecommerce.common.web.kafka.DlqErrorHandlers.create(bootstrapServers));
     return factory;
   }
 }

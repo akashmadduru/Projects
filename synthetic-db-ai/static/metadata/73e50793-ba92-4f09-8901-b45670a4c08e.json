@@ -1,0 +1,15 @@
+{
+ "product_id": "73e50793-ba92-4f09-8901-b45670a4c08e",
+ "name": "Ridexar Action Camera Elite",
+ "prompt": "studio packshot photo of a Green Ridexar Action Camera Elite, made of bamboo, cameras, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3081480307,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:41:52",
+ "file_path": "static/images/73e50793-ba92-4f09-8901-b45670a4c08e.jpg",
+ "file_size": 61125,
+ "uploaded": false,
+ "s3_url": null
+}

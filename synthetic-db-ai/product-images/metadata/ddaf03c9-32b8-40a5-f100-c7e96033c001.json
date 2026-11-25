@@ -1,0 +1,13 @@
+{
+ "product_id": "ddaf03c9-32b8-40a5-f100-c7e96033c001",
+ "name": "Bami Keyboard Prime",
+ "prompt": "studio packshot photo of a White Bami Keyboard Prime, made of bamboo, keyboards & mice, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 206811445,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:52:52",
+ "file_path": "product-images/images/ddaf03c9-32b8-40a5-f100-c7e96033c001.jpg",
+ "file_size": 49531
+}

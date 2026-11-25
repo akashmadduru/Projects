@@ -1,0 +1,13 @@
+{
+ "product_id": "c2ea8586-da01-4305-711a-d08c698a4c87",
+ "name": "Tamita Drone Ultra",
+ "prompt": "studio packshot photo of a White Tamita Drone Ultra, made of silicone, remote control, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2482109998,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:34:50",
+ "file_path": "product-images/images/c2ea8586-da01-4305-711a-d08c698a4c87.jpg",
+ "file_size": 33836
+}

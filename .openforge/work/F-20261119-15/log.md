@@ -1,0 +1,14 @@
+- 2026-11-23 CEO: discover; objective.md written; research snapshot F-20261119-11R at 71bba97; worktree deferred until F-11 is final
+- 2026-11-23 CPO: requirements.md 15 ACs (root cause: a COD createPayment failure is swallowed at OrderService ~406; codCollected also 404s). CTO complexity launched.
+- 2026-11-23 CTO: class L (7), standing Owner approval, split PR-A (AC-1..5, 13, 15) and PR-B (AC-6..12, 14); architect launched
+- 2026-11-23 Architect: design.md + ADR 0013 (Proposed); PR-A ~170 (order-service), PR-B ~150; lazy ensure; no migrations. CEO ordering: F-15 goes BEFORE F-14 (smaller, a live money bug, no migration); F-14 stacks on F-15's head (both touch OrderService, Outbox, OutboxRelay and ReturnService). CTO acceptance launched.
+- 2026-11-23 CTO accepted (9 conditions, 2 PRs); ADR 0013 Accepted; EM launched
+- 2026-11-23 EM: tasks.md A1-A6, B1-B6. Implementation waits for the final F-11 head.
+- 2026-11-23 CEO: worktree created at F-11 head b7f5b97 (pending F-11's delta review; rebase if it changes). PR-A engineer launched.
+- 2026-11-23 Engineer PR-A head 60a105077f734f67cef5fee76ba5682f023d8c65 (242 prod lines), engineer verify PASS, guard demos recorded. CEO: detached verify/review worktree F-20261119-15A; PR-A reviews + CEO verify + PR-B engineer in parallel.
+- 2026-11-23 Security PR-A @60a1050: APPROVE (4 minor; the bearer strip, runbook WARN/ERROR and slow-placement note forwarded to the PR-B engineer).
+- 2026-11-23 Reviewer PR-A @60a1050: APPROVE (3 minor, 4 nit; forwarded to the PR-B engineer as review-fix commits). PR-A approved by both; part 1 of pr_split satisfied.
+- 2026-11-23 Engineer PR-B head 8ff29132fe435135becbdb0ab53f431448d4fa87 (177 prod lines), engineer verify PASS, guard demos recorded. CEO verify + PR-B reviews launched.
+- 2026-11-23 CEO verify PASS at 8ff2913. Security PR-B: APPROVE (2 minor; 'payment-service before order-service' becomes a HARD deploy gate in pr.md to close the 404 double-pay window). Waiting on the code reviewer.
+- 2026-11-23 Reviewer PR-B @8ff2913: APPROVE (4 minor test-strength, 4 nits). Both approve. CEO: ship (F-14 is already built on 8ff2913); minors go in pr.md follow-ups. QA launched.
+- 2026-11-23 QA PASS (AC-1..15) at 8ff2913; forge-gate PASS (2 parts 242/177, L); pr.md written (payment-service-first is a HARD deploy gate). Awaiting Owner push approval.

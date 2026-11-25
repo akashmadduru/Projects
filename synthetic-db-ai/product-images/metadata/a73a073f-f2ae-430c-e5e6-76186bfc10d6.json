@@ -1,0 +1,13 @@
+{
+ "product_id": "a73a073f-f2ae-430c-e5e6-76186bfc10d6",
+ "name": "Arnu Air Purifier Gen 3",
+ "prompt": "studio packshot photo of a Green Arnu Air Purifier Gen 3, made of glass, personal wellness, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3512551898,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:23:34",
+ "file_path": "product-images/images/a73a073f-f2ae-430c-e5e6-76186bfc10d6.jpg",
+ "file_size": 30958
+}

@@ -1,0 +1,13 @@
+{
+ "product_id": "de0d84d7-b1a6-445e-7aa3-691466fd9ebf",
+ "name": "Ritasu RC Car Ultra",
+ "prompt": "studio packshot photo of a Red Ritasu RC Car Ultra, made of bamboo, remote control, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3809862476,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:04:32",
+ "file_path": "product-images/images/de0d84d7-b1a6-445e-7aa3-691466fd9ebf.jpg",
+ "file_size": 51026
+}

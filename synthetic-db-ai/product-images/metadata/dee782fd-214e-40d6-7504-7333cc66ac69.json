@@ -1,0 +1,13 @@
+{
+ "product_id": "dee782fd-214e-40d6-7504-7333cc66ac69",
+ "name": "Loloion Spice Box Edition",
+ "prompt": "studio packshot photo of a Navy Blue Loloion Spice Box Edition, made of cotton, pantry, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3140875392,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:24:30",
+ "file_path": "product-images/images/dee782fd-214e-40d6-7504-7333cc66ac69.jpg",
+ "file_size": 107153
+}

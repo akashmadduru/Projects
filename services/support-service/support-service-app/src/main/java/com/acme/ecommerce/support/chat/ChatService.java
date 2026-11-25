@@ -28,9 +28,10 @@ public class ChatService {
   private static final Logger log = LoggerFactory.getLogger(ChatService.class);
   private static final Pattern SESSION = Pattern.compile("[A-Za-z0-9_-]{8,64}");
   private static final Set<String> STOP =
-      Set.of("the", "and", "for", "how", "can", "what", "does", "this", "that", "with", "you", "your",
-          "are", "was", "has", "have", "not", "get", "did", "when", "where", "why", "who",
-          "please", "need", "want", "know", "about", "any", "its", "from", "will", "would", "could");
+      Set.of(
+          "the", "and", "for", "how", "can", "what", "does", "this", "that", "with", "you", "your",
+          "are", "was", "has", "have", "not", "get", "did", "when", "where", "why", "who", "please",
+          "need", "want", "know", "about", "any", "its", "from", "will", "would", "could");
   private static final int MIN_SCORE = 5;
 
   public record ChatRequest(String sessionId, String message) {}
@@ -76,44 +77,76 @@ public class ChatService {
   }
 
   private ChatResponse answer(UUID userId, String session, String m) {
-    if (has(m, "human", "agent", "real person", "representative", "talk to someone", "speak to",
-        "talk to a", "customer care", "complaint", "support team")) {
-      return handoff(session, "Sure - I will pass this to our support team. Tap below to open a ticket;"
-          + " the chat so far is attached so you do not need to repeat yourself.");
+    if (has(
+        m,
+        "human",
+        "agent",
+        "real person",
+        "representative",
+        "talk to someone",
+        "speak to",
+        "talk to a",
+        "customer care",
+        "complaint",
+        "support team")) {
+      return handoff(
+          session,
+          "Sure - I will pass this to our support team. Tap below to open a ticket;"
+              + " the chat so far is attached so you do not need to repeat yourself.");
     }
     if (has(m, "hello", "hi", "hey", "good morning", "good evening") && m.length() < 20) {
       reset(session);
-      return plain("Hi! I can track your order, explain returns and refunds, payments, coupons and"
-          + " more. What do you need help with?", defaultSuggestions());
+      return plain(
+          "Hi! I can track your order, explain returns and refunds, payments, coupons and"
+              + " more. What do you need help with?",
+          defaultSuggestions());
     }
     if (has(m, "thank", "thanks", "bye")) {
       reset(session);
       return plain("You are welcome! Anything else I can help with?", List.of("Track my order"));
     }
-    if (has(m, "track", "where is my order", "where's my order", "order status", "delivery status",
+    if (has(
+        m,
+        "track",
+        "where is my order",
+        "where's my order",
+        "order status",
+        "delivery status",
         "when will my order")) {
       reset(session);
       return trackOrder(userId);
     }
     if (has(m, "cancel")) {
       reset(session);
-      return withArticle("cancel-an-order",
+      return withArticle(
+          "cancel-an-order",
           "You can cancel an order until it ships (Pending payment, Placed, Confirmed or Packed)."
               + " Open it from My orders and choose Cancel order.",
-          List.of("Track my order", "Talk to a human"), latestOrderAction(userId, "TRACK_ORDER", false));
+          List.of("Track my order", "Talk to a human"),
+          latestOrderAction(userId, "TRACK_ORDER", false));
     }
-    if (has(m, "payment failed", "money deducted", "amount deducted", "payment declined", "charged twice",
-        "transaction failed", "payment not")) {
+    if (has(
+        m,
+        "payment failed",
+        "money deducted",
+        "amount deducted",
+        "payment declined",
+        "charged twice",
+        "transaction failed",
+        "payment not")) {
       reset(session);
-      return withArticle("payment-failed-or-money-deducted",
+      return withArticle(
+          "payment-failed-or-money-deducted",
           "If a payment failed no order is confirmed and any held amount returns to your bank in 5-7"
               + " business days. If money was deducted but the order is cancelled it is refunded to"
               + " your original payment method.",
-          List.of("Talk to a human", "Refund status"), null);
+          List.of("Talk to a human", "Refund status"),
+          null);
     }
     if (has(m, "return", "replace", "send back", "damaged", "wrong item", "defective")) {
       reset(session);
-      return withArticle("return-policy",
+      return withArticle(
+          "return-policy",
           "You can return delivered items within 7 days of delivery. Open the delivered order and"
               + " choose Return items.",
           List.of("When will I get my refund?", "Talk to a human"),
@@ -121,23 +154,29 @@ public class ChatService {
     }
     if (has(m, "refund", "money back")) {
       reset(session);
-      return withArticle("refund-timeline-and-method",
+      return withArticle(
+          "refund-timeline-and-method",
           "Refunds go to your original payment method (or your wallet for wallet/COD orders). Card"
               + " refunds usually show in 5-7 business days.",
-          List.of("Track my order", "Talk to a human"), null);
+          List.of("Track my order", "Talk to a human"),
+          null);
     }
     if (has(m, "coupon", "promo", "voucher", "discount code")) {
       reset(session);
-      return withArticle("using-coupons",
+      return withArticle(
+          "using-coupons",
           "Enter the code in the Coupon box at checkout. A code can have a minimum order value, an"
               + " expiry or a usage limit - the message shown tells you which.",
-          List.of("Talk to a human"), null);
+          List.of("Talk to a human"),
+          null);
     }
     if (has(m, "membership", "plus member", "plus plan")) {
       reset(session);
-      return withArticle("plus-membership",
+      return withArticle(
+          "plus-membership",
           "Plus gives free shipping on every order, 2x reward coins and early access to deals.",
-          List.of("How do reward coins work?"), null);
+          List.of("How do reward coins work?"),
+          null);
     }
 
     // FAQ match.
@@ -154,45 +193,68 @@ public class ChatService {
             Integer.class,
             session);
     if (misses >= 2) {
-      return handoff(session, "I am still not sure I understand. Let me connect you with our support team"
-          + " - open a ticket below and the conversation will be attached.");
+      return handoff(
+          session,
+          "I am still not sure I understand. Let me connect you with our support team"
+              + " - open a ticket below and the conversation will be attached.");
     }
-    return plain("Sorry, I did not quite get that. Could you rephrase, or pick one of these?",
+    return plain(
+        "Sorry, I did not quite get that. Could you rephrase, or pick one of these?",
         defaultSuggestions());
   }
 
   private ChatResponse trackOrder(UUID userId) {
     if (userId == null) {
-      return plain("Sign in and I can look up your latest orders. You can also open My orders at any time.",
+      return plain(
+          "Sign in and I can look up your latest orders. You can also open My orders at any time.",
           List.of("How do I track my order?", "Talk to a human"));
     }
     List<OrderBrief> list = recentOrders(userId);
     if (list == null) {
-      return plain("I could not reach the order system just now. Please try again in a moment or open"
-          + " My orders.", List.of("Talk to a human"));
+      return plain(
+          "I could not reach the order system just now. Please try again in a moment or open"
+              + " My orders.",
+          List.of("Talk to a human"));
     }
     if (list.isEmpty()) {
-      return plain("I do not see any orders on your account yet.", List.of("Shipping charges and delivery time"));
+      return plain(
+          "I do not see any orders on your account yet.",
+          List.of("Shipping charges and delivery time"));
     }
     OrderBrief o = list.get(0);
-    StringBuilder sb = new StringBuilder("Your latest order #")
-        .append(o.id().toString(), 0, 8).append(" is ").append(pretty(o.status())).append('.');
+    StringBuilder sb =
+        new StringBuilder("Your latest order #")
+            .append(o.id().toString(), 0, 8)
+            .append(" is ")
+            .append(pretty(o.status()))
+            .append('.');
     if (o.trackingNumber() != null) {
-      sb.append(" Tracking ").append(o.carrier() == null ? "" : o.carrier() + " ").append(o.trackingNumber()).append('.');
+      sb.append(" Tracking ")
+          .append(o.carrier() == null ? "" : o.carrier() + " ")
+          .append(o.trackingNumber())
+          .append('.');
     }
-    if (o.estimatedDeliveryDate() != null && !"DELIVERED".equals(o.status()) && !"CANCELLED".equals(o.status())) {
+    if (o.estimatedDeliveryDate() != null
+        && !"DELIVERED".equals(o.status())
+        && !"CANCELLED".equals(o.status())) {
       sb.append(" Estimated delivery: ").append(o.estimatedDeliveryDate()).append('.');
     }
     if (list.size() > 1) {
       sb.append(" Your previous orders: ");
       for (int i = 1; i < list.size() && i < 4; i++) {
-        sb.append('#').append(list.get(i).id().toString(), 0, 8).append(" (")
-            .append(pretty(list.get(i).status())).append(i < Math.min(list.size(), 4) - 1 ? "), " : ")");
+        sb.append('#')
+            .append(list.get(i).id().toString(), 0, 8)
+            .append(" (")
+            .append(pretty(list.get(i).status()))
+            .append(i < Math.min(list.size(), 4) - 1 ? "), " : ")");
       }
       sb.append('.');
     }
-    return new ChatResponse(sb.toString(), List.of("Cancel my order", "Return an item", "Talk to a human"),
-        List.of(), new Action("TRACK_ORDER", o.id(), null, null));
+    return new ChatResponse(
+        sb.toString(),
+        List.of("Cancel my order", "Return an item", "Talk to a human"),
+        List.of(),
+        new Action("TRACK_ORDER", o.id(), null, null));
   }
 
   private Action latestOrderAction(UUID userId, String type, boolean deliveredOnly) {
@@ -220,7 +282,10 @@ public class ChatService {
   private ChatResponse handoff(String session, String reply) {
     reset(session);
     String transcript = transcript(session);
-    return new ChatResponse(reply, List.of(), List.of(),
+    return new ChatResponse(
+        reply,
+        List.of(),
+        List.of(),
         new Action("CREATE_TICKET", null, "Chat hand-off", transcript));
   }
 
@@ -229,14 +294,20 @@ public class ChatService {
         jdbc.query(
             "select role, text from (select id, role, text from chat_messages where session_id = ?"
                 + " order by id desc limit 20) t order by id",
-            (rs, n) -> ("USER".equals(rs.getString("role")) ? "Customer: " : "Assistant: ") + rs.getString("text"),
+            (rs, n) ->
+                ("USER".equals(rs.getString("role")) ? "Customer: " : "Assistant: ")
+                    + rs.getString("text"),
             session);
     return String.join("\n", lines);
   }
 
-  private ChatResponse withArticle(String slug, String reply, List<String> suggestions, Action action) {
+  private ChatResponse withArticle(
+      String slug, String reply, List<String> suggestions, Action action) {
     List<ArticleRef> refs = new ArrayList<>();
-    articles.published().stream().filter(a -> a.slug().equals(slug)).findFirst().ifPresent(a -> refs.add(ref(a)));
+    articles.published().stream()
+        .filter(a -> a.slug().equals(slug))
+        .findFirst()
+        .ifPresent(a -> refs.add(ref(a)));
     return new ChatResponse(reply, suggestions, refs, action);
   }
 
@@ -245,7 +316,8 @@ public class ChatService {
   }
 
   private static List<String> defaultSuggestions() {
-    return List.of("Track my order", "Return policy", "Payment failed", "Use a coupon", "Talk to a human");
+    return List.of(
+        "Track my order", "Return policy", "Payment failed", "Use a coupon", "Talk to a human");
   }
 
   private void reset(String session) {
@@ -253,13 +325,18 @@ public class ChatService {
   }
 
   private void save(String session, String role, String text) {
-    jdbc.update("insert into chat_messages (session_id, role, text) values (?,?,?)", session, role,
+    jdbc.update(
+        "insert into chat_messages (session_id, role, text) values (?,?,?)",
+        session,
+        role,
         text.length() > 2000 ? text.substring(0, 2000) : text);
   }
 
   private static boolean has(String m, String... needles) {
     for (String n : needles) {
-      if (n.length() <= 3 ? Pattern.compile("\\b" + Pattern.quote(n) + "\\b").matcher(m).find() : m.contains(n)) {
+      if (n.length() <= 3
+          ? Pattern.compile("\\b" + Pattern.quote(n) + "\\b").matcher(m).find()
+          : m.contains(n)) {
         return true;
       }
     }
@@ -276,7 +353,9 @@ public class ChatService {
 
   private static String snippet(Article a) {
     String plain = a.body().replace("**", "").replaceAll("\\s+", " ").trim();
-    return plain.length() > 320 ? plain.substring(0, 320).replaceAll("\\s\\S*$", "") + "..." : plain;
+    return plain.length() > 320
+        ? plain.substring(0, 320).replaceAll("\\s\\S*$", "") + "..."
+        : plain;
   }
 
   private record Scored(Article article, int score) {}
@@ -336,5 +415,4 @@ public class ChatService {
     }
     return w;
   }
-
 }

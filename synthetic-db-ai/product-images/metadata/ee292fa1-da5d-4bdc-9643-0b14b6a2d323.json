@@ -1,0 +1,13 @@
+{
+ "product_id": "ee292fa1-da5d-4bdc-9643-0b14b6a2d323",
+ "name": "Arvoar Shampoo Ultra",
+ "prompt": "studio packshot photo of a Rose Gold Arvoar Shampoo Ultra, made of stainless steel, hair care, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1119750635,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T22:02:04",
+ "file_path": "product-images/images/ee292fa1-da5d-4bdc-9643-0b14b6a2d323.jpg",
+ "file_size": 59120
+}

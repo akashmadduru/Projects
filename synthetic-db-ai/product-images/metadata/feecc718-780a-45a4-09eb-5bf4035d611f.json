@@ -1,0 +1,13 @@
+{
+ "product_id": "feecc718-780a-45a4-09eb-5bf4035d611f",
+ "name": "Venrili Laptop Elite",
+ "prompt": "studio packshot photo of a Grey Venrili Laptop Elite, made of stainless steel, laptops, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1862384898,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:23:00",
+ "file_path": "product-images/images/feecc718-780a-45a4-09eb-5bf4035d611f.jpg",
+ "file_size": 31426
+}

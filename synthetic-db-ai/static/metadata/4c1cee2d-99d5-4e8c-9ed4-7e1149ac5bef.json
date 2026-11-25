@@ -1,0 +1,15 @@
+{
+ "product_id": "4c1cee2d-99d5-4e8c-9ed4-7e1149ac5bef",
+ "name": "Nunuba Building Blocks Plus",
+ "prompt": "studio packshot photo of a White Nunuba Building Blocks Plus, made of leather, building toys, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1449872670,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:14:21",
+ "file_path": "static/images/4c1cee2d-99d5-4e8c-9ed4-7e1149ac5bef.jpg",
+ "file_size": 33454,
+ "uploaded": false,
+ "s3_url": null
+}

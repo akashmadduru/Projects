@@ -1,0 +1,1726 @@
+diff --git a/docs/reference/endpoints.md b/docs/reference/endpoints.md
+index e1384f3..3f0d8fb 100644
+--- a/docs/reference/endpoints.md
++++ b/docs/reference/endpoints.md
+@@ -355,7 +355,7 @@ Request and response shapes for Phases 1–5 are in [api.md](api.md); later phas
+ | POST | `/api/admin/support/tickets/{id}/status` | TicketController |
+ | GET | `/internal/privacy/users/{userId}/export` | PrivacyExportController |
+ 
+-## user-service (32)
++## user-service (34)
+ 
+ | Method | Path | Controller |
+ |---|---|---|
+@@ -364,6 +364,8 @@ Request and response shapes for Phases 1–5 are in [api.md](api.md); later phas
+ | POST | `/api/membership/cancel` | EngageController |
+ | GET | `/api/referrals` | EngageController |
+ | POST | `/api/referrals/claim` | EngageController |
++| GET | `/api/users/admin/outbox` | UserOutboxAdminController (ADMIN; `?status` DEAD or PENDING, no payload, max 200 rows) |
++| POST | `/api/users/admin/outbox/{id}/retry` | UserOutboxAdminController (ADMIN; DEAD row back to PENDING, 404 otherwise) |
+ | GET | `/api/users/me` | UserController |
+ | PUT | `/api/users/me` | UserController |
+ | GET | `/api/users/me/addresses` | UserController |
+diff --git a/docs/reference/events.md b/docs/reference/events.md
+index a9508e4..3093ed5 100644
+--- a/docs/reference/events.md
++++ b/docs/reference/events.md
+@@ -82,6 +82,9 @@ product-service and inventory-service.
+   transaction as the order change; `OutboxRelay` sends them in order per order and retries until Kafka
+   acknowledges (TD-P6-01, fixed 2026-11-17). The other producers still send after commit, so a crash
+   or Kafka outage between commit and send loses that event ([TD-P6-33](../techdebt/phase6.md#td-p6-33)).
++  `USER_DELETED` also goes through an outbox now: user-service writes a row to `users.outbox` in the
++  same transaction as the account erasure, and `UserOutboxRelay` sends it to `user.events` with retries
++  (a DEAD row is listed at `GET /api/users/admin/outbox`).
+ - **At-least-once consumption.** A redelivered event is processed again. There is no
+   processed-event table; idempotency comes from each consumer's own data: unique keys (inventory
+   `product_id`), `INSERT … ON CONFLICT` upserts, or re-reading the source of truth (ratings).
+@@ -122,7 +125,7 @@ Logs carry the request's correlation id, and traces go to Jaeger (http://127.0.0
+ 
+ | Gap | Tracked as |
+ |---|---|
+-| Only order-service has an outbox; other publishers can lose an event | [TD-P6-33](../techdebt/phase6.md#td-p6-33) |
++| Only order-service and user-service (`USER_DELETED`) have an outbox; product, inventory, rating and auth-audit publishers can still lose an event | [TD-P6-33](../techdebt/phase6.md#td-p6-33) |
+ | Single broker, replication factor 1, PLAINTEXT | [technical audit](../audit/technical-audit.md#8-security-audit) |
+ | Two consumer groups start at `latest` | [TD-P7-11](../techdebt/phase7.md#td-p7-11) |
+ | Duplicated event classes, no schema registry | [ADR 0002](../architecture/adr/0002-event-driven-inventory-kafka-kraft-and-event-contract-duplication.md) |
+diff --git a/docs/techdebt/phase6.md b/docs/techdebt/phase6.md
+index 87a80f0..a108d32 100644
+--- a/docs/techdebt/phase6.md
++++ b/docs/techdebt/phase6.md
+@@ -153,8 +153,9 @@ Phase 6 was built under "no tests, no HLD/LLD, record shortcuts as debt". The in
+ - **Fix:** Document and alert on manual capture; add multi-currency once the business enables it in Razorpay.
+ 
+ <a id="td-p6-33"></a>
+-## TD-P6-33 Only order-service has an outbox
++## TD-P6-33 Only order-service and user-service have an outbox
+ - **Severity / Effort:** Med / M
+-- **Where:** product-service `ProductEventPublisher`, inventory-service `InventoryEventPublisher`, rating-, user-, seller-service publishers.
++- **Where:** product-service `ProductEventPublisher`, inventory-service `InventoryEventPublisher`, rating-service publisher and the auth-service audit publisher (user-service done 2026-11-21, see below).
+ - **Risk:** Residual of TD-P6-01 (fixed 2026-11-17 for order-service: `orders.outbox` is written in the same transaction as the order change; `OutboxRelay` delivers stock restore, deal/exchange/coupon/coins release, payment cancel, COD collected, return restock and `order.events` with retries, per-order ordering and a DEAD state listed at `GET /api/admin/orders/outbox`). The other services still publish after commit, best effort: a crash or Kafka outage between commit and send loses e.g. a `product.events` update (search and inventory caches drift until the next change; embeddings already self-heal by polling).
+ - **Fix:** Lift `Outbox`/`OutboxRelay` into common-web and use it in product- and inventory-service first.
++- **Done 2026-11-21 (F-20261119-12):** user-service. `USER_DELETED` is written to `users.outbox` in the same transaction as the account erasure (`PrivacyService.complete`), and `UserOutboxRelay` delivers it to `user.events` (copy of the order-service semantics, ADR 0011); DEAD rows are listed and retried at `/api/users/admin/outbox`. payment-, promotion- and seller-service are closed as "no producers" (they only consume `user.events`; their `UserDeletedListener` is tested as idempotent). **Still open:** product, inventory, rating and the auth-service audit publisher. Backlog: a purge job for DONE rows in `users.outbox`.
+diff --git a/docs/techdebt/remediation-plan.md b/docs/techdebt/remediation-plan.md
+index bbfc56d..8cfd92a 100644
+--- a/docs/techdebt/remediation-plan.md
++++ b/docs/techdebt/remediation-plan.md
+@@ -118,6 +118,7 @@ fixes grouped by service, then the larger Medium items by risk. Each row records
+ | 54 | [TD-P7-19](phase7.md) | Variant attributes are key/value input pairs (values may contain `,` and `=`). Product create/update accept `variants` and save them in the same transaction (a bad variant rolls the create back); the admin sends one request, so the "product created without variants" state is gone. Found and fixed on the way: `PUT /api/products/{id}` deleted every image row and file when `images` was omitted, which the admin does whenever images were not touched. Deals: the product picker searches the catalog (20 results, debounced) instead of loading the first 200; listed deals get names from `/api/products/batch`; variant options show SKU plus options; the list pages 20 at a time on the client (promotion-service returns the full list; deals are hand-curated). Kept by decision: Deals stay ADMIN-only and `quantityLimit` required (a deal sets a price; an unlimited deal is the costly mistake). Q&A moderation stays with TD-P7-13 | ✅ Fixed 2026-11-18 |
+ | 55 | [TD-P8-24](phase8.md#td-p8-24) | Wire `USER_REFERRAL_IP_HASH_SALT` through `config.env`, Terraform, the `app` secret and Helm `secretEnv`, and fail closed (refuse to start) under the `prod` profile when it is blank. Until then each replica hashes with its own random key, so the IP check is weak (fails safe: no wrong refusals) | 🔲 Open |
+ | 56 | [TD-SEC-15](infra-security.md#td-sec-15) | Post-deploy check that the Google OIDC callback URL is correct behind the gateway (Gateway 5.0.2 strips `X-Forwarded-*` unless `trusted-proxies` is set); then set trusted-proxies or pin the redirect URI. Same root cause as backlog B-1 | 🔲 Open |
++| 57 | [TD-P6-33](phase6.md#td-p6-33) (user-service part) | `USER_DELETED` goes through a transactional outbox: `PrivacyService.complete` marks the request COMPLETED, erases the data and writes `users.outbox` in one transaction (it used to erase with auto-commit, then wait for Kafka, so an outage left a half-finished erasure that re-ran every 15 minutes). `UserOutboxRelay` sends to `user.events` with retries and a DEAD state at `/api/users/admin/outbox` (ADMIN). payment-, promotion- and seller-service have no producers; their listeners are tested as idempotent. product, inventory, rating and the auth audit publisher stay open. Backlog: purge job for DONE rows in `users.outbox` | ✅ Fixed 2026-11-21 |
+ 
+ ## Needs the owner
+ 
+diff --git a/services/payment-service/payment-service-app/src/test/java/com/acme/ecommerce/payment/privacy/UserDeletedListenerIdempotencyIT.java b/services/payment-service/payment-service-app/src/test/java/com/acme/ecommerce/payment/privacy/UserDeletedListenerIdempotencyIT.java
+new file mode 100644
+index 0000000..91ae16d
+--- /dev/null
++++ b/services/payment-service/payment-service-app/src/test/java/com/acme/ecommerce/payment/privacy/UserDeletedListenerIdempotencyIT.java
+@@ -0,0 +1,71 @@
++package com.acme.ecommerce.payment.privacy;
++
++import static org.assertj.core.api.Assertions.assertThat;
++import static org.assertj.core.api.Assertions.assertThatCode;
++
++import com.acme.ecommerce.payment.support.AbstractPaymentIntegrationTest;
++import java.util.List;
++import java.util.Map;
++import java.util.UUID;
++import org.junit.jupiter.api.DisplayName;
++import org.junit.jupiter.api.Test;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.jdbc.core.simple.JdbcClient;
++
++/** AC-7: at-least-once USER_DELETED delivery is harmless for payment-service. */
++class UserDeletedListenerIdempotencyIT extends AbstractPaymentIntegrationTest {
++
++  @Autowired private UserDeletedListener.Listener listener;
++  @Autowired private JdbcClient jdbc;
++
++  private void giftCard(UUID purchaser) {
++    jdbc.sql(
++            "INSERT INTO payment.gift_cards (code_hash, amount, currency, status,"
++                + " purchaser_user_id, purchaser_email, recipient_email, message) VALUES"
++                + " (encode(sha256(convert_to(gen_random_uuid()::text, 'UTF8')), 'hex'), 25, 'USD',"
++                + " 'ACTIVE', :u, 'buyer@example.com', 'friend@example.com', 'happy birthday')")
++        .param("u", purchaser)
++        .update();
++  }
++
++  private List<Map<String, Object>> state(UUID purchaser) {
++    return jdbc.sql(
++            "SELECT status, purchaser_email, recipient_email, message FROM payment.gift_cards"
++                + " WHERE purchaser_user_id = :u ORDER BY recipient_email")
++        .param("u", purchaser)
++        .query()
++        .listOfRows();
++  }
++
++  @Test
++  @DisplayName("delivering USER_DELETED twice gives the state of delivering it once")
++  void twiceEqualsOnce() {
++    UUID user = UUID.randomUUID();
++    UUID other = UUID.randomUUID();
++    giftCard(user);
++    giftCard(user);
++    giftCard(other);
++    List<Map<String, Object>> otherBefore = state(other);
++    String payload =
++        "{\"eventId\":\""
++            + UUID.randomUUID()
++            + "\",\"type\":\"USER_DELETED\",\"userId\":\""
++            + user
++            + "\",\"occurredAt\":\"2026-11-21T00:00:00Z\"}";
++
++    listener.onEvent(payload);
++    List<Map<String, Object>> afterOnce = state(user);
++    assertThat(afterOnce).hasSize(2);
++    assertThat(afterOnce)
++        .allSatisfy(
++            r -> {
++              assertThat(r.get("purchaser_email")).isNull();
++              assertThat(r.get("message")).isNull();
++              assertThat(r.get("recipient_email")).isEqualTo("deleted@invalid");
++            });
++
++    assertThatCode(() -> listener.onEvent(payload)).doesNotThrowAnyException();
++    assertThat(state(user)).isEqualTo(afterOnce);
++    assertThat(state(other)).isEqualTo(otherBefore);
++  }
++}
+diff --git a/services/promotion-service/promotion-service-app/src/test/java/com/acme/ecommerce/promotion/privacy/UserDeletedListenerIdempotencyIT.java b/services/promotion-service/promotion-service-app/src/test/java/com/acme/ecommerce/promotion/privacy/UserDeletedListenerIdempotencyIT.java
+new file mode 100644
+index 0000000..639f3a8
+--- /dev/null
++++ b/services/promotion-service/promotion-service-app/src/test/java/com/acme/ecommerce/promotion/privacy/UserDeletedListenerIdempotencyIT.java
+@@ -0,0 +1,65 @@
++package com.acme.ecommerce.promotion.privacy;
++
++import static org.assertj.core.api.Assertions.assertThat;
++import static org.assertj.core.api.Assertions.assertThatCode;
++
++import com.acme.ecommerce.promotion.support.AbstractPromotionIntegrationTest;
++import java.util.List;
++import java.util.Map;
++import java.util.UUID;
++import org.junit.jupiter.api.DisplayName;
++import org.junit.jupiter.api.Test;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.jdbc.core.simple.JdbcClient;
++
++/** AC-7: at-least-once USER_DELETED delivery is harmless for promotion-service. */
++class UserDeletedListenerIdempotencyIT extends AbstractPromotionIntegrationTest {
++
++  @Autowired private UserDeletedListener.Listener listener;
++  @Autowired private JdbcClient jdbc;
++
++  private void quote(UUID user, String status) {
++    jdbc.sql(
++            "INSERT INTO promotion.exchange_quotes (user_id, program_id, device_brand,"
++                + " device_model, device_condition, age_years, quoted_value, currency, expires_at,"
++                + " status) VALUES (:u, (SELECT id FROM promotion.exchange_programs LIMIT 1),"
++                + " 'Acme', 'X1', 'WORKING', 2, 50, 'USD', now() + interval '1 day', :s)")
++        .param("u", user)
++        .param("s", status)
++        .update();
++  }
++
++  private List<Map<String, Object>> state(UUID user) {
++    return jdbc.sql(
++            "SELECT status, quoted_value FROM promotion.exchange_quotes WHERE user_id = :u"
++                + " ORDER BY status")
++        .param("u", user)
++        .query()
++        .listOfRows();
++  }
++
++  @Test
++  @DisplayName("delivering USER_DELETED twice gives the state of delivering it once")
++  void twiceEqualsOnce() {
++    UUID user = UUID.randomUUID();
++    UUID other = UUID.randomUUID();
++    quote(user, "QUOTED");
++    quote(user, "APPLIED");
++    quote(other, "QUOTED");
++    List<Map<String, Object>> otherBefore = state(other);
++    String payload =
++        "{\"eventId\":\""
++            + UUID.randomUUID()
++            + "\",\"type\":\"USER_DELETED\",\"userId\":\""
++            + user
++            + "\",\"occurredAt\":\"2026-11-21T00:00:00Z\"}";
++
++    listener.onEvent(payload);
++    List<Map<String, Object>> afterOnce = state(user);
++    assertThat(afterOnce).extracting(r -> r.get("status")).containsExactly("APPLIED", "REJECTED");
++
++    assertThatCode(() -> listener.onEvent(payload)).doesNotThrowAnyException();
++    assertThat(state(user)).isEqualTo(afterOnce);
++    assertThat(state(other)).isEqualTo(otherBefore);
++  }
++}
+diff --git a/services/seller-service/seller-service-app/src/test/java/com/acme/ecommerce/seller/privacy/UserDeletedListenerIdempotencyIT.java b/services/seller-service/seller-service-app/src/test/java/com/acme/ecommerce/seller/privacy/UserDeletedListenerIdempotencyIT.java
+new file mode 100644
+index 0000000..7b5f70e
+--- /dev/null
++++ b/services/seller-service/seller-service-app/src/test/java/com/acme/ecommerce/seller/privacy/UserDeletedListenerIdempotencyIT.java
+@@ -0,0 +1,77 @@
++package com.acme.ecommerce.seller.privacy;
++
++import static org.assertj.core.api.Assertions.assertThat;
++import static org.assertj.core.api.Assertions.assertThatCode;
++
++import com.acme.ecommerce.seller.support.AbstractSellerIntegrationTest;
++import java.util.List;
++import java.util.Map;
++import java.util.UUID;
++import org.junit.jupiter.api.DisplayName;
++import org.junit.jupiter.api.Test;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.jdbc.core.simple.JdbcClient;
++
++/** AC-7: at-least-once USER_DELETED delivery is harmless for seller-service. */
++class UserDeletedListenerIdempotencyIT extends AbstractSellerIntegrationTest {
++
++  @Autowired private UserDeletedListener.Listener listener;
++  @Autowired private JdbcClient jdbc;
++
++  private UUID seller(UUID user) {
++    UUID id = UUID.randomUUID();
++    jdbc.sql(
++            "INSERT INTO sellers (id, user_id, legal_name, display_name, slug, email, phone,"
++                + " gstin, pan, bank_account_last4, bank_account_hash, ifsc, status) VALUES (:i,"
++                + " :u, 'Acme Traders', 'Acme', :s, 'a@b.c', '9999999999', '27ABCDE1234F1Z5',"
++                + " 'ABCDE1234F', '6789', 'cipher', 'HDFC0001234', 'APPROVED')")
++        .param("i", id)
++        .param("u", user)
++        .param("s", "idem-" + id)
++        .update();
++    jdbc.sql(
++            "INSERT INTO seller_feedback (seller_id, order_id, shipment_id, user_id, rating,"
++                + " comment) VALUES (:i, gen_random_uuid(), gen_random_uuid(), :u, 4, 'great')")
++        .param("i", id)
++        .param("u", user)
++        .update();
++    return id;
++  }
++
++  private List<Map<String, Object>> state(UUID user) {
++    return jdbc.sql(
++            "SELECT s.legal_name, s.email, s.phone, s.gstin, s.pan, s.bank_account_last4,"
++                + " s.bank_account_hash, s.ifsc, s.status, f.comment FROM sellers s LEFT JOIN"
++                + " seller_feedback f ON f.user_id = s.user_id WHERE s.user_id = :u")
++        .param("u", user)
++        .query()
++        .listOfRows();
++  }
++
++  @Test
++  @DisplayName("delivering USER_DELETED twice gives the state of delivering it once")
++  void twiceEqualsOnce() {
++    UUID user = UUID.randomUUID();
++    UUID other = UUID.randomUUID();
++    seller(user);
++    seller(other);
++    List<Map<String, Object>> otherBefore = state(other);
++    String payload =
++        "{\"eventId\":\""
++            + UUID.randomUUID()
++            + "\",\"type\":\"USER_DELETED\",\"userId\":\""
++            + user
++            + "\",\"occurredAt\":\"2026-11-21T00:00:00Z\"}";
++
++    listener.onEvent(payload);
++    List<Map<String, Object>> afterOnce = state(user);
++    assertThat(afterOnce).hasSize(1);
++    assertThat(afterOnce.get(0).get("status")).isEqualTo("SUSPENDED");
++    assertThat(afterOnce.get(0).get("email")).isNull();
++    assertThat(afterOnce.get(0).get("comment")).isNull();
++
++    assertThatCode(() -> listener.onEvent(payload)).doesNotThrowAnyException();
++    assertThat(state(user)).isEqualTo(afterOnce);
++    assertThat(state(other)).isEqualTo(otherBefore);
++  }
++}
+diff --git a/services/user-service/user-service-app/src/main/java/com/acme/ecommerce/user/outbox/UserOutbox.java b/services/user-service/user-service-app/src/main/java/com/acme/ecommerce/user/outbox/UserOutbox.java
+new file mode 100644
+index 0000000..c301f38
+--- /dev/null
++++ b/services/user-service/user-service-app/src/main/java/com/acme/ecommerce/user/outbox/UserOutbox.java
+@@ -0,0 +1,57 @@
++package com.acme.ecommerce.user.outbox;
++
++import com.fasterxml.jackson.core.JsonProcessingException;
++import com.fasterxml.jackson.databind.ObjectMapper;
++import java.util.UUID;
++import org.slf4j.Logger;
++import org.slf4j.LoggerFactory;
++import org.springframework.jdbc.core.simple.JdbcClient;
++import org.springframework.stereotype.Component;
++
++/**
++ * Writes USER_DELETED outbox rows (TD-P6-33). JdbcClient joins the caller's Spring-managed
++ * transaction, so the erasure and its event commit or roll back together. Delivery is {@link
++ * UserOutboxRelay}'s job. A second request for the same user is ignored (idem key).
++ */
++@Component
++public class UserOutbox {
++
++  /** Jackson 2, no java.time module: the event has String fields only (legacy wire format). */
++  static final ObjectMapper JSON = new ObjectMapper();
++
++  private static final Logger log = LoggerFactory.getLogger(UserOutbox.class);
++
++  static final String KIND = "USER_DELETED";
++
++  /** Wire format of {@code user.events}; field order is part of the contract. */
++  public record UserDeletedEvent(String eventId, String type, String userId, String occurredAt) {}
++
++  private final JdbcClient jdbc;
++
++  public UserOutbox(JdbcClient jdbc) {
++    this.jdbc = jdbc;
++  }
++
++  public void enqueue(UUID userId, UserDeletedEvent event) {
++    int inserted =
++        jdbc.sql(
++                "INSERT INTO users.outbox (aggregate_id, kind, payload, idem_key)"
++                    + " VALUES (:a, :k, CAST(:p AS jsonb), :i) ON CONFLICT (idem_key) DO NOTHING")
++            .param("a", userId)
++            .param("k", KIND)
++            .param("p", toJson(event))
++            .param("i", KIND + ":" + userId)
++            .update();
++    if (inserted == 0) {
++      log.warn("USER_DELETED outbox row already exists, duplicate suppressed: userId={}", userId);
++    }
++  }
++
++  static String toJson(UserDeletedEvent event) {
++    try {
++      return JSON.writeValueAsString(event);
++    } catch (JsonProcessingException e) {
++      throw new IllegalArgumentException("Outbox payload is not serialisable");
++    }
++  }
++}
+diff --git a/services/user-service/user-service-app/src/main/java/com/acme/ecommerce/user/outbox/UserOutboxAdminController.java b/services/user-service/user-service-app/src/main/java/com/acme/ecommerce/user/outbox/UserOutboxAdminController.java
+new file mode 100644
+index 0000000..c88f976
+--- /dev/null
++++ b/services/user-service/user-service-app/src/main/java/com/acme/ecommerce/user/outbox/UserOutboxAdminController.java
+@@ -0,0 +1,81 @@
++package com.acme.ecommerce.user.outbox;
++
++import com.acme.ecommerce.common.core.error.CodedException;
++import com.acme.ecommerce.common.core.error.ErrorCode;
++import java.time.Instant;
++import java.util.List;
++import java.util.UUID;
++import org.springframework.jdbc.core.simple.JdbcClient;
++import org.springframework.security.access.prepost.PreAuthorize;
++import org.springframework.web.bind.annotation.GetMapping;
++import org.springframework.web.bind.annotation.PathVariable;
++import org.springframework.web.bind.annotation.PostMapping;
++import org.springframework.web.bind.annotation.RequestMapping;
++import org.springframework.web.bind.annotation.RequestParam;
++import org.springframework.web.bind.annotation.RestController;
++
++/**
++ * Admin view of {@code users.outbox} (TD-P6-33): rows the relay gave up on ({@code DEAD}) or that
++ * are still waiting, and a retry that puts a dead row back in the queue. The payload is never
++ * returned. The role check is this service's own ({@code @PreAuthorize}); the gateway's {@code
++ * /api/users/**} route reaches it unchanged.
++ */
++@RestController
++@RequestMapping("/api/users/admin/outbox")
++@PreAuthorize("hasRole('ADMIN')")
++public class UserOutboxAdminController {
++
++  public record OutboxRow(
++      UUID id,
++      UUID aggregateId,
++      String kind,
++      String status,
++      int attempts,
++      String lastError,
++      Instant createdAt,
++      Instant nextAttemptAt) {}
++
++  private final JdbcClient jdbc;
++
++  public UserOutboxAdminController(JdbcClient jdbc) {
++    this.jdbc = jdbc;
++  }
++
++  @GetMapping
++  public List<OutboxRow> list(@RequestParam(defaultValue = "DEAD") String status) {
++    String s = status.toUpperCase(java.util.Locale.ROOT);
++    if (!s.equals("DEAD") && !s.equals("PENDING")) {
++      throw new CodedException(ErrorCode.VALIDATION_FAILED, "status must be DEAD or PENDING");
++    }
++    return jdbc.sql(
++            "SELECT id, aggregate_id, kind, status, attempts, last_error, created_at,"
++                + " next_attempt_at FROM users.outbox WHERE status = :s ORDER BY seq LIMIT 200")
++        .param("s", s)
++        .query(
++            (rs, n) ->
++                new OutboxRow(
++                    rs.getObject("id", UUID.class),
++                    rs.getObject("aggregate_id", UUID.class),
++                    rs.getString("kind"),
++                    rs.getString("status"),
++                    rs.getInt("attempts"),
++                    rs.getString("last_error"),
++                    rs.getTimestamp("created_at").toInstant(),
++                    rs.getTimestamp("next_attempt_at").toInstant()))
++        .list();
++  }
++
++  /** Puts a DEAD row back in the queue with a fresh attempt budget. */
++  @PostMapping("/{id}/retry")
++  public void retry(@PathVariable UUID id) {
++    int n =
++        jdbc.sql(
++                "UPDATE users.outbox SET status = 'PENDING', attempts = 0, next_attempt_at = now()"
++                    + " WHERE id = :i AND status = 'DEAD'")
++            .param("i", id)
++            .update();
++    if (n == 0) {
++      throw new CodedException(ErrorCode.RESOURCE_NOT_FOUND, "Dead outbox row not found");
++    }
++  }
++}
+diff --git a/services/user-service/user-service-app/src/main/java/com/acme/ecommerce/user/outbox/UserOutboxRelay.java b/services/user-service/user-service-app/src/main/java/com/acme/ecommerce/user/outbox/UserOutboxRelay.java
+new file mode 100644
+index 0000000..9910475
+--- /dev/null
++++ b/services/user-service/user-service-app/src/main/java/com/acme/ecommerce/user/outbox/UserOutboxRelay.java
+@@ -0,0 +1,199 @@
++package com.acme.ecommerce.user.outbox;
++
++import com.acme.ecommerce.common.web.job.JobLock;
++import com.acme.ecommerce.user.outbox.UserOutbox.UserDeletedEvent;
++import com.fasterxml.jackson.core.JsonProcessingException;
++import java.util.List;
++import java.util.UUID;
++import java.util.concurrent.ExecutionException;
++import java.util.concurrent.TimeUnit;
++import java.util.concurrent.TimeoutException;
++import org.slf4j.Logger;
++import org.slf4j.LoggerFactory;
++import org.springframework.beans.factory.annotation.Qualifier;
++import org.springframework.jdbc.core.simple.JdbcClient;
++import org.springframework.kafka.core.KafkaTemplate;
++import org.springframework.scheduling.annotation.Scheduled;
++import org.springframework.stereotype.Component;
++
++/**
++ * Delivers USER_DELETED outbox rows to {@code user.events} (TD-P6-33); same semantics as
++ * order-service's OutboxRelay. Every 2 s, on one replica ({@link JobLock}), it sends due rows
++ * oldest first; a row waits while an older row of the same user is pending. Failures back off
++ * exponentially; after {@link #MAX_ATTEMPTS} the row is DEAD and logged at ERROR as "OUTBOX DEAD".
++ * At-least-once; every USER_DELETED consumer is idempotent.
++ *
++ * <p>PII rule: {@code last_error} holds the exception class and the root-cause message only, cut to
++ * 500 characters. The payload is never part of an error text.
++ */
++@Component
++public class UserOutboxRelay {
++
++  private static final Logger log = LoggerFactory.getLogger(UserOutboxRelay.class);
++
++  static final String TOPIC = "user.events";
++  static final int MAX_ATTEMPTS = 20;
++  static final int BATCH = 100;
++  static final int MAX_ROUNDS = 10;
++  private static final long MAX_BACKOFF_SECONDS = 3600;
++
++  record Row(UUID id, UUID aggregateId, String payload, int attempts) {}
++
++  /** Result of one pass, for logs and tests. */
++  public record Result(int delivered, int failed, int dead) {}
++
++  private final JdbcClient jdbc;
++  private final KafkaTemplate<String, String> kafka;
++  private final JobLock jobLock;
++
++  public UserOutboxRelay(
++      JdbcClient jdbc,
++      @Qualifier("privacyKafkaTemplate") KafkaTemplate<String, String> kafka,
++      JobLock jobLock) {
++    this.jdbc = jdbc;
++    this.kafka = kafka;
++    this.jobLock = jobLock;
++  }
++
++  @Scheduled(
++      fixedDelayString = "${user.outbox.relay-interval-ms:2000}",
++      initialDelayString = "${user.outbox.initial-delay-ms:10000}")
++  public void scheduledRun() {
++    try {
++      jobLock.runExclusive("user-outbox-relay", this::relay);
++    } catch (RuntimeException e) {
++      log.warn("User outbox relay pass failed: {}", e.toString());
++    }
++  }
++
++  /** One pass: rounds repeat while they deliver (bounded, so a busy outbox still yields). */
++  public Result relay() {
++    int delivered = 0;
++    int failed = 0;
++    int dead = 0;
++    for (int round = 0; round < MAX_ROUNDS; round++) {
++      Result r = round();
++      delivered += r.delivered();
++      failed += r.failed();
++      dead += r.dead();
++      if (r.delivered() + r.dead() == 0) {
++        break;
++      }
++    }
++    if (delivered + failed + dead > 0) {
++      log.info("User outbox relay: delivered={} failed={} dead={}", delivered, failed, dead);
++    }
++    return new Result(delivered, failed, dead);
++  }
++
++  private Result round() {
++    List<Row> due =
++        jdbc.sql(
++                "SELECT o.id, o.aggregate_id, CAST(o.payload AS text) AS payload, o.attempts"
++                    + " FROM users.outbox o"
++                    + " WHERE o.status = 'PENDING' AND o.next_attempt_at <= now()"
++                    + " AND NOT EXISTS (SELECT 1 FROM users.outbox e WHERE e.status = 'PENDING'"
++                    + "   AND e.aggregate_id = o.aggregate_id AND e.seq < o.seq)"
++                    + " ORDER BY o.seq LIMIT :n")
++            .param("n", BATCH)
++            .query(
++                (rs, n) ->
++                    new Row(
++                        rs.getObject("id", UUID.class),
++                        rs.getObject("aggregate_id", UUID.class),
++                        rs.getString("payload"),
++                        rs.getInt("attempts")))
++            .list();
++    int delivered = 0;
++    int failed = 0;
++    int dead = 0;
++    for (Row row : due) {
++      try {
++        deliver(row);
++        jdbc.sql(
++                "UPDATE users.outbox SET status = 'DONE', done_at = now(), attempts = attempts + 1,"
++                    + " last_error = NULL WHERE id = :i")
++            .param("i", row.id())
++            .update();
++        delivered++;
++      } catch (RuntimeException e) {
++        if (fail(row, e)) {
++          dead++;
++        } else {
++          failed++;
++        }
++      }
++    }
++    return new Result(delivered, failed, dead);
++  }
++
++  private void deliver(Row row) {
++    String json;
++    try {
++      UserDeletedEvent event = read(row.payload());
++      if (event == null || event.userId() == null) {
++        throw new IllegalStateException("Corrupt outbox payload");
++      }
++      json = UserOutbox.JSON.writeValueAsString(event);
++    } catch (JsonProcessingException e) {
++      throw new IllegalStateException("Corrupt outbox payload");
++    }
++    try {
++      kafka.send(TOPIC, row.aggregateId().toString(), json).get(10, TimeUnit.SECONDS);
++    } catch (InterruptedException e) {
++      Thread.currentThread().interrupt();
++      throw new IllegalStateException("interrupted publishing USER_DELETED", e);
++    } catch (ExecutionException | TimeoutException e) {
++      throw new IllegalStateException("could not publish USER_DELETED", e);
++    }
++  }
++
++  /** Records a failed attempt; returns true when the row is now DEAD. */
++  private boolean fail(Row row, RuntimeException e) {
++    int attempts = row.attempts() + 1;
++    String error = describe(e);
++    boolean dead = attempts >= MAX_ATTEMPTS;
++    long backoff = Math.min(MAX_BACKOFF_SECONDS, 2L << Math.min(attempts, 20));
++    jdbc.sql(
++            "UPDATE users.outbox SET attempts = :n, last_error = :e, status = :s,"
++                + " next_attempt_at = now() + make_interval(secs => :b) WHERE id = :i")
++        .param("n", attempts)
++        .param("e", error)
++        .param("s", dead ? "DEAD" : "PENDING")
++        .param("b", backoff)
++        .param("i", row.id())
++        .update();
++    if (dead) {
++      log.error(
++          "OUTBOX DEAD: USER_DELETED for {} gave up after {} attempts: {}",
++          row.aggregateId(),
++          attempts,
++          error);
++    } else {
++      log.warn(
++          "User outbox USER_DELETED for {} failed (attempt {}), retrying in {}s: {}",
++          row.aggregateId(),
++          attempts,
++          backoff,
++          error);
++    }
++    return dead;
++  }
++
++  /** Exception class plus root-cause message, truncated; never the payload. */
++  static String describe(Throwable e) {
++    Throwable root = e;
++    while (root.getCause() != null && root.getCause() != root) {
++      root = root.getCause();
++    }
++    String text = root.getClass().getName();
++    if (root.getMessage() != null) {
++      text += ": " + root.getMessage();
++    }
++    return text.length() > 500 ? text.substring(0, 500) : text;
++  }
++
++  private static UserDeletedEvent read(String json) throws JsonProcessingException {
++    return UserOutbox.JSON.readValue(json, UserDeletedEvent.class);
++  }
++}
+diff --git a/services/user-service/user-service-app/src/main/java/com/acme/ecommerce/user/privacy/PrivacyService.java b/services/user-service/user-service-app/src/main/java/com/acme/ecommerce/user/privacy/PrivacyService.java
+index 71905ac..6d62336 100644
+--- a/services/user-service/user-service-app/src/main/java/com/acme/ecommerce/user/privacy/PrivacyService.java
++++ b/services/user-service/user-service-app/src/main/java/com/acme/ecommerce/user/privacy/PrivacyService.java
+@@ -4,6 +4,7 @@ import com.acme.ecommerce.common.core.error.CodedException;
+ import com.acme.ecommerce.common.core.error.ErrorCode;
+ import com.acme.ecommerce.common.web.job.JobLock;
+ import com.acme.ecommerce.user.membership.Notifier;
++import com.acme.ecommerce.user.outbox.UserOutbox;
+ import java.io.ByteArrayOutputStream;
+ import java.nio.charset.StandardCharsets;
+ import java.security.MessageDigest;
+@@ -19,7 +20,6 @@ import java.util.List;
+ import java.util.Map;
+ import java.util.Optional;
+ import java.util.UUID;
+-import java.util.concurrent.TimeUnit;
+ import java.util.regex.Matcher;
+ import java.util.regex.Pattern;
+ import java.util.zip.ZipEntry;
+@@ -29,10 +29,11 @@ import org.slf4j.LoggerFactory;
+ import org.springframework.beans.factory.annotation.Autowired;
+ import org.springframework.beans.factory.annotation.Value;
+ import org.springframework.jdbc.core.simple.JdbcClient;
+-import org.springframework.kafka.core.KafkaTemplate;
+ import org.springframework.scheduling.annotation.Scheduled;
+ import org.springframework.stereotype.Service;
++import org.springframework.transaction.PlatformTransactionManager;
+ import org.springframework.transaction.annotation.Transactional;
++import org.springframework.transaction.support.TransactionTemplate;
+ 
+ /**
+  * Privacy orchestration: data export jobs (zip kept 24 h) and account deletion (7-day grace, then
+@@ -43,7 +44,6 @@ public class PrivacyService {
+ 
+   private static final Logger log = LoggerFactory.getLogger(PrivacyService.class);
+ 
+-  static final String TOPIC = "user.events";
+   static final List<String> EXPORT_SERVICES =
+       List.of(
+           "auth-service",
+@@ -67,7 +67,8 @@ public class PrivacyService {
+   private final JdbcClient jdbc;
+   private final PrivacyKafkaConfig.PrivacyHttp http;
+   private final Notifier notifier;
+-  private final KafkaTemplate<String, String> kafka;
++  private final UserOutbox outbox;
++  private final TransactionTemplate tx;
+   private final String token;
+   private final String storefront;
+   private final int graceDays;
+@@ -77,7 +78,8 @@ public class PrivacyService {
+       JdbcClient jdbc,
+       PrivacyKafkaConfig.PrivacyHttp http,
+       Notifier notifier,
+-      KafkaTemplate<String, String> privacyKafkaTemplate,
++      UserOutbox outbox,
++      PlatformTransactionManager txManager,
+       @Value("${user.internal-token:}") String token,
+       @Value("${user.storefront-url:http://localhost:3000}") String storefront,
+       @Value("${user.privacy.grace-days:7}") int graceDays,
+@@ -85,7 +87,8 @@ public class PrivacyService {
+     this.jdbc = jdbc;
+     this.http = http;
+     this.notifier = notifier;
+-    this.kafka = privacyKafkaTemplate;
++    this.outbox = outbox;
++    this.tx = new TransactionTemplate(txManager);
+     this.token = token;
+     this.storefront = storefront;
+     this.graceDays = graceDays;
+@@ -494,6 +497,21 @@ public class PrivacyService {
+       log.info("Deletion of {} postponed: {}", userId, e.getMessage());
+       return false;
+     }
++    // One transaction: the request status, the erasure and the outbox row commit or roll back
++    // together. Kafka is the relay's job (UserOutboxRelay); nothing here talks to it.
++    return Boolean.TRUE.equals(tx.execute(status -> erase(userId)));
++  }
++
++  private boolean erase(UUID userId) {
++    int claimed =
++        jdbc.sql(
++                "UPDATE users.deletion_requests SET status = 'COMPLETED', completed_at = now(),"
++                    + " email = NULL WHERE user_id = :u AND status = 'SCHEDULED'")
++            .param("u", userId)
++            .update();
++    if (claimed == 0) {
++      return false; // cancelled meanwhile, or another run completed it
++    }
+     jdbc.sql(
+             "UPDATE users.user_profiles SET email = NULL, display_name = 'Deleted user', phone = NULL WHERE user_id = :u")
+         .param("u", userId)
+@@ -512,27 +530,13 @@ public class PrivacyService {
+             "UPDATE users.membership_payments SET email = NULL WHERE user_id = :u")) {
+       jdbc.sql(sql).param("u", userId).update();
+     }
+-    String event =
+-        "{\"eventId\":\""
+-            + UUID.randomUUID()
+-            + "\",\"type\":\"USER_DELETED\",\"userId\":\""
+-            + userId
+-            + "\",\"occurredAt\":\""
+-            + Instant.now()
+-            + "\"}";
+-    try {
+-      kafka.send(TOPIC, userId.toString(), event).get(10, TimeUnit.SECONDS);
+-    } catch (InterruptedException e) {
+-      Thread.currentThread().interrupt();
+-      throw new IllegalStateException("interrupted publishing USER_DELETED", e);
+-    } catch (java.util.concurrent.ExecutionException | java.util.concurrent.TimeoutException e) {
+-      throw new IllegalStateException("could not publish USER_DELETED: " + e, e);
+-    }
+-    jdbc.sql(
+-            "UPDATE users.deletion_requests SET status = 'COMPLETED', completed_at = now(), email"
+-                + " = NULL WHERE user_id = :u")
+-        .param("u", userId)
+-        .update();
++    outbox.enqueue(
++        userId,
++        new UserOutbox.UserDeletedEvent(
++            UUID.randomUUID().toString(),
++            "USER_DELETED",
++            userId.toString(),
++            Instant.now().toString()));
+     return true;
+   }
+ 
+diff --git a/services/user-service/user-service-app/src/main/resources/db/migration/V6__outbox.sql b/services/user-service/user-service-app/src/main/resources/db/migration/V6__outbox.sql
+new file mode 100644
+index 0000000..33c1078
+--- /dev/null
++++ b/services/user-service/user-service-app/src/main/resources/db/migration/V6__outbox.sql
+@@ -0,0 +1,22 @@
++-- TD-P6-33: transactional outbox for USER_DELETED (same shape as orders.outbox, V10 in order-service).
++-- The erasure and the event are written in one transaction; UserOutboxRelay delivers to user.events.
++CREATE TABLE users.outbox
++(
++    id              uuid PRIMARY KEY        DEFAULT gen_random_uuid(),
++    -- Delivery order within one aggregate (user id); a row waits while an older one is pending.
++    seq             bigserial      NOT NULL UNIQUE,
++    aggregate_id    uuid           NOT NULL,
++    kind            varchar(40)    NOT NULL,
++    payload         jsonb          NOT NULL DEFAULT '{}'::jsonb,
++    idem_key        varchar(200)   NOT NULL UNIQUE,
++    status          varchar(10)    NOT NULL DEFAULT 'PENDING'
++        CONSTRAINT ck_user_outbox_status CHECK (status IN ('PENDING', 'DONE', 'DEAD')),
++    attempts        integer        NOT NULL DEFAULT 0,
++    next_attempt_at timestamptz    NOT NULL DEFAULT now(),
++    last_error      varchar(500),
++    created_at      timestamptz    NOT NULL DEFAULT now(),
++    done_at         timestamptz
++);
++CREATE INDEX ix_user_outbox_due ON users.outbox (next_attempt_at, seq) WHERE status = 'PENDING';
++CREATE INDEX ix_user_outbox_aggregate_pending ON users.outbox (aggregate_id, seq) WHERE status = 'PENDING';
++CREATE INDEX ix_user_outbox_dead ON users.outbox (created_at) WHERE status = 'DEAD';
+diff --git a/services/user-service/user-service-app/src/test/java/com/acme/ecommerce/user/outbox/OutboxMigrationIT.java b/services/user-service/user-service-app/src/test/java/com/acme/ecommerce/user/outbox/OutboxMigrationIT.java
+new file mode 100644
+index 0000000..55499af
+--- /dev/null
++++ b/services/user-service/user-service-app/src/test/java/com/acme/ecommerce/user/outbox/OutboxMigrationIT.java
+@@ -0,0 +1,64 @@
++package com.acme.ecommerce.user.outbox;
++
++import static org.assertj.core.api.Assertions.assertThat;
++
++import com.acme.ecommerce.user.support.AbstractUserIntegrationTest;
++import java.io.IOException;
++import java.io.InputStream;
++import java.nio.charset.StandardCharsets;
++import java.util.List;
++import java.util.regex.Pattern;
++import org.junit.jupiter.api.DisplayName;
++import org.junit.jupiter.api.Test;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.jdbc.core.simple.JdbcClient;
++
++/** AC-9: V6 adds users.outbox with its three partial indexes and nothing destructive. */
++class OutboxMigrationIT extends AbstractUserIntegrationTest {
++
++  private static final Pattern DESTRUCTIVE =
++      Pattern.compile("\\b(ALTER|DROP|TRUNCATE)\\b", Pattern.CASE_INSENSITIVE);
++
++  @Autowired private JdbcClient jdbc;
++
++  @Test
++  @DisplayName("Flyway is at version 6 with users.outbox and its 3 indexes")
++  void tableAndIndexesExist() {
++    Integer max =
++        jdbc.sql(
++                "SELECT max(version::int) FROM users.flyway_schema_history WHERE success"
++                    + " AND version IS NOT NULL")
++            .query(Integer.class)
++            .single();
++    assertThat(max).isEqualTo(6);
++    assertThat(
++            jdbc.sql("SELECT to_regclass('users.outbox') IS NOT NULL")
++                .query(Boolean.class)
++                .single())
++        .isTrue();
++    List<String> indexes =
++        jdbc.sql(
++                "SELECT indexname FROM pg_indexes WHERE schemaname = 'users' AND tablename = 'outbox'")
++            .query(String.class)
++            .list();
++    assertThat(indexes)
++        .contains("ix_user_outbox_due", "ix_user_outbox_aggregate_pending", "ix_user_outbox_dead");
++  }
++
++  @Test
++  @DisplayName("V6 is additive: no ALTER, DROP or TRUNCATE")
++  void additiveOnly() throws IOException {
++    try (InputStream in = getClass().getResourceAsStream("/db/migration/V6__outbox.sql")) {
++      String sql = new String(in.readAllBytes(), StandardCharsets.UTF_8);
++      assertThat(sql).doesNotContainPattern(DESTRUCTIVE);
++    }
++  }
++
++  @Test
++  @DisplayName("the destructive-DDL guard pattern matches what it should")
++  void guardPatternBites() {
++    assertThat(DESTRUCTIVE.matcher("DROP\nTABLE x").find()).isTrue();
++    assertThat(DESTRUCTIVE.matcher("alter table y").find()).isTrue();
++    assertThat(DESTRUCTIVE.matcher("CREATE TABLE altered_things (id int)").find()).isFalse();
++  }
++}
+diff --git a/services/user-service/user-service-app/src/test/java/com/acme/ecommerce/user/outbox/UserDeletionOutboxIT.java b/services/user-service/user-service-app/src/test/java/com/acme/ecommerce/user/outbox/UserDeletionOutboxIT.java
+new file mode 100644
+index 0000000..63c2437
+--- /dev/null
++++ b/services/user-service/user-service-app/src/test/java/com/acme/ecommerce/user/outbox/UserDeletionOutboxIT.java
+@@ -0,0 +1,213 @@
++package com.acme.ecommerce.user.outbox;
++
++import static org.assertj.core.api.Assertions.assertThat;
++import static org.mockito.ArgumentMatchers.any;
++import static org.mockito.ArgumentMatchers.anyString;
++import static org.mockito.Mockito.reset;
++import static org.mockito.Mockito.when;
++
++import com.acme.ecommerce.user.privacy.PrivacyKafkaConfig.PrivacyHttp;
++import com.acme.ecommerce.user.privacy.PrivacyService;
++import com.acme.ecommerce.user.support.AbstractUserIntegrationTest;
++import java.time.Instant;
++import java.util.UUID;
++import java.util.concurrent.CompletableFuture;
++import org.junit.jupiter.api.BeforeEach;
++import org.junit.jupiter.api.DisplayName;
++import org.junit.jupiter.api.Test;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.jdbc.core.simple.JdbcClient;
++import org.springframework.kafka.core.KafkaTemplate;
++import org.springframework.test.context.bean.override.mockito.MockitoBean;
++
++/** AC-1, AC-2, AC-5: account deletion is one transaction and never talks to Kafka itself. */
++class UserDeletionOutboxIT extends AbstractUserIntegrationTest {
++
++  @MockitoBean private PrivacyHttp privacyHttp;
++
++  @MockitoBean(name = "privacyKafkaTemplate")
++  private KafkaTemplate<String, String> kafka;
++
++  @Autowired private PrivacyService privacy;
++  @Autowired private JdbcClient jdbc;
++
++  @BeforeEach
++  void stubs() {
++    reset(kafka);
++    when(privacyHttp.get(anyString(), anyString(), any(Object[].class))).thenReturn("{}");
++  }
++
++  private UUID seedDue() {
++    UUID u = UUID.randomUUID();
++    jdbc.sql(
++            "INSERT INTO users.user_profiles (user_id, email, display_name, phone) VALUES (:u,"
++                + " 'del-' || :u || '@example.com', 'Dee Leted', '+15550001111')")
++        .param("u", u)
++        .update();
++    jdbc.sql(
++            "INSERT INTO users.addresses (user_id, full_name, line1, city, postal_code, country)"
++                + " VALUES (:u, 'Dee Leted', '1 Main St', 'Town', '12345', 'US')")
++        .param("u", u)
++        .update();
++    jdbc.sql(
++            "INSERT INTO users.deletion_requests (user_id, email, status, scheduled_for) VALUES"
++                + " (:u, 'del@example.com', 'SCHEDULED', now() - interval '1 minute')")
++        .param("u", u)
++        .update();
++    return u;
++  }
++
++  private int count(String sql, UUID u) {
++    return jdbc.sql(sql).param("u", u).query(Integer.class).single();
++  }
++
++  private String requestStatus(UUID u) {
++    return jdbc.sql("SELECT status FROM users.deletion_requests WHERE user_id = :u")
++        .param("u", u)
++        .query(String.class)
++        .single();
++  }
++
++  private int outboxRows(UUID u) {
++    return count("SELECT count(*) FROM users.outbox WHERE aggregate_id = :u", u);
++  }
++
++  @Test
++  @DisplayName("AC-1: a due request gives one PENDING row, an anonymised profile and COMPLETED")
++  void atomic() {
++    UUID u = seedDue();
++    assertThat(privacy.runDue(Instant.now())).isGreaterThanOrEqualTo(1);
++
++    assertThat(requestStatus(u)).isEqualTo("COMPLETED");
++    assertThat(
++            count(
++                "SELECT count(*) FROM users.outbox WHERE aggregate_id = :u AND status = 'PENDING'"
++                    + " AND kind = 'USER_DELETED'",
++                u))
++        .isEqualTo(1);
++    assertThat(count("SELECT count(*) FROM users.addresses WHERE user_id = :u", u)).isZero();
++    assertThat(
++            count(
++                "SELECT count(*) FROM users.user_profiles WHERE user_id = :u AND email IS NULL"
++                    + " AND phone IS NULL AND display_name = 'Deleted user'",
++                u))
++        .isEqualTo(1);
++  }
++
++  @Test
++  @DisplayName("AC-1: a failing enqueue rolls back the erasure and leaves the request SCHEDULED")
++  void forcedFailureRollsBack() {
++    UUID u = seedDue();
++    jdbc.sql(
++            "CREATE OR REPLACE FUNCTION users.fail_outbox() RETURNS trigger AS $$ BEGIN RAISE"
++                + " EXCEPTION 'forced outbox failure'; END $$ LANGUAGE plpgsql")
++        .update();
++    jdbc.sql(
++            "CREATE TRIGGER trg_fail_outbox BEFORE INSERT ON users.outbox FOR EACH ROW EXECUTE"
++                + " FUNCTION users.fail_outbox()")
++        .update();
++    try {
++      privacy.runDue(Instant.now());
++    } finally {
++      jdbc.sql("DROP TRIGGER trg_fail_outbox ON users.outbox").update();
++      jdbc.sql("DROP FUNCTION users.fail_outbox()").update();
++    }
++
++    assertThat(outboxRows(u)).isZero();
++    assertThat(requestStatus(u)).isEqualTo("SCHEDULED");
++    assertThat(
++            count(
++                "SELECT count(*) FROM users.user_profiles WHERE user_id = :u AND email LIKE"
++                    + " 'del-%'",
++                u))
++        .isEqualTo(1);
++    assertThat(count("SELECT count(*) FROM users.addresses WHERE user_id = :u", u)).isEqualTo(1);
++    // keep other tests' runDue counts independent of this leftover request
++    jdbc.sql("UPDATE users.deletion_requests SET status = 'CANCELLED' WHERE user_id = :u")
++        .param("u", u)
++        .update();
++  }
++
++  @Test
++  @DisplayName("AC-2: Kafka down does not affect completion; the row stays PENDING")
++  void kafkaFailureDoesNotMatter() {
++    when(kafka.send(anyString(), anyString(), anyString()))
++        .thenReturn(CompletableFuture.failedFuture(new RuntimeException("broker down")));
++    UUID u = seedDue();
++    privacy.runDue(Instant.now());
++
++    assertThat(requestStatus(u)).isEqualTo("COMPLETED");
++    assertThat(
++            count(
++                "SELECT count(*) FROM users.outbox WHERE aggregate_id = :u AND status = 'PENDING'"
++                    + " AND attempts = 0",
++                u))
++        .isEqualTo(1);
++  }
++
++  @Test
++  @DisplayName("AC-2: a throwing Kafka template is never called by runDue")
++  void kafkaThrowingIsNotCalled() {
++    when(kafka.send(anyString(), anyString(), anyString())).thenThrow(new IllegalStateException());
++    UUID u = seedDue();
++    assertThat(privacy.runDue(Instant.now())).isGreaterThanOrEqualTo(1);
++    assertThat(requestStatus(u)).isEqualTo("COMPLETED");
++    assertThat(outboxRows(u)).isEqualTo(1);
++  }
++
++  @Test
++  @DisplayName("AC-5: running twice, or re-running a reset request, still gives one row")
++  void idempotent() {
++    UUID u = seedDue();
++    privacy.runDue(Instant.now());
++    privacy.runDue(Instant.now());
++    assertThat(outboxRows(u)).isEqualTo(1);
++
++    jdbc.sql("UPDATE users.deletion_requests SET status = 'SCHEDULED' WHERE user_id = :u")
++        .param("u", u)
++        .update();
++    privacy.runDue(Instant.now());
++    assertThat(outboxRows(u)).isEqualTo(1);
++  }
++
++  @Test
++  @DisplayName("a deletion cancelled during the grace period leaves no outbox row")
++  void cancelLeavesNothing() {
++    UUID u = seedDue();
++    jdbc.sql(
++            "UPDATE users.deletion_requests SET scheduled_for = now() + interval '3 days'"
++                + " WHERE user_id = :u")
++        .param("u", u)
++        .update();
++    privacy.cancelDeletion(u);
++    privacy.runDue(Instant.now());
++    assertThat(requestStatus(u)).isEqualTo("CANCELLED");
++    assertThat(outboxRows(u)).isZero();
++  }
++
++  @Test
++  @DisplayName("a request cancelled while the blocker check runs is not erased")
++  void cancelledDuringBlockerCheckIsNotErased() {
++    UUID u = seedDue();
++    when(privacyHttp.get(anyString(), anyString(), any(Object[].class)))
++        .thenAnswer(
++            inv -> {
++              jdbc.sql("UPDATE users.deletion_requests SET status = 'CANCELLED' WHERE user_id = :u")
++                  .param("u", u)
++                  .update();
++              return "{}";
++            });
++
++    privacy.runDue(Instant.now());
++
++    assertThat(requestStatus(u)).isEqualTo("CANCELLED");
++    assertThat(
++            count(
++                "SELECT count(*) FROM users.user_profiles WHERE user_id = :u AND email LIKE"
++                    + " 'del-%'",
++                u))
++        .isEqualTo(1);
++    assertThat(count("SELECT count(*) FROM users.addresses WHERE user_id = :u", u)).isEqualTo(1);
++    assertThat(outboxRows(u)).isZero();
++  }
++}
+diff --git a/services/user-service/user-service-app/src/test/java/com/acme/ecommerce/user/outbox/UserOutboxAdminMvcTest.java b/services/user-service/user-service-app/src/test/java/com/acme/ecommerce/user/outbox/UserOutboxAdminMvcTest.java
+new file mode 100644
+index 0000000..c28f82a
+--- /dev/null
++++ b/services/user-service/user-service-app/src/test/java/com/acme/ecommerce/user/outbox/UserOutboxAdminMvcTest.java
+@@ -0,0 +1,224 @@
++package com.acme.ecommerce.user.outbox;
++
++import static org.assertj.core.api.Assertions.assertThat;
++import static org.mockito.ArgumentMatchers.anyString;
++import static org.mockito.Mockito.reset;
++import static org.mockito.Mockito.when;
++import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
++import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
++import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
++
++import com.acme.ecommerce.common.security.PlatformJwtAuthenticationConverter;
++import com.acme.ecommerce.user.support.AbstractUserIntegrationTest;
++import com.fasterxml.jackson.databind.JsonNode;
++import com.fasterxml.jackson.databind.ObjectMapper;
++import java.time.Instant;
++import java.util.List;
++import java.util.UUID;
++import java.util.concurrent.CompletableFuture;
++import org.junit.jupiter.api.BeforeEach;
++import org.junit.jupiter.api.DisplayName;
++import org.junit.jupiter.api.Test;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
++import org.springframework.jdbc.core.simple.JdbcClient;
++import org.springframework.kafka.core.KafkaTemplate;
++import org.springframework.security.oauth2.jwt.Jwt;
++import org.springframework.test.context.bean.override.mockito.MockitoBean;
++import org.springframework.test.web.servlet.MockMvc;
++import org.springframework.test.web.servlet.request.RequestPostProcessor;
++
++/** AC-8: the admin outbox endpoints; C1 role mapping goes through the real converter. */
++@AutoConfigureMockMvc
++class UserOutboxAdminMvcTest extends AbstractUserIntegrationTest {
++
++  private static final String BASE = "/api/users/admin/outbox";
++
++  @MockitoBean(name = "privacyKafkaTemplate")
++  private KafkaTemplate<String, String> kafka;
++
++  @Autowired private MockMvc mockMvc;
++  @Autowired private ObjectMapper objectMapper;
++  @Autowired private JdbcClient jdbc;
++  @Autowired private UserOutboxRelay relay;
++
++  @BeforeEach
++  void clean() {
++    reset(kafka);
++    when(kafka.send(anyString(), anyString(), anyString()))
++        .thenReturn(CompletableFuture.completedFuture(null));
++    jdbc.sql("DELETE FROM users.outbox").update();
++  }
++
++  /**
++   * A token as auth-service issues it: a {@code roles} claim, converted by the platform converter.
++   */
++  private static RequestPostProcessor withRole(String role) {
++    Jwt token =
++        Jwt.withTokenValue("t")
++            .header("alg", "RS256")
++            .subject(UUID.randomUUID().toString())
++            .claim("roles", List.of(role))
++            .issuedAt(Instant.now())
++            .expiresAt(Instant.now().plusSeconds(60))
++            .build();
++    return authentication(new PlatformJwtAuthenticationConverter().convert(token));
++  }
++
++  private UUID insert(String status, int attempts) {
++    UUID user = UUID.randomUUID();
++    return jdbc.sql(
++            "INSERT INTO users.outbox (aggregate_id, kind, payload, idem_key, status, attempts,"
++                + " last_error) VALUES (:u, 'USER_DELETED', CAST(:p AS jsonb), :i, :s, :n, 'boom')"
++                + " RETURNING id")
++        .param("u", user)
++        .param(
++            "p",
++            UserOutbox.toJson(
++                new UserOutbox.UserDeletedEvent("e", "USER_DELETED", user.toString(), "t")))
++        .param("i", "USER_DELETED:" + user)
++        .param("s", status)
++        .param("n", attempts)
++        .query(UUID.class)
++        .single();
++  }
++
++  @Test
++  @DisplayName("the platform converter maps the roles claim ADMIN to ROLE_ADMIN")
++  void converterMapsAdmin() {
++    Jwt token =
++        Jwt.withTokenValue("t")
++            .header("alg", "RS256")
++            .subject("s")
++            .claim("roles", List.of("ADMIN"))
++            .build();
++    var auth = new PlatformJwtAuthenticationConverter().convert(token);
++    assertThat(auth.getAuthorities()).extracting("authority").contains("ROLE_ADMIN");
++  }
++
++  @Test
++  @DisplayName("GET: ADMIN 200 without payload, CUSTOMER 403, anonymous 401")
++  void listSecurity() throws Exception {
++    insert("DEAD", 20);
++    String body =
++        mockMvc
++            .perform(get(BASE).with(withRole("ADMIN")))
++            .andExpect(
++                org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isOk())
++            .andReturn()
++            .getResponse()
++            .getContentAsString();
++    JsonNode first = objectMapper.readTree(body).get(0);
++    assertThat(first.get("attempts").asInt()).isEqualTo(20);
++    assertThat(first.get("lastError").asText()).isEqualTo("boom");
++    assertThat(first.get("kind").asText()).isEqualTo("USER_DELETED");
++    assertThat(first.has("payload")).isFalse();
++    assertThat(body).doesNotContain("eventId");
++
++    assertThat(
++            mockMvc
++                .perform(get(BASE).with(withRole("CUSTOMER")))
++                .andReturn()
++                .getResponse()
++                .getStatus())
++        .isEqualTo(403);
++    assertThat(mockMvc.perform(get(BASE)).andReturn().getResponse().getStatus()).isEqualTo(401);
++  }
++
++  @Test
++  @DisplayName("POST retry: ADMIN 200, CUSTOMER 403, anonymous 401")
++  void retrySecurity() throws Exception {
++    UUID id = insert("DEAD", 20);
++    String url = BASE + "/" + id + "/retry";
++    assertThat(
++            mockMvc
++                .perform(post(url).with(withRole("CUSTOMER")))
++                .andReturn()
++                .getResponse()
++                .getStatus())
++        .isEqualTo(403);
++    assertThat(mockMvc.perform(post(url)).andReturn().getResponse().getStatus()).isEqualTo(401);
++    assertThat(
++            mockMvc
++                .perform(post(url).with(withRole("ADMIN")))
++                .andReturn()
++                .getResponse()
++                .getStatus())
++        .isEqualTo(200);
++  }
++
++  @Test
++  @DisplayName("GET: a status other than DEAD or PENDING is 400")
++  void badStatus() throws Exception {
++    assertThat(
++            mockMvc
++                .perform(get(BASE).param("status", "DONE").with(withRole("ADMIN")))
++                .andReturn()
++                .getResponse()
++                .getStatus())
++        .isEqualTo(400);
++    assertThat(
++            mockMvc
++                .perform(get(BASE).param("status", "pending").with(withRole("ADMIN")))
++                .andReturn()
++                .getResponse()
++                .getStatus())
++        .isEqualTo(200);
++  }
++
++  @Test
++  @DisplayName("GET is capped at 200 rows")
++  void capped() throws Exception {
++    jdbc.sql(
++            "INSERT INTO users.outbox (aggregate_id, kind, idem_key, status) SELECT"
++                + " gen_random_uuid(), 'USER_DELETED', 'cap-' || g, 'DEAD' FROM"
++                + " generate_series(1, 205) g")
++        .update();
++    JsonNode rows =
++        objectMapper.readTree(
++            mockMvc
++                .perform(get(BASE).with(withRole("ADMIN")))
++                .andReturn()
++                .getResponse()
++                .getContentAsString());
++    assertThat(rows).hasSize(200);
++  }
++
++  @Test
++  @DisplayName("retry puts a DEAD row back to PENDING and the relay then delivers it")
++  void retryThenDeliver() throws Exception {
++    UUID id = insert("DEAD", 20);
++    assertThat(
++            mockMvc
++                .perform(post(BASE + "/" + id + "/retry").with(withRole("ADMIN")))
++                .andReturn()
++                .getResponse()
++                .getStatus())
++        .isEqualTo(200);
++    assertThat(statusOf(id)).isEqualTo("PENDING");
++    relay.relay();
++    assertThat(statusOf(id)).isEqualTo("DONE");
++  }
++
++  @Test
++  @DisplayName("retry on a PENDING row or an unknown id is 404")
++  void retryNotFound() throws Exception {
++    UUID pending = insert("PENDING", 0);
++    for (UUID id : List.of(pending, UUID.randomUUID())) {
++      assertThat(
++              mockMvc
++                  .perform(post(BASE + "/" + id + "/retry").with(withRole("ADMIN")))
++                  .andReturn()
++                  .getResponse()
++                  .getStatus())
++          .isEqualTo(404);
++    }
++  }
++
++  private String statusOf(UUID id) {
++    return jdbc.sql("SELECT status FROM users.outbox WHERE id = :i")
++        .param("i", id)
++        .query(String.class)
++        .single();
++  }
++}
+diff --git a/services/user-service/user-service-app/src/test/java/com/acme/ecommerce/user/outbox/UserOutboxIT.java b/services/user-service/user-service-app/src/test/java/com/acme/ecommerce/user/outbox/UserOutboxIT.java
+new file mode 100644
+index 0000000..e97687a
+--- /dev/null
++++ b/services/user-service/user-service-app/src/test/java/com/acme/ecommerce/user/outbox/UserOutboxIT.java
+@@ -0,0 +1,86 @@
++package com.acme.ecommerce.user.outbox;
++
++import static org.assertj.core.api.Assertions.assertThat;
++
++import com.acme.ecommerce.user.outbox.UserOutbox.UserDeletedEvent;
++import com.acme.ecommerce.user.support.AbstractUserIntegrationTest;
++import com.fasterxml.jackson.databind.JsonNode;
++import com.fasterxml.jackson.databind.ObjectMapper;
++import java.time.Instant;
++import java.util.ArrayList;
++import java.util.List;
++import java.util.UUID;
++import org.junit.jupiter.api.DisplayName;
++import org.junit.jupiter.api.Test;
++import org.junit.jupiter.api.extension.ExtendWith;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.boot.test.system.CapturedOutput;
++import org.springframework.boot.test.system.OutputCaptureExtension;
++import org.springframework.jdbc.core.simple.JdbcClient;
++
++@ExtendWith(OutputCaptureExtension.class)
++class UserOutboxIT extends AbstractUserIntegrationTest {
++
++  @Autowired private UserOutbox outbox;
++  @Autowired private JdbcClient jdbc;
++
++  private static UserDeletedEvent event(UUID user) {
++    return new UserDeletedEvent(
++        UUID.randomUUID().toString(), "USER_DELETED", user.toString(), Instant.now().toString());
++  }
++
++  @Test
++  @DisplayName("AC-5: enqueue twice for one user gives one row")
++  void enqueueIsIdempotent(CapturedOutput output) {
++    UUID user = UUID.randomUUID();
++    outbox.enqueue(user, event(user));
++    assertThat(output.getOut()).doesNotContain("duplicate suppressed: userId=" + user);
++    outbox.enqueue(user, event(user));
++    assertThat(output.getOut())
++        .contains("WARN")
++        .contains("duplicate suppressed: userId=" + user)
++        .doesNotContain("@example.com");
++    assertThat(
++            jdbc.sql("SELECT count(*) FROM users.outbox WHERE aggregate_id = :u")
++                .param("u", user)
++                .query(Integer.class)
++                .single())
++        .isEqualTo(1);
++  }
++
++  @Test
++  @DisplayName("AC-10: payload keys are exactly eventId, type, userId, occurredAt")
++  void payloadKeys() throws Exception {
++    UUID user = UUID.randomUUID();
++    outbox.enqueue(user, event(user));
++    String payload =
++        jdbc.sql("SELECT CAST(payload AS text) FROM users.outbox WHERE aggregate_id = :u")
++            .param("u", user)
++            .query(String.class)
++            .single();
++    JsonNode node = new ObjectMapper().readTree(payload);
++    List<String> keys = new ArrayList<>();
++    node.fieldNames().forEachRemaining(keys::add);
++    assertThat(keys).containsExactlyInAnyOrder("eventId", "type", "userId", "occurredAt");
++    assertThat(node.get("userId").asText()).isEqualTo(user.toString());
++  }
++
++  @Test
++  @DisplayName("C5: serialised event equals the legacy hand-built string")
++  void wireFormatMatchesLegacy() {
++    UUID user = UUID.randomUUID();
++    String eventId = UUID.randomUUID().toString();
++    String at = Instant.now().toString();
++    String legacy =
++        "{\"eventId\":\""
++            + eventId
++            + "\",\"type\":\"USER_DELETED\",\"userId\":\""
++            + user
++            + "\",\"occurredAt\":\""
++            + at
++            + "\"}";
++    assertThat(
++            UserOutbox.toJson(new UserDeletedEvent(eventId, "USER_DELETED", user.toString(), at)))
++        .isEqualTo(legacy);
++  }
++}
+diff --git a/services/user-service/user-service-app/src/test/java/com/acme/ecommerce/user/outbox/UserOutboxRelayIT.java b/services/user-service/user-service-app/src/test/java/com/acme/ecommerce/user/outbox/UserOutboxRelayIT.java
+new file mode 100644
+index 0000000..25adaa9
+--- /dev/null
++++ b/services/user-service/user-service-app/src/test/java/com/acme/ecommerce/user/outbox/UserOutboxRelayIT.java
+@@ -0,0 +1,280 @@
++package com.acme.ecommerce.user.outbox;
++
++import static org.assertj.core.api.Assertions.assertThat;
++import static org.mockito.ArgumentMatchers.anyString;
++import static org.mockito.ArgumentMatchers.eq;
++import static org.mockito.Mockito.never;
++import static org.mockito.Mockito.reset;
++import static org.mockito.Mockito.times;
++import static org.mockito.Mockito.verify;
++import static org.mockito.Mockito.when;
++
++import com.acme.ecommerce.user.outbox.UserOutbox.UserDeletedEvent;
++import com.acme.ecommerce.user.support.AbstractUserIntegrationTest;
++import com.fasterxml.jackson.databind.JsonNode;
++import com.fasterxml.jackson.databind.ObjectMapper;
++import java.time.Instant;
++import java.util.ArrayList;
++import java.util.List;
++import java.util.UUID;
++import java.util.concurrent.CompletableFuture;
++import java.util.concurrent.CountDownLatch;
++import java.util.concurrent.TimeUnit;
++import org.junit.jupiter.api.BeforeEach;
++import org.junit.jupiter.api.DisplayName;
++import org.junit.jupiter.api.Test;
++import org.junit.jupiter.api.extension.ExtendWith;
++import org.mockito.ArgumentCaptor;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.boot.test.system.CapturedOutput;
++import org.springframework.boot.test.system.OutputCaptureExtension;
++import org.springframework.jdbc.core.simple.JdbcClient;
++import org.springframework.kafka.core.KafkaTemplate;
++import org.springframework.test.context.bean.override.mockito.MockitoBean;
++
++/** AC-3, AC-4, AC-5 (relay once), AC-6, AC-10 for {@link UserOutboxRelay}. */
++@ExtendWith(OutputCaptureExtension.class)
++class UserOutboxRelayIT extends AbstractUserIntegrationTest {
++
++  @MockitoBean(name = "privacyKafkaTemplate")
++  private KafkaTemplate<String, String> kafka;
++
++  @Autowired private UserOutbox outbox;
++  @Autowired private UserOutboxRelay relay;
++  @Autowired private JdbcClient jdbc;
++
++  @BeforeEach
++  void clean() {
++    reset(kafka);
++    jdbc.sql("DELETE FROM users.outbox").update();
++    when(kafka.send(anyString(), anyString(), anyString()))
++        .thenReturn(CompletableFuture.completedFuture(null));
++  }
++
++  private static UserDeletedEvent event(UUID user) {
++    return new UserDeletedEvent(
++        UUID.randomUUID().toString(), "USER_DELETED", user.toString(), Instant.now().toString());
++  }
++
++  private UUID enqueued() {
++    UUID u = UUID.randomUUID();
++    outbox.enqueue(u, event(u));
++    return u;
++  }
++
++  private String status(UUID u) {
++    return jdbc.sql("SELECT status FROM users.outbox WHERE aggregate_id = :u")
++        .param("u", u)
++        .query(String.class)
++        .single();
++  }
++
++  private void insertRaw(UUID u, String idem, String payload, String nextAttempt) {
++    jdbc.sql(
++            "INSERT INTO users.outbox (aggregate_id, kind, payload, idem_key, next_attempt_at)"
++                + " VALUES (:u, 'USER_DELETED', CAST(:p AS jsonb), :i, "
++                + nextAttempt
++                + ")")
++        .param("u", u)
++        .param("p", payload)
++        .param("i", idem)
++        .update();
++  }
++
++  @Test
++  @DisplayName("AC-3: sends once to user.events keyed by userId, legacy wire format, row DONE")
++  void deliversOnce() throws Exception {
++    UUID u = enqueued();
++    relay.relay();
++
++    ArgumentCaptor<String> json = ArgumentCaptor.forClass(String.class);
++    verify(kafka).send(eq("user.events"), eq(u.toString()), json.capture());
++    JsonNode node = new ObjectMapper().readTree(json.getValue());
++    List<String> keys = new ArrayList<>();
++    node.fieldNames().forEachRemaining(keys::add);
++    assertThat(keys).containsExactly("eventId", "type", "userId", "occurredAt");
++    assertThat(node.get("type").asText()).isEqualTo("USER_DELETED");
++    assertThat(node.get("userId").asText()).isEqualTo(u.toString());
++    assertThat(Instant.parse(node.get("occurredAt").asText())).isNotNull();
++    assertThat(json.getValue())
++        .isEqualTo(
++            "{\"eventId\":\""
++                + node.get("eventId").asText()
++                + "\",\"type\":\"USER_DELETED\",\"userId\":\""
++                + u
++                + "\",\"occurredAt\":\""
++                + node.get("occurredAt").asText()
++                + "\"}");
++    assertThat(status(u)).isEqualTo("DONE");
++  }
++
++  @Test
++  @DisplayName("AC-5: relay twice sends once")
++  void relayTwiceSendsOnce() {
++    enqueued();
++    relay.relay();
++    relay.relay();
++    verify(kafka, times(1)).send(anyString(), anyString(), anyString());
++  }
++
++  @Test
++  @DisplayName("AC-4: a failed send backs off")
++  void failureBacksOff() {
++    when(kafka.send(anyString(), anyString(), anyString()))
++        .thenReturn(CompletableFuture.failedFuture(new RuntimeException("broker down")));
++    UUID u = enqueued();
++    relay.relay();
++
++    assertThat(status(u)).isEqualTo("PENDING");
++    assertThat(
++            jdbc.sql(
++                    "SELECT count(*) FROM users.outbox WHERE aggregate_id = :u AND attempts = 1"
++                        + " AND next_attempt_at > now() + interval '1 second' AND last_error LIKE"
++                        + " '%broker down%'")
++                .param("u", u)
++                .query(Integer.class)
++                .single())
++        .isEqualTo(1);
++  }
++
++  @Test
++  @DisplayName("AC-4: the 20th failure makes the row DEAD and logs OUTBOX DEAD at ERROR")
++  void deadAfterMaxAttempts(CapturedOutput output) {
++    when(kafka.send(anyString(), anyString(), anyString()))
++        .thenReturn(CompletableFuture.failedFuture(new RuntimeException("broker down")));
++    UUID u = enqueued();
++    jdbc.sql("UPDATE users.outbox SET attempts = 19 WHERE aggregate_id = :u")
++        .param("u", u)
++        .update();
++    relay.relay();
++
++    assertThat(status(u)).isEqualTo("DEAD");
++    assertThat(output.getAll()).containsPattern("ERROR.*OUTBOX DEAD");
++  }
++
++  @Test
++  @DisplayName("AC-6: two scheduled runs at once send once")
++  void onlyOneRelayRuns() throws Exception {
++    CountDownLatch inSend = new CountDownLatch(1);
++    CountDownLatch release = new CountDownLatch(1);
++    when(kafka.send(anyString(), anyString(), anyString()))
++        .thenAnswer(
++            inv -> {
++              inSend.countDown();
++              release.await(20, TimeUnit.SECONDS);
++              return CompletableFuture.completedFuture(null);
++            });
++    enqueued();
++
++    Thread a = new Thread(relay::scheduledRun, "relay-a");
++    a.start();
++    assertThat(inSend.await(20, TimeUnit.SECONDS)).isTrue();
++    relay.scheduledRun(); // B: lock is held, returns without sending
++    release.countDown();
++    a.join(20_000);
++
++    verify(kafka, times(1)).send(anyString(), anyString(), anyString());
++  }
++
++  @Test
++  @DisplayName("AC-6: a newer row waits while an older row of the same user is backed off")
++  void ordering() {
++    UUID u = UUID.randomUUID();
++    String payload = UserOutbox.toJson(event(u));
++    insertRaw(u, "ORDER-OLD:" + u, payload, "now() + interval '1 hour'");
++    insertRaw(u, "ORDER-NEW:" + u, payload, "now()");
++    relay.relay();
++    verify(kafka, never()).send(anyString(), anyString(), anyString());
++  }
++
++  @Test
++  @DisplayName("a corrupt payload goes DEAD with constant text and blocks nobody else")
++  void poisonRowDoesNotBlock() {
++    UUID bad = UUID.randomUUID();
++    insertRaw(bad, "USER_DELETED:" + bad, "{\"eventId\":{\"v\":\"x\"}}", "now()");
++    UUID good = enqueued();
++    jdbc.sql("UPDATE users.outbox SET attempts = 19 WHERE aggregate_id = :u")
++        .param("u", bad)
++        .update();
++    relay.relay();
++
++    assertThat(status(bad)).isEqualTo("DEAD");
++    assertThat(
++            jdbc.sql("SELECT last_error FROM users.outbox WHERE aggregate_id = :u")
++                .param("u", bad)
++                .query(String.class)
++                .single())
++        .isEqualTo("java.lang.IllegalStateException: Corrupt outbox payload");
++    assertThat(status(good)).isEqualTo("DONE");
++  }
++
++  @Test
++  @DisplayName("a null or userId-less payload goes DEAD as corrupt and is never sent")
++  void emptyPayloadsAreCorrupt() {
++    for (String payload : new String[] {"null", "{}"}) {
++      UUID bad = UUID.randomUUID();
++      insertRaw(bad, "USER_DELETED:" + bad, payload, "now()");
++      jdbc.sql("UPDATE users.outbox SET attempts = 19 WHERE aggregate_id = :u")
++          .param("u", bad)
++          .update();
++      relay.relay();
++      assertThat(status(bad)).isEqualTo("DEAD");
++      assertThat(
++              jdbc.sql("SELECT last_error FROM users.outbox WHERE aggregate_id = :u")
++                  .param("u", bad)
++                  .query(String.class)
++                  .single())
++          .isEqualTo("java.lang.IllegalStateException: Corrupt outbox payload");
++    }
++    verify(kafka, never()).send(anyString(), anyString(), anyString());
++  }
++
++  @Test
++  @DisplayName("describe names the root cause class and message, truncated to 500")
++  void describeUsesRootCause() {
++    assertThat(
++            UserOutboxRelay.describe(
++                new IllegalStateException("wrap", new java.util.concurrent.TimeoutException("t"))))
++        .isEqualTo("java.util.concurrent.TimeoutException: t");
++    assertThat(UserOutboxRelay.describe(new RuntimeException("x".repeat(900)))).hasSize(500);
++  }
++
++  @Test
++  @DisplayName("AC-10: neither payload nor last_error carries the user's email, phone or name")
++  void noPii() {
++    UUID u = UUID.randomUUID();
++    String email = "pii-" + u + "@example.com";
++    jdbc.sql(
++            "INSERT INTO users.user_profiles (user_id, email, display_name, phone) VALUES (:u,"
++                + " :e, 'Zed Zebra', '+15559998888')")
++        .param("u", u)
++        .param("e", email)
++        .update();
++    outbox.enqueue(u, event(u));
++    // a payload the mapper rejects with an input-echoing message (Jackson quotes the source)
++    UUID bad = UUID.randomUUID();
++    // Jackson echoes an unknown property NAME in its message; here the name is the email
++    insertRaw(bad, "USER_DELETED:" + bad, "{\"" + email + "\":\"v\"}", "now()");
++    when(kafka.send(anyString(), anyString(), anyString()))
++        .thenReturn(CompletableFuture.failedFuture(new RuntimeException("x".repeat(2000))));
++    relay.relay();
++
++    for (UUID id : List.of(u, bad)) {
++      var row =
++          jdbc.sql(
++                  "SELECT CAST(payload AS text) AS payload, last_error FROM users.outbox WHERE"
++                      + " aggregate_id = :u")
++              .param("u", id)
++              .query()
++              .singleRow();
++      String text = row.get("payload") + "|" + row.get("last_error");
++      if (id.equals(u)) {
++        assertThat(text).doesNotContain(email).doesNotContain("+15559998888").doesNotContain("Zed");
++        assertThat(((String) row.get("last_error")).length()).isLessThanOrEqualTo(500);
++      } else {
++        assertThat((String) row.get("last_error")).doesNotContain("example.com");
++        assertThat((String) row.get("last_error")).doesNotContain(email);
++      }
++    }
++  }
++}
+diff --git a/services/user-service/user-service-app/src/test/resources/application-test.yml b/services/user-service/user-service-app/src/test/resources/application-test.yml
+index b3afc07..e81b8f5 100644
+--- a/services/user-service/user-service-app/src/test/resources/application-test.yml
++++ b/services/user-service/user-service-app/src/test/resources/application-test.yml
+@@ -15,6 +15,9 @@ user:
+     ip-hash-salt: test-only-referral-salt
+   jwt:
+     jwks-uri: http://localhost:1/.well-known/jwks.json
++  # The outbox relay is driven by the tests (relay()); keep the scheduler out of their way.
++  outbox:
++    initial-delay-ms: 3600000
+ 
+ eureka:
+   client:

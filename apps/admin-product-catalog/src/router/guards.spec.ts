@@ -117,10 +117,22 @@ describe('authentication route guard', () => {
     installFetch(async () => jsonResponse(200, {}));
     const auth = useAuthStore();
     auth.accessToken = 'live-token';
+    auth.user = { ...TEST_USER, roles: ['ADMIN'] };
 
     const result = await createAuthGuard()(targetRoute('/login', { guestOnly: true }));
 
     expect(result).toEqual({ path: '/dashboard' });
+  });
+
+  it('sends a signed-in user with no staff role to the seller application, not the dashboard', async () => {
+    installFetch(async () => jsonResponse(200, {}));
+    const auth = useAuthStore();
+    auth.accessToken = 'live-token';
+    auth.user = { ...TEST_USER, roles: [] };
+
+    const result = await createAuthGuard()(targetRoute('/login', { guestOnly: true }));
+
+    expect(result).toEqual({ path: '/seller/apply' });
   });
 
   it('lets an unauthenticated visitor reach a public route untouched', async () => {

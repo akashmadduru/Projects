@@ -1,0 +1,201 @@
+{
+ "runs": [
+  {
+   "at": "2026-11-19T07:17:30.254Z",
+   "role": "forge-cpo",
+   "tokens": 28532,
+   "tools": 20,
+   "ms": 49505,
+   "round": 0,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-19T07:17:48.846Z",
+   "role": "forge-cto",
+   "tokens": 13356,
+   "tools": 5,
+   "ms": 10656,
+   "round": 0,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-19T15:37:04.957Z",
+   "role": "forge-architect",
+   "tokens": 96853,
+   "tools": 18,
+   "ms": 153274,
+   "round": 0,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-19T15:38:30.433Z",
+   "role": "forge-cto",
+   "tokens": 32209,
+   "tools": 11,
+   "ms": 64108,
+   "round": 0,
+   "outcome": "approve"
+  },
+  {
+   "at": "2026-11-19T15:38:54.111Z",
+   "role": "forge-architect",
+   "tokens": 3822,
+   "tools": 2,
+   "ms": 19647,
+   "round": 0,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-19T15:39:08.087Z",
+   "role": "forge-em",
+   "tokens": 22848,
+   "tools": 5,
+   "ms": 32648,
+   "round": 0,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-19T16:33:09.329Z",
+   "role": "forge-backend-engineer",
+   "tokens": 105046,
+   "tools": 67,
+   "ms": 3215882,
+   "round": 1,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-19T16:56:52.671Z",
+   "role": "forge-reviewer",
+   "tokens": 63010,
+   "tools": 14,
+   "ms": 94825,
+   "round": 1,
+   "outcome": "approve"
+  },
+  {
+   "at": "2026-11-19T16:56:53.066Z",
+   "role": "forge-reviewer-seeded",
+   "tokens": 64110,
+   "tools": 16,
+   "ms": 113649,
+   "round": 0,
+   "outcome": "request_changes"
+  },
+  {
+   "at": "2026-11-19T16:57:21.551Z",
+   "role": "forge-security",
+   "tokens": 59587,
+   "tools": 15,
+   "ms": 127939,
+   "round": 1,
+   "outcome": "approve"
+  },
+  {
+   "at": "2026-11-19T19:40:55.206Z",
+   "role": "forge-backend-engineer",
+   "tokens": 105478,
+   "tools": 9,
+   "ms": 619498,
+   "round": 2,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-19T19:46:22.562Z",
+   "role": "forge-security",
+   "tokens": 60716,
+   "tools": 16,
+   "ms": 86077,
+   "round": 2,
+   "outcome": "approve"
+  },
+  {
+   "at": "2026-11-19T19:48:12.451Z",
+   "role": "forge-reviewer",
+   "tokens": 99408,
+   "tools": 29,
+   "ms": 175700,
+   "round": 2,
+   "outcome": "request_changes"
+  },
+  {
+   "at": "2026-11-19T20:22:04.239Z",
+   "role": "forge-backend-engineer",
+   "tokens": 27614,
+   "tools": 23,
+   "ms": 2023196,
+   "round": 3,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-19T20:32:01.103Z",
+   "role": "forge-security",
+   "tokens": 32307,
+   "tools": 10,
+   "ms": 66059,
+   "round": 3,
+   "outcome": "approve"
+  },
+  {
+   "at": "2026-11-19T20:32:34.233Z",
+   "role": "forge-reviewer",
+   "tokens": 33049,
+   "tools": 14,
+   "ms": 75226,
+   "round": 3,
+   "outcome": "approve"
+  },
+  {
+   "at": "2026-11-20T17:42:51.140Z",
+   "role": "forge-qa",
+   "tokens": 54869,
+   "tools": 13,
+   "ms": 1594180,
+   "round": 0,
+   "outcome": "fail"
+  },
+  {
+   "at": "2026-11-20T18:03:56.338Z",
+   "role": "forge-backend-engineer",
+   "tokens": 25440,
+   "tools": 26,
+   "ms": 1254515,
+   "round": 4,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-20T18:07:50.412Z",
+   "role": "forge-security",
+   "tokens": 35175,
+   "tools": 8,
+   "ms": 35763,
+   "round": 4,
+   "outcome": "approve"
+  },
+  {
+   "at": "2026-11-20T18:09:14.648Z",
+   "role": "forge-reviewer",
+   "tokens": 61374,
+   "tools": 21,
+   "ms": 108882,
+   "round": 4,
+   "outcome": "approve"
+  }
+ ],
+ "events": [
+  {
+   "at": "2026-11-19T07:46:21.137Z",
+   "type": "recovery",
+   "note": "session restart killed architect before output; resumed"
+  },
+  {
+   "at": "2026-11-20T17:42:51.219Z",
+   "type": "gate_fail",
+   "note": "QA found a real defect that review missed: order_items.seller_id is updatable=false, and Order.attach re-tags the item after the first save, so for an owner-less offer line the DB keeps NULL. Before the fix round it stored PLATFORM. Regression introduced in round s2r2 (4ea8ca9); both reviewers approved it."
+  },
+  {
+   "at": "2026-11-20T18:10:02.571Z",
+   "type": "escaped_defect",
+   "note": "Review-escaped, QA-caught (pre-merge): order_items.seller_id persisted NULL at 4ea8ca92; both reviewers approved it; QA test exposed it; fixed in 64fdb21."
+  }
+ ]
+}

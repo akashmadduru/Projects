@@ -10,21 +10,6 @@ import { RequireAuth } from '../components/RequireAuth'
 import { ProductCatalogPage } from '../pages/ProductCatalogPage'
 import { ProductDetailPage } from '../pages/ProductDetailPage'
 import { NotFoundPage } from '../pages/NotFoundPage'
-import { WishlistPage } from '../pages/WishlistPage'
-import { LoginPage } from '../pages/LoginPage'
-import { RegisterPage } from '../pages/RegisterPage'
-import { AuthCallbackPage } from '../pages/AuthCallbackPage'
-import { ForgotPasswordPage } from '../pages/ForgotPasswordPage'
-import { ResetPasswordPage } from '../pages/ResetPasswordPage'
-import { VerifyEmailPage } from '../pages/VerifyEmailPage'
-import { CheckoutPage } from '../pages/CheckoutPage'
-import { OrderPage } from '../pages/OrderPage'
-import { AccountLayout } from '../pages/account/AccountLayout'
-import { OverviewPage } from '../pages/account/OverviewPage'
-import { ProfilePage } from '../pages/account/ProfilePage'
-import { SettingsPage } from '../pages/account/SettingsPage'
-import { AddressesPage } from '../pages/account/AddressesPage'
-import { OrdersPage } from '../pages/account/OrdersPage'
 
 // Heavier or rarely visited routes are split out of the main chunk.
 const SellerPage = lazy(() => import('../pages/SellerPage'))
@@ -55,6 +40,24 @@ const HelpPage = acct(() => import('../pages/help/HelpPage'), 'HelpPage')
 const HelpArticlePage = acct(() => import('../pages/help/HelpArticlePage'), 'HelpArticlePage')
 const SharedListPage = acct(() => import('../pages/SharedListPage'), 'SharedListPage')
 
+// TD-P7-18: checkout (Stripe), orders, sign-in and the account area load on first visit, so the
+// first paint of the catalog and product pages carries none of them.
+const WishlistPage = acct(() => import('../pages/WishlistPage'), 'WishlistPage')
+const LoginPage = acct(() => import('../pages/LoginPage'), 'LoginPage')
+const RegisterPage = acct(() => import('../pages/RegisterPage'), 'RegisterPage')
+const AuthCallbackPage = acct(() => import('../pages/AuthCallbackPage'), 'AuthCallbackPage')
+const ForgotPasswordPage = acct(() => import('../pages/ForgotPasswordPage'), 'ForgotPasswordPage')
+const ResetPasswordPage = acct(() => import('../pages/ResetPasswordPage'), 'ResetPasswordPage')
+const VerifyEmailPage = acct(() => import('../pages/VerifyEmailPage'), 'VerifyEmailPage')
+const CheckoutPage = acct(() => import('../pages/CheckoutPage'), 'CheckoutPage')
+const OrderPage = acct(() => import('../pages/OrderPage'), 'OrderPage')
+const AccountLayout = acct(() => import('../pages/account/AccountLayout'), 'AccountLayout')
+const OverviewPage = acct(() => import('../pages/account/OverviewPage'), 'OverviewPage')
+const ProfilePage = acct(() => import('../pages/account/ProfilePage'), 'ProfilePage')
+const SettingsPage = acct(() => import('../pages/account/SettingsPage'), 'SettingsPage')
+const AddressesPage = acct(() => import('../pages/account/AddressesPage'), 'AddressesPage')
+const OrdersPage = acct(() => import('../pages/account/OrdersPage'), 'OrdersPage')
+
 const lazyElement = (node: React.ReactNode) => <Suspense fallback={<LoadingBlock />}>{node}</Suspense>
 
 export const router = createBrowserRouter([
@@ -80,36 +83,36 @@ export const router = createBrowserRouter([
       { path: '/lists/shared/:token', element: lazyElement(<SharedListPage />) },
       {
         path: '/wishlist',
-        element: <WishlistPage />,
+        element: lazyElement(<WishlistPage />),
       },
       {
         path: '/login',
-        element: <LoginPage />,
+        element: lazyElement(<LoginPage />),
       },
       {
         path: '/register',
-        element: <RegisterPage />,
+        element: lazyElement(<RegisterPage />),
       },
-      { path: '/forgot-password', element: <ForgotPasswordPage /> },
-      { path: '/reset-password', element: <ResetPasswordPage /> },
-      { path: '/verify-email', element: <VerifyEmailPage /> },
+      { path: '/forgot-password', element: lazyElement(<ForgotPasswordPage />) },
+      { path: '/reset-password', element: lazyElement(<ResetPasswordPage />) },
+      { path: '/verify-email', element: lazyElement(<VerifyEmailPage />) },
       {
         path: '/auth/callback',
-        element: <AuthCallbackPage />,
+        element: lazyElement(<AuthCallbackPage />),
       },
       {
         element: <RequireAuth />,
         children: [
-          { path: '/checkout', element: <CheckoutPage /> },
-          { path: '/orders/:id', element: <OrderPage /> },
+          { path: '/checkout', element: lazyElement(<CheckoutPage />) },
+          { path: '/orders/:id', element: lazyElement(<OrderPage />) },
           {
             path: '/account',
-            element: <AccountLayout />,
+            element: lazyElement(<AccountLayout />),
             children: [
-              { index: true, element: <OverviewPage /> },
-              { path: 'profile', element: <ProfilePage /> },
-              { path: 'addresses', element: <AddressesPage /> },
-              { path: 'orders', element: <OrdersPage /> },
+              { index: true, element: lazyElement(<OverviewPage />) },
+              { path: 'profile', element: lazyElement(<ProfilePage />) },
+              { path: 'addresses', element: lazyElement(<AddressesPage />) },
+              { path: 'orders', element: lazyElement(<OrdersPage />) },
               { path: 'recent', element: lazyElement(<RecentlyViewedPage />) },
               { path: 'alerts', element: lazyElement(<AlertsPage />) },
               { path: 'wallet', element: lazyElement(<WalletPage />) },
@@ -127,7 +130,7 @@ export const router = createBrowserRouter([
               { path: 'support', element: lazyElement(<SupportListPage />) },
               { path: 'support/new', element: lazyElement(<NewTicketPage />) },
               { path: 'support/:id', element: lazyElement(<TicketDetailPage />) },
-              { path: 'settings', element: <SettingsPage /> },
+              { path: 'settings', element: lazyElement(<SettingsPage />) },
             ],
           },
         ],

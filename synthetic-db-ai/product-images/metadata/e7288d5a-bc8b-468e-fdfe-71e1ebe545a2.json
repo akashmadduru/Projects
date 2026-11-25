@@ -1,0 +1,13 @@
+{
+ "product_id": "e7288d5a-bc8b-468e-fdfe-71e1ebe545a2",
+ "name": "Lumloba Pressure Cooker Prime",
+ "prompt": "studio packshot photo of a Grey Lumloba Pressure Cooker Prime, made of nylon, cookware, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3295526684,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T01:59:29",
+ "file_path": "product-images/images/e7288d5a-bc8b-468e-fdfe-71e1ebe545a2.jpg",
+ "file_size": 23920
+}

@@ -1,0 +1,13 @@
+{
+ "product_id": "d17bfab7-28e9-4235-1bc3-e1ac88c003a8",
+ "name": "Arqualo Fountain Pen Lite",
+ "prompt": "studio packshot photo of a Space Grey Arqualo Fountain Pen Lite, made of nylon, stationery, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1934562523,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:44:17",
+ "file_path": "product-images/images/d17bfab7-28e9-4235-1bc3-e1ac88c003a8.jpg",
+ "file_size": 43080
+}

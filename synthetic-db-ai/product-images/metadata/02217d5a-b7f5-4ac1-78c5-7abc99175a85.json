@@ -1,0 +1,13 @@
+{
+ "product_id": "02217d5a-b7f5-4ac1-78c5-7abc99175a85",
+ "name": "Loarnu Yoga Mat Elite",
+ "prompt": "studio packshot photo of a Rose Gold Loarnu Yoga Mat Elite, made of glass, fitness, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1243582823,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T01:28:53",
+ "file_path": "product-images/images/02217d5a-b7f5-4ac1-78c5-7abc99175a85.jpg",
+ "file_size": 38939
+}

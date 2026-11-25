@@ -1,0 +1,15 @@
+{
+ "product_id": "0538da63-17eb-4983-2b03-dd7c9da791e3",
+ "name": "Exsu Moisturiser Ultra",
+ "prompt": "studio packshot photo of a Black Exsu Moisturiser Ultra, made of bamboo, skin care, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 716387200,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 768,
+ "created_at": "2026-11-15T22:34:10",
+ "file_path": "static/images/0538da63-17eb-4983-2b03-dd7c9da791e3.jpg",
+ "file_size": 55594,
+ "uploaded": false,
+ "s3_url": null
+}

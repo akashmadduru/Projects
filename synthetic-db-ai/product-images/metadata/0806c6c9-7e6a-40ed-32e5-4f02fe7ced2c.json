@@ -1,0 +1,13 @@
+{
+ "product_id": "0806c6c9-7e6a-40ed-32e5-4f02fe7ced2c",
+ "name": "Tavodex Shampoo Prime",
+ "prompt": "studio packshot photo of a White Tavodex Shampoo Prime, made of leather, hair care, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 702272570,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:08:42",
+ "file_path": "product-images/images/0806c6c9-7e6a-40ed-32e5-4f02fe7ced2c.jpg",
+ "file_size": 29731
+}

@@ -1,0 +1,13 @@
+{
+ "product_id": "8759944c-e74f-48ab-ff45-00cdebd5c6d1",
+ "name": "Noor Resistance Bands Pro",
+ "prompt": "studio packshot photo of a Black Noor Resistance Bands Pro, made of nylon, fitness, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2249805426,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:55:14",
+ "file_path": "product-images/images/8759944c-e74f-48ab-ff45-00cdebd5c6d1.jpg",
+ "file_size": 68825
+}

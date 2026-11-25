@@ -226,16 +226,16 @@ resilience4j:
         register-health-indicator: true
 
 # -----------------------------------------------------------------------------
-# Static image server (deploy/local/image-server). Blank url = feature off: image upload endpoints
-# answer 400 and product images stay whatever URL the client supplied.
-#   url        where THIS service reaches the server (compose network)
-#   public-url what browsers load images from; stored on product_images.url
+# static-image-server (deploy/local/static-image-server). Image rows store keys relative to the
+# runtime `parentUrl` setting (product.image_settings, PUT /api/admin/image-settings).
+#   url        where THIS service uploads/deletes (compose network); blank = upload endpoints off
+#   public-url what browsers load images from; seeds parentUrl on startup when none is set
 #   token      sent as X-Image-Token on PUT/DELETE
 # -----------------------------------------------------------------------------
 image-store:
-  url: ${IMAGE_STORE_URL:}
-  public-url: ${IMAGE_STORE_PUBLIC_URL:}
-  token: ${IMAGE_STORE_TOKEN:}
+  url: ${STATIC_IMAGE_SERVER_URL:}
+  public-url: ${STATIC_IMAGE_SERVER_PUBLIC_URL:}
+  token: ${STATIC_IMAGE_SERVER_TOKEN:}
 
 # -----------------------------------------------------------------------------
 # product-service's own settings. Every one is documented on

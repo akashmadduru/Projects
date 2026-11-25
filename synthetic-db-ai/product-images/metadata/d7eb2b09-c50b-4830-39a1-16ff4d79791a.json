@@ -1,0 +1,13 @@
+{
+ "product_id": "d7eb2b09-c50b-4830-39a1-16ff4d79791a",
+ "name": "Tazeze Hair Dryer Essential",
+ "prompt": "studio packshot photo of a White Tazeze Hair Dryer Essential, made of polyester, hair care, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 126766503,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:48:50",
+ "file_path": "product-images/images/d7eb2b09-c50b-4830-39a1-16ff4d79791a.jpg",
+ "file_size": 36152
+}

@@ -1,0 +1,15 @@
+{
+ "product_id": "71bd10aa-b987-4bf6-da59-1c2ce67c982d",
+ "name": "Quanu Construction Set Gen 3",
+ "prompt": "studio packshot photo of a Silver Quanu Construction Set Gen 3, made of glass, building toys, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2460469367,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:39:43",
+ "file_path": "static/images/71bd10aa-b987-4bf6-da59-1c2ce67c982d.jpg",
+ "file_size": 47014,
+ "uploaded": false,
+ "s3_url": null
+}

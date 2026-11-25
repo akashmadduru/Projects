@@ -1,0 +1,15 @@
+{
+ "product_id": "58ce29f3-cfa6-41d5-3c3f-352c3ccbc7d0",
+ "name": "Orex 5G Phone Prime",
+ "prompt": "studio packshot photo of a Green Orex 5G Phone Prime, made of silicone, mobiles & smartphones, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3473163323,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:23:40",
+ "file_path": "static/images/58ce29f3-cfa6-41d5-3c3f-352c3ccbc7d0.jpg",
+ "file_size": 51083,
+ "uploaded": false,
+ "s3_url": null
+}

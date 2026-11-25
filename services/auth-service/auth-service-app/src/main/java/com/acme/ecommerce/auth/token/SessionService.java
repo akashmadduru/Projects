@@ -65,6 +65,9 @@ public class SessionService {
     if (raw == null || raw.isBlank()) {
       return null;
     }
-    return tokens.findByTokenHash(RefreshTokenSecret.hash(raw)).map(RefreshToken::getFamilyId).orElse(null);
+    return tokens
+        .findByTokenHash(RefreshTokenSecret.hash(raw))
+        .map(RefreshToken::getFamilyId)
+        .orElse(null);
   }
 }

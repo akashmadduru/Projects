@@ -66,6 +66,20 @@ variable "razorpay_webhook_secret" {
   sensitive = true
 }
 
+# Web push (VAPID) keys: base64url P-256 key pair, generated once by the operator (see the
+# deploy-aws guide). Blank = web push off in prod; never generated per pod (TD-P8-05).
+variable "vapid_public_key" {
+  type      = string
+  default   = ""
+  sensitive = true
+}
+
+variable "vapid_private_key" {
+  type      = string
+  default   = ""
+  sensitive = true
+}
+
 variable "smtp_username" {
   type = string
 }
@@ -156,6 +170,8 @@ resource "aws_secretsmanager_secret_version" "app" {
     razorpay_key_id          = var.razorpay_key_id
     razorpay_key_secret      = var.razorpay_key_secret
     razorpay_webhook_secret  = var.razorpay_webhook_secret
+    vapid_public_key         = var.vapid_public_key
+    vapid_private_key        = var.vapid_private_key
     mail_username            = var.smtp_username
     mail_password            = var.smtp_password
   })

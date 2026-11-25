@@ -1,0 +1,15 @@
+{
+ "product_id": "7d5ec3ca-599b-4fd2-bb78-8bbc3fb7c13d",
+ "name": "Loarex 4K TV Max",
+ "prompt": "studio packshot photo of a Blue Loarex 4K TV Max, made of silicone, televisions, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3062127393,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:48:19",
+ "file_path": "static/images/7d5ec3ca-599b-4fd2-bb78-8bbc3fb7c13d.jpg",
+ "file_size": 42669,
+ "uploaded": false,
+ "s3_url": null
+}

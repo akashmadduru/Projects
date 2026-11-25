@@ -1,0 +1,13 @@
+{
+ "product_id": "986b3c4c-e063-48e6-47d4-fe8100b10ece",
+ "name": "Fyion RC Helicopter Pro",
+ "prompt": "studio packshot photo of a Black Fyion RC Helicopter Pro, made of bamboo, remote control, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 4148150043,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:07:27",
+ "file_path": "product-images/images/986b3c4c-e063-48e6-47d4-fe8100b10ece.jpg",
+ "file_size": 38200
+}

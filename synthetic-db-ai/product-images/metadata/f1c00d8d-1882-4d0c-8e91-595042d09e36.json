@@ -1,0 +1,13 @@
+{
+ "product_id": "f1c00d8d-1882-4d0c-8e91-595042d09e36",
+ "name": "Conutra Mountain Bike Pro",
+ "prompt": "studio packshot photo of a Black Conutra Mountain Bike Pro, made of silicone, cycling, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2799927353,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T22:04:34",
+ "file_path": "product-images/images/f1c00d8d-1882-4d0c-8e91-595042d09e36.jpg",
+ "file_size": 59084
+}

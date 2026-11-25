@@ -1,0 +1,15 @@
+{
+ "product_id": "47375350-8191-4537-e75d-b570f7fed69c",
+ "name": "Cococo Cold Brew Series 2",
+ "prompt": "studio packshot photo of a Space Grey Cococo Cold Brew Series 2, made of bamboo, beverages, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3062679687,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T01:53:43",
+ "file_path": "static/images/47375350-8191-4537-e75d-b570f7fed69c.jpg",
+ "file_size": 71485,
+ "uploaded": false,
+ "s3_url": null
+}

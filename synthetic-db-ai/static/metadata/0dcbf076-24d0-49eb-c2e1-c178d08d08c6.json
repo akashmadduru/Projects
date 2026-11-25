@@ -1,0 +1,15 @@
+{
+ "product_id": "0dcbf076-24d0-49eb-c2e1-c178d08d08c6",
+ "name": "Lumzesu Heating Pad Classic",
+ "prompt": "studio packshot photo of a Silver Lumzesu Heating Pad Classic, made of cotton, personal wellness, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1023022061,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 768,
+ "created_at": "2026-11-15T22:47:12",
+ "file_path": "static/images/0dcbf076-24d0-49eb-c2e1-c178d08d08c6.jpg",
+ "file_size": 103953,
+ "uploaded": false,
+ "s3_url": null
+}

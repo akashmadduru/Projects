@@ -1,0 +1,15 @@
+{
+ "product_id": "3daf081d-23a1-40c7-6488-64ed8599f9c0",
+ "name": "Voionmi Smart TV Essential",
+ "prompt": "studio packshot photo of a White Voionmi Smart TV Essential, made of glass, televisions, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2017534306,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:21:43",
+ "file_path": "static/images/3daf081d-23a1-40c7-6488-64ed8599f9c0.jpg",
+ "file_size": 24936,
+ "uploaded": false,
+ "s3_url": null
+}

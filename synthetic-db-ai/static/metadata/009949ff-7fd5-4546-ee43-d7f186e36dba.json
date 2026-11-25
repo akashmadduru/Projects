@@ -1,0 +1,15 @@
+{
+ "product_id": "009949ff-7fd5-4546-ee43-d7f186e36dba",
+ "name": "Piri Acrylic Paint Kit Gen 3",
+ "prompt": "studio packshot photo of a Midnight Piri Acrylic Paint Kit Gen 3, made of leather, art supplies, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 414934918,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:11:05",
+ "file_path": "static/images/009949ff-7fd5-4546-ee43-d7f186e36dba.jpg",
+ "file_size": 53044,
+ "uploaded": false,
+ "s3_url": null
+}

@@ -1,0 +1,13 @@
+{
+ "product_id": "1f50a16b-f83e-4d2e-b57c-8ff849bd1ddd",
+ "name": "Ionmi Football Ultra",
+ "prompt": "studio packshot photo of a Navy Blue Ionmi Football Ultra, made of ceramic, team sports, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1258739213,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 768,
+ "created_at": "2026-11-15T23:16:56",
+ "file_path": "product-images/images/1f50a16b-f83e-4d2e-b57c-8ff849bd1ddd.jpg",
+ "file_size": 137568
+}

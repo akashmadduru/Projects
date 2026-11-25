@@ -1,0 +1,13 @@
+{
+ "product_id": "a9f555f9-c562-4997-859b-f897f17aa2a5",
+ "name": "Dexar Earbuds Max",
+ "prompt": "studio packshot photo of a Olive Dexar Earbuds Max, made of nylon, headphones & earbuds, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2636914790,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:17:59",
+ "file_path": "product-images/images/a9f555f9-c562-4997-859b-f897f17aa2a5.jpg",
+ "file_size": 33583
+}

@@ -1,0 +1,15 @@
+{
+ "product_id": "4f6f1066-50da-4d06-4203-280b47fc09fb",
+ "name": "Pize Olive Oil Plus",
+ "prompt": "studio packshot photo of a Midnight Pize Olive Oil Plus, made of abs plastic, pantry, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2238568058,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:55:08",
+ "file_path": "static/images/4f6f1066-50da-4d06-4203-280b47fc09fb.jpg",
+ "file_size": 66105,
+ "uploaded": false,
+ "s3_url": null
+}

@@ -1,0 +1,360 @@
+diff --git a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/domain/Order.java b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/domain/Order.java
+index 1000ef6..e328f91 100644
+--- a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/domain/Order.java
++++ b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/domain/Order.java
+@@ -522,6 +522,10 @@ public class Order {
+     paymentStatus = full ? PaymentStatus.REFUNDED : PaymentStatus.PARTIALLY_REFUNDED;
+   }
+ 
++  public void addRefunded(BigDecimal amount) {
++    refundedAmount = refundedAmount.add(amount);
++  }
++
+   /** A payment landed after the order was cancelled and has been refunded in full. */
+   public void recordLateRefund(Instant now) {
+     recordRefund(totalAmount, true);
+diff --git a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/domain/OrderShipment.java b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/domain/OrderShipment.java
+index 5050f7f..bd48952 100644
+--- a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/domain/OrderShipment.java
++++ b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/domain/OrderShipment.java
+@@ -185,12 +185,13 @@ public class OrderShipment {
+     updatedAt = now;
+   }
+ 
++  /** A FAILED claim moved no money: it starts over with the next key and is frozen again. */
+   public void reclaim(Instant now) {
+     if ("FAILED".equals(cancelState)) {
+       cancelAttempt++;
+-      cancelState = "REQUESTED";
++      cancelState = null;
++      updatedAt = now;
+     }
+-    updatedAt = now;
+   }
+ 
+   public boolean failCancel(int attempt, Instant now) {
+@@ -214,6 +215,7 @@ public class OrderShipment {
+ 
+   void dropFailedCancel() {
+     if ("FAILED".equals(cancelState)) {
++      cancelAttempt++;
+       cancelRefundAmount = null;
+       cancelShippingRefund = BigDecimal.ZERO;
+       cancelWalletLeg = null;
+@@ -233,7 +235,7 @@ public class OrderShipment {
+   }
+ 
+   public boolean holdsCancelClaim() {
+-    return cancelState != null;
++    return cancelState != null && !"FAILED".equals(cancelState); // FAILED moved no money
+   }
+ 
+   public boolean isCancelled() {
+diff --git a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/domain/OrderStatusHistory.java b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/domain/OrderStatusHistory.java
+index a7b29c3..44d6a8a 100644
+--- a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/domain/OrderStatusHistory.java
++++ b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/domain/OrderStatusHistory.java
+@@ -59,7 +59,7 @@ public class OrderStatusHistory {
+     OrderStatusHistory h = new OrderStatusHistory();
+     h.order = order;
+     h.status = status;
+-    h.note = note;
++    h.note = note != null && note.length() > 500 ? note.substring(0, 500) : note; // varchar(500)
+     h.actor = actor;
+     h.createdAt = at;
+     h.shipmentId = shipmentId;
+diff --git a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/repository/OrderShipmentRepository.java b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/repository/OrderShipmentRepository.java
+index 435363a..611e3a3 100644
+--- a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/repository/OrderShipmentRepository.java
++++ b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/repository/OrderShipmentRepository.java
+@@ -2,17 +2,18 @@ package com.acme.ecommerce.order.repository;
+ 
+ import com.acme.ecommerce.order.domain.OrderShipment;
+ import com.acme.ecommerce.order.domain.OrderStatus;
++import java.util.Optional;
+ import java.util.UUID;
+ import org.springframework.data.domain.Page;
+ import org.springframework.data.domain.Pageable;
+ import org.springframework.data.jpa.repository.JpaRepository;
++import org.springframework.data.jpa.repository.Query;
++import org.springframework.data.repository.query.Param;
+ 
+ public interface OrderShipmentRepository extends JpaRepository<OrderShipment, UUID> {
+ 
+-  @org.springframework.data.jpa.repository.Query(
+-      "select s.order.id from OrderShipment s where s.id = :id")
+-  java.util.Optional<UUID> findOrderId(
+-      @org.springframework.data.repository.query.Param("id") UUID id);
++  @Query("select s.order.id from OrderShipment s where s.id = :id")
++  Optional<UUID> findOrderId(@Param("id") UUID id);
+ 
+   Page<OrderShipment> findBySellerIdAndStatus(UUID sellerId, OrderStatus status, Pageable pageable);
+ 
+diff --git a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/OrderLifecycleService.java b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/OrderLifecycleService.java
+index 800c5d6..738ff79 100644
+--- a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/OrderLifecycleService.java
++++ b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/OrderLifecycleService.java
+@@ -108,11 +108,7 @@ public class OrderLifecycleService {
+         List.of(shipmentId));
+   }
+ 
+-  public OrderResponse sellerCancelShipment(UUID userId, UUID shipmentId, String reason) {
+-    UUID sellerId = remote.approvedSellerId(userId);
+-    if (sellerId == null) {
+-      throw new CodedException(ErrorCode.FORBIDDEN, "An approved seller account is required");
+-    }
++  public OrderResponse sellerCancelShipment(UUID sellerId, UUID shipmentId, String reason) {
+     UUID orderId = store.shipmentRef(shipmentId).orderId();
+     return cancelShipments(
+         HistoryActor.SELLER,
+diff --git a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/OrderStore.java b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/OrderStore.java
+index 53fd1df..2a9bb77 100644
+--- a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/OrderStore.java
++++ b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/OrderStore.java
+@@ -456,6 +456,7 @@ public class OrderStore {
+     }
+     Instant now = Instant.now();
+     for (OrderShipment s : live) {
++      s.reclaim(now);
+       if (!s.holdsCancelClaim()) {
+         Order.CancelShare share = o.cancelShare(s);
+         Legs legs = legsFor(o, share.total(), null, s);
+@@ -466,8 +467,6 @@ public class OrderStore {
+             legs.rest(),
+             route(o, "SOURCE", legs.rest()),
+             now);
+-      } else {
+-        s.reclaim(now);
+       }
+     }
+     orders.flush();
+@@ -513,8 +512,11 @@ public class OrderStore {
+     }
+     boolean paysRest = !"NONE".equals(route);
+     BigDecimal moved = wallet.add(paysRest ? rest : BigDecimal.ZERO);
++    boolean all = o.getShipments().stream().allMatch(OrderShipment::isCancelled);
+     if (moved.signum() > 0 && o.getPaymentStatus() != PaymentStatus.COD_PENDING) {
+-      o.recordRefund(moved, o.getShipments().stream().allMatch(OrderShipment::isCancelled));
++      o.recordRefund(moved, all);
++    } else if (wallet.signum() > 0) {
++      o.addRefunded(wallet); // uncollected COD: only the wallet part was ever paid
+     }
+     orders.flush();
+     BigDecimal credit = wallet.add("DIRECT_WALLET".equals(route) ? rest : BigDecimal.ZERO);
+diff --git a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/WalletCreditBacks.java b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/WalletCreditBacks.java
+index e1f3d30..e2fb801 100644
+--- a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/WalletCreditBacks.java
++++ b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/WalletCreditBacks.java
+@@ -70,16 +70,7 @@ public class WalletCreditBacks {
+   public void creditBack(UUID userId, BigDecimal amount, String currency, UUID orderId) {
+     String key = "order-wallet-back-" + orderId;
+     try {
+-      jdbc.sql(
+-              "INSERT INTO orders.pending_wallet_credits"
+-                  + " (order_id, user_id, amount, currency, idem_key)"
+-                  + " VALUES (:o, :u, :a, :c, :k) ON CONFLICT (idem_key) DO NOTHING")
+-          .param("o", orderId)
+-          .param("u", userId)
+-          .param("a", amount)
+-          .param("c", currency)
+-          .param("k", key)
+-          .update();
++      enqueue(userId, amount, currency, orderId, key);
+     } catch (RuntimeException e) {
+       // Could not record it (order database trouble): one direct attempt, loudly logged.
+       log.error("WALLET CREDIT NOT RECORDED for order {}: {}", orderId, e.toString());
+diff --git a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/web/SellerShipmentController.java b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/web/SellerShipmentController.java
+index ffa0b23..58d7137 100644
+--- a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/web/SellerShipmentController.java
++++ b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/web/SellerShipmentController.java
+@@ -2,6 +2,7 @@ package com.acme.ecommerce.order.web;
+ 
+ import com.acme.ecommerce.common.core.error.CodedException;
+ import com.acme.ecommerce.common.core.error.ErrorCode;
++import com.acme.ecommerce.order.api.dto.AdminRequests.CancelOrder;
+ import com.acme.ecommerce.order.api.dto.AdminRequests.StatusUpdate;
+ import com.acme.ecommerce.order.api.dto.SellerShipmentResponse;
+ import com.acme.ecommerce.order.domain.OrderStatus;
+@@ -80,9 +81,10 @@ public class SellerShipmentController {
+   public SellerShipmentResponse cancel(
+       @AuthenticationPrincipal Jwt jwt,
+       @PathVariable UUID id,
+-      @Valid @RequestBody com.acme.ecommerce.order.api.dto.AdminRequests.CancelOrder request) {
+-    lifecycle.sellerCancelShipment(UUID.fromString(jwt.getSubject()), id, request.reason());
+-    return store.sellerShipment(sellerId(jwt), id);
++      @Valid @RequestBody CancelOrder request) {
++    UUID sellerId = sellerId(jwt);
++    lifecycle.sellerCancelShipment(sellerId, id, request.reason());
++    return store.sellerShipment(sellerId, id);
+   }
+ 
+   private UUID sellerId(Jwt jwt) {
+diff --git a/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/OrderStoreCancelIT.java b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/OrderStoreCancelIT.java
+index e898da6..915f616 100644
+--- a/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/OrderStoreCancelIT.java
++++ b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/OrderStoreCancelIT.java
+@@ -185,6 +185,21 @@ class OrderStoreCancelIT extends AbstractCancelIT {
+     assertThat(shipmentStatus(s1)).isEqualTo("SHIPPED");
+     assertThat(cancelState(s1)).isNull();
+     assertThat(amountOf(s1, "cancel_refund_amount")).isNull();
+-    assertThat(attemptOf(s1)).isEqualTo(1);
++    assertThat(attemptOf(s1)).isEqualTo(2); // the drop spent attempt 1
++  }
++
++  @Test
++  @DisplayName("a FAILED claim dropped by a non-dispatch advance: the next claim uses the next key")
++  void droppedFailedClaim_nextClaimUsesNextKey() {
++    Built b = workedExample();
++    UUID s1 = b.shipmentIds().get(0);
++    store.claimCancel(null, null, b.orderId(), List.of(s1));
++    store.failCancel(b.orderId(), s1, 0);
++    store.advanceShipment(
++        b.orderId(), null, s1, OrderStatus.CONFIRMED, "n", null, null, HistoryActor.ADMIN);
++
++    CancelClaim again = store.claimCancel(null, null, b.orderId(), List.of(s1));
++
++    assertThat(again.claims().get(0).key()).isEqualTo("ship-cancel-" + s1 + "-r1");
+   }
+ }
+diff --git a/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/ShipmentCancelIT.java b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/ShipmentCancelIT.java
+index 280328d..31c55a1 100644
+--- a/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/ShipmentCancelIT.java
++++ b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/ShipmentCancelIT.java
+@@ -15,7 +15,8 @@ import static org.mockito.Mockito.when;
+ import com.acme.ecommerce.common.core.error.CodedException;
+ import com.acme.ecommerce.common.core.error.ErrorCode;
+ import com.acme.ecommerce.order.client.PaymentFeignClient.RefundResult;
+-import com.acme.ecommerce.order.client.SellerInternalFeignClient.SellerRef;
++import com.acme.ecommerce.order.domain.HistoryActor;
++import com.acme.ecommerce.order.domain.OrderStatus;
+ import com.acme.ecommerce.order.domain.PaymentMethod;
+ import com.acme.ecommerce.order.event.OrderEventType;
+ import com.acme.ecommerce.order.support.AbstractCancelIT;
+@@ -38,10 +39,8 @@ class ShipmentCancelIT extends AbstractCancelIT {
+     Built b = workedExample();
+     UUID s1 = b.shipmentIds().get(0);
+     UUID s2 = b.shipmentIds().get(1);
+-    UUID sellerUser = UUID.randomUUID();
+-    when(sellers.byUser(sellerUser)).thenReturn(new SellerRef(b.sellerIds().get(0), "APPROVED"));
+ 
+-    lifecycle.sellerCancelShipment(sellerUser, s1, "out of stock");
++    lifecycle.sellerCancelShipment(b.sellerIds().get(0), s1, "out of stock");
+ 
+     // R1 = 1000 * 1700/2000 = 850: wallet 170, card 680, under the shipment-scoped keys
+     verify(payments)
+@@ -118,6 +117,7 @@ class ShipmentCancelIT extends AbstractCancelIT {
+ 
+     assertThat(cancelState(s1)).isEqualTo("REQUESTED");
+     assertThat(shipmentStatus(s1)).isEqualTo("PLACED");
++    assertThat(cancelledHistoryRows(s1)).isZero();
+     assertThat(refunded(b.orderId())).isEqualByComparingTo("0");
+     assertThat(walletRows(b.orderId())).isZero();
+     assertThat(releaseRows(b.orderId(), s1)).isZero();
+@@ -148,6 +148,7 @@ class ShipmentCancelIT extends AbstractCancelIT {
+ 
+     assertThat(cancelState(s1)).isEqualTo("FAILED");
+     assertThat(shipmentStatus(s1)).isEqualTo("PLACED");
++    assertThat(cancelledHistoryRows(s1)).isZero();
+     assertThat(refunded(b.orderId())).isEqualByComparingTo("0");
+     assertThat(walletRows(b.orderId())).isZero();
+     assertThat(releaseRows(b.orderId(), s1)).isZero();
+@@ -213,6 +214,80 @@ class ShipmentCancelIT extends AbstractCancelIT {
+     assertThat(releaseRows(b.orderId(), s1)).isEqualTo(1);
+   }
+ 
++  @Test
++  @DisplayName("a 500-character reason commits DONE on the admin and the seller path")
++  void longReason_commitsDone() {
++    Built b = workedExample();
++    String reason = "x".repeat(500);
++
++    lifecycle.adminCancelShipment(b.orderId(), b.shipmentIds().get(0), reason);
++    lifecycle.sellerCancelShipment(b.sellerIds().get(1), b.shipmentIds().get(1), reason);
++
++    assertThat(cancelState(b.shipmentIds().get(0))).isEqualTo("DONE");
++    assertThat(cancelState(b.shipmentIds().get(1))).isEqualTo("DONE");
++    assertThat(
++            jdbc.queryForObject(
++                "SELECT max(length(note)) FROM orders.order_status_history WHERE order_id = ?",
++                Integer.class,
++                b.orderId()))
++        .isEqualTo(500);
++  }
++
++  @Test
++  @DisplayName("AC-7: a FAILED claim moved no money, so a sibling cancel is not completing")
++  void failedClaim_siblingCancelNotCompleting_shipWins() {
++    Built b = build(PaymentMethod.CARD, "200.00", "100.00", "50.00", "350.00", "1000.00", "600.00");
++    UUID s1 = b.shipmentIds().get(0);
++    UUID s2 = b.shipmentIds().get(1);
++    when(payments.refund(any(), any()))
++        .thenReturn(new RefundResult("PARTIALLY_REFUNDED", BigDecimal.TEN, "FAILED"));
++    assertThatThrownBy(() -> cancel(b, 0)).isInstanceOf(CodedException.class);
++    assertThat(cancelState(s1)).isEqualTo("FAILED");
++    when(payments.refund(any(), any()))
++        .thenReturn(new RefundResult("PARTIALLY_REFUNDED", BigDecimal.TEN, "SUCCEEDED"));
++
++    cancel(b, 1);
++
++    // S2 is 600 of 1600 lines, 1300 paid: 487.50, no shipping, no remainder
++    assertThat(shareOf(s2)).isEqualByComparingTo("487.50");
++    assertThat(shippingOf(s2)).isEqualByComparingTo("0");
++    jdbc.update("UPDATE orders.order_shipments SET status = 'PACKED' WHERE id = ?", s1);
++    store.advanceShipment(
++        b.orderId(), null, s1, OrderStatus.SHIPPED, "n", "TRK", "dhl", HistoryActor.ADMIN);
++
++    assertThat(shipmentStatus(s1)).isEqualTo("SHIPPED");
++    assertThat(refunded(b.orderId())).isEqualByComparingTo("487.50");
++    assertThat(orderStatus(b.orderId())).isNotEqualTo("CANCELLED");
++  }
++
++  @Test
++  @DisplayName("AC-11: an uncollected COD order with a wallet part records the wallet refund")
++  void codWithWallet_recordsWalletPart() {
++    Built b = build(PaymentMethod.COD, "0", "0", "0", "30.00", "100.00", "50.00");
++    UUID s1 = b.shipmentIds().get(0);
++
++    cancel(b, 0);
++
++    verify(payments, never()).refund(any(), any());
++    assertThat(walletRowAmount(s1)).isEqualByComparingTo("20.00");
++    assertThat(refunded(b.orderId())).isEqualByComparingTo("20.00");
++    assertThat(paymentStatus(b.orderId())).isEqualTo("COD_PENDING");
++  }
++
++  private BigDecimal shareOf(UUID shipmentId) {
++    return jdbc.queryForObject(
++        "SELECT cancel_refund_amount FROM orders.order_shipments WHERE id = ?",
++        BigDecimal.class,
++        shipmentId);
++  }
++
++  private BigDecimal shippingOf(UUID shipmentId) {
++    return jdbc.queryForObject(
++        "SELECT cancel_shipping_refund FROM orders.order_shipments WHERE id = ?",
++        BigDecimal.class,
++        shipmentId);
++  }
++
+   @Test
+   @DisplayName("AC-11: a zero-amount cancel moves no money and records no refund")
+   void zeroAmount_noRefundRow() {
+diff --git a/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/support/AbstractCancelIT.java b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/support/AbstractCancelIT.java
+index 498efd2..0ee33c3 100644
+--- a/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/support/AbstractCancelIT.java
++++ b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/support/AbstractCancelIT.java
+@@ -107,6 +107,14 @@ public abstract class AbstractCancelIT extends AbstractOrderIntegrationTest {
+         "SELECT refunded_amount FROM orders.orders WHERE id = ?", BigDecimal.class, orderId);
+   }
+ 
++  protected int cancelledHistoryRows(UUID shipmentId) {
++    return jdbc.queryForObject(
++        "SELECT count(*) FROM orders.order_status_history"
++            + " WHERE shipment_id = ? AND status = 'CANCELLED'",
++        Integer.class,
++        shipmentId);
++  }
++
+   protected int walletRows(UUID orderId) {
+     return jdbc.queryForObject(
+         "SELECT count(*) FROM orders.pending_wallet_credits WHERE order_id = ?",

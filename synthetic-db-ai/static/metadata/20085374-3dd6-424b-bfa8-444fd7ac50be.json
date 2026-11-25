@@ -1,0 +1,15 @@
+{
+ "product_id": "20085374-3dd6-424b-bfa8-444fd7ac50be",
+ "name": "Venlo Eau de Toilette Plus",
+ "prompt": "studio packshot photo of a Grey Venlo Eau de Toilette Plus, made of wood, fragrances, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3391170493,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:33:42",
+ "file_path": "static/images/20085374-3dd6-424b-bfa8-444fd7ac50be.jpg",
+ "file_size": 40655,
+ "uploaded": false,
+ "s3_url": null
+}

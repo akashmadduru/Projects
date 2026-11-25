@@ -25,5 +25,19 @@ export default defineConfig({
     outDir: 'dist',
     sourcemap: true,
     minify: 'terser',
+    rollupOptions: {
+      output: {
+        // TD-P7-18: the framework changes far less often than app code, so it gets its own
+        // long-cached chunk; Stripe is only reached from lazy checkout/payment routes.
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined
+          if (/[\\/]node_modules[\\/](react|react-dom|scheduler|react-router|react-router-dom|@remix-run)[\\/]/.test(id)) {
+            return 'react-vendor'
+          }
+          if (id.includes('@stripe')) return 'stripe'
+          return undefined
+        },
+      },
+    },
   },
 })

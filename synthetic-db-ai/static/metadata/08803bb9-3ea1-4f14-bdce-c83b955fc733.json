@@ -1,0 +1,15 @@
+{
+ "product_id": "08803bb9-3ea1-4f14-bdce-c83b955fc733",
+ "name": "Fyvopi Paperback Pro",
+ "prompt": "studio packshot photo of a Green Fyvopi Paperback Pro, made of stainless steel, books, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 727490672,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:39:30",
+ "file_path": "static/images/08803bb9-3ea1-4f14-bdce-c83b955fc733.jpg",
+ "file_size": 48556,
+ "uploaded": false,
+ "s3_url": null
+}

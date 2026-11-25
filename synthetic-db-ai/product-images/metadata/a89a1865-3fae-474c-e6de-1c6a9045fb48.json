@@ -1,0 +1,13 @@
+{
+ "product_id": "a89a1865-3fae-474c-e6de-1c6a9045fb48",
+ "name": "Ionfylum Construction Set Ultra",
+ "prompt": "studio packshot photo of a Midnight Ionfylum Construction Set Ultra, made of polyester, building toys, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 409332630,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:44:12",
+ "file_path": "product-images/images/a89a1865-3fae-474c-e6de-1c6a9045fb48.jpg",
+ "file_size": 59883
+}

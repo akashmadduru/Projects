@@ -44,7 +44,7 @@ Overall estimate: 110–150 person-days.
 
 | Boundary | Control |
 |---|---|
-| Browser to gateway | JWT validation, rate limits, relative URLs only (TD-SEC-11) |
+| Browser to gateway | JWT validation, rate limits, bearer token sent to the own origin only (TD-SEC-11, fixed 2026-11-18) |
 | assistant-service to mcp-service to domain services | the **user's** JWT on every call, passed as a method parameter (no thread-local relay, so it cannot silently go missing on a worker thread); deny-by-default tool registry; downstream `@PreAuthorize` |
 | Egress to Bedrock | only product-service and assistant-service; IRSA, no keys; PII redacted; never inside a DB transaction |
 | Untrusted text into prompts (seller products, reviews, documents) | delimited and labelled; fixed tool allow-list; no tools on the RAG answer path; ids, prices and quantities re-resolved server-side |
@@ -55,7 +55,7 @@ AI services never hold `INTERNAL_API_TOKEN` (TD-P6-12) and never reach payment o
 
 | Interaction | Style |
 |---|---|
-| Product writes to embeddings | **Neither sync nor events**: a polling reconciler reads the database (no outbox, TD-P6-01) |
+| Product writes to embeddings | **Neither sync nor events**: a polling reconciler reads the database (product-service has no outbox, TD-P6-33) |
 | Search, tools, confirm | Sync HTTP with the user token |
 | support-service to knowledge index | Async `knowledge.events` from a support-service outbox, with republish |
 | `rating.events` to review summaries | Async trigger only; the summary re-reads the public rating API |

@@ -1,0 +1,13 @@
+{
+ "product_id": "e298fe54-9108-4288-8c23-b3d4eb84ac15",
+ "name": "Venloli Acrylic Paint Kit Lite",
+ "prompt": "studio packshot photo of a Navy Blue Venloli Acrylic Paint Kit Lite, made of nylon, art supplies, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3664749060,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:55:30",
+ "file_path": "product-images/images/e298fe54-9108-4288-8c23-b3d4eb84ac15.jpg",
+ "file_size": 59112
+}

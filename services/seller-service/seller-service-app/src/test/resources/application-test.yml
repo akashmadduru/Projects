@@ -1,0 +1,22 @@
+# Test profile (money-path tests). The datasource comes from the Abstract*IntegrationTest base.
+spring:
+  kafka:
+    listener:
+      auto-startup: false
+    producer:
+      properties:
+        max.block.ms: 2000
+  cloud:
+    discovery:
+      enabled: false
+
+seller:
+  jwt:
+    jwks-uri: http://localhost:1/.well-known/jwks.json
+  internal-token: test-internal-token
+  # Throwaway AES-256 key (32 zero bytes, base64) so DataCipher starts; test data only.
+  data-key: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+
+eureka:
+  client:
+    enabled: false

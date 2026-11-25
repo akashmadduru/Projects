@@ -3,6 +3,7 @@ package com.acme.ecommerce.product.config;
 import com.acme.ecommerce.common.core.error.ErrorCode;
 import com.acme.ecommerce.common.security.AudienceValidator;
 import com.acme.ecommerce.common.security.PlatformJwtAuthenticationConverter;
+import com.acme.ecommerce.common.security.UuidSubjectValidator;
 import com.acme.ecommerce.product.error.ProblemResponseWriter;
 import java.util.ArrayList;
 import java.util.List;
@@ -106,6 +107,11 @@ public class SecurityConfig {
                 requests
                     .requestMatchers(PUBLIC_ENDPOINTS)
                     .permitAll()
+                    // Admin reads live under /api/products/admin/** and must not inherit the public
+                    // GET rule below: an anonymous caller gets 401 here, not a 403 from
+                    // @PreAuthorize (TD-AI-01).
+                    .requestMatchers("/api/products/admin/**")
+                    .authenticated()
                     // GET /api/products/** and /api/categories/** are public (Phase 1F; categories
                     // are
                     // catalog data, read alongside products) - POST/PUT/DELETE remain protected.
@@ -247,6 +253,7 @@ public class SecurityConfig {
     validators.add(new JwtTimestampValidator(ProductProperties.Jwt.CLOCK_SKEW));
     validators.add(new JwtIssuerValidator(jwt.getIssuer()));
     validators.add(new AudienceValidator(jwt.getAudience()));
+    validators.add(new UuidSubjectValidator());
     return new DelegatingOAuth2TokenValidator<>(validators);
   }
 

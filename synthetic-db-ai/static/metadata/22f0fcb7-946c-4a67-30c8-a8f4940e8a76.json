@@ -1,0 +1,15 @@
+{
+ "product_id": "22f0fcb7-946c-4a67-30c8-a8f4940e8a76",
+ "name": "Traarba Flash Drive Pro",
+ "prompt": "studio packshot photo of a Olive Traarba Flash Drive Pro, made of leather, storage, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3210011214,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-15T23:38:48",
+ "file_path": "static/images/22f0fcb7-946c-4a67-30c8-a8f4940e8a76.jpg",
+ "file_size": 48112,
+ "uploaded": false,
+ "s3_url": null
+}

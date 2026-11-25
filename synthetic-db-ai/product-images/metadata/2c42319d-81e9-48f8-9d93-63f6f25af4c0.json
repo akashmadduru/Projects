@@ -1,0 +1,13 @@
+{
+ "product_id": "2c42319d-81e9-48f8-9d93-63f6f25af4c0",
+ "name": "Lumnopi Headphones Edition",
+ "prompt": "studio packshot photo of a Midnight Lumnopi Headphones Edition, made of silicone, headphones & earbuds, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1361815725,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-15T23:47:07",
+ "file_path": "product-images/images/2c42319d-81e9-48f8-9d93-63f6f25af4c0.jpg",
+ "file_size": 49165
+}

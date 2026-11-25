@@ -1,0 +1,13 @@
+{
+ "product_id": "28fcf8a3-1078-43d2-3bb1-820e31eb5a74",
+ "name": "Kaze Trolley Bag Classic",
+ "prompt": "studio packshot photo of a Silver Kaze Trolley Bag Classic, made of leather, bags & luggage, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2767699019,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-15T23:42:16",
+ "file_path": "product-images/images/28fcf8a3-1078-43d2-3bb1-820e31eb5a74.jpg",
+ "file_size": 51860
+}

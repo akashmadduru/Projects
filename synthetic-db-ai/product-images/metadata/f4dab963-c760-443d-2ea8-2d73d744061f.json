@@ -1,0 +1,13 @@
+{
+ "product_id": "f4dab963-c760-443d-2ea8-2d73d744061f",
+ "name": "Zenu Trekking Backpack Series 2",
+ "prompt": "studio packshot photo of a Green Zenu Trekking Backpack Series 2, made of abs plastic, camping, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1772379888,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T01:17:33",
+ "file_path": "product-images/images/f4dab963-c760-443d-2ea8-2d73d744061f.jpg",
+ "file_size": 77957
+}

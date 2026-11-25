@@ -1,0 +1,15 @@
+{
+ "product_id": "72af0821-2275-4b05-f6c4-4c6bc459ef23",
+ "name": "Rilumtra Headset Max",
+ "prompt": "studio packshot photo of a Midnight Rilumtra Headset Max, made of glass, headphones & earbuds, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3332773685,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:40:52",
+ "file_path": "static/images/72af0821-2275-4b05-f6c4-4c6bc459ef23.jpg",
+ "file_size": 31743,
+ "uploaded": false,
+ "s3_url": null
+}

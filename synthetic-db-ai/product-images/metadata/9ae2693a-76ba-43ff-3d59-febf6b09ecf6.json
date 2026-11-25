@@ -1,0 +1,13 @@
+{
+ "product_id": "9ae2693a-76ba-43ff-3d59-febf6b09ecf6",
+ "name": "Lotralo Hardcover Max",
+ "prompt": "studio packshot photo of a Black Lotralo Hardcover Max, made of cotton, books, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1719040272,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:02:40",
+ "file_path": "product-images/images/9ae2693a-76ba-43ff-3d59-febf6b09ecf6.jpg",
+ "file_size": 55204
+}

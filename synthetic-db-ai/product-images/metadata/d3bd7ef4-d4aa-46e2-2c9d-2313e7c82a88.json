@@ -1,0 +1,13 @@
+{
+ "product_id": "d3bd7ef4-d4aa-46e2-2c9d-2313e7c82a88",
+ "name": "Kanofy Building Blocks Plus",
+ "prompt": "studio packshot photo of a Grey Kanofy Building Blocks Plus, made of glass, building toys, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2882953408,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:46:04",
+ "file_path": "product-images/images/d3bd7ef4-d4aa-46e2-2c9d-2313e7c82a88.jpg",
+ "file_size": 47485
+}

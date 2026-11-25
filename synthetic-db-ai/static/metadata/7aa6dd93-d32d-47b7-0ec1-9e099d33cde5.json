@@ -1,0 +1,15 @@
+{
+ "product_id": "7aa6dd93-d32d-47b7-0ec1-9e099d33cde5",
+ "name": "Kalisu Switch Edition",
+ "prompt": "studio packshot photo of a Blue Kalisu Switch Edition, made of stainless steel, networking, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 568024393,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:46:40",
+ "file_path": "static/images/7aa6dd93-d32d-47b7-0ec1-9e099d33cde5.jpg",
+ "file_size": 49777,
+ "uploaded": false,
+ "s3_url": null
+}

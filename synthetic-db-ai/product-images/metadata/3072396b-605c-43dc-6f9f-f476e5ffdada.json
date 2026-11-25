@@ -1,0 +1,13 @@
+{
+ "product_id": "3072396b-605c-43dc-6f9f-f476e5ffdada",
+ "name": "Fylumco LED TV Edition",
+ "prompt": "studio packshot photo of a Navy Blue Fylumco LED TV Edition, made of wood, televisions, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 691762617,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-15T23:51:35",
+ "file_path": "product-images/images/3072396b-605c-43dc-6f9f-f476e5ffdada.jpg",
+ "file_size": 43473
+}

@@ -116,7 +116,9 @@ public class RatingService {
   public Page<RatingResponse> adminSearch(
       UUID productId, Integer ratingValue, String term, Boolean flaggedOnly, Pageable pageable) {
     String q =
-        term == null ? "" : term.trim().toLowerCase(java.util.Locale.ROOT).replaceAll("[%_\\\\]", "");
+        term == null
+            ? ""
+            : term.trim().toLowerCase(java.util.Locale.ROOT).replaceAll("[%_\\\\]", "");
     Specification<Rating> spec =
         (root, query, cb) -> {
           List<Predicate> ps = new ArrayList<>();
@@ -164,8 +166,7 @@ public class RatingService {
     rating.approve(timeProvider.now());
     Rating saved = ratings.saveAndFlush(rating);
     RatingResponse response = withMedia(toResponse(saved));
-    events.publishAfterCommit(
-        RatingEventType.RATING_UPDATED, id, rating.getProductId(), response);
+    events.publishAfterCommit(RatingEventType.RATING_UPDATED, id, rating.getProductId(), response);
     return response;
   }
 
@@ -191,13 +192,15 @@ public class RatingService {
   private String suspicion(
       UUID productId, UUID userId, int stars, String text, Instant accountCreatedAt, Instant now) {
     List<String> reasons = new ArrayList<>();
-    if (accountCreatedAt != null && accountCreatedAt.isAfter(now.minus(java.time.Duration.ofDays(3)))) {
+    if (accountCreatedAt != null
+        && accountCreatedAt.isAfter(now.minus(java.time.Duration.ofDays(3)))) {
       reasons.add("NEW_ACCOUNT");
     }
     if (text != null && text.length() >= 10 && ratings.countSimilarText(text) > 0) {
       reasons.add("DUPLICATE_TEXT");
     }
-    if (ratings.countByUserIdAndCreatedAtAfter(userId, now.minus(java.time.Duration.ofHours(24))) >= 5) {
+    if (ratings.countByUserIdAndCreatedAtAfter(userId, now.minus(java.time.Duration.ofHours(24)))
+        >= 5) {
       reasons.add("REVIEW_VELOCITY");
     }
     if (stars == 5

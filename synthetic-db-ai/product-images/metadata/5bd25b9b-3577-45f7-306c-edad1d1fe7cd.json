@@ -1,0 +1,13 @@
+{
+ "product_id": "5bd25b9b-3577-45f7-306c-edad1d1fe7cd",
+ "name": "Arnu Sandals Prime",
+ "prompt": "studio packshot photo of a Black Arnu Sandals Prime, made of cotton, footwear, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1762664754,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:36:08",
+ "file_path": "product-images/images/5bd25b9b-3577-45f7-306c-edad1d1fe7cd.jpg",
+ "file_size": 46780
+}

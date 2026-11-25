@@ -1,0 +1,15 @@
+{
+ "product_id": "299f3d00-8342-4419-2578-9d037b3860e3",
+ "name": "Loloion Mirrorless Camera Prime",
+ "prompt": "studio packshot photo of a White Loloion Mirrorless Camera Prime, made of nylon, cameras, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1641340455,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T01:49:05",
+ "file_path": "static/images/299f3d00-8342-4419-2578-9d037b3860e3.jpg",
+ "file_size": 77438,
+ "uploaded": false,
+ "s3_url": null
+}

@@ -1,0 +1,13 @@
+{
+ "product_id": "94fc5c23-152b-4f4d-a0b1-8a7df1f7662b",
+ "name": "Fytrari Hardcover Edition",
+ "prompt": "studio packshot photo of a Silver Fytrari Hardcover Edition, made of wood, books, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 768834926,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:20:33",
+ "file_path": "product-images/images/94fc5c23-152b-4f4d-a0b1-8a7df1f7662b.jpg",
+ "file_size": 27630
+}

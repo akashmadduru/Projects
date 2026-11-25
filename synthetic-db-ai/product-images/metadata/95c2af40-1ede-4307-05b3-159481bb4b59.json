@@ -1,0 +1,13 @@
+{
+ "product_id": "95c2af40-1ede-4307-05b3-159481bb4b59",
+ "name": "Mikavo Toaster Gen 3",
+ "prompt": "studio packshot photo of a Black Mikavo Toaster Gen 3, made of aluminium, small appliances, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1142648414,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:58:46",
+ "file_path": "product-images/images/95c2af40-1ede-4307-05b3-159481bb4b59.jpg",
+ "file_size": 30490
+}

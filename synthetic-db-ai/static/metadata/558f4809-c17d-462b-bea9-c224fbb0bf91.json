@@ -1,0 +1,15 @@
+{
+ "product_id": "558f4809-c17d-462b-bea9-c224fbb0bf91",
+ "name": "Ionex Smartwatch Gen 3",
+ "prompt": "studio packshot photo of a Blue Ionex Smartwatch Gen 3, made of abs plastic, smart watches, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3679723245,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:21:24",
+ "file_path": "static/images/558f4809-c17d-462b-bea9-c224fbb0bf91.jpg",
+ "file_size": 35732,
+ "uploaded": false,
+ "s3_url": null
+}

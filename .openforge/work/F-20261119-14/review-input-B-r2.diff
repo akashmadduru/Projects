@@ -1,0 +1,109 @@
+diff --git a/docs/guides/runbooks/payment-problems.md b/docs/guides/runbooks/payment-problems.md
+index 5cc89f8..a120515 100644
+--- a/docs/guides/runbooks/payment-problems.md
++++ b/docs/guides/runbooks/payment-problems.md
+@@ -176,6 +176,10 @@ SELECT f.id AS failed_shipment, f.order_id, o.id AS sibling, o.cancel_shipping_r
+   JOIN orders.order_shipments o ON o.order_id = f.order_id AND o.id <> f.id
+  WHERE f.cancel_state = 'FAILED' AND o.cancel_state IN ('REQUESTED', 'DONE')
+    AND o.cancel_shipping_refund > 0;
++-- FAILED shipments on orders where a return carries the shipping
++SELECT f.id AS failed_shipment, f.order_id, r.id AS return_id, r.shipping_refund
++  FROM orders.order_shipments f JOIN orders.order_returns r ON r.order_id = f.order_id
++ WHERE f.cancel_state = 'FAILED' AND r.status <> 'REJECTED' AND r.shipping_refund > 0;
+ ```
+ 
+ **Persistent decline.** If the card refund keeps coming back FAILED, no API call completes the cancel. Manual path: refund the shipment's `cancel_rest_leg` in the provider dashboard, then have an engineer finish the cancel with a reviewed SQL change. Until then the shipment cannot ship while a sibling holds the shipping. An admin "force complete" action and a settlement watch for PENDING cancel refunds are on the backlog.
+diff --git a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/domain/Order.java b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/domain/Order.java
+index 1f1ffb5..3477a74 100644
+--- a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/domain/Order.java
++++ b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/domain/Order.java
+@@ -511,7 +511,7 @@ public class Order {
+ 
+   /** Every line is returned and every live return is refunded (shipping does not matter). */
+   public boolean fullyRefunded() {
+-    return completesOrder(Map.of())
++    return completes(Map.of(), OrderShipment::isCancelled)
+         && returns.stream()
+             .map(OrderReturn::getStatus)
+             .allMatch(EnumSet.of(ReturnStatus.REJECTED, ReturnStatus.REFUNDED)::contains);
+@@ -765,7 +765,11 @@ public class Order {
+ 
+   /** True when these lines, on top of earlier non-rejected returns, cover every order line. */
+   private boolean completesOrder(Map<LineKey, Integer> lines) {
+-    return uncovered(OrderShipment::isCancelled).entrySet().stream()
++    return completes(lines, x -> x.isCancelled() || x.holdsCancelClaim()); // as cancelShare does
++  }
++
++  private boolean completes(Map<LineKey, Integer> lines, Predicate<OrderShipment> covers) {
++    return uncovered(covers).entrySet().stream()
+         .allMatch(e -> e.getValue() - lines.getOrDefault(e.getKey(), 0) == 0);
+   }
+ 
+@@ -934,14 +938,8 @@ public class Order {
+     if ("REQUESTED".equals(s.getCancelState())) {
+       throw new CodedException(ErrorCode.RESOURCE_CONFLICT, "Shipment cancel in progress");
+     }
+-    if ("FAILED".equals(s.getCancelState())
+-        && shipments.stream()
+-            .anyMatch(
+-                o ->
+-                    o != s
+-                        && o.holdsCancelClaim()
+-                        && o.getCancelShippingRefund().signum() > 0)) {
+-      // a sibling holds the shipping on the strength of this claim: it must be completed first
++    if ("FAILED".equals(s.getCancelState()) && shippingAlreadyRefunded()) {
++      // s is FAILED, so it holds no claim itself: a sibling or a return holds the shipping
+       throw new CodedException(ErrorCode.RESOURCE_CONFLICT, "Shipment cancel must be completed");
+     }
+     s.dropFailedCancel();
+diff --git a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/OrderStore.java b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/OrderStore.java
+index d5ee8d5..86347f9 100644
+--- a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/OrderStore.java
++++ b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/OrderStore.java
+@@ -512,7 +512,7 @@ public class OrderStore {
+     }
+     boolean paysRest = !"NONE".equals(route);
+     BigDecimal moved = wallet.add(paysRest ? rest : BigDecimal.ZERO);
+-    boolean all = o.getShipments().stream().allMatch(OrderShipment::isCancelled);
++    boolean all = o.fullyRefunded();
+     if (moved.signum() > 0 && o.getPaymentStatus() != PaymentStatus.COD_PENDING) {
+       o.recordRefund(moved, all);
+     } else if (wallet.signum() > 0) {
+diff --git a/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/ShippingOnceIT.java b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/ShippingOnceIT.java
+index ce430d6..cdf57ea 100644
+--- a/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/ShippingOnceIT.java
++++ b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/ShippingOnceIT.java
+@@ -2,6 +2,7 @@ package com.acme.ecommerce.order.service;
+ 
+ import static org.assertj.core.api.Assertions.assertThat;
+ 
++import com.acme.ecommerce.order.domain.HistoryActor;
+ import com.acme.ecommerce.order.domain.Order.ReturnLine;
+ import com.acme.ecommerce.order.domain.PaymentMethod;
+ import com.acme.ecommerce.order.domain.ReturnReason;
+@@ -83,6 +84,25 @@ class ShippingOnceIT extends AbstractCancelIT {
+     assertThat(cancelShipping(b.orderId())).isEqualByComparingTo("50.00");
+   }
+ 
++  @Test
++  @DisplayName("AC-7: a return while a sibling cancel is REQUESTED carries the shipping once")
++  void returnWhileCancelRequested_shippingOnce_orderRefunded() {
++    Built b = build(PaymentMethod.CARD, "200.00", "100.00", "50.00", "350.00", "1000.00", "600.00");
++    UUID s1 = b.shipmentIds().get(0);
++    UUID s2 = b.shipmentIds().get(1);
++    store.claimCancel(null, null, b.orderId(), List.of(s1)); // REQUESTED, S2 still uncovered
++    deliver(s2);
++
++    returnShipment(b, s2);
++    jdbc.update(
++        "UPDATE orders.order_returns SET status = 'REFUNDED' WHERE order_id = ?", b.orderId());
++    store.commitCancel(b.orderId(), s1, 0, HistoryActor.ADMIN, "n");
++
++    assertThat(returnShipping(b.orderId())).isEqualByComparingTo("50.00");
++    assertThat(cancelShipping(b.orderId())).isEqualByComparingTo("0");
++    assertThat(paymentStatus(b.orderId())).isEqualTo("REFUNDED");
++  }
++
+   @Test
+   @DisplayName("AC-7: a single-shipment order returns shipping exactly as before")
+   void singleShipment_unchanged() {

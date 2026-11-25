@@ -1,0 +1,15 @@
+{
+ "product_id": "169da8c4-8bf6-421e-dfe0-847e85c509d2",
+ "name": "Zemi Office Chair Plus",
+ "prompt": "studio packshot photo of a Navy Blue Zemi Office Chair Plus, made of silicone, furniture, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2107502200,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 768,
+ "created_at": "2026-11-15T23:05:51",
+ "file_path": "static/images/169da8c4-8bf6-421e-dfe0-847e85c509d2.jpg",
+ "file_size": 144295,
+ "uploaded": false,
+ "s3_url": null
+}

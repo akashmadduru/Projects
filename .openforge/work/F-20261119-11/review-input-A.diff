@@ -1,0 +1,1224 @@
+diff --git a/services/cart-service/cart-service-app/src/test/java/com/acme/ecommerce/cart/contract/CartResponseContractTest.java b/services/cart-service/cart-service-app/src/test/java/com/acme/ecommerce/cart/contract/CartResponseContractTest.java
+new file mode 100644
+index 0000000..78d5182
+--- /dev/null
++++ b/services/cart-service/cart-service-app/src/test/java/com/acme/ecommerce/cart/contract/CartResponseContractTest.java
+@@ -0,0 +1,44 @@
++package com.acme.ecommerce.cart.contract;
++
++import static org.assertj.core.api.Assertions.assertThat;
++
++import com.acme.ecommerce.cart.api.dto.CartItemRequest;
++import com.acme.ecommerce.cart.api.dto.CartResponse;
++import com.acme.ecommerce.cart.service.CartService;
++import com.acme.ecommerce.cart.support.AbstractCartIntegrationTest;
++import java.math.BigDecimal;
++import java.util.List;
++import java.util.UUID;
++import org.junit.jupiter.api.DisplayName;
++import org.junit.jupiter.api.Test;
++import org.springframework.beans.factory.annotation.Autowired;
++
++/**
++ * Contract pinned for order-service (TD-BE-15): every cart line it reads carries {@code addedAt}.
++ * order-service fingerprints the cart from it and refuses to place an order without one (503), so a
++ * null here would turn every cart checkout into an error.
++ */
++class CartResponseContractTest extends AbstractCartIntegrationTest {
++
++  @Autowired private CartService carts;
++
++  private static CartItemRequest item(UUID productId, int qty) {
++    return new CartItemRequest(
++        productId, qty, "Item", new BigDecimal("100.00"), "INR", null, null, null, null, null);
++  }
++
++  @Test
++  @DisplayName("every line of a read cart has a non-null addedAt (added, merged, updated)")
++  void everyLineHasAddedAt() {
++    UUID user = UUID.randomUUID();
++    UUID first = UUID.randomUUID();
++    carts.addItem(user, item(first, 1));
++    carts.merge(user, List.of(item(first, 2), item(UUID.randomUUID(), 1)));
++    carts.addItem(user, item(first, 1));
++
++    CartResponse cart = carts.get(user);
++
++    assertThat(cart.items()).hasSize(2);
++    assertThat(cart.items()).allSatisfy(i -> assertThat(i.addedAt()).isNotNull());
++  }
++}
+diff --git a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/outbox/OutboxRelay.java b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/outbox/OutboxRelay.java
+index f2828c2..c357534 100644
+--- a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/outbox/OutboxRelay.java
++++ b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/outbox/OutboxRelay.java
+@@ -6,6 +6,7 @@ import com.acme.ecommerce.order.event.OrderEventPublisher;
+ import com.acme.ecommerce.order.outbox.Outbox.Kind;
+ import com.acme.ecommerce.order.service.OrderRemote;
+ import com.fasterxml.jackson.core.JsonProcessingException;
++import java.util.Arrays;
+ import java.util.List;
+ import java.util.UUID;
+ import org.slf4j.Logger;
+@@ -34,6 +35,9 @@ public class OutboxRelay {
+ 
+   record Row(UUID id, UUID aggregateId, Kind kind, String payload, int attempts) {}
+ 
++  private static final List<String> KNOWN = Arrays.stream(Kind.values()).map(Kind::name).toList();
++  private static final int UNKNOWN_SAMPLE = 5;
++
+   /** Result of one pass, for logs and tests. */
+   public record Result(int delivered, int failed, int dead) {}
+ 
+@@ -70,6 +74,7 @@ public class OutboxRelay {
+     int delivered = 0;
+     int failed = 0;
+     int dead = 0;
++    reportUnknown();
+     for (int round = 0; round < MAX_ROUNDS; round++) {
+       Result r = round();
+       delivered += r.delivered();
+@@ -85,16 +90,48 @@ public class OutboxRelay {
+     return new Result(delivered, failed, dead);
+   }
+ 
++  /**
++   * Rows written by a newer build (rollback) are not ours to deliver or discard. They stay PENDING
++   * (and still hold back newer rows of their aggregate) but never take a batch slot. Reported once
++   * per pass, with a capped sample, so a long rollback window does not flood the log.
++   */
++  private void reportUnknown() {
++    Long count =
++        jdbc.sql("SELECT count(*) FROM orders.outbox WHERE status = 'PENDING' AND kind NOT IN (:k)")
++            .param("k", KNOWN)
++            .query(Long.class)
++            .single();
++    if (count == null || count == 0) {
++      return;
++    }
++    List<String> sample =
++        jdbc.sql(
++                "SELECT id || ':' || kind FROM orders.outbox WHERE status = 'PENDING'"
++                    + " AND kind NOT IN (:k) ORDER BY seq LIMIT :n")
++            .param("k", KNOWN)
++            .param("n", UNKNOWN_SAMPLE)
++            .query(String.class)
++            .list();
++    log.error(
++        "Outbox has {} PENDING rows of unknown kind (written by a newer build); skipped, left"
++            + " PENDING. Sample (id:kind, up to {}): {}",
++        count,
++        UNKNOWN_SAMPLE,
++        sample);
++  }
++
+   private Result round() {
+     List<Row> due =
+         jdbc.sql(
+                 "SELECT o.id, o.aggregate_id, o.kind, CAST(o.payload AS text) AS payload, o.attempts"
+                     + " FROM orders.outbox o"
+                     + " WHERE o.status = 'PENDING' AND o.next_attempt_at <= now()"
++                    + " AND o.kind IN (:known)"
+                     + " AND NOT EXISTS (SELECT 1 FROM orders.outbox e WHERE e.status = 'PENDING'"
+                     + "   AND e.aggregate_id = o.aggregate_id AND e.seq < o.seq)"
+                     + " ORDER BY o.seq LIMIT :n")
+             .param("n", BATCH)
++            .param("known", KNOWN)
+             .query(
+                 (rs, n) ->
+                     new Row(
+diff --git a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/OrderService.java b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/OrderService.java
+index 673870f..dc19ed4 100644
+--- a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/OrderService.java
++++ b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/OrderService.java
+@@ -257,7 +257,7 @@ public class OrderService {
+     order.switchPaymentMethod(method);
+     order.applyMoney(coins, price.coinsValue(), walletAmount, member, subscriptionId);
+     order.begin(price, couponCode, estimate.estimatedDeliveryDate(), Instant.now());
+-    if (cart != null && cart.fingerprint() != null) {
++    if (cart != null) {
+       order.consumeCart(cart.fingerprint());
+     }
+ 
+@@ -273,7 +273,7 @@ public class OrderService {
+       // Otherwise this exact cart is already an order (another tab, or a new-key retry after the
+       // cart clear failed): refuse instead of ordering it twice, and retry the clear.
+       Optional<UUID> existing =
+-          cart == null || cart.fingerprint() == null
++          cart == null
+               ? Optional.empty()
+               : store.findActiveOrderForCart(userId, cart.fingerprint());
+       if (existing.isEmpty()) {
+@@ -471,7 +471,7 @@ public class OrderService {
+         p.paymentId(), p.status(), p.mode(), p.clientSecret(), p.publishableKey());
+   }
+ 
+-  /** The cart's lines and its fingerprint (null when a line has no added-at instant). */
++  /** The cart's lines and its fingerprint (never null: a cart without one is refused). */
+   private record CartSnapshot(List<Line> lines, String fingerprint) {}
+ 
+   private CartSnapshot cartSnapshot() {
+@@ -488,13 +488,22 @@ public class OrderService {
+       lines.add(
+           new Line(i.productId(), i.variantId(), i.variantLabel(), i.quantity(), i.offerId()));
+     }
+-    return new CartSnapshot(lines, cartFingerprint(cart.items()));
++    String fingerprint = cartFingerprint(cart.items());
++    if (fingerprint == null) {
++      // Fail closed: a cart without a fingerprint has no double-order guard (TD-BE-15).
++      log.warn(
++          "Cart read refused: a CartResponse line has no addedAt, which breaks the cart-service"
++              + " contract (cart_items.added_at is NOT NULL); not placing an unguarded order");
++      throw new CodedException(
++          ErrorCode.DEPENDENCY_UNAVAILABLE, "Your cart could not be read, please try again");
++    }
++    return new CartSnapshot(lines, fingerprint);
+   }
+ 
+   /**
+    * SHA-256 over every line's product, variant, offer, quantity and added-at instant, in a stable
+-   * order. The added-at instant is what tells "the same cart read twice" from "the same items
+-   * added again after the last order cleared the cart", so without it there is no fingerprint.
++   * order. The added-at instant is what tells "the same cart read twice" from "the same items added
++   * again after the last order cleared the cart", so without it there is no fingerprint.
+    */
+   static String cartFingerprint(List<CartItemResponse> items) {
+     List<String> parts = new ArrayList<>();
+@@ -503,7 +512,14 @@ public class OrderService {
+         return null;
+       }
+       parts.add(
+-          i.productId() + "|" + i.variantId() + "|" + i.offerId() + "|" + i.quantity() + "|"
++          i.productId()
++              + "|"
++              + i.variantId()
++              + "|"
++              + i.offerId()
++              + "|"
++              + i.quantity()
++              + "|"
+               + i.addedAt().toEpochMilli());
+     }
+     java.util.Collections.sort(parts);
+diff --git a/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/client/DependencyBreakerCapabilityTest.java b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/client/DependencyBreakerCapabilityTest.java
+index 5dfe989..161932a 100644
+--- a/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/client/DependencyBreakerCapabilityTest.java
++++ b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/client/DependencyBreakerCapabilityTest.java
+@@ -7,9 +7,11 @@ import feign.Client;
+ import feign.Request;
+ import feign.Response;
+ import io.github.resilience4j.circuitbreaker.CircuitBreaker;
++import io.github.resilience4j.circuitbreaker.CircuitBreakerConfig;
+ import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
+ import java.io.IOException;
+ import java.nio.charset.StandardCharsets;
++import java.time.Duration;
+ import java.util.Map;
+ import java.util.concurrent.atomic.AtomicInteger;
+ import org.junit.jupiter.api.DisplayName;
+@@ -82,4 +84,70 @@ class DependencyBreakerCapabilityTest {
+     assertThat(healthy.execute(request("http://user-service/u"), new Request.Options()).status())
+         .isEqualTo(200);
+   }
++
++  @Test
++  @DisplayName(
++      "AC-9b: after the open wait, half-open probes succeed, the breaker closes, calls resume")
++  void recoversThroughHalfOpen() throws Exception {
++    CircuitBreakerRegistry quick =
++        CircuitBreakerRegistry.of(
++            CircuitBreakerConfig.from(registry.getDefaultConfig())
++                .waitDurationInOpenState(Duration.ofMillis(200))
++                .build());
++    DependencyBreakerCapability quickCapability = new DependencyBreakerCapability(quick);
++    AtomicInteger status = new AtomicInteger(503);
++    Client client =
++        quickCapability.enrich(
++            (Client)
++                (req, opts) -> {
++                  calls.incrementAndGet();
++                  return Response.builder()
++                      .status(status.get())
++                      .request(req)
++                      .headers(Map.of())
++                      .build();
++                });
++    CircuitBreaker breaker = quick.circuitBreaker("dep-promotion-service");
++    for (int i = 0; i < 10; i++) {
++      client.execute(request("http://promotion-service/x"), new Request.Options());
++    }
++    assertThat(breaker.getState()).isEqualTo(CircuitBreaker.State.OPEN);
++    assertThatThrownBy(
++            () -> client.execute(request("http://promotion-service/x"), new Request.Options()))
++        .isInstanceOf(IOException.class);
++
++    status.set(200);
++    Thread.sleep(400);
++    int before = calls.get();
++    for (int i = 0; i < 3; i++) {
++      assertThat(
++              client.execute(request("http://promotion-service/x"), new Request.Options()).status())
++          .isEqualTo(200);
++    }
++
++    assertThat(breaker.getState()).isEqualTo(CircuitBreaker.State.CLOSED);
++    assertThat(calls.get() - before).isEqualTo(3);
++    assertThat(
++            client.execute(request("http://promotion-service/x"), new Request.Options()).status())
++        .isEqualTo(200);
++  }
++
++  @Test
++  @DisplayName("AC-9: a tripped product-service breaker leaves the cart-service breaker closed")
++  void trippedProductBreakerDoesNotAffectCart() throws IOException {
++    Client down = capability.enrich(answering(503));
++    for (int i = 0; i < 10; i++) {
++      down.execute(request("http://product-service/api/products/1"), new Request.Options());
++    }
++    assertThat(registry.circuitBreaker("dep-product-service").getState())
++        .isEqualTo(CircuitBreaker.State.OPEN);
++
++    Client cart = capability.enrich(answering(200));
++    assertThat(
++            cart.execute(request("http://cart-service/api/cart"), new Request.Options()).status())
++        .isEqualTo(200);
++
++    assertThat(registry.circuitBreaker("dep-cart-service").getState())
++        .isEqualTo(CircuitBreaker.State.CLOSED);
++  }
+ }
+diff --git a/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/outbox/OutboxRelayTest.java b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/outbox/OutboxRelayTest.java
+new file mode 100644
+index 0000000..25414ce
+--- /dev/null
++++ b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/outbox/OutboxRelayTest.java
+@@ -0,0 +1,80 @@
++package com.acme.ecommerce.order.outbox;
++
++import static org.assertj.core.api.Assertions.assertThat;
++import static org.mockito.Mockito.verify;
++
++import com.acme.ecommerce.order.event.OrderEventPublisher;
++import com.acme.ecommerce.order.outbox.Outbox.Kind;
++import com.acme.ecommerce.order.service.OrderRemote;
++import com.acme.ecommerce.order.support.AbstractOrderIntegrationTest;
++import java.util.UUID;
++import org.junit.jupiter.api.AfterEach;
++import org.junit.jupiter.api.DisplayName;
++import org.junit.jupiter.api.Test;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.jdbc.core.JdbcTemplate;
++import org.springframework.test.context.bean.override.mockito.MockitoBean;
++
++/** Relay tolerance of rows it does not understand (rollback safety for newer outbox kinds). */
++class OutboxRelayTest extends AbstractOrderIntegrationTest {
++
++  @MockitoBean private OrderRemote remote;
++  @MockitoBean private OrderEventPublisher events;
++
++  @Autowired private Outbox outbox;
++  @Autowired private OutboxRelay relay;
++  @Autowired private JdbcTemplate jdbc;
++
++  /** The database is shared with other test classes: leave no unknown rows behind. */
++  @AfterEach
++  void removeUnknownRows() {
++    jdbc.update("delete from orders.outbox where kind = 'BOGUS'");
++  }
++
++  @Test
++  @DisplayName("an unknown kind is skipped and left PENDING; a valid row behind it is delivered")
++  void unknownKindDoesNotStallThePass() {
++    UUID bogusAggregate = UUID.randomUUID();
++    UUID validAggregate = UUID.randomUUID();
++    outbox.enqueue(Kind.RESTORE_STOCK, bogusAggregate);
++    jdbc.update("update orders.outbox set kind = 'BOGUS' where aggregate_id = ?", bogusAggregate);
++    outbox.enqueue(Kind.RESTORE_STOCK, validAggregate);
++
++    // Other test classes share this database, so rows of theirs may be delivered in the same pass.
++    relay.relay();
++
++    verify(remote).restoreStockNow(validAggregate);
++    assertThat(
++            jdbc.queryForObject(
++                "select status from orders.outbox where aggregate_id = ?",
++                String.class,
++                bogusAggregate))
++        .isEqualTo("PENDING");
++    assertThat(
++            jdbc.queryForObject(
++                "select status from orders.outbox where aggregate_id = ?",
++                String.class,
++                validAggregate))
++        .isEqualTo("DONE");
++  }
++
++  @Test
++  @DisplayName("more than BATCH unknown rows on distinct aggregates do not starve a valid row")
++  void unknownRowsDoNotStarveTheBatch() {
++    for (int i = 0; i < OutboxRelay.BATCH + 1; i++) {
++      UUID bogus = UUID.randomUUID();
++      outbox.enqueue(Kind.RESTORE_STOCK, bogus);
++      jdbc.update("update orders.outbox set kind = 'BOGUS' where aggregate_id = ?", bogus);
++    }
++    UUID valid = UUID.randomUUID();
++    outbox.enqueue(Kind.RESTORE_STOCK, valid);
++
++    relay.relay();
++
++    verify(remote).restoreStockNow(valid);
++    assertThat(
++            jdbc.queryForObject(
++                "select status from orders.outbox where aggregate_id = ?", String.class, valid))
++        .isEqualTo("DONE");
++  }
++}
+diff --git a/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/OrderBreakerCompensationIntegrationTest.java b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/OrderBreakerCompensationIntegrationTest.java
+new file mode 100644
+index 0000000..9abf150
+--- /dev/null
++++ b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/OrderBreakerCompensationIntegrationTest.java
+@@ -0,0 +1,265 @@
++package com.acme.ecommerce.order.service;
++
++import static org.assertj.core.api.Assertions.assertThat;
++import static org.assertj.core.api.Assertions.assertThatThrownBy;
++import static org.mockito.ArgumentMatchers.any;
++import static org.mockito.Mockito.doThrow;
++import static org.mockito.Mockito.when;
++
++import com.acme.ecommerce.common.core.error.CodedException;
++import com.acme.ecommerce.common.core.error.ErrorCode;
++import com.acme.ecommerce.order.api.dto.OrderLineRequest;
++import com.acme.ecommerce.order.api.dto.PlaceOrderRequest;
++import com.acme.ecommerce.order.api.dto.PlaceOrderRequest.PaymentMethodRequest;
++import com.acme.ecommerce.order.client.CartFeignClient;
++import com.acme.ecommerce.order.client.InventoryFeignClient;
++import com.acme.ecommerce.order.client.PaymentFeignClient;
++import com.acme.ecommerce.order.client.ProductViewFeignClient;
++import com.acme.ecommerce.order.client.ProductViewFeignClient.ProductView;
++import com.acme.ecommerce.order.client.PromotionFeignClient;
++import com.acme.ecommerce.order.client.SellerInternalFeignClient;
++import com.acme.ecommerce.order.client.UserFeignClient;
++import com.acme.ecommerce.order.client.UserInternalFeignClient;
++import com.acme.ecommerce.order.event.OrderEventPublisher;
++import com.acme.ecommerce.order.support.AbstractOrderIntegrationTest;
++import com.acme.ecommerce.user.api.dto.AddressResponse;
++import feign.FeignException;
++import feign.Request;
++import feign.RetryableException;
++import java.io.IOException;
++import java.math.BigDecimal;
++import java.nio.charset.StandardCharsets;
++import java.time.Instant;
++import java.util.List;
++import java.util.Map;
++import java.util.UUID;
++import org.junit.jupiter.api.BeforeEach;
++import org.junit.jupiter.api.DisplayName;
++import org.junit.jupiter.api.Test;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.jdbc.core.JdbcTemplate;
++import org.springframework.test.context.bean.override.mockito.MockitoBean;
++
++/**
++ * AC-9b: a placement that fails on an open breaker after the order row exists still runs the
++ * compensation. {@link OrderRemote} and the outbox are real here (OrderPlacementIntegrationTest
++ * mocks OrderRemote), so the durable rows can be read back; only the Feign clients are mocked.
++ */
++class OrderBreakerCompensationIntegrationTest extends AbstractOrderIntegrationTest {
++
++  @MockitoBean private ProductViewFeignClient products;
++  @MockitoBean private UserFeignClient users;
++  @MockitoBean private CartFeignClient carts;
++  @MockitoBean private InventoryFeignClient inventory;
++  @MockitoBean private PromotionFeignClient promotions;
++  @MockitoBean private PaymentFeignClient payments;
++  @MockitoBean private UserInternalFeignClient usersInternal;
++  @MockitoBean private SellerInternalFeignClient sellers;
++  @MockitoBean private RiskService risks;
++  @MockitoBean private OrderEventPublisher events;
++
++  @Autowired private OrderService orders;
++  @Autowired private JdbcTemplate jdbc;
++
++  private final UUID user = UUID.randomUUID();
++  private final UUID addressId = UUID.randomUUID();
++  private final UUID shirt = UUID.randomUUID();
++
++  /** What Feign throws when DependencyBreakerCapability refuses a call (an IOException). */
++  private static FeignException openBreaker(String host) {
++    Request request =
++        Request.create(
++            Request.HttpMethod.POST,
++            "http://" + host + "/x",
++            Map.of(),
++            null,
++            StandardCharsets.UTF_8,
++            null);
++    return new RetryableException(
++        -1,
++        "Circuit open for " + host + ": failing fast",
++        Request.HttpMethod.POST,
++        new IOException("Circuit open for " + host + ": failing fast"),
++        (Long) null,
++        request);
++  }
++
++  @BeforeEach
++  void setUp() {
++    when(users.findAddress(addressId))
++        .thenReturn(
++            new AddressResponse(
++                addressId,
++                "Home",
++                "Test Customer",
++                "+919999999999",
++                "1 MG Road",
++                null,
++                "Bengaluru",
++                "Karnataka",
++                "560001",
++                "IN",
++                true,
++                Instant.now(),
++                Instant.now()));
++    when(products.findById(shirt))
++        .thenReturn(
++            new ProductView(
++                shirt,
++                "SKU-Shirt",
++                "Shirt",
++                new BigDecimal("499.00"),
++                "INR",
++                true,
++                null,
++                null,
++                List.of(),
++                List.of(),
++                null));
++    when(risks.assess(any(), any(), any())).thenReturn(new RiskService.Assessment(0, List.of()));
++    when(inventory.reserve(any()))
++        .thenReturn(
++            new InventoryFeignClient.ReserveResult(
++                List.of(
++                    new InventoryFeignClient.Allocation(
++                        shirt,
++                        null,
++                        null,
++                        UUID.fromString("eeeeeeee-0000-0000-0000-0000000000b1"),
++                        "WH-BLR",
++                        "560001",
++                        2))));
++    when(promotions.validate(any()))
++        .thenReturn(
++            new PromotionFeignClient.Validation(
++                "SAVE50", "50 off", new BigDecimal("50.00"), "INR"));
++  }
++
++  private PlaceOrderRequest request(String coupon, Integer coins) {
++    return new PlaceOrderRequest(
++        addressId,
++        PaymentMethodRequest.CARD,
++        coupon,
++        List.of(new OrderLineRequest(shirt, 2, null, null)),
++        null,
++        coins,
++        null);
++  }
++
++  private String orderStatus(String key) {
++    return jdbc.queryForObject(
++        "select status from orders.orders where user_id = ? and idempotency_key = ?",
++        String.class,
++        user,
++        key);
++  }
++
++  private List<String> outboxKinds(String key) {
++    return jdbc.queryForList(
++        "select o.kind from orders.outbox o join orders.orders r on r.id = o.aggregate_id"
++            + " where r.user_id = ? and r.idempotency_key = ?",
++        String.class,
++        user,
++        key);
++  }
++
++  @Test
++  @DisplayName(
++      "coupon redeem hits an open breaker after the order is saved: cancelled, stock and coupon released")
++  void couponBreakerOpen() {
++    doThrow(openBreaker("promotion-service")).when(promotions).redeem(any());
++
++    assertThatThrownBy(
++            () -> orders.place(user, "c@example.com", "cb-coupon", request("SAVE50", null)))
++        .isInstanceOf(CodedException.class)
++        .extracting(e -> ((CodedException) e).errorCode())
++        .isEqualTo(ErrorCode.DEPENDENCY_UNAVAILABLE);
++
++    assertThat(orderStatus("cb-coupon")).isEqualTo("CANCELLED");
++    assertThat(outboxKinds("cb-coupon")).contains("RESTORE_STOCK", "RELEASE_COUPON");
++    assertThat(outboxKinds("cb-coupon")).doesNotContain("RELEASE_COINS");
++  }
++
++  @Test
++  @DisplayName(
++      "coin redeem hits an open breaker after the coupon was taken: stock, coupon and coins released")
++  void coinsBreakerOpen() {
++    when(promotions.redeem(any())).thenReturn(new PromotionFeignClient.Redemption(BigDecimal.TEN));
++    doThrow(openBreaker("promotion-service")).when(promotions).redeemCoins(any());
++
++    assertThatThrownBy(() -> orders.place(user, "c@example.com", "cb-coins", request("SAVE50", 10)))
++        .isInstanceOf(CodedException.class)
++        .extracting(e -> ((CodedException) e).errorCode())
++        .isEqualTo(ErrorCode.DEPENDENCY_UNAVAILABLE);
++
++    assertThat(orderStatus("cb-coins")).isEqualTo("CANCELLED");
++    assertThat(outboxKinds("cb-coins"))
++        .contains("RESTORE_STOCK", "RELEASE_COUPON", "RELEASE_COINS");
++  }
++
++  private PlaceOrderRequest walletRequest() {
++    return new PlaceOrderRequest(
++        addressId,
++        PaymentMethodRequest.CARD,
++        null,
++        List.of(new OrderLineRequest(shirt, 2, null, null)),
++        true,
++        null,
++        null);
++  }
++
++  private List<String> walletRows(String key) {
++    return jdbc.queryForList(
++        "select w.kind from orders.pending_wallet_credits w join orders.orders r on r.id = w.order_id"
++            + " where r.user_id = ? and r.idempotency_key = ?",
++        String.class,
++        user,
++        key);
++  }
++
++  @Test
++  @DisplayName(
++      "wallet debit refused by an open payment breaker: cancelled, stock restored, wallet reversal recorded")
++  void walletDebitBreakerOpen() {
++    when(payments.walletBalance(user))
++        .thenReturn(new PaymentFeignClient.WalletBalance(new BigDecimal("5000.00"), "INR"));
++    doThrow(openBreaker("payment-service")).when(payments).walletDebit(any());
++
++    assertThatThrownBy(() -> orders.place(user, "c@example.com", "cb-wallet", walletRequest()))
++        .isInstanceOf(CodedException.class)
++        .extracting(e -> ((CodedException) e).errorCode())
++        .isEqualTo(ErrorCode.DEPENDENCY_UNAVAILABLE);
++
++    assertThat(orderStatus("cb-wallet")).isEqualTo("CANCELLED");
++    assertThat(outboxKinds("cb-wallet")).contains("RESTORE_STOCK");
++    assertThat(walletRows("cb-wallet")).containsExactly("REVERSE_DEBIT");
++  }
++
++  @Test
++  @DisplayName(
++      "payment create refused after a partial wallet debit: cancelled, wallet credited back")
++  void paymentCreateBreakerOpenAfterPartialWalletDebit() {
++    when(payments.walletBalance(user))
++        .thenReturn(new PaymentFeignClient.WalletBalance(new BigDecimal("300.00"), "INR"));
++    when(payments.walletDebit(any()))
++        .thenReturn(new PaymentFeignClient.WalletBalance(BigDecimal.ZERO, "INR"));
++    doThrow(openBreaker("payment-service")).when(payments).create(any());
++
++    assertThatThrownBy(() -> orders.place(user, "c@example.com", "cb-partial", walletRequest()))
++        .isInstanceOf(CodedException.class)
++        .extracting(e -> ((CodedException) e).errorCode())
++        .isEqualTo(ErrorCode.DEPENDENCY_UNAVAILABLE);
++
++    assertThat(orderStatus("cb-partial")).isEqualTo("CANCELLED");
++    assertThat(outboxKinds("cb-partial")).contains("RESTORE_STOCK");
++    assertThat(walletRows("cb-partial")).containsExactly("CREDIT");
++    assertThat(
++            jdbc.queryForObject(
++                "select w.amount from orders.pending_wallet_credits w join orders.orders r"
++                    + " on r.id = w.order_id where r.user_id = ? and r.idempotency_key = ?",
++                BigDecimal.class,
++                user,
++                "cb-partial"))
++        .isEqualByComparingTo("300.00");
++  }
++}
+diff --git a/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/OrderPlacementIntegrationTest.java b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/OrderPlacementIntegrationTest.java
+index 6a86114..1ce1c55 100644
+--- a/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/OrderPlacementIntegrationTest.java
++++ b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/OrderPlacementIntegrationTest.java
+@@ -3,6 +3,7 @@ package com.acme.ecommerce.order.service;
+ import static org.assertj.core.api.Assertions.assertThat;
+ import static org.assertj.core.api.Assertions.assertThatThrownBy;
+ import static org.mockito.ArgumentMatchers.any;
++import static org.mockito.ArgumentMatchers.anyBoolean;
+ import static org.mockito.ArgumentMatchers.anyInt;
+ import static org.mockito.ArgumentMatchers.anyString;
+ import static org.mockito.ArgumentMatchers.eq;
+@@ -18,17 +19,25 @@ import com.acme.ecommerce.order.api.dto.OrderLineRequest;
+ import com.acme.ecommerce.order.api.dto.PlaceOrderRequest;
+ import com.acme.ecommerce.order.api.dto.PlaceOrderRequest.PaymentMethodRequest;
+ import com.acme.ecommerce.order.client.CartFeignClient;
++import com.acme.ecommerce.order.client.DependencyBreakerCapability;
+ import com.acme.ecommerce.order.client.InventoryFeignClient;
+ import com.acme.ecommerce.order.client.PaymentFeignClient;
+ import com.acme.ecommerce.order.client.PaymentFeignClient.PaymentResult;
+ import com.acme.ecommerce.order.client.ProductViewFeignClient;
+ import com.acme.ecommerce.order.client.ProductViewFeignClient.ProductView;
+ import com.acme.ecommerce.order.client.PromotionFeignClient;
++import com.acme.ecommerce.order.client.RemoteCalls;
+ import com.acme.ecommerce.order.client.UserFeignClient;
+ import com.acme.ecommerce.order.event.OrderEventPublisher;
+ import com.acme.ecommerce.order.support.AbstractOrderIntegrationTest;
+ import com.acme.ecommerce.user.api.dto.AddressResponse;
++import com.fasterxml.jackson.core.JsonProcessingException;
++import com.fasterxml.jackson.databind.ObjectMapper;
++import feign.codec.EncodeException;
++import io.github.resilience4j.circuitbreaker.CircuitBreaker;
++import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
+ import java.math.BigDecimal;
++import java.nio.charset.StandardCharsets;
+ import java.time.Instant;
+ import java.util.List;
+ import java.util.UUID;
+@@ -517,7 +526,538 @@ class OrderPlacementIntegrationTest extends AbstractOrderIntegrationTest {
+   private static com.acme.ecommerce.cart.api.dto.CartItemResponse item(
+       UUID productId, int qty, Instant addedAt) {
+     return new com.acme.ecommerce.cart.api.dto.CartItemResponse(
+-        productId, qty, "x", BigDecimal.ONE, "INR", null, BigDecimal.ONE, addedAt, null, null, null,
++        productId,
++        qty,
++        "x",
++        BigDecimal.ONE,
++        "INR",
++        null,
++        BigDecimal.ONE,
++        addedAt,
++        null,
++        null,
++        null,
+         null);
+   }
++
++  // --- AC-2: a cart whose lines lack addedAt is refused, never placed unguarded ------------------
++
++  @Test
++  @DisplayName("a cart line without addedAt gives 503 and no order row, before any other call")
++  void cartWithoutAddedAtIsRefused() {
++    cartHolds(null);
++
++    assertThatThrownBy(() -> orders.place(user, "c@example.com", "no-added-at", fromCart()))
++        .isInstanceOf(CodedException.class)
++        .hasMessage("Your cart could not be read, please try again")
++        .extracting(e -> ((CodedException) e).errorCode())
++        .isEqualTo(ErrorCode.DEPENDENCY_UNAVAILABLE);
++
++    assertThat(orderCount()).isZero();
++    verify(remote, never()).reserveStock(any(), any(), anyString());
++  }
++
++  @Test
++  @DisplayName("two different-key placements of a cart without addedAt both get 503; no order row")
++  void racingCartsWithoutAddedAtCreateNoOrder() throws Exception {
++    couponAndPartialWalletAvailable();
++    cartHolds(null);
++    PlaceOrderRequest withEverything =
++        new PlaceOrderRequest(addressId, PaymentMethodRequest.CARD, "SAVE50", null, true, 10, null);
++    var pool = java.util.concurrent.Executors.newFixedThreadPool(2);
++    var start = new java.util.concurrent.CountDownLatch(1);
++    try {
++      List<java.util.concurrent.Future<ErrorCode>> results = new java.util.ArrayList<>();
++      for (String key : List.of("nat-a", "nat-b")) {
++        results.add(
++            pool.submit(
++                () -> {
++                  start.await();
++                  try {
++                    orders.place(user, "c@example.com", key, withEverything);
++                    return null;
++                  } catch (CodedException e) {
++                    return e.errorCode();
++                  }
++                }));
++      }
++      start.countDown();
++      for (var r : results) {
++        assertThat(r.get(30, java.util.concurrent.TimeUnit.SECONDS))
++            .isEqualTo(ErrorCode.DEPENDENCY_UNAVAILABLE);
++      }
++    } finally {
++      pool.shutdownNow();
++    }
++
++    assertThat(orderCount()).isZero();
++    verify(remote, never()).validateCoupon(anyString(), any(), anyString(), anyBoolean());
++    verify(remote, never()).reserveStock(any(), any(), anyString());
++    verify(remote, never()).redeemCoupon(any(), any(), any(), any(), anyString(), anyBoolean());
++    verify(remote, never()).redeemCoins(any(), anyInt(), any());
++    verify(remote, never()).debitWallet(any(), any(), anyString(), any());
++    verify(remote, never()).createPayment(any(), any(), any(), anyString(), anyString());
++  }
++
++  @Test
++  @DisplayName("buy-now never reads the cart, so a broken cart contract does not affect it")
++  void buyNowIgnoresCartContract() {
++    cartHolds(null);
++
++    OrderService.Placement p = orders.place(user, "c@example.com", "buy-now-ok", buyNow(shirt, 1));
++
++    assertThat(p.created()).isTrue();
++    verify(carts, never()).getCart();
++  }
++
++  // --- AC-1, 3, 4, 5, 6, 7: concurrency and duplicate regression cover
++  // ----------------------------
++
++  private PlaceOrderRequest fromCartWithExtras() {
++    return new PlaceOrderRequest(
++        addressId, PaymentMethodRequest.CARD, "SAVE50", null, true, 10, null);
++  }
++
++  private void couponAndPartialWalletAvailable() {
++    when(remote.validateCoupon(eq("SAVE50"), any(), eq("INR"), anyBoolean()))
++        .thenReturn(
++            new PromotionFeignClient.Validation(
++                "SAVE50", "50 off", new BigDecimal("50.00"), "INR"));
++    when(remote.walletBalance(user))
++        .thenReturn(new PaymentFeignClient.WalletBalance(new BigDecimal("100.00"), "INR"));
++  }
++
++  private record Outcome(OrderService.Placement placement, CodedException error) {}
++
++  /** Runs one placement per key at the same moment and returns the outcomes in key order. */
++  private List<Outcome> race(UUID who, List<String> keys, PlaceOrderRequest req) throws Exception {
++    var pool = java.util.concurrent.Executors.newFixedThreadPool(keys.size());
++    var start = new java.util.concurrent.CountDownLatch(1);
++    try {
++      List<java.util.concurrent.Future<Outcome>> futures = new java.util.ArrayList<>();
++      for (String key : keys) {
++        futures.add(
++            pool.submit(
++                () -> {
++                  start.await();
++                  try {
++                    return new Outcome(orders.place(who, "c@example.com", key, req), null);
++                  } catch (CodedException e) {
++                    return new Outcome(null, e);
++                  }
++                }));
++      }
++      start.countDown();
++      List<Outcome> out = new java.util.ArrayList<>();
++      for (var f : futures) {
++        out.add(f.get(30, java.util.concurrent.TimeUnit.SECONDS));
++      }
++      return out;
++    } finally {
++      pool.shutdownNow();
++    }
++  }
++
++  @Test
++  @DisplayName("AC-1: two different-key placements race: one order, one 409, each charge once")
++  void differentKeyRaceChargesOnce() throws Exception {
++    cartHolds(Instant.parse("2026-11-18T13:00:00Z"));
++    couponAndPartialWalletAvailable();
++
++    List<Outcome> outcomes = race(user, List.of("one-a", "one-b"), fromCartWithExtras());
++
++    assertThat(outcomes.stream().filter(o -> o.placement() != null)).hasSize(1);
++    Outcome loser = outcomes.stream().filter(o -> o.error() != null).findFirst().orElseThrow();
++    assertThat(loser.error().errorCode()).isEqualTo(ErrorCode.RESOURCE_CONFLICT);
++    assertThat(orderCount()).isEqualTo(1);
++    verify(remote, times(1)).reserveStock(any(), any(), anyString());
++    verify(remote, times(1))
++        .redeemCoupon(eq("SAVE50"), eq(user), any(), any(), eq("INR"), anyBoolean());
++    verify(remote, times(1)).redeemCoins(eq(user), eq(10), any());
++    verify(remote, times(1)).debitWallet(eq(user), any(), eq("INR"), any());
++  }
++
++  @Test
++  @DisplayName("AC-3: the same key and address, repeated, returns the original order")
++  void sameKeyRepeatedReturnsOriginal() {
++    cartHolds(Instant.parse("2026-11-18T14:00:00Z"));
++
++    OrderService.Placement first = orders.place(user, "c@example.com", "same-key", fromCart());
++    OrderService.Placement again = orders.place(user, "c@example.com", "same-key", fromCart());
++
++    assertThat(first.created()).isTrue();
++    assertThat(again.created()).isFalse();
++    assertThat(again.order().id()).isEqualTo(first.order().id());
++    assertThat(orderCount()).isEqualTo(1);
++    verify(remote, times(1)).reserveStock(any(), any(), anyString());
++  }
++
++  @Test
++  @DisplayName("AC-3: the same key and address, raced, gives one order and one created=false")
++  void sameKeyRaceReturnsOriginal() throws Exception {
++    cartHolds(Instant.parse("2026-11-18T14:30:00Z"));
++
++    List<Outcome> outcomes = race(user, List.of("dup-key", "dup-key"), fromCart());
++
++    assertThat(outcomes).allSatisfy(o -> assertThat(o.placement()).isNotNull());
++    assertThat(outcomes.stream().filter(o -> o.placement().created())).hasSize(1);
++    assertThat(outcomes.get(0).placement().order().id())
++        .isEqualTo(outcomes.get(1).placement().order().id());
++    assertThat(orderCount()).isEqualTo(1);
++    verify(remote, times(1)).reserveStock(any(), any(), anyString());
++  }
++
++  @Test
++  @DisplayName("AC-4: after the first order is CANCELLED the same cart can be ordered again")
++  void cancelledOrderFreesTheCart() {
++    cartHolds(Instant.parse("2026-11-18T15:00:00Z"));
++    OrderService.Placement first = orders.place(user, "c@example.com", "c-1", fromCart());
++    jdbc.update("update orders.orders set status = 'CANCELLED' where id = ?", first.order().id());
++
++    OrderService.Placement second = orders.place(user, "c@example.com", "c-2", fromCart());
++
++    assertThat(second.created()).isTrue();
++    assertThat(second.order().id()).isNotEqualTo(first.order().id());
++    assertThat(orderCount()).isEqualTo(2);
++  }
++
++  @Test
++  @DisplayName("AC-5: the cart cleared and the same items re-added is a new cart, not blocked")
++  void reAddedItemsAreANewCart() {
++    Instant added = Instant.parse("2026-11-18T16:00:00Z");
++    cartHolds(added);
++    OrderService.Placement first = orders.place(user, "c@example.com", "r-1", fromCart());
++    assertThat(status(first.order().id())).isEqualTo("PENDING_PAYMENT");
++
++    cartHolds(added.plusSeconds(3600));
++    OrderService.Placement second = orders.place(user, "c@example.com", "r-2", fromCart());
++
++    assertThat(second.created()).isTrue();
++    assertThat(orderCount()).isEqualTo(2);
++  }
++
++  @Test
++  @DisplayName("AC-6: buy-now with two different keys makes two orders and never reads the cart")
++  void buyNowTwiceMakesTwoOrders() {
++    OrderService.Placement a = orders.place(user, "c@example.com", "bn-1", buyNow(shirt, 2));
++    OrderService.Placement b = orders.place(user, "c@example.com", "bn-2", buyNow(shirt, 2));
++
++    assertThat(a.created()).isTrue();
++    assertThat(b.created()).isTrue();
++    assertThat(b.order().id()).isNotEqualTo(a.order().id());
++    assertThat(orderCount()).isEqualTo(2);
++    verify(carts, never()).getCart();
++  }
++
++  @Test
++  @DisplayName(
++      "AC-7: two users with identical carts both place; one user's order never blocks another")
++  void identicalCartsOfTwoUsers() {
++    UUID other = UUID.randomUUID();
++    when(remote.createPayment(any(), eq(other), any(), eq("INR"), eq("CARD")))
++        .thenReturn(
++            new PaymentResult("pay-2", null, "REQUIRES_PAYMENT", "RAZORPAY", null, "rzp_test"));
++    cartHolds(Instant.parse("2026-11-18T17:00:00Z"));
++
++    OrderService.Placement a = orders.place(user, "a@example.com", "u-a", fromCart());
++    OrderService.Placement b = orders.place(other, "b@example.com", "u-b", fromCart());
++
++    assertThat(a.created()).isTrue();
++    assertThat(b.created()).isTrue();
++    assertThat(b.order().id()).isNotEqualTo(a.order().id());
++    assertThat(
++            jdbc.queryForObject(
++                "select count(*) from orders.orders where user_id = ?", Integer.class, other))
++        .isEqualTo(1);
++  }
++
++  // --- AC-8, 9: breakers through the real Feign client stack ------------------------------------
++
++  /** A stub HTTP layer that counts the requests that actually reach "the host". */
++  private static final class StubHost implements feign.Client {
++    final java.util.concurrent.atomic.AtomicInteger requests =
++        new java.util.concurrent.atomic.AtomicInteger();
++    volatile int status;
++
++    StubHost(int status) {
++      this.status = status;
++    }
++
++    @Override
++    public feign.Response execute(feign.Request request, feign.Request.Options options) {
++      requests.incrementAndGet();
++      return feign.Response.builder()
++          .status(status)
++          .request(request)
++          .headers(java.util.Map.of())
++          .build();
++    }
++  }
++
++  private static final ObjectMapper JSON = new ObjectMapper();
++
++  private <T> T realClient(
++      Class<T> type, String host, DependencyBreakerCapability breakers, feign.Client stub) {
++    return feign.Feign.builder()
++        .contract(new org.springframework.cloud.openfeign.support.SpringMvcContract())
++        .retryer(feign.Retryer.NEVER_RETRY)
++        // Without an encoder a POST fails with EncodeException before it reaches the client, so
++        // the breaker would never see the call.
++        .encoder(
++            (object, bodyType, template) -> {
++              try {
++                template.body(JSON.writeValueAsBytes(object), StandardCharsets.UTF_8);
++              } catch (JsonProcessingException e) {
++                throw new EncodeException(e.getMessage(), e);
++              }
++            })
++        .client(breakers.enrich(stub))
++        .target(type, "http://" + host);
++  }
++
++  /** Drives the client with 5xx answers until the host's breaker is open. */
++  private void trip(Runnable call, CircuitBreakerRegistry registry, String host) {
++    for (int i = 0; i < 10; i++) {
++      assertThatThrownBy(call::run).isInstanceOf(feign.FeignException.class);
++    }
++    assertThat(registry.circuitBreaker("dep-" + host).getState())
++        .isEqualTo(CircuitBreaker.State.OPEN);
++  }
++
++  private void assertFailsFast(Runnable placement, StubHost host) {
++    assertFailsFast(placement, host, false);
++  }
++
++  /** cancelled: the failure came after the order row was saved, so it must end CANCELLED. */
++  private void assertFailsFast(Runnable placement, StubHost host, boolean cancelled) {
++    int before = host.requests.get();
++    long t0 = System.nanoTime();
++    assertThatThrownBy(placement::run)
++        .isInstanceOf(CodedException.class)
++        .extracting(e -> ((CodedException) e).errorCode())
++        .isEqualTo(ErrorCode.DEPENDENCY_UNAVAILABLE);
++    assertThat(host.requests.get()).as("host calls while the breaker is open").isEqualTo(before);
++    assertThat(java.time.Duration.ofNanos(System.nanoTime() - t0))
++        .as("no read-timeout wait (the read timeout is 3 s; the margin covers a cold, busy CI box)")
++        .isLessThan(java.time.Duration.ofSeconds(2));
++    if (cancelled) {
++      assertThat(orderCount()).isEqualTo(1);
++      assertThat(
++              jdbc.queryForObject(
++                  "select status from orders.orders where user_id = ?", String.class, user))
++          .isEqualTo("CANCELLED");
++    } else {
++      assertThat(orderCount()).isZero();
++    }
++  }
++
++  @Test
++  @DisplayName("AC-8: an open product-service breaker gives 503 at once, with no host call")
++  void openProductBreaker() {
++    var registry = DependencyBreakerCapability.defaultRegistry();
++    var host = new StubHost(503);
++    ProductViewFeignClient real =
++        realClient(
++            ProductViewFeignClient.class,
++            "product-service",
++            new DependencyBreakerCapability(registry),
++            host);
++    when(products.findById(any())).thenAnswer(inv -> real.findById(inv.getArgument(0)));
++    trip(() -> real.findById(shirt), registry, "product-service");
++
++    assertFailsFast(
++        () -> orders.place(user, "c@example.com", "open-product", buyNow(shirt, 1)), host);
++  }
++
++  @Test
++  @DisplayName("AC-8: an open cart-service breaker gives 503 at once, with no host call")
++  void openCartBreaker() {
++    var registry = DependencyBreakerCapability.defaultRegistry();
++    var host = new StubHost(503);
++    CartFeignClient real =
++        realClient(
++            CartFeignClient.class, "cart-service", new DependencyBreakerCapability(registry), host);
++    when(carts.getCart()).thenAnswer(inv -> real.getCart());
++    trip(real::getCart, registry, "cart-service");
++
++    assertFailsFast(() -> orders.place(user, "c@example.com", "open-cart", fromCart()), host);
++  }
++
++  @Test
++  @DisplayName("AC-8: an open user-service breaker gives 503 at once, with no host call")
++  void openUserBreaker() {
++    var registry = DependencyBreakerCapability.defaultRegistry();
++    var host = new StubHost(503);
++    UserFeignClient real =
++        realClient(
++            UserFeignClient.class, "user-service", new DependencyBreakerCapability(registry), host);
++    when(users.findAddress(any())).thenAnswer(inv -> real.findAddress(inv.getArgument(0)));
++    trip(() -> real.findAddress(addressId), registry, "user-service");
++
++    assertFailsFast(() -> orders.place(user, "c@example.com", "open-user", buyNow(shirt, 1)), host);
++  }
++
++  @Test
++  @DisplayName("AC-8: an open inventory-service breaker gives 503 at once; the order is CANCELLED")
++  void openInventoryBreaker() {
++    var registry = DependencyBreakerCapability.defaultRegistry();
++    var host = new StubHost(503);
++    InventoryFeignClient real =
++        realClient(
++            InventoryFeignClient.class,
++            "inventory-service",
++            new DependencyBreakerCapability(registry),
++            host);
++    when(remote.reserveStock(any(), any(), anyString()))
++        .thenAnswer(
++            inv -> {
++              try {
++                return real.reserve(
++                        new InventoryFeignClient.ReserveRequest(
++                            inv.getArgument(0), List.of(), inv.getArgument(2)))
++                    .allocations();
++              } catch (feign.FeignException e) {
++                throw RemoteCalls.translate("inventory-service", e);
++              }
++            });
++    trip(
++        () ->
++            real.reserve(
++                new InventoryFeignClient.ReserveRequest(UUID.randomUUID(), List.of(), "560001")),
++        registry,
++        "inventory-service");
++
++    assertFailsFast(
++        () -> orders.place(user, "c@example.com", "open-inventory", buyNow(shirt, 1)), host, true);
++  }
++
++  @Test
++  @DisplayName("AC-8: an open promotion-service breaker gives 503 at once, with no host call")
++  void openPromotionBreaker() {
++    var registry = DependencyBreakerCapability.defaultRegistry();
++    var host = new StubHost(503);
++    PromotionFeignClient real =
++        realClient(
++            PromotionFeignClient.class,
++            "promotion-service",
++            new DependencyBreakerCapability(registry),
++            host);
++    when(remote.validateCoupon(eq("SAVE50"), any(), anyString(), anyBoolean()))
++        .thenAnswer(
++            inv -> {
++              try {
++                return real.validate(
++                    new PromotionFeignClient.ValidateRequest(
++                        inv.getArgument(0), inv.getArgument(1), inv.getArgument(2), false));
++              } catch (feign.FeignException e) {
++                throw RemoteCalls.translate("promotion-service", e);
++              }
++            });
++    trip(
++        () ->
++            real.validate(
++                new PromotionFeignClient.ValidateRequest("SAVE50", BigDecimal.TEN, "INR", false)),
++        registry,
++        "promotion-service");
++    PlaceOrderRequest withCoupon =
++        new PlaceOrderRequest(
++            addressId,
++            PaymentMethodRequest.CARD,
++            "SAVE50",
++            List.of(new OrderLineRequest(shirt, 1, null, null)),
++            null,
++            null,
++            null);
++
++    assertFailsFast(() -> orders.place(user, "c@example.com", "open-promo", withCoupon), host);
++  }
++
++  @Test
++  @DisplayName("AC-8: an open payment-service breaker gives 503 at once; the order is CANCELLED")
++  void openPaymentBreaker() {
++    var registry = DependencyBreakerCapability.defaultRegistry();
++    var host = new StubHost(503);
++    PaymentFeignClient real =
++        realClient(
++            PaymentFeignClient.class,
++            "payment-service",
++            new DependencyBreakerCapability(registry),
++            host);
++    when(remote.createPayment(any(), eq(user), any(), anyString(), anyString()))
++        .thenAnswer(
++            inv -> {
++              try {
++                return real.create(
++                    new PaymentFeignClient.CreatePayment(
++                        inv.getArgument(0),
++                        inv.getArgument(1),
++                        inv.getArgument(2),
++                        inv.getArgument(3),
++                        inv.getArgument(4)));
++              } catch (feign.FeignException e) {
++                throw RemoteCalls.translate("payment-service", e);
++              }
++            });
++    trip(
++        () ->
++            real.create(
++                new PaymentFeignClient.CreatePayment(
++                    UUID.randomUUID(), user, BigDecimal.TEN, "INR", "CARD")),
++        registry,
++        "payment-service");
++
++    assertFailsFast(
++        () -> orders.place(user, "c@example.com", "open-payment", buyNow(shirt, 1)), host, true);
++  }
++
++  @Test
++  @DisplayName(
++      "AC-9: a 404 from product-service keeps its domain error and never opens the breaker")
++  void productNotFoundKeepsDomainError() {
++    var registry = DependencyBreakerCapability.defaultRegistry();
++    var host = new StubHost(404);
++    ProductViewFeignClient real =
++        realClient(
++            ProductViewFeignClient.class,
++            "product-service",
++            new DependencyBreakerCapability(registry),
++            host);
++    when(products.findById(any())).thenAnswer(inv -> real.findById(inv.getArgument(0)));
++
++    for (int i = 0; i < 25; i++) {
++      assertThatThrownBy(
++              () ->
++                  orders.place(user, "c@example.com", "nf-" + UUID.randomUUID(), buyNow(shirt, 1)))
++          .isInstanceOf(CodedException.class)
++          .extracting(e -> ((CodedException) e).errorCode())
++          .isEqualTo(ErrorCode.PRODUCT_UNAVAILABLE);
++    }
++
++    assertThat(host.requests.get()).isEqualTo(25);
++    assertThat(registry.circuitBreaker("dep-product-service").getState())
++        .isEqualTo(CircuitBreaker.State.CLOSED);
++  }
++
++  @Test
++  @DisplayName("AC-9: a 404 from user-service keeps ADDRESS_NOT_FOUND and never opens the breaker")
++  void addressNotFoundKeepsDomainError() {
++    var registry = DependencyBreakerCapability.defaultRegistry();
++    var host = new StubHost(404);
++    UserFeignClient real =
++        realClient(
++            UserFeignClient.class, "user-service", new DependencyBreakerCapability(registry), host);
++    when(users.findAddress(any())).thenAnswer(inv -> real.findAddress(inv.getArgument(0)));
++
++    for (int i = 0; i < 25; i++) {
++      assertThatThrownBy(
++              () ->
++                  orders.place(user, "c@example.com", "an-" + UUID.randomUUID(), buyNow(shirt, 1)))
++          .isInstanceOf(CodedException.class)
++          .extracting(e -> ((CodedException) e).errorCode())
++          .isEqualTo(ErrorCode.ADDRESS_NOT_FOUND);
++    }
++
++    assertThat(registry.circuitBreaker("dep-user-service").getState())
++        .isEqualTo(CircuitBreaker.State.CLOSED);
++  }
+ }

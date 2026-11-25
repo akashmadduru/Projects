@@ -1,0 +1,13 @@
+{
+ "product_id": "9ce223c8-7e7e-4be5-be25-4a2262af3ab7",
+ "name": "Venrili Jacket Essential",
+ "prompt": "studio packshot photo of a Red Venrili Jacket Essential, made of silicone, men's clothing, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 4028217301,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:16:04",
+ "file_path": "product-images/images/9ce223c8-7e7e-4be5-be25-4a2262af3ab7.jpg",
+ "file_size": 44464
+}

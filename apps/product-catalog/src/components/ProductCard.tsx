@@ -22,11 +22,14 @@ import type { Product } from '../types'
 
 interface Props {
   product: Product
+  /** A saved variant (wishlist): the card links to it, shows its options and hearts that row. */
+  saved?: { variantId: string; label: string; image?: string | null }
 }
 
 const LOW_STOCK = 10
 
-function ProductCardComponent({ product }: Props) {
+function ProductCardComponent({ product, saved }: Props) {
+  const href = saved ? `${productPath(product)}?variant=${encodeURIComponent(saved.variantId)}` : productPath(product)
   const deal = useDeal(product.id)
   const discount = effectiveDiscount(product.listPrice, product.priceAmount)
   const quantity = product.lastKnownQuantity
@@ -73,7 +76,12 @@ function ProductCardComponent({ product }: Props) {
           )}
         </div>
         <div className="absolute right-3 top-3 z-10">
-          <WishlistButton product={product} />
+          <WishlistButton
+            product={product}
+            variantId={saved?.variantId}
+            variantLabel={saved?.label}
+            variantImage={saved?.image}
+          />
         </div>
       </div>
 
@@ -81,13 +89,14 @@ function ProductCardComponent({ product }: Props) {
         <h3 className="font-body line-clamp-2 text-[15px] font-bold leading-snug text-on-surface">
           {/* The stretched link makes the whole card clickable without nesting the buttons in it. */}
           <Link
-            to={productPath(product)}
+            to={href}
             onClick={trackAdClick}
             className="transition-colors duration-500 after:absolute after:inset-0 after:content-[''] focus-visible:outline-none group-hover:text-primary"
           >
             {product.name}
           </Link>
         </h3>
+        {saved && <p className="text-xs font-semibold text-on-surface-muted">{saved.label}</p>}
 
         <RatingChip rating={product.averageRating} count={product.ratingCount} />
 
@@ -125,7 +134,7 @@ function ProductCardComponent({ product }: Props) {
           {quantity === 0 && <p className="text-xs font-semibold text-error">Out of stock</p>}
           {product.hasVariants ? (
             <Link
-              to={productPath(product)}
+              to={href}
               onClick={trackAdClick}
               className="press relative z-10 inline-flex w-full items-center justify-center rounded-full border-2 border-ink bg-surface px-3 py-2 text-sm font-bold text-on-surface shadow-cta hover:bg-vivid-amber/25"
             >

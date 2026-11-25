@@ -1,0 +1,1823 @@
+diff --git a/docs/reference/endpoints.md b/docs/reference/endpoints.md
+index e1384f3..9aa1020 100644
+--- a/docs/reference/endpoints.md
++++ b/docs/reference/endpoints.md
+@@ -299,12 +299,15 @@ Request and response shapes for Phases 1–5 are in [api.md](api.md); later phas
+ | DELETE | `/api/admin/ratings/{id}` | AdminRatingController |
+ | GET | `/internal/privacy/users/{userId}/export` | PrivacyExportController |
+ 
+-## seller-service (25)
++## seller-service (28)
+ 
+ | Method | Path | Controller |
+ |---|---|---|
+ | POST | `/api/ads/{adId}/click` | AdController |
+ | POST | `/api/ads/impressions` | AdController |
++| GET | `/api/admin/ledger/discrepancies` | FinanceController |
++| POST | `/api/admin/ledger/discrepancies/{id}/repair` | FinanceController |
++| POST | `/api/admin/ledger/reconcile` | FinanceController |
+ | GET | `/api/admin/payouts` | FinanceController |
+ | POST | `/api/admin/payouts/run` | FinanceController |
+ | GET | `/api/admin/sellers` | SellerController |
+diff --git a/docs/reference/env-descriptions.json b/docs/reference/env-descriptions.json
+index 6bccbac..983ed1d 100644
+--- a/docs/reference/env-descriptions.json
++++ b/docs/reference/env-descriptions.json
+@@ -488,6 +488,31 @@
+       "usedBy": "seller",
+       "text": "Service id used to find auth-service when no fixed JWKS URL is set (default `AUTH-SERVICE`)."
+     },
++    "SELLER_LEDGER_RECONCILE_CRON": {
++      "group": "Business rules",
++      "usedBy": "seller",
++      "text": "Spring cron (UTC) of the daily ledger reconcile job (`seller.ledger.reconcile.cron`). It only reports to `ledger_discrepancies`; it never posts to the ledger."
++    },
++    "SELLER_LEDGER_RECONCILE_GRACE": {
++      "group": "Business rules",
++      "usedBy": "seller",
++      "text": "How long a DELIVERED shipment may be without a SALE before reconcile reports MISSING_SALE (`seller.ledger.reconcile.grace`, ISO-8601 duration)."
++    },
++    "SELLER_LEDGER_RECONCILE_LOOKBACK_DAYS": {
++      "group": "Business rules",
++      "usedBy": "seller",
++      "text": "Reconcile asks order-service about SALEs newer than this many days (STATE_MISMATCH; `seller.ledger.reconcile.lookback-days`)."
++    },
++    "SELLER_LEDGER_RECONCILE_MAX_FEIGN_ERRORS": {
++      "group": "Business rules",
++      "usedBy": "seller",
++      "text": "Reconcile stops its order-service state checks after this many errors in a row, so a down order-service cannot hold the run (`seller.ledger.reconcile.max-feign-errors`, default 5; the counts then show FEIGN_STOPPED)."
++    },
++    "SELLER_LEDGER_RECONCILE_PAGE_SIZE": {
++      "group": "Business rules",
++      "usedBy": "seller",
++      "text": "Shipments read per page by the reconcile job (`seller.ledger.reconcile.page-size`)."
++    },
+     "SUPPORT_JWKS_URI": {
+       "group": "Service discovery",
+       "usedBy": "support",
+diff --git a/docs/reference/environment-variables.md b/docs/reference/environment-variables.md
+index ae612c0..9a6f567 100644
+--- a/docs/reference/environment-variables.md
++++ b/docs/reference/environment-variables.md
+@@ -157,10 +157,6 @@ service-level setting (add it under that service's `env:` in `values.yaml`). Rel
+ | `RATING_JWKS_URI` | rating | `""` |  | helm | Fixed URL of auth-service's public keys, used by rating to verify tokens. Set it on AWS (`http://auth-service:8081/.well-known/jwks.json`); blank resolves auth-service through discovery. |
+ | `SELLER_JWKS_SERVICE_ID` | seller | `AUTH-SERVICE` |  | - | Service id used to find auth-service when no fixed JWKS URL is set (default `AUTH-SERVICE`). |
+ | `SELLER_JWKS_URI` | seller | `""` |  | helm | Fixed URL of auth-service's public keys, used by seller to verify tokens. Set it on AWS (`http://auth-service:8081/.well-known/jwks.json`); blank resolves auth-service through discovery. |
+-| `SELLER_LEDGER_RECONCILE_CRON` | seller | `0 30 2 * * *` |  | - | Spring cron (UTC) of the daily ledger reconcile job (`seller.ledger.reconcile.cron`). It only reports to `ledger_discrepancies`; it never posts to the ledger. |
+-| `SELLER_LEDGER_RECONCILE_GRACE` | seller | `PT1H` |  | - | How long a DELIVERED shipment may be without a SALE before reconcile reports MISSING_SALE (`seller.ledger.reconcile.grace`, ISO-8601 duration). |
+-| `SELLER_LEDGER_RECONCILE_LOOKBACK_DAYS` | seller | `35` |  | - | Reconcile asks order-service about SALEs newer than this many days (STATE_MISMATCH; `seller.ledger.reconcile.lookback-days`). |
+-| `SELLER_LEDGER_RECONCILE_PAGE_SIZE` | seller | `200` |  | - | Shipments read per page by the reconcile job (`seller.ledger.reconcile.page-size`). |
+ | `SUPPORT_JWKS_SERVICE_ID` | support | `AUTH-SERVICE` |  | - | Service id used to find auth-service when no fixed JWKS URL is set (default `AUTH-SERVICE`). |
+ | `SUPPORT_JWKS_URI` | support | `""` |  | helm | Fixed URL of auth-service's public keys, used by support to verify tokens. Set it on AWS (`http://auth-service:8081/.well-known/jwks.json`); blank resolves auth-service through discovery. |
+ | `USER_JWKS_SERVICE_ID` | user | `AUTH-SERVICE` |  | - | Service id used to find auth-service when no fixed JWKS URL is set (default `AUTH-SERVICE`). |
+@@ -176,6 +172,11 @@ service-level setting (add it under that service's `env:` in `values.yaml`). Rel
+ | `ORDER_RISK_AVG_MIN_ORDERS` | order (Compose) | _Spring default_ |  | compose | Minimum past orders before the "unusually large order" check applies (Compose default 3). |
+ | `ORDER_RISK_AVG_MULTIPLIER` | order (Compose) | _Spring default_ |  | compose | How many times the customer's average an order may be before it is flagged (Compose default 10). |
+ | `ORDER_RISK_VELOCITY_THRESHOLD` | order (Compose) | _Spring default_ |  | compose | Orders in a short window that trigger a velocity risk flag (Compose default 8). Mapped by Spring onto `order.risk.*`. |
++| `SELLER_LEDGER_RECONCILE_CRON` | seller | `0 30 2 * * *` |  | - | Spring cron (UTC) of the daily ledger reconcile job (`seller.ledger.reconcile.cron`). It only reports to `ledger_discrepancies`; it never posts to the ledger. |
++| `SELLER_LEDGER_RECONCILE_GRACE` | seller | `PT1H` |  | - | How long a DELIVERED shipment may be without a SALE before reconcile reports MISSING_SALE (`seller.ledger.reconcile.grace`, ISO-8601 duration). |
++| `SELLER_LEDGER_RECONCILE_LOOKBACK_DAYS` | seller | `35` |  | - | Reconcile asks order-service about SALEs newer than this many days (STATE_MISMATCH; `seller.ledger.reconcile.lookback-days`). |
++| `SELLER_LEDGER_RECONCILE_MAX_FEIGN_ERRORS` | seller | `5` |  | - | Reconcile stops its order-service state checks after this many errors in a row, so a down order-service cannot hold the run (`seller.ledger.reconcile.max-feign-errors`, default 5; the counts then show FEIGN_STOPPED). |
++| `SELLER_LEDGER_RECONCILE_PAGE_SIZE` | seller | `200` |  | - | Shipments read per page by the reconcile job (`seller.ledger.reconcile.page-size`). |
+ | `USER_REFERRAL_IP_HASH_SALT` 🔒 | user | `""` |  | - | Secret key for hashing client IPs on referral pages and claims (HMAC-SHA256; raw IPs are never stored). Blank fails safe: a random key is made per process and a WARN is logged, so IP matches can only be missed (hashes differ across restarts and replicas), never wrongly refused, and the code-age check still applies. Production must set it. |
+ | `USER_REFERRAL_IP_LOOKBACK` | user | `0` |  | - | How far back a referrer's recorded network counts when a referee claims. A claim from a network the referrer used within this window is refused. Default 0: the IP check is OFF and no IP activity is recorded, until the gateway forwards a trustworthy client IP (backlog B-1); do not enable it behind the current gateway. A blank value keeps the default. |
+ | `USER_REFERRAL_IP_RETENTION` | user | `30d` |  | - | How long hashed IPs are kept before the daily cleanup deletes them. Keep it at least as long as the lookback; if shorter, retention is the effective lookback. 0 or negative disables the cleanup (hashed IPs are then kept indefinitely; a WARN is logged at startup). A blank value keeps the default. |
+diff --git a/docs/reference/events.md b/docs/reference/events.md
+index a9508e4..568fba5 100644
+--- a/docs/reference/events.md
++++ b/docs/reference/events.md
+@@ -66,8 +66,8 @@ A field change must be made on both sides in the same change. All payloads are J
+ | `INVENTORY_QUANTITY_CHANGED` | product-service sets the display-only `lastKnownQuantity`. cart-service checks back-in-stock alerts. |
+ | `INVENTORY_PROVISIONING_FAILED` | product-service compensates the create (the saga's failure path, [Phase 3](../phases/phase-03-catalog-enrichment-and-saga.md)). |
+ | `RATING_*` | product-service treats the event only as a trigger: it fetches the authoritative summary from rating-service over Feign and overwrites `average_rating`, `rating_count`, `review_count`, `rating_distribution`. Replays and out-of-order events therefore converge. |
+-| `order.events` | notification-service sends email and inbox messages; promotion-service credits coins on delivery and, per refunded return, gives back redeemed coins and reverses earned coins pro rata (`coin_return_reversals`); seller-service books sale, commission and fee on shipment delivery and reverses them on return. |
+-| `RETURN_REFUNDED` fields | order-service adds `returnItemsValue` (sum of unit price x quantity of the return) and `orderItemsValue` (order subtotal) to RETURN_* events, null otherwise. promotion-service's copy reads `returnId`, `returnItemsValue`, `orderItemsValue`; `paymentStatus=REFUNDED` marks the completing return. Events without them take the legacy full-refund path and keep the age gate. |
++| `order.events` | notification-service sends email and inbox messages; promotion-service credits coins on delivery and, per refunded return, gives back redeemed coins and reverses earned coins pro rata (`coin_return_reversals`); seller-service books sale, commission and fee on shipment delivery and reverses them on return (items value, capped at the SALE, `FEE_REVERSAL` once when fully reversed; ledger `type` gains `FEE_REVERSAL`). Every `order.events` message with `shipments` also feeds the `ledger_shipments` register that the nightly reconcile compares against. |
++| `RETURN_REFUNDED` fields | order-service adds `returnItemsValue` (sum of unit price x quantity of the return) and `orderItemsValue` (order subtotal) to RETURN_* events, null otherwise. promotion-service's copy reads `returnId`, `returnItemsValue`, `orderItemsValue`; `paymentStatus=REFUNDED` marks the completing return. Events without them take the legacy full-refund path and keep the age gate. seller-service is strict: a `RETURN_REFUNDED` without `returnId`, `returnShipmentId` and `returnItemsValue` logs ERROR "LEDGER ALERT" and is dead-lettered at once (no `refundAmount` fallback). |
+ | `USER_DELETED` | each service anonymises or deletes its own data for that user. |
+ | `audit.events` | support-service stores the record for `GET /api/admin/audit`. |
+ 
+@@ -118,6 +118,25 @@ kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic order.events
+ 
+ Logs carry the request's correlation id, and traces go to Jaeger (http://127.0.0.1:16686).
+ 
++## Runbook: seller ledger (F-20261119-13)
++
++- **Deploy order.** order-service with F-09/F-10 (it publishes `returnItemsValue`) deploys before seller-service.
++  The other order breaks every return refund.
++- **Expect** ERROR logs starting `LEDGER ALERT malformed RETURN_REFUNDED` and a message on `order.events.DLT` for each
++  malformed event (missing or unparseable ids, items value not above zero, or a shipment that belongs to another order).
++  Nothing is posted for it. After a consumer-group reset to earliest, old events without
++  `returnItemsValue` also land there; they were applied before and have no money effect.
++- **Replay a dead-lettered return** once the cause is fixed: republish the DLT record to `order.events`
++  (same key). The consumer is idempotent per return.
++- **Reconcile.** Daily at 02:30 UTC (`seller.ledger.reconcile.cron`), read-only. Findings: `GET
++  /api/admin/ledger/discrepancies?open=true` (newest first, at most 200); run now: `POST /api/admin/ledger/reconcile` (409 if one is running).
++  `POST /api/admin/ledger/discrepancies/{id}/repair` (ADMIN/FINANCE) fixes `MISSING_SALE` (needs `?amount=`, the shipment amount the admin has verified: order-service does not confirm amounts, so it is never taken from the register; the amount is rounded to cents, must be above 0 and below 10^12 and never above the register amount of the row, otherwise 409; it is logged with the actor, kept in the row's detail and sent in the `audit.events` record `REPAIR_LEDGER_DISCREPANCY` with the register amount) and `UNMATCHED_REVERSAL` (409 if it names another order than the SALE). A SALE that is already present is not rebooked and the detail says `SALE already present (amount ...)`.
++  **A SALE larger than the register amount is out of scope for the API: it is a manual DB procedure for the Owner** (verify with order-service and payment, insert the SALE, COMMISSION and FEE rows in one transaction, record it in the row's detail);
++  the other kinds are manual. Refused repairs are logged at WARN with the actor. The state check stops after
++  `seller.ledger.reconcile.max-feign-errors` (5) order-service errors in a row (counts show `FEIGN_STOPPED`) and skips legacy order-level SALEs (shipment id = order id).
++- **Blind spots:** shipments none of whose events arrived, amount changes without an event, returns whose
++  `RETURN_REFUNDED` was dead-lettered, deliveries before this deploy that have no SALE, and **historical over-reversals** (reversals booked before the items-value cap that exceed their SALE; there is no OVER_REVERSED check, find them by comparing the sum of reversals with the SALE per shipment).
++
+ ## Known gaps
+ 
+ | Gap | Tracked as |
+diff --git a/docs/techdebt/README.md b/docs/techdebt/README.md
+index 5c94cd2..cde9a98 100644
+--- a/docs/techdebt/README.md
++++ b/docs/techdebt/README.md
+@@ -125,8 +125,9 @@ Shortcuts taken while building customer accounts (login, Google SSO, user/cart/o
+ | TD-P9-17 | Storefront Phase 9 UX shortcuts | phase9 | Low | M | [phase9.md](phase9.md#td-p9-17) |
+ | TD-P9-18 | Seller portal assumed API shapes, raw-UUID forms | phase9 | Low | M | [phase9.md](phase9.md#td-p9-18) |
+ | TD-P9-19 | Phase 9 test data left in dev (Laptop PDP 404) | phase9 | Low | S | [phase9.md](phase9.md#td-p9-19) |
+-| TD-P9-20 | Seller ledger: fee on returns, per-line refunds, no reconcile | phase9 | Med | M | [phase9.md](phase9.md#td-p9-20) |
+ | TD-P9-21 | Product review: edits after approval are not re-reviewed | phase9 | Low | S | [phase9.md](phase9.md#td-p9-21) |
++| TD-P9-22 | Seller ledger `reverseRefund` has no event caller | phase9 | Low | S | [phase9.md](phase9.md#td-p9-22) |
++| TD-P9-23 | Seller ledger manual-kind discrepancies cannot be closed | phase9 | Low | S | [phase9.md](phase9.md#td-p9-23) |
+ | TD-SEC-14 | Database dumps with credential material remain in git history | infra-security | High | S | [infra-security.md](infra-security.md#td-sec-14) |
+ | TD-AI-02 | No IRSA role or NetworkPolicy egress for Bedrock | ai | Med | S | [ai.md](ai.md#td-ai-02) |
+ | TD-AI-03 | No search-specific rate limit | ai | Med | M | [ai.md](ai.md#td-ai-03) |
+diff --git a/docs/techdebt/phase9.md b/docs/techdebt/phase9.md
+index 9c44c76..3973125 100644
+--- a/docs/techdebt/phase9.md
++++ b/docs/techdebt/phase9.md
+@@ -77,7 +77,7 @@ Phase 9 was built under "no tests, no HLD/LLD, record shortcuts as debt". The in
+ - **Where:** order-service `ReturnService`, invoice generator, delivery estimate.
+ - **Risk:**
+   - One return covers one shipment; items from several shipments need separate returns. Lines are resolved against the given `shipmentId`, else the single/first delivered shipment containing the first line's product. The return window is counted per shipment from its own `deliveredAt`.
+-  - `RETURN_REFUNDED` carries `returnShipmentId` + `returnId` + `refundAmount` (gross incl. discount pro-rating); seller-service reverses commission itself ([TD-P9-20](#td-p9-20)).
++  - `RETURN_REFUNDED` carries `returnShipmentId` + `returnId` + `refundAmount` (gross incl. discount pro-rating); seller-service reverses commission itself (fixed in F-20261119-13: items value, capped, fee reversed; see the remediation plan).
+   - Return restock passes `offerId` (resolved from the shipment's order item) but the warehouse is still resolved by inventory from its reservation record; a line split across two warehouses of the same offer restocks in reservation order.
+   - Shipment amount = items value only; order-level discount, coupon, coins, shipping and tax are pro-rated by items-value share on shipment invoices (may differ by a cent from the order totals). A non-platform seller invoice shows name and warehouse only (no seller GSTIN/address; not fetched from seller-service).
+   - Delivery estimate per shipment = ship-to pincode vs warehouse pincode (3-digit / 1-digit prefix rule, 2/3/5 days, 7 non-Indian), ignoring offer `dispatchDays`; `estimated_delivery_date` = latest shipment ETA, while the checkout-time estimate/COD check still uses the fixed warehouse prefix.
+@@ -133,16 +133,26 @@ Phase 9 was built under "no tests, no HLD/LLD, record shortcuts as debt". The in
+ - **Risk:** `p9e-*` sellers (names `P9E*`) and their users remain; seller-owned test products ("E2E Bulk ...", "E2E Sponsored ...") and test warehouses (`S*-DEL`, `T*`, inactive) remain. Test offers on seeded products (Dune "P9 Store" at 12.5, and the e2e sellers) were deactivated, not deleted. The seeded Laptop product (id starts `25e35f99`) no longer resolves on the PDP (404), and its "P9 Traders" offer could not be inspected; cause not yet established. Credentials are intentionally not recorded here. Extends [TD-P8-19](phase8.md#td-p8-19).
+ - **Fix:** Investigate and restore the Laptop product; delete these rows (or `docker compose down -v`) before sharing the environment.
+ 
+-<a id="td-p9-20"></a>
+-## TD-P9-20 Seller ledger: fee on returns, per-line refunds, no reconcile
+-- **Severity / Effort:** Med / M
+-- **Where:** seller-service `LedgerService`, `OrderEventConsumer`; order-service `RETURN_REFUNDED` payload.
+-- **Risk:** Residual of TD-P9-07 (fixed 2026-11-17: the ledger consumer starts from `earliest`, so a new consumer group no longer skips deliveries; replay is safe because every ledger write is unique per shipment/type or per return; failures reach the DLT since TD-BE-17). Still open: the per-shipment fee is not reversed on a return (a policy decision), a `RETURN_REFUNDED` event without line amounts reverses the whole shipment, and nothing reconciles the ledger against order-service.
+-- **Fix:** Decide the return-fee policy; carry per-line refund amounts in the event; a nightly reconcile of delivered shipments against `ledger_entries`.
+-
+ <a id="td-p9-21"></a>
+ ## TD-P9-21 Product review: edits after approval are not re-reviewed
+ - **Severity / Effort:** Low / S
+ - **Where:** product-service `ProductModerationService`, `SellerCatalogService`; admin `ModerationView`.
+ - **Risk:** Residual of TD-P9-03 (fixed 2026-11-17: a marketplace seller's new product is created inactive and PENDING_REVIEW; admins approve or reject it at Catalog > Product review, `/api/products/admin/moderation`, with automatic warnings for no image, no description, banned terms and prices far from the category average; a rejected product the seller edits goes back to the queue; the seller sees the status on their listings; seller bulk edits now publish PRODUCT_UPDATED). An approved product the seller later edits (name, description, image) goes live without a second review. Banned terms are a config list (`product.moderation.banned-terms`), not a managed list.
+ - **Fix:** Send material edits of an approved seller product back to review while keeping the last approved version live; manage banned terms in the admin console.
++
++<a id="td-p9-22"></a>
++## TD-P9-22 seller-service `LedgerService.reverseRefund` has no event caller
++- **Severity / Effort:** Low / S
++- **Where:** seller-service `LedgerService.reverseRefund`.
++- **Risk:** the `RETURN_REFUNDED` whole-order fallback was removed in F-20261119-13, so nothing calls the method.
++- **Deadlock note:** a multi-shipment call locks several SALE rows one after another (shipment_id order) while a payout run locks its rows in one unordered statement, so the two can deadlock (Postgres aborts one; nothing is corrupted). Call it once per shipment, each in its own transaction, or order the payout run's lock, before adding a caller.
++- **Fix:** part B (per-shipment cancel, [TD-P9-12](#td-p9-12)) must use it for the whole-shipment refund path or delete it.
++- **Debt line:** td-p9-22 | seller-service LedgerService.reverseRefund has no event caller (RETURN_REFUNDED fallback removed in F-20261119-13); part B (per-shipment cancel) must use it for the whole-shipment refund path or delete it; a multi-shipment call can deadlock with a payout run (lock several SALE rows vs one unordered FOR UPDATE), so call per shipment or order the payout lock first | owner: part B follow-up
++
++<a id="td-p9-23"></a>
++## TD-P9-23 Ledger discrepancies of the manual kinds cannot be closed
++- **Severity / Effort:** Low / S
++- **Where:** seller-service `LedgerReconciler`.
++- **Risk:** `AMOUNT_MISMATCH` and `STATE_MISMATCH` rows (and a `MISSING_SALE` whose SALE arrived later) have no close action; the repair answers 409 "manual". Open rows pile up behind the newest-first limit of 200 and can hide older real findings.
++- **Fix:** an acknowledge/close action that sets `resolved_by` from the principal, and have the job close `MISSING_SALE` rows whose SALE now exists.
++- **Debt line:** td-p9-23 | seller-service ledger discrepancies of kinds AMOUNT_MISMATCH and STATE_MISMATCH cannot be closed through the API (repair answers 409 manual), so open rows pile up behind the 200 cap; add an acknowledge action and auto-close MISSING_SALE rows whose SALE exists | owner: seller ledger follow-up
+diff --git a/docs/techdebt/remediation-plan.md b/docs/techdebt/remediation-plan.md
+index bbfc56d..0a40d96 100644
+--- a/docs/techdebt/remediation-plan.md
++++ b/docs/techdebt/remediation-plan.md
+@@ -30,7 +30,8 @@ column here is the progress log.
+ | 6a | [TD-P6-04](phase6.md#td-p6-04), [TD-P7-07](phase7.md#td-p7-07) | Fail closed on missing stock rows, catalog sync creates rows for every product and variant, release cannot add stock | ✅ Fixed 2026-11-17 (residual: [TD-P7-22](phase7.md#td-p7-22)) |
+ | 6b | [TD-P9-02](phase9.md#td-p9-02) | One source of truth: `warehouse_stock`; legacy totals derived from it | 🟡 Step 1 done 2026-11-17: hourly reconcile makes `warehouse_stock` authoritative; retiring the legacy tables remains (now Med) |
+ | 7 | [TD-P8-07](phase8.md#td-p8-07) | Atomic wallet reserve-and-debit; retried credit-back | ✅ Fixed 2026-11-17 (residual: [TD-P8-22](phase8.md#td-p8-22)) |
+-| 8 | [TD-P9-07](phase9.md#td-p9-07) | Seller ledger from `earliest`, idempotent, DLQ, fee reversal | ✅ Fixed 2026-11-17 (residual: [TD-P9-20](phase9.md#td-p9-20)) |
++| 8 | [TD-P9-07](phase9.md#td-p9-07) | Seller ledger from `earliest`, idempotent, DLQ, fee reversal | ✅ Fixed 2026-11-17; residual TD-P9-20 fixed in row 8a |
++| 8a | TD-P9-20 (F-20261119-13) | Seller ledger: return fee reversed once, reversals capped on items value, strict `RETURN_REFUNDED`, nightly reconcile and admin repair (MISSING_SALE with an admin-entered amount, capped at the register amount; UNMATCHED_REVERSAL) | ✅ Part A done 2026-11-21 (fee policy provisional; part B: [TD-P9-12](phase9.md#td-p9-12), [TD-P9-22](phase9.md#td-p9-22)) |
+ | 9 | [TD-P9-03](phase9.md#td-p9-03) | `PENDING_REVIEW` for seller products, admin approval queue, `PRODUCT_UPDATED` from bulk | ✅ Fixed 2026-11-17 (residual: [TD-P9-21](phase9.md#td-p9-21)) |
+ | 10 | [TD-P9-09](phase9.md#td-p9-09) (code part) | Revoke role on suspend, mask KYC fields, audit admin decisions | 🟡 Code part done 2026-11-17 (role revoked on suspend, KYC masked, decisions audited); provider integrations need your choice |
+ 
+diff --git a/services/seller-service/seller-service-app/build.gradle b/services/seller-service/seller-service-app/build.gradle
+index df101a0..2dce0e7 100644
+--- a/services/seller-service/seller-service-app/build.gradle
++++ b/services/seller-service/seller-service-app/build.gradle
+@@ -21,6 +21,7 @@ dependencies {
+     testImplementation libs.bundles.testing.unit
+     testImplementation libs.bundles.testing.containers
+     testImplementation libs.spring.security.test
++    testImplementation libs.spring.boot.webmvc.test
+ 
+     compileOnly libs.lombok
+     annotationProcessor libs.lombok
+diff --git a/services/seller-service/seller-service-app/src/main/java/com/acme/ecommerce/seller/ledger/FinanceController.java b/services/seller-service/seller-service-app/src/main/java/com/acme/ecommerce/seller/ledger/FinanceController.java
+index 77a69d3..d184118 100644
+--- a/services/seller-service/seller-service-app/src/main/java/com/acme/ecommerce/seller/ledger/FinanceController.java
++++ b/services/seller-service/seller-service-app/src/main/java/com/acme/ecommerce/seller/ledger/FinanceController.java
+@@ -1,15 +1,21 @@
+ package com.acme.ecommerce.seller.ledger;
+ 
++import com.acme.ecommerce.common.core.error.ResourceConflictException;
+ import com.acme.ecommerce.seller.Paged;
++import com.acme.ecommerce.seller.ledger.LedgerReconciler.Discrepancy;
+ import com.acme.ecommerce.seller.ledger.LedgerService.LedgerEntry;
+ import com.acme.ecommerce.seller.ledger.LedgerService.Payout;
+ import com.acme.ecommerce.seller.ledger.LedgerService.PayoutRun;
+ import com.acme.ecommerce.seller.seller.SellerService;
++import java.math.BigDecimal;
++import java.util.List;
++import java.util.Map;
+ import java.util.UUID;
+ import org.springframework.security.access.prepost.PreAuthorize;
+ import org.springframework.security.core.annotation.AuthenticationPrincipal;
+ import org.springframework.security.oauth2.jwt.Jwt;
+ import org.springframework.web.bind.annotation.GetMapping;
++import org.springframework.web.bind.annotation.PathVariable;
+ import org.springframework.web.bind.annotation.PostMapping;
+ import org.springframework.web.bind.annotation.RequestBody;
+ import org.springframework.web.bind.annotation.RequestParam;
+@@ -22,10 +28,13 @@ public class FinanceController {
+ 
+   private final LedgerService ledger;
+   private final SellerService sellers;
++  private final LedgerReconciler reconciler;
+ 
+-  public FinanceController(LedgerService ledger, SellerService sellers) {
++  public FinanceController(
++      LedgerService ledger, SellerService sellers, LedgerReconciler reconciler) {
+     this.ledger = ledger;
+     this.sellers = sellers;
++    this.reconciler = reconciler;
+   }
+ 
+   @GetMapping("/api/seller/ledger")
+@@ -63,4 +72,27 @@ public class FinanceController {
+         request != null && request.minAgeDays() != null ? request.minAgeDays() : minAgeDays;
+     return ledger.run(days);
+   }
++
++  @GetMapping("/api/admin/ledger/discrepancies")
++  @PreAuthorize("hasAnyRole('ADMIN','FINANCE')")
++  public List<Discrepancy> discrepancies(@RequestParam(defaultValue = "true") boolean open) {
++    return reconciler.list(open);
++  }
++
++  @PostMapping("/api/admin/ledger/reconcile")
++  @PreAuthorize("hasAnyRole('ADMIN','FINANCE')")
++  public Map<String, Integer> reconcile() {
++    return reconciler
++        .runNow()
++        .orElseThrow(() -> new ResourceConflictException("A reconcile run is already in progress"));
++  }
++
++  @PostMapping("/api/admin/ledger/discrepancies/{id}/repair")
++  @PreAuthorize("hasAnyRole('ADMIN','FINANCE')")
++  public Discrepancy repair(
++      @PathVariable UUID id,
++      @RequestParam(required = false) BigDecimal amount,
++      @AuthenticationPrincipal Jwt jwt) {
++    return reconciler.repair(id, jwt.getSubject(), amount);
++  }
+ }
+diff --git a/services/seller-service/seller-service-app/src/main/java/com/acme/ecommerce/seller/ledger/LedgerReconciler.java b/services/seller-service/seller-service-app/src/main/java/com/acme/ecommerce/seller/ledger/LedgerReconciler.java
+new file mode 100644
+index 0000000..42097de
+--- /dev/null
++++ b/services/seller-service/seller-service-app/src/main/java/com/acme/ecommerce/seller/ledger/LedgerReconciler.java
+@@ -0,0 +1,391 @@
++package com.acme.ecommerce.seller.ledger;
++
++import com.acme.ecommerce.common.core.error.ApplicationException;
++import com.acme.ecommerce.common.core.error.CodedException;
++import com.acme.ecommerce.common.core.error.ErrorCode;
++import com.acme.ecommerce.common.core.error.ResourceConflictException;
++import com.acme.ecommerce.common.core.error.ResourceNotFoundException;
++import com.acme.ecommerce.common.web.audit.AuditPublisher;
++import com.acme.ecommerce.common.web.job.JobLock;
++import com.acme.ecommerce.seller.client.OrderFeignClient;
++import java.math.BigDecimal;
++import java.math.RoundingMode;
++import java.time.Duration;
++import java.time.OffsetDateTime;
++import java.util.LinkedHashMap;
++import java.util.List;
++import java.util.Map;
++import java.util.Optional;
++import java.util.UUID;
++import org.slf4j.Logger;
++import org.slf4j.LoggerFactory;
++import org.springframework.beans.factory.ObjectProvider;
++import org.springframework.beans.factory.annotation.Value;
++import org.springframework.jdbc.core.simple.JdbcClient;
++import org.springframework.scheduling.annotation.Scheduled;
++import org.springframework.stereotype.Service;
++import org.springframework.transaction.PlatformTransactionManager;
++import org.springframework.transaction.support.TransactionTemplate;
++
++/**
++ * Read-only check of the ledger against the shipment register (reports to ledger_discrepancies,
++ * never posts; Q2), plus the admin repair of reported rows. Each page is a short read without row
++ * locks, so it never waits on a payout run.
++ */
++@Service
++public class LedgerReconciler {
++
++  private static final Logger log = LoggerFactory.getLogger(LedgerReconciler.class);
++  private static final BigDecimal MAX_AMOUNT = new BigDecimal("1000000000000");
++  private static final String JOB = "seller-ledger-reconcile";
++  private static final List<String> KINDS =
++      List.of("MISSING_SALE", "AMOUNT_MISMATCH", "STATE_MISMATCH", "UNMATCHED_REVERSAL");
++
++  public record Discrepancy(
++      UUID id,
++      UUID shipmentId,
++      UUID orderId,
++      UUID sellerId,
++      String kind,
++      UUID ref,
++      BigDecimal expected,
++      BigDecimal actual,
++      String detail,
++      OffsetDateTime firstSeenAt,
++      OffsetDateTime lastSeenAt,
++      OffsetDateTime resolvedAt,
++      String resolvedBy) {}
++
++  private record Row(
++      UUID shipmentId,
++      UUID orderId,
++      UUID sellerId,
++      String status,
++      BigDecimal amount,
++      boolean pastGrace,
++      BigDecimal saleAmount,
++      boolean recentSale) {}
++
++  private final JdbcClient jdbc;
++  private final JobLock jobLock;
++  private final OrderFeignClient orders;
++  private final LedgerService ledger;
++  private final Duration grace;
++  private final int lookbackDays;
++  private final int pageSize;
++  private final int maxFeignErrors;
++  private final TransactionTemplate tx;
++  private final ObjectProvider<AuditPublisher> audit;
++
++  public LedgerReconciler(
++      JdbcClient jdbc,
++      JobLock jobLock,
++      OrderFeignClient orders,
++      LedgerService ledger,
++      @Value("${seller.ledger.reconcile.grace:PT1H}") Duration grace,
++      @Value("${seller.ledger.reconcile.lookback-days:35}") int lookbackDays,
++      @Value("${seller.ledger.reconcile.page-size:200}") int pageSize,
++      @Value("${seller.ledger.reconcile.max-feign-errors:5}") int maxFeignErrors,
++      PlatformTransactionManager txManager,
++      ObjectProvider<AuditPublisher> audit) {
++    this.jdbc = jdbc;
++    this.jobLock = jobLock;
++    this.orders = orders;
++    this.ledger = ledger;
++    this.grace = grace;
++    this.lookbackDays = lookbackDays;
++    this.pageSize = pageSize;
++    this.maxFeignErrors = maxFeignErrors;
++    this.tx = new TransactionTemplate(txManager);
++    this.audit = audit;
++  }
++
++  @Scheduled(cron = "${seller.ledger.reconcile.cron}", zone = "UTC")
++  public void scheduled() {
++    runNow();
++  }
++
++  /** Findings per kind (plus FEIGN_ERRORS), or empty when another run holds the lock. */
++  public Optional<Map<String, Integer>> runNow() {
++    Map<String, Integer> counts = new LinkedHashMap<>();
++    KINDS.forEach(k -> counts.put(k, 0));
++    counts.put("FEIGN_ERRORS", 0);
++    boolean ran = jobLock.runExclusive(JOB, () -> reconcile(counts));
++    return ran ? Optional.of(counts) : Optional.empty();
++  }
++
++  private void reconcile(Map<String, Integer> counts) {
++    UUID after = new UUID(0, 0);
++    int[] streak = {0};
++    while (true) {
++      List<Row> page =
++          jdbc.sql(
++                  "SELECT r.shipment_id, r.order_id, r.seller_id, r.status, r.amount,"
++                      + " r.updated_at < now() - CAST(:g AS interval), s.amount,"
++                      + " s.created_at >= now() - make_interval(days => :d)"
++                      + " FROM ledger_shipments r LEFT JOIN ledger_entries s"
++                      + " ON s.shipment_id = r.shipment_id AND s.type = 'SALE' AND s.return_id IS NULL"
++                      + " WHERE r.shipment_id > :after ORDER BY r.shipment_id LIMIT :n")
++              .param("g", grace.toSeconds() + " seconds")
++              .param("d", lookbackDays)
++              .param("after", after)
++              .param("n", pageSize)
++              .query(
++                  (rs, n) ->
++                      new Row(
++                          rs.getObject(1, UUID.class),
++                          rs.getObject(2, UUID.class),
++                          rs.getObject(3, UUID.class),
++                          rs.getString(4),
++                          rs.getBigDecimal(5),
++                          rs.getBoolean(6),
++                          rs.getBigDecimal(7),
++                          rs.getBoolean(8)))
++              .list();
++      page.forEach(r -> check(r, counts, streak));
++      if (page.size() < pageSize) {
++        return;
++      }
++      after = page.get(page.size() - 1).shipmentId();
++    }
++  }
++
++  private void check(Row r, Map<String, Integer> counts, int[] streak) {
++    if (r.saleAmount() == null) {
++      if ("DELIVERED".equals(r.status()) && r.pastGrace()) {
++        report(counts, r, "MISSING_SALE", r.amount(), BigDecimal.ZERO, "delivered, no SALE booked");
++      }
++      return;
++    }
++    if (r.amount().compareTo(r.saleAmount()) != 0) {
++      report(
++          counts, r, "AMOUNT_MISMATCH", r.amount(), r.saleAmount(), "SALE differs from register");
++    }
++    boolean legacy = r.shipmentId().equals(r.orderId());
++    if (r.recentSale() && !legacy && streak[0] < maxFeignErrors) {
++      try {
++        var ship = orders.shipment(r.shipmentId());
++        streak[0] = 0;
++        if (!"DELIVERED".equals(ship.status()) || !r.sellerId().equals(ship.sellerId())) {
++          report(counts, r, "STATE_MISMATCH", null, null, "order-service: " + ship.status());
++        }
++      } catch (feign.FeignException.NotFound e) {
++        streak[0] = 0;
++        report(counts, r, "STATE_MISMATCH", null, null, "order-service: shipment not found");
++      } catch (RuntimeException e) {
++        counts.merge("FEIGN_ERRORS", 1, Integer::sum);
++        if (++streak[0] >= maxFeignErrors) {
++          counts.put("FEIGN_STOPPED", 1);
++          log.warn("Reconcile stops asking order-service after {} errors in a row", streak[0]);
++        }
++        log.warn(
++            "Reconcile could not ask order-service about {}: {}", r.shipmentId(), e.toString());
++      }
++    }
++  }
++
++  private void report(
++      Map<String, Integer> counts,
++      Row r,
++      String kind,
++      BigDecimal expected,
++      BigDecimal actual,
++      String detail) {
++    jdbc.sql(
++            "INSERT INTO ledger_discrepancies (shipment_id, order_id, seller_id, kind, expected, actual, detail)"
++                + " VALUES (:sh, :o, :s, :k, :e, :a, :d) ON CONFLICT (shipment_id, kind, ref)"
++                + " DO UPDATE SET expected = EXCLUDED.expected, actual = EXCLUDED.actual,"
++                + " last_seen_at = now()")
++        .param("sh", r.shipmentId())
++        .param("o", r.orderId())
++        .param("s", r.sellerId())
++        .param("k", kind)
++        .param("e", expected)
++        .param("a", actual)
++        .param("d", detail)
++        .update();
++    counts.merge(kind, 1, Integer::sum);
++    log.warn("LEDGER DISCREPANCY {} shipment={} detail={}", kind, r.shipmentId(), detail);
++  }
++
++  // ---- admin ------------------------------------------------------------------------------
++
++  /** Newest first, capped at 200; the open rows unless {@code open} is false. */
++  public List<Discrepancy> list(boolean open) {
++    return jdbc.sql(
++            "SELECT * FROM ledger_discrepancies"
++                + (open ? " WHERE resolved_at IS NULL" : "")
++                + " ORDER BY first_seen_at DESC, id LIMIT 200")
++        .query(LedgerReconciler::map)
++        .list();
++  }
++
++  private static Discrepancy map(java.sql.ResultSet rs, int n) throws java.sql.SQLException {
++    return new Discrepancy(
++        rs.getObject("id", UUID.class),
++        rs.getObject("shipment_id", UUID.class),
++        rs.getObject("order_id", UUID.class),
++        rs.getObject("seller_id", UUID.class),
++        rs.getString("kind"),
++        rs.getObject("ref", UUID.class),
++        rs.getBigDecimal("expected"),
++        rs.getBigDecimal("actual"),
++        rs.getString("detail"),
++        rs.getObject("first_seen_at", OffsetDateTime.class),
++        rs.getObject("last_seen_at", OffsetDateTime.class),
++        rs.getObject("resolved_at", OffsetDateTime.class),
++        rs.getString("resolved_by"));
++  }
++
++  /**
++   * Posts the missing booking through the normal idempotent paths; {@code actor} is the caller.
++   * order-service confirms status and seller but not the amount, so a MISSING_SALE repair books
++   * only the admin-entered {@code amount}, rounded to cents and never above the register amount of
++   * the row (a larger one is a manual DB procedure, see the runbook). The row is locked while it is
++   * booked, so two admins cannot both book.
++   */
++  public Discrepancy repair(UUID id, String actor, BigDecimal amount) {
++    Discrepancy d = find(id);
++    if (d.resolvedAt() != null) {
++      return d;
++    }
++    String[] outcome = new String[2];
++    try {
++      BigDecimal cents = precheck(d, amount);
++      tx.executeWithoutResult(
++          st -> {
++            Optional<UUID> locked =
++                jdbc.sql(
++                        "SELECT id FROM ledger_discrepancies WHERE id = :i AND resolved_at IS NULL FOR UPDATE")
++                    .param("i", id)
++                    .query(UUID.class)
++                    .optional();
++            if (locked.isEmpty()) {
++              return;
++            }
++            outcome[0] = book(d, cents);
++            jdbc.sql(
++                    "UPDATE ledger_discrepancies SET resolved_at = now(), resolved_by = :a,"
++                        + " detail = COALESCE(detail, '') || CAST(:n AS text) WHERE id = :i")
++                .param("a", actor)
++                .param("n", outcome[0])
++                .param("i", id)
++                .update();
++          });
++      outcome[1] = cents == null ? null : cents.toPlainString();
++    } catch (ApplicationException e) {
++      log.warn("Ledger repair of {} ({}) refused for {}: {}", id, d.kind(), actor, e.getMessage());
++      throw e;
++    }
++    if (outcome[0] != null) {
++      log.info("Ledger repair of {} ({}) done by {}{}", id, d.kind(), actor, outcome[0]);
++      AuditPublisher publisher = audit.getIfAvailable();
++      if (publisher != null) {
++        publisher.publish(
++            "REPAIR_LEDGER_DISCREPANCY",
++            "LEDGER_DISCREPANCY",
++            id.toString(),
++            null,
++            "{\"kind\":\""
++                + d.kind()
++                + "\",\"amount\":"
++                + (outcome[1] == null ? "null" : outcome[1])
++                + ",\"registerAmount\":"
++                + d.expected()
++                + ",\"note\":\""
++                + outcome[0].replace("\"", "'")
++                + "\"}",
++            null);
++      }
++    }
++    return find(id);
++  }
++
++  private Discrepancy find(UUID id) {
++    return jdbc.sql("SELECT * FROM ledger_discrepancies WHERE id = :i")
++        .param("i", id)
++        .query(LedgerReconciler::map)
++        .optional()
++        .orElseThrow(() -> new ResourceNotFoundException("Discrepancy", id));
++  }
++
++  /** Checks that need no lock: the amount, then order-service. Returns the amount in cents. */
++  private BigDecimal precheck(Discrepancy d, BigDecimal amount) {
++    if (!"MISSING_SALE".equals(d.kind())) {
++      return null;
++    }
++    if (amount == null) {
++      throw new ResourceConflictException("Enter the shipment amount (amount=...) to repair");
++    }
++    BigDecimal cents = amount.setScale(2, RoundingMode.HALF_UP);
++    if (cents.signum() <= 0 || cents.compareTo(MAX_AMOUNT) >= 0) {
++      throw new ResourceConflictException("Amount must be above 0.00 and below 10^12");
++    }
++    if (d.expected() != null && cents.compareTo(d.expected()) > 0) {
++      throw new ResourceConflictException("Amount is above the register amount " + d.expected());
++    }
++    OrderFeignClient.ShipmentInfo ship;
++    try {
++      ship = orders.shipment(d.shipmentId());
++    } catch (feign.FeignException.NotFound e) {
++      throw new ResourceConflictException("Shipment is unknown to order-service");
++    } catch (RuntimeException e) {
++      throw new CodedException(ErrorCode.DEPENDENCY_UNAVAILABLE, "Order lookup unavailable", e);
++    }
++    if (!"DELIVERED".equals(ship.status()) || !d.sellerId().equals(ship.sellerId())) {
++      throw new ResourceConflictException("Order-service does not confirm a delivery");
++    }
++    return cents;
++  }
++
++  /** Posts inside the row lock; the returned text goes to detail and the log. */
++  private String book(Discrepancy d, BigDecimal cents) {
++    switch (d.kind()) {
++      case "MISSING_SALE" -> {
++        BigDecimal present = saleAmount(d.shipmentId());
++        if (present != null) {
++          return "; SALE already present (amount " + present + ")";
++        }
++        String currency =
++            jdbc.sql("SELECT currency FROM ledger_shipments WHERE shipment_id = :s")
++                .param("s", d.shipmentId())
++                .query(String.class)
++                .single();
++        ledger.recordDelivered(
++            d.orderId(),
++            new LedgerService.Part(
++                d.shipmentId().toString(), d.sellerId().toString(), "DELIVERED", cents, null),
++            currency);
++        BigDecimal booked = saleAmount(d.shipmentId());
++        if (booked == null) {
++          throw new ResourceConflictException("SALE could not be booked (unknown seller?)");
++        }
++        return booked.compareTo(cents) == 0
++            ? "; repaired with admin-entered amount " + booked
++            : "; SALE already present (amount " + booked + ")";
++      }
++      case "UNMATCHED_REVERSAL" -> {
++        if (saleAmount(d.shipmentId()) == null) {
++          throw new ResourceConflictException("No SALE booked yet; repair the delivery first");
++        }
++        try {
++          ledger.reverseReturn(d.orderId(), d.shipmentId(), d.ref(), d.expected(), "INR");
++        } catch (IllegalArgumentException e) {
++          throw new ResourceConflictException("Reversal names another order than the SALE");
++        }
++        return "";
++      }
++      default -> throw new ResourceConflictException(d.kind() + " needs manual correction");
++    }
++  }
++
++  private BigDecimal saleAmount(UUID shipmentId) {
++    return jdbc.sql(
++            "SELECT amount FROM ledger_entries WHERE shipment_id = :s AND type = 'SALE'"
++                + " AND return_id IS NULL")
++        .param("s", shipmentId)
++        .query(BigDecimal.class)
++        .optional()
++        .orElse(null);
++  }
++}
+diff --git a/services/seller-service/seller-service-app/src/main/java/com/acme/ecommerce/seller/ledger/LedgerService.java b/services/seller-service/seller-service-app/src/main/java/com/acme/ecommerce/seller/ledger/LedgerService.java
+index db6cb09..922984d 100644
+--- a/services/seller-service/seller-service-app/src/main/java/com/acme/ecommerce/seller/ledger/LedgerService.java
++++ b/services/seller-service/seller-service-app/src/main/java/com/acme/ecommerce/seller/ledger/LedgerService.java
+@@ -75,7 +75,9 @@ public class LedgerService {
+    * Records what order-service announced for each shipment in {@code ledger_shipments}, the source
+    * the reconcile job compares the ledger against. It commits in its own transaction so a failing
+    * posting (or an outer rollback) never removes it, and it is monotonic: an older event (lower
+-   * status rank) is ignored, so an out-of-order SHIPPED never overwrites DELIVERED.
++   * status rank) is ignored, so an out-of-order SHIPPED never overwrites DELIVERED. Shipment
++   * amounts are treated as immutable once DELIVERED: a replay at the same rank carries the same
++   * amount, so no timestamp tiebreak is kept.
+    */
+   @Transactional(propagation = Propagation.REQUIRES_NEW)
+   public void track(UUID orderId, List<Part> parts, String currency) {
+@@ -150,8 +152,9 @@ public class LedgerService {
+ 
+   /**
+    * Whole-shipment reversal of the given shipments (or of the whole order when null): books the
+-   * remainder of each SALE on the shared cap. No event caller until part B; part B must use it or
+-   * delete it (F-20261119-13 CTO ruling d).
++   * remainder of each SALE on the shared cap. It has no event caller yet (td-p9-22). It locks
++   * several SALE rows one after another (in shipment_id order) while a payout run locks its rows in
++   * one unordered statement, so a multi-shipment call can deadlock with a payout run (td-p9-22).
+    */
+   @Transactional
+   public void reverseRefund(UUID orderId, List<UUID> shipmentIds) {
+@@ -182,20 +185,25 @@ public class LedgerService {
+ 
+   /**
+    * The one reversal core. The SALE row lock serialises every reversal of a shipment, so the
+-   * remainder read below stays valid until commit. It holds one row and only inserts, so it cannot
+-   * deadlock with a payout run (which locks rows in one statement and updates them).
++   * remainder read below stays valid until commit. For a single shipment it holds one row and only
++   * inserts, so it cannot deadlock with a payout run; that guarantee does not extend to {@link
++   * #reverseRefund} over several shipments. A SALE that belongs to another order than the event's
++   * is rejected with IllegalArgumentException (dead-lettered, nothing posted).
+    */
+   private void reverse(
+       UUID orderId, UUID shipmentId, UUID returnId, Optional<BigDecimal> basis, String currency) {
+     var sale =
+         jdbc.sql(
+-                "SELECT seller_id, amount, currency FROM ledger_entries WHERE shipment_id = :s"
++                "SELECT seller_id, amount, currency, order_id FROM ledger_entries WHERE shipment_id = :s"
+                     + " AND type = 'SALE' AND return_id IS NULL FOR UPDATE")
+             .param("s", shipmentId)
+             .query(
+                 (rs, n) ->
+                     new Object[] {
+-                      rs.getObject(1, UUID.class), rs.getBigDecimal(2), rs.getString(3)
++                      rs.getObject(1, UUID.class),
++                      rs.getBigDecimal(2),
++                      rs.getString(3),
++                      rs.getObject(4, UUID.class)
+                     })
+             .optional();
+     if (sale.isEmpty()) {
+@@ -213,6 +221,10 @@ public class LedgerService {
+           .update();
+       return;
+     }
++    if (!orderId.equals(sale.get()[3])) {
++      throw new IllegalArgumentException(
++          "shipment " + shipmentId + " belongs to another order than " + orderId);
++    }
+     if (returnId != null
+         && jdbc.sql(
+                     "SELECT count(*) FROM ledger_entries WHERE return_id = :r AND type = 'REFUND_REVERSAL'")
+diff --git a/services/seller-service/seller-service-app/src/main/java/com/acme/ecommerce/seller/ledger/OrderEventConsumer.java b/services/seller-service/seller-service-app/src/main/java/com/acme/ecommerce/seller/ledger/OrderEventConsumer.java
+index 980c145..1a2d236 100644
+--- a/services/seller-service/seller-service-app/src/main/java/com/acme/ecommerce/seller/ledger/OrderEventConsumer.java
++++ b/services/seller-service/seller-service-app/src/main/java/com/acme/ecommerce/seller/ledger/OrderEventConsumer.java
+@@ -77,6 +77,35 @@ public class OrderEventConsumer {
+       this.platformSeller = platformSeller;
+     }
+ 
++    /** present, missing or invalid; never the value itself (it is untrusted text). */
++    private static String idState(String id) {
++      if (id == null) {
++        return "missing";
++      }
++      try {
++        UUID.fromString(id);
++        return "present";
++      } catch (IllegalArgumentException ex) {
++        return "invalid";
++      }
++    }
++
++    private static boolean wellFormed(OrderEvt e) {
++      if (e.returnId() == null
++          || e.returnShipmentId() == null
++          || e.returnItemsValue() == null
++          || e.returnItemsValue().signum() <= 0) {
++        return false;
++      }
++      try {
++        UUID.fromString(e.returnId());
++        UUID.fromString(e.returnShipmentId());
++        return true;
++      } catch (IllegalArgumentException ex) {
++        return false;
++      }
++    }
++
+     @KafkaListener(
+         topics = "order.events",
+         groupId = "seller-service-ledger",
+@@ -95,15 +124,15 @@ public class OrderEventConsumer {
+         ledger.track(orderId, parts, currency);
+       }
+       if ("RETURN_REFUNDED".equals(e.type())) {
+-        if (e.returnId() == null || e.returnShipmentId() == null || e.returnItemsValue() == null) {
++        if (!wellFormed(e)) {
+           // No fallback to refundAmount: it includes shipping and discounts, which are never the
+           // seller's. IllegalArgumentException is not retryable: straight to order.events.DLT.
+           log.error(
+-              "LEDGER ALERT malformed RETURN_REFUNDED order={} returnId={} returnShipmentId={}"
+-                  + " returnItemsValue={} - dead-lettered, nothing posted",
++              "LEDGER ALERT malformed RETURN_REFUNDED order={} returnId {}"
++                  + " returnShipmentId {} returnItemsValue={} - dead-lettered, nothing posted",
+               e.orderId(),
+-              e.returnId(),
+-              e.returnShipmentId(),
++              idState(e.returnId()),
++              idState(e.returnShipmentId()),
+               e.returnItemsValue());
+           throw new IllegalArgumentException("malformed RETURN_REFUNDED for order " + e.orderId());
+         }
+diff --git a/services/seller-service/seller-service-app/src/main/resources/application.yml b/services/seller-service/seller-service-app/src/main/resources/application.yml
+index f74a73b..f90580a 100644
+--- a/services/seller-service/seller-service-app/src/main/resources/application.yml
++++ b/services/seller-service/seller-service-app/src/main/resources/application.yml
+@@ -145,6 +145,8 @@ seller:
+       # STATE_MISMATCH asks order-service about SALEs newer than this many days.
+       lookback-days: ${SELLER_LEDGER_RECONCILE_LOOKBACK_DAYS:35}
+       page-size: ${SELLER_LEDGER_RECONCILE_PAGE_SIZE:200}
++      # STATE_MISMATCH stops asking order-service after this many errors in a row.
++      max-feign-errors: ${SELLER_LEDGER_RECONCILE_MAX_FEIGN_ERRORS:5}
+   jwt:
+     # SAME ENV VARS AND SAME DEFAULTS AS auth-service's `auth.jwt.*`, the
+     # gateway's `gateway.jwt.*` and product-service's `product.jwt.*`. Any of
+diff --git a/services/seller-service/seller-service-app/src/main/resources/db/migration/V4__ledger_entries_shipment_index.sql b/services/seller-service/seller-service-app/src/main/resources/db/migration/V4__ledger_entries_shipment_index.sql
+new file mode 100644
+index 0000000..b943237
+--- /dev/null
++++ b/services/seller-service/seller-service-app/src/main/resources/db/migration/V4__ledger_entries_shipment_index.sql
+@@ -0,0 +1,3 @@
++-- The reversal sums read every ledger row of a shipment (rows with a return_id are outside the
++-- partial unique index), and they run while the SALE row lock is held.
++CREATE INDEX ix_ledger_entries_shipment ON ledger_entries (shipment_id);
+diff --git a/services/seller-service/seller-service-app/src/test/java/com/acme/ecommerce/seller/ledger/LedgerIntegrationTest.java b/services/seller-service/seller-service-app/src/test/java/com/acme/ecommerce/seller/ledger/LedgerIntegrationTest.java
+index 997967c..e91cbb2 100644
+--- a/services/seller-service/seller-service-app/src/test/java/com/acme/ecommerce/seller/ledger/LedgerIntegrationTest.java
++++ b/services/seller-service/seller-service-app/src/test/java/com/acme/ecommerce/seller/ledger/LedgerIntegrationTest.java
+@@ -118,8 +118,8 @@ class LedgerIntegrationTest extends AbstractSellerIntegrationTest {
+   }
+ 
+   @Test
+-  @DisplayName("a zero or negative balance is carried forward, not paid out")
+-  void negativeBalanceCarriesForward() {
++  @DisplayName("a zero balance (fully reversed shipment) is not paid out")
++  void fullyReversedShipmentIsNotPaidOut() {
+     UUID s = seller("10");
+     UUID order = UUID.randomUUID();
+     UUID shipment = UUID.randomUUID();
+diff --git a/services/seller-service/seller-service-app/src/test/java/com/acme/ecommerce/seller/ledger/LedgerPermutationTest.java b/services/seller-service/seller-service-app/src/test/java/com/acme/ecommerce/seller/ledger/LedgerPermutationTest.java
+new file mode 100644
+index 0000000..dbaecea
+--- /dev/null
++++ b/services/seller-service/seller-service-app/src/test/java/com/acme/ecommerce/seller/ledger/LedgerPermutationTest.java
+@@ -0,0 +1,151 @@
++package com.acme.ecommerce.seller.ledger;
++
++import static org.assertj.core.api.Assertions.assertThat;
++
++import com.acme.ecommerce.seller.support.AbstractSellerIntegrationTest;
++import java.math.BigDecimal;
++import java.util.ArrayList;
++import java.util.List;
++import java.util.UUID;
++import org.junit.jupiter.api.DisplayName;
++import org.junit.jupiter.api.Test;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.jdbc.core.simple.JdbcClient;
++
++/** AC-13: the net per shipment does not depend on the order events arrive in. */
++class LedgerPermutationTest extends AbstractSellerIntegrationTest {
++
++  private static final String R1 = "R1";
++  private static final String R2 = "R2";
++  private static final String R1_REPLAY = "R1_REPLAY";
++  private static final String LEGACY = "LEGACY";
++  private static final String DELIVERED_REPLAY = "DELIVERED_REPLAY";
++
++  @Autowired private LedgerService ledger;
++  @Autowired private JdbcClient jdbc;
++  @Autowired private LedgerReconciler reconciler;
++
++  private UUID seller() {
++    UUID id = UUID.randomUUID();
++    jdbc.sql(
++            "INSERT INTO sellers (id, user_id, display_name, slug, status, commission_percent)"
++                + " VALUES (:i, :u, 'Perm Seller', :s, 'APPROVED', 12.5)")
++        .param("i", id)
++        .param("u", UUID.randomUUID())
++        .param("s", "perm-" + id)
++        .update();
++    return id;
++  }
++
++  private BigDecimal net(UUID shipment) {
++    return jdbc.sql("SELECT COALESCE(SUM(amount), 0) FROM ledger_entries WHERE shipment_id = :s")
++        .param("s", shipment)
++        .query(BigDecimal.class)
++        .single();
++  }
++
++  private void deliver(UUID order, UUID shipment, UUID seller) {
++    ledger.recordDelivered(
++        order,
++        new LedgerService.Part(
++            shipment.toString(),
++            seller.toString(),
++            "DELIVERED",
++            new BigDecimal("100.01"),
++            List.of()),
++        "INR");
++  }
++
++  private void apply(String event, UUID seller, UUID order, UUID shipment, UUID r1, UUID r2) {
++    switch (event) {
++      case R1, R1_REPLAY ->
++          ledger.reverseReturn(order, shipment, r1, new BigDecimal("33.33"), "INR");
++      case R2 -> ledger.reverseReturn(order, shipment, r2, new BigDecimal("66.68"), "INR");
++      case LEGACY -> ledger.reverseRefund(order, List.of(shipment));
++      case DELIVERED_REPLAY -> deliver(order, shipment, seller);
++      default -> throw new IllegalArgumentException(event);
++    }
++  }
++
++  private static void permute(List<String> rest, List<String> acc, List<List<String>> out) {
++    if (rest.isEmpty()) {
++      out.add(new ArrayList<>(acc));
++      return;
++    }
++    for (int i = 0; i < rest.size(); i++) {
++      List<String> next = new ArrayList<>(rest);
++      acc.add(next.remove(i));
++      permute(next, acc, out);
++      acc.remove(acc.size() - 1);
++    }
++  }
++
++  @Test
++  @DisplayName("all 120 orders of {R1, R2, R1 replay, legacy whole, DELIVERED replay} net to zero")
++  void everyOrderNetsToZero() {
++    List<List<String>> orders = new ArrayList<>();
++    permute(List.of(R1, R2, R1_REPLAY, LEGACY, DELIVERED_REPLAY), new ArrayList<>(), orders);
++    assertThat(orders).hasSize(120).doesNotHaveDuplicates();
++    for (List<String> order : orders) {
++      UUID seller = seller();
++      UUID orderId = UUID.randomUUID();
++      UUID shipment = UUID.randomUUID();
++      UUID r1 = UUID.randomUUID();
++      UUID r2 = UUID.randomUUID();
++      deliver(orderId, shipment, seller);
++      order.forEach(e -> apply(e, seller, orderId, shipment, r1, r2));
++      assertThat(net(shipment)).as("net for order %s", order).isEqualByComparingTo("0.00");
++      assertThat(
++              jdbc.sql(
++                      "SELECT count(*) FROM ledger_entries WHERE shipment_id = :s AND type = 'FEE_REVERSAL'")
++                  .param("s", shipment)
++                  .query(Long.class)
++                  .single())
++          .as("fee reversed once for %s", order)
++          .isEqualTo(1);
++    }
++  }
++
++  @Test
++  @DisplayName("the {R1}-only subset nets S - C - F - R1 + c1 (positive control for the zero net)")
++  void r1OnlyLeavesTheExpectedNet() {
++    UUID seller = seller();
++    UUID orderId = UUID.randomUUID();
++    UUID shipment = UUID.randomUUID();
++    deliver(orderId, shipment, seller);
++    apply(R1, seller, orderId, shipment, UUID.randomUUID(), UUID.randomUUID());
++    // S 100.01, C 12.50, F 10.00, R1 33.33, c1 = round(33.33 x 12.50 / 100.01) = 4.17
++    assertThat(net(shipment)).isEqualByComparingTo("48.35");
++  }
++
++  @Test
++  @DisplayName(
++      "a return before DELIVERED is reported (nothing booked), then converges after repair")
++  void returnBeforeDeliveredIsReportedThenConvergesAfterRepair() {
++    UUID seller = seller();
++    UUID orderId = UUID.randomUUID();
++    UUID shipment = UUID.randomUUID();
++    UUID r1 = UUID.randomUUID();
++
++    ledger.reverseReturn(orderId, shipment, r1, new BigDecimal("33.33"), "INR");
++
++    // not converged: nothing posted, one UNMATCHED_REVERSAL row carrying the return and its value
++    assertThat(net(shipment)).isEqualByComparingTo("0.00");
++    var found =
++        jdbc.sql(
++                "SELECT id, ref, expected FROM ledger_discrepancies"
++                    + " WHERE shipment_id = :s AND kind = 'UNMATCHED_REVERSAL' AND resolved_at IS NULL")
++            .param("s", shipment)
++            .query(
++                (rs, n) -> new Object[] {rs.getObject(1, UUID.class), rs.getObject(2, UUID.class)})
++            .list();
++    assertThat(found).hasSize(1);
++    assertThat(found.get(0)[1]).isEqualTo(r1);
++
++    deliver(orderId, shipment, seller);
++    reconciler.repair((UUID) found.get(0)[0], "perm-test", null);
++
++    // converged to the same net as DELIVERED then R1 (S - C - F - R1 + c1)
++    assertThat(net(shipment)).isEqualByComparingTo("48.35");
++  }
++}
+diff --git a/services/seller-service/seller-service-app/src/test/java/com/acme/ecommerce/seller/ledger/LedgerReconcilerIntegrationTest.java b/services/seller-service/seller-service-app/src/test/java/com/acme/ecommerce/seller/ledger/LedgerReconcilerIntegrationTest.java
+new file mode 100644
+index 0000000..b6f6cd1
+--- /dev/null
++++ b/services/seller-service/seller-service-app/src/test/java/com/acme/ecommerce/seller/ledger/LedgerReconcilerIntegrationTest.java
+@@ -0,0 +1,738 @@
++package com.acme.ecommerce.seller.ledger;
++
++import static org.assertj.core.api.Assertions.assertThat;
++import static org.assertj.core.api.Assertions.assertThatThrownBy;
++import static org.mockito.ArgumentMatchers.any;
++import static org.mockito.ArgumentMatchers.eq;
++import static org.mockito.ArgumentMatchers.isNull;
++import static org.mockito.Mockito.mock;
++import static org.mockito.Mockito.never;
++import static org.mockito.Mockito.times;
++import static org.mockito.Mockito.verify;
++import static org.mockito.Mockito.when;
++import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
++import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
++import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
++import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
++import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
++
++import com.acme.ecommerce.common.web.audit.AuditPublisher;
++import com.acme.ecommerce.common.web.job.JobLock;
++import com.acme.ecommerce.seller.client.OrderFeignClient;
++import com.acme.ecommerce.seller.client.OrderFeignClient.ShipmentInfo;
++import com.acme.ecommerce.seller.support.AbstractSellerIntegrationTest;
++import java.math.BigDecimal;
++import java.nio.charset.StandardCharsets;
++import java.time.Duration;
++import java.util.HashMap;
++import java.util.List;
++import java.util.UUID;
++import org.junit.jupiter.api.BeforeEach;
++import org.junit.jupiter.api.DisplayName;
++import org.junit.jupiter.api.Test;
++import org.junit.jupiter.api.extension.ExtendWith;
++import org.mockito.ArgumentCaptor;
++import org.springframework.beans.factory.ObjectProvider;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.boot.test.system.CapturedOutput;
++import org.springframework.boot.test.system.OutputCaptureExtension;
++import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
++import org.springframework.jdbc.core.simple.JdbcClient;
++import org.springframework.security.core.authority.SimpleGrantedAuthority;
++import org.springframework.test.context.bean.override.mockito.MockitoBean;
++import org.springframework.test.web.servlet.MockMvc;
++import org.springframework.test.web.servlet.request.RequestPostProcessor;
++import org.springframework.transaction.PlatformTransactionManager;
++import org.springframework.transaction.support.TransactionTemplate;
++
++/** Reconcile job, discrepancy report and admin repair (F-20261119-13, AC-7, AC-8). */
++@AutoConfigureMockMvc
++@ExtendWith(OutputCaptureExtension.class)
++class LedgerReconcilerIntegrationTest extends AbstractSellerIntegrationTest {
++
++  @Autowired private LedgerService ledger;
++  @Autowired private LedgerReconciler reconciler;
++  @Autowired private JdbcClient jdbc;
++  @Autowired private JobLock jobLock;
++  @Autowired private MockMvc mvc;
++  @Autowired private PlatformTransactionManager txManager;
++  @MockitoBean private OrderFeignClient orders;
++  @MockitoBean private AuditPublisher auditPublisher;
++
++  /** Shipments left by other tests share the database; none of them may trip the error streak. */
++  @BeforeEach
++  void orderServiceAnswersByDefault() {
++    when(orders.shipment(any()))
++        .thenAnswer(
++            inv -> {
++              UUID sh = inv.getArgument(0);
++              return new ShipmentInfo(
++                  sh, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), "DELIVERED");
++            });
++  }
++
++  private UUID seller() {
++    UUID id = UUID.randomUUID();
++    jdbc.sql(
++            "INSERT INTO sellers (id, user_id, display_name, slug, status, commission_percent)"
++                + " VALUES (:i, :u, 'Rec Seller', :s, 'APPROVED', 10)")
++        .param("i", id)
++        .param("u", UUID.randomUUID())
++        .param("s", "rec-" + id)
++        .update();
++    return id;
++  }
++
++  private LedgerService.Part part(UUID shipment, UUID seller, String status, String amount) {
++    return new LedgerService.Part(
++        shipment.toString(), seller.toString(), status, new BigDecimal(amount), List.of());
++  }
++
++  /** A registered shipment, optionally with its SALE booked. */
++  private void shipment(UUID order, UUID shipment, UUID seller, String status, boolean sale) {
++    ledger.track(order, List.of(part(shipment, seller, status, "100.00")), "INR");
++    if (sale) {
++      ledger.recordDelivered(order, part(shipment, seller, "DELIVERED", "100.00"), "INR");
++    }
++  }
++
++  private void age(UUID shipment) {
++    jdbc.sql(
++            "UPDATE ledger_shipments SET updated_at = now() - interval '2 hours' WHERE shipment_id = :s")
++        .param("s", shipment)
++        .update();
++  }
++
++  private void feignSays(UUID shipment, UUID order, UUID seller, String status) {
++    when(orders.shipment(shipment))
++        .thenReturn(new ShipmentInfo(shipment, order, UUID.randomUUID(), seller, status));
++  }
++
++  private long found(UUID shipment, String kind) {
++    return jdbc.sql(
++            "SELECT count(*) FROM ledger_discrepancies WHERE shipment_id = :s AND kind = :k")
++        .param("s", shipment)
++        .param("k", kind)
++        .query(Long.class)
++        .single();
++  }
++
++  private long entries(UUID shipment, String type) {
++    return jdbc.sql("SELECT count(*) FROM ledger_entries WHERE shipment_id = :s AND type = :t")
++        .param("s", shipment)
++        .param("t", type)
++        .query(Long.class)
++        .single();
++  }
++
++  private UUID discrepancyId(UUID shipment, String kind) {
++    return jdbc.sql("SELECT id FROM ledger_discrepancies WHERE shipment_id = :s AND kind = :k")
++        .param("s", shipment)
++        .param("k", kind)
++        .query(UUID.class)
++        .single();
++  }
++
++  private static feign.FeignException notFound() {
++    return new feign.FeignException.NotFound(
++        "gone",
++        feign.Request.create(
++            feign.Request.HttpMethod.GET,
++            "/x",
++            new HashMap<>(),
++            null,
++            StandardCharsets.UTF_8,
++            null),
++        null,
++        null);
++  }
++
++  // ---- reconcile --------------------------------------------------------------------------
++
++  @Test
++  @DisplayName("a DELIVERED shipment without a SALE is reported after the grace period only")
++  void missingSaleReported() {
++    UUID s = seller();
++    UUID aged = UUID.randomUUID();
++    UUID fresh = UUID.randomUUID();
++    shipment(UUID.randomUUID(), aged, s, "DELIVERED", false);
++    shipment(UUID.randomUUID(), fresh, s, "DELIVERED", false);
++    age(aged);
++
++    var counts = reconciler.runNow().orElseThrow();
++
++    assertThat(found(aged, "MISSING_SALE")).isEqualTo(1);
++    assertThat(found(fresh, "MISSING_SALE")).isZero(); // inside the grace period
++    assertThat(counts.get("MISSING_SALE")).isGreaterThanOrEqualTo(1);
++    assertThat(
++            jdbc.sql(
++                    "SELECT expected FROM ledger_discrepancies WHERE shipment_id = :s AND kind = 'MISSING_SALE'")
++                .param("s", aged)
++                .query(BigDecimal.class)
++                .single())
++        .isEqualByComparingTo("100.00");
++  }
++
++  @Test
++  @DisplayName("a DELIVERED event whose posting failed still leaves a register row to report")
++  void missingSaleReportedAfterFailedPostingLeavesRegisterRow() {
++    UUID s = seller();
++    UUID order = UUID.randomUUID();
++    UUID shipment = UUID.randomUUID();
++    LedgerService.Part bad =
++        new LedgerService.Part(
++            shipment.toString(),
++            s.toString(),
++            "DELIVERED",
++            new BigDecimal("100.00"),
++            List.of(new LedgerService.Item("not-a-uuid", "x", 1, new BigDecimal("100.00"))));
++    // the consumer's listener call: track, then post; the posting throws and rolls back
++    assertThatThrownBy(
++            () ->
++                new TransactionTemplate(txManager)
++                    .executeWithoutResult(
++                        st -> {
++                          ledger.track(order, List.of(bad), "INR");
++                          ledger.recordDelivered(order, bad, "INR");
++                        }))
++        .isInstanceOf(IllegalArgumentException.class);
++    age(shipment);
++
++    reconciler.runNow().orElseThrow();
++
++    assertThat(entries(shipment, "SALE")).isZero();
++    assertThat(found(shipment, "MISSING_SALE")).isEqualTo(1);
++  }
++
++  @Test
++  @DisplayName("a SALE that differs from the register amount is reported")
++  void amountMismatchReported() {
++    UUID s = seller();
++    UUID order = UUID.randomUUID();
++    UUID shipment = UUID.randomUUID();
++    UUID matching = UUID.randomUUID();
++    shipment(order, shipment, s, "DELIVERED", true);
++    shipment(order, matching, s, "DELIVERED", true);
++    ledger.track(order, List.of(part(shipment, s, "DELIVERED", "120.00")), "INR");
++
++    reconciler.runNow().orElseThrow();
++
++    assertThat(found(shipment, "AMOUNT_MISMATCH")).isEqualTo(1);
++    assertThat(found(matching, "AMOUNT_MISMATCH")).isZero();
++  }
++
++  @Test
++  @DisplayName("order-service saying not found, not delivered or another seller is reported")
++  void stateMismatchReported() {
++    UUID s = seller();
++    UUID order = UUID.randomUUID();
++    UUID gone = UUID.randomUUID();
++    UUID cancelled = UUID.randomUUID();
++    UUID otherSeller = UUID.randomUUID();
++    UUID fine = UUID.randomUUID();
++    for (UUID sh : List.of(gone, cancelled, otherSeller, fine)) {
++      shipment(order, sh, s, "DELIVERED", true);
++    }
++    when(orders.shipment(gone)).thenThrow(notFound());
++    feignSays(cancelled, order, s, "CANCELLED");
++    feignSays(otherSeller, order, UUID.randomUUID(), "DELIVERED");
++    feignSays(fine, order, s, "DELIVERED");
++
++    reconciler.runNow().orElseThrow();
++
++    assertThat(found(gone, "STATE_MISMATCH")).isEqualTo(1);
++    assertThat(found(cancelled, "STATE_MISMATCH")).isEqualTo(1);
++    assertThat(found(otherSeller, "STATE_MISMATCH")).isEqualTo(1);
++    assertThat(found(fine, "STATE_MISMATCH")).isZero();
++  }
++
++  @Test
++  @DisplayName("a Feign failure is counted and warned, never reported")
++  void feignErrorIsCountedNotReported(CapturedOutput output) {
++    UUID s = seller();
++    UUID shipment = UUID.randomUUID();
++    shipment(UUID.randomUUID(), shipment, s, "DELIVERED", true);
++    when(orders.shipment(shipment)).thenThrow(new IllegalStateException("order-service down"));
++
++    var counts = reconciler.runNow().orElseThrow();
++
++    assertThat(found(shipment, "STATE_MISMATCH")).isZero();
++    assertThat(counts.get("FEIGN_ERRORS")).isGreaterThanOrEqualTo(1);
++    assertThat(output).contains("Reconcile could not ask order-service about " + shipment);
++  }
++
++  @Test
++  @DisplayName("a second run updates the report and never duplicates it")
++  void secondRunDoesNotDuplicate() {
++    UUID s = seller();
++    UUID shipment = UUID.randomUUID();
++    shipment(UUID.randomUUID(), shipment, s, "DELIVERED", false);
++    age(shipment);
++
++    reconciler.runNow().orElseThrow();
++    reconciler.runNow().orElseThrow();
++
++    assertThat(found(shipment, "MISSING_SALE")).isEqualTo(1);
++  }
++
++  @Test
++  @DisplayName("a run is skipped while another session holds the reconcile lock")
++  void runSkippedWhenLockHeld() {
++    boolean ranOuter =
++        jobLock.runExclusive(
++            "seller-ledger-reconcile", () -> assertThat(reconciler.runNow()).isEmpty());
++    assertThat(ranOuter).isTrue();
++    assertThat(reconciler.runNow()).isPresent(); // free again
++  }
++
++  @Test
++  @DisplayName("reconcile writes no ledger rows")
++  void reconcileWritesNoLedgerRows() {
++    UUID s = seller();
++    UUID shipment = UUID.randomUUID();
++    shipment(UUID.randomUUID(), shipment, s, "DELIVERED", false);
++    age(shipment);
++    long before = jdbc.sql("SELECT count(*) FROM ledger_entries").query(Long.class).single();
++
++    var counts = reconciler.runNow().orElseThrow();
++
++    assertThat(counts.get("MISSING_SALE")).isGreaterThanOrEqualTo(1); // it did find something
++    assertThat(jdbc.sql("SELECT count(*) FROM ledger_entries").query(Long.class).single())
++        .isEqualTo(before);
++  }
++
++  @Test
++  @DisplayName("paging with page-size 2 still reports every one of 5+ findings")
++  void pagingReportsAllFindings() {
++    UUID s = seller();
++    List<UUID> shipments = new java.util.ArrayList<>();
++    for (int i = 0; i < 5; i++) {
++      UUID sh = UUID.randomUUID();
++      shipments.add(sh);
++      shipment(UUID.randomUUID(), sh, s, "DELIVERED", false);
++      age(sh);
++    }
++    @SuppressWarnings("unchecked")
++    ObjectProvider<AuditPublisher> none = mock(ObjectProvider.class);
++    var paged =
++        new LedgerReconciler(
++            jdbc, jobLock, orders, ledger, Duration.ofHours(1), 35, 2, 5, txManager, none);
++
++    var counts = paged.runNow().orElseThrow();
++
++    assertThat(counts.get("MISSING_SALE")).isGreaterThanOrEqualTo(5);
++    shipments.forEach(sh -> assertThat(found(sh, "MISSING_SALE")).isEqualTo(1));
++  }
++
++  @Test
++  @DisplayName("the state check stops after 5 errors in a row and says so")
++  void feignLoopStopsAfterConsecutiveErrors() {
++    UUID s = seller();
++    for (int i = 0; i < 7; i++) {
++      shipment(UUID.randomUUID(), UUID.randomUUID(), s, "DELIVERED", true);
++    }
++    when(orders.shipment(any())).thenThrow(new IllegalStateException("order-service down"));
++
++    var counts = reconciler.runNow().orElseThrow();
++
++    assertThat(counts.get("FEIGN_ERRORS")).isEqualTo(5);
++    assertThat(counts.get("FEIGN_STOPPED")).isEqualTo(1);
++    verify(orders, times(5)).shipment(any());
++  }
++
++  @Test
++  @DisplayName("a legacy order-level SALE (shipment id = order id) is not asked about")
++  void legacyOrderLevelSaleSkipsFeign() {
++    UUID s = seller();
++    UUID legacy = UUID.randomUUID();
++    shipment(legacy, legacy, s, "DELIVERED", true);
++
++    reconciler.runNow().orElseThrow();
++
++    verify(orders, never()).shipment(legacy);
++    assertThat(found(legacy, "STATE_MISMATCH")).isZero();
++  }
++
++  // ---- admin API --------------------------------------------------------------------------
++
++  private static RequestPostProcessor as(String subject, String role) {
++    return jwt().jwt(j -> j.subject(subject)).authorities(new SimpleGrantedAuthority(role));
++  }
++
++  private UUID missingSale(UUID s, UUID order, UUID shipment) {
++    shipment(order, shipment, s, "DELIVERED", false);
++    age(shipment);
++    reconciler.runNow().orElseThrow();
++    return discrepancyId(shipment, "MISSING_SALE");
++  }
++
++  private String resolvedBy(UUID id) {
++    return jdbc.sql("SELECT resolved_by FROM ledger_discrepancies WHERE id = :i")
++        .param("i", id)
++        .query(String.class)
++        .optional()
++        .orElse(null);
++  }
++
++  @Test
++  @DisplayName("repairing a missing SALE twice posts SALE, COMMISSION and FEE once")
++  void repairPostsMissingSaleOnce() throws Exception {
++    UUID s = seller();
++    UUID order = UUID.randomUUID();
++    UUID shipment = UUID.randomUUID();
++    UUID id = missingSale(s, order, shipment);
++    feignSays(shipment, order, s, "DELIVERED");
++
++    for (int i = 0; i < 2; i++) {
++      mvc.perform(
++              post("/api/admin/ledger/discrepancies/{id}/repair", id)
++                  .param("amount", "80.00")
++                  .with(as("fin-1", "ROLE_FINANCE")))
++          .andExpect(status().isOk())
++          .andExpect(jsonPath("$.resolvedBy").value("fin-1"));
++    }
++
++    assertThat(entries(shipment, "SALE")).isEqualTo(1);
++    assertThat(entries(shipment, "COMMISSION")).isEqualTo(1);
++    assertThat(entries(shipment, "FEE")).isEqualTo(1);
++    assertThat(resolvedBy(id)).isEqualTo("fin-1");
++    // the admin-entered amount is booked, not the register's 100.00
++    assertThat(
++            jdbc.sql("SELECT amount FROM ledger_entries WHERE shipment_id = :s AND type = 'SALE'")
++                .param("s", shipment)
++                .query(BigDecimal.class)
++                .single())
++        .isEqualByComparingTo("80.00");
++  }
++
++  @Test
++  @DisplayName("a missing-SALE repair without an admin-entered amount is a 409 and books nothing")
++  void repairWithoutAmountIsRefused() throws Exception {
++    UUID s = seller();
++    UUID order = UUID.randomUUID();
++    UUID shipment = UUID.randomUUID();
++    UUID id = missingSale(s, order, shipment);
++    feignSays(shipment, order, s, "DELIVERED");
++
++    mvc.perform(
++            post("/api/admin/ledger/discrepancies/{id}/repair", id)
++                .with(as("fin-1", "ROLE_FINANCE")))
++        .andExpect(status().isConflict());
++
++    assertThat(entries(shipment, "SALE")).isZero();
++    assertThat(resolvedBy(id)).isNull();
++  }
++
++  @Test
++  @DisplayName("a repair is refused with 409 when order-service does not confirm the delivery")
++  void repairRefusedWhenNotDelivered() throws Exception {
++    UUID s = seller();
++    UUID order = UUID.randomUUID();
++    UUID shipment = UUID.randomUUID();
++    UUID id = missingSale(s, order, shipment);
++    feignSays(shipment, order, s, "CANCELLED");
++
++    mvc.perform(
++            post("/api/admin/ledger/discrepancies/{id}/repair", id)
++                .with(as("fin-1", "ROLE_FINANCE")))
++        .andExpect(status().isConflict());
++
++    assertThat(entries(shipment, "SALE")).isZero();
++    assertThat(resolvedBy(id)).isNull();
++  }
++
++  @Test
++  @DisplayName("a repair answers 503 when order-service cannot be asked")
++  void repairReturns503WhenFeignDown() throws Exception {
++    UUID s = seller();
++    UUID shipment = UUID.randomUUID();
++    UUID id = missingSale(s, UUID.randomUUID(), shipment);
++    when(orders.shipment(any())).thenThrow(new IllegalStateException("down"));
++
++    mvc.perform(
++            post("/api/admin/ledger/discrepancies/{id}/repair", id)
++                .param("amount", "50.00")
++                .with(as("fin-1", "ROLE_FINANCE")))
++        .andExpect(status().isServiceUnavailable());
++
++    assertThat(entries(shipment, "SALE")).isZero();
++  }
++
++  @Test
++  @DisplayName("an unmatched reversal is applied once its SALE exists")
++  void repairUnmatchedReversalAfterSale() throws Exception {
++    UUID s = seller();
++    UUID order = UUID.randomUUID();
++    UUID shipment = UUID.randomUUID();
++    UUID ret = UUID.randomUUID();
++    ledger.reverseReturn(order, shipment, ret, new BigDecimal("40.00"), "INR");
++    UUID id = discrepancyId(shipment, "UNMATCHED_REVERSAL");
++    ledger.recordDelivered(order, part(shipment, s, "DELIVERED", "100.00"), "INR");
++
++    for (int i = 0; i < 2; i++) {
++      mvc.perform(
++              post("/api/admin/ledger/discrepancies/{id}/repair", id)
++                  .with(as("adm-1", "ROLE_ADMIN")))
++          .andExpect(status().isOk());
++    }
++
++    assertThat(entries(shipment, "REFUND_REVERSAL")).isEqualTo(1);
++    assertThat(
++            jdbc.sql(
++                    "SELECT amount FROM ledger_entries WHERE shipment_id = :s AND type = 'REFUND_REVERSAL'")
++                .param("s", shipment)
++                .query(BigDecimal.class)
++                .single())
++        .isEqualByComparingTo("-40.00");
++    assertThat(resolvedBy(id)).isEqualTo("adm-1");
++  }
++
++  @Test
++  @DisplayName("an unmatched reversal without a SALE is a 409")
++  void repairUnmatchedReversalWithoutSaleIs409() throws Exception {
++    UUID shipment = UUID.randomUUID();
++    ledger.reverseReturn(
++        UUID.randomUUID(), shipment, UUID.randomUUID(), new BigDecimal("40.00"), "INR");
++    UUID id = discrepancyId(shipment, "UNMATCHED_REVERSAL");
++
++    mvc.perform(
++            post("/api/admin/ledger/discrepancies/{id}/repair", id).with(as("adm-1", "ROLE_ADMIN")))
++        .andExpect(status().isConflict());
++
++    assertThat(resolvedBy(id)).isNull();
++  }
++
++  @Test
++  @DisplayName("resolved_by is the authenticated principal, whatever the request body says")
++  void resolvedByComesFromPrincipalNotBody() throws Exception {
++    UUID s = seller();
++    UUID order = UUID.randomUUID();
++    UUID shipment = UUID.randomUUID();
++    UUID id = missingSale(s, order, shipment);
++    feignSays(shipment, order, s, "DELIVERED");
++
++    mvc.perform(
++            post("/api/admin/ledger/discrepancies/{id}/repair", id)
++                .param("amount", "100.00")
++                .with(as("principal-7", "ROLE_ADMIN"))
++                .contentType("application/json")
++                .content("{\"resolvedBy\":\"mallory\",\"resolved_by\":\"mallory\"}"))
++        .andExpect(status().isOk());
++
++    assertThat(resolvedBy(id)).isEqualTo("principal-7");
++  }
++
++  @Test
++  @DisplayName("a refused repair is logged at WARN with the actor; a good one at INFO")
++  void failedRepairLogsWarnWithActor(CapturedOutput output) throws Exception {
++    UUID s = seller();
++    UUID order = UUID.randomUUID();
++    UUID shipment = UUID.randomUUID();
++    UUID id = missingSale(s, order, shipment);
++    feignSays(shipment, order, s, "CANCELLED");
++
++    mvc.perform(
++            post("/api/admin/ledger/discrepancies/{id}/repair", id)
++                .with(as("fin-9", "ROLE_FINANCE")))
++        .andExpect(status().isConflict());
++    assertThat(output).containsPattern("WARN.*refused for fin-9");
++
++    feignSays(shipment, order, s, "DELIVERED");
++    mvc.perform(
++            post("/api/admin/ledger/discrepancies/{id}/repair", id)
++                .param("amount", "100.00")
++                .with(as("fin-9", "ROLE_FINANCE")))
++        .andExpect(status().isOk());
++    assertThat(output)
++        .containsPattern("INFO.*done by fin-9"); // positive control for the WARN match
++  }
++
++  @Test
++  @DisplayName("a role other than ADMIN or FINANCE gets 403 on all three endpoints")
++  void nonAdminFinanceRoleGets403() throws Exception {
++    UUID id = UUID.randomUUID();
++    RequestPostProcessor seller = as("seller-1", "ROLE_SELLER");
++    mvc.perform(get("/api/admin/ledger/discrepancies").with(seller))
++        .andExpect(status().isForbidden());
++    mvc.perform(post("/api/admin/ledger/reconcile").with(seller)).andExpect(status().isForbidden());
++    mvc.perform(post("/api/admin/ledger/discrepancies/{id}/repair", id).with(seller))
++        .andExpect(status().isForbidden());
++    // positive control: an allowed role passes the same gate
++    mvc.perform(get("/api/admin/ledger/discrepancies").with(as("fin-1", "ROLE_FINANCE")))
++        .andExpect(status().isOk());
++  }
++
++  @Test
++  @DisplayName("the reconcile endpoint answers 409 while the lock is held and counts otherwise")
++  void reconcileEndpointReturns409WhenLockHeld() throws Exception {
++    jobLock.runExclusive(
++        "seller-ledger-reconcile",
++        () -> {
++          try {
++            mvc.perform(post("/api/admin/ledger/reconcile").with(as("fin-1", "ROLE_FINANCE")))
++                .andExpect(status().isConflict());
++          } catch (Exception e) {
++            throw new IllegalStateException(e);
++          }
++        });
++    mvc.perform(post("/api/admin/ledger/reconcile").with(as("fin-1", "ROLE_FINANCE")))
++        .andExpect(status().isOk())
++        .andExpect(jsonPath("$.MISSING_SALE").isNumber());
++  }
++
++  private ResultActionsHolder repairWith(UUID id, String amount, String actor) throws Exception {
++    var req =
++        post("/api/admin/ledger/discrepancies/{id}/repair", id).with(as(actor, "ROLE_FINANCE"));
++    if (amount != null) {
++      req = req.param("amount", amount);
++    }
++    return new ResultActionsHolder(mvc.perform(req));
++  }
++
++  private record ResultActionsHolder(org.springframework.test.web.servlet.ResultActions r) {}
++
++  @Test
++  @DisplayName("amounts that round to zero, are negative or too large are 409, book nothing, WARN")
++  void badAmountsAre409WithoutBooking(CapturedOutput output) throws Exception {
++    UUID s = seller();
++    UUID order = UUID.randomUUID();
++    UUID shipment = UUID.randomUUID();
++    UUID id = missingSale(s, order, shipment);
++    feignSays(shipment, order, s, "DELIVERED");
++
++    for (String bad : List.of("0.004", "0", "-5.00", "1000000000000", "99999999999999.99")) {
++      repairWith(id, bad, "fin-bad").r().andExpect(status().isConflict());
++    }
++
++    assertThat(entries(shipment, "SALE")).isZero();
++    assertThat(entries(shipment, "FEE")).isZero();
++    assertThat(resolvedBy(id)).isNull();
++    assertThat(output).containsPattern("WARN.*refused for fin-bad: Amount must be above 0.00");
++  }
++
++  @Test
++  @DisplayName("an amount above the register amount is 409 with a WARN naming the actor")
++  void amountAboveRegisterIsRefused(CapturedOutput output) throws Exception {
++    UUID s = seller();
++    UUID order = UUID.randomUUID();
++    UUID shipment = UUID.randomUUID();
++    UUID id = missingSale(s, order, shipment); // register amount 100.00
++    feignSays(shipment, order, s, "DELIVERED");
++
++    repairWith(id, "100.01", "fin-big").r().andExpect(status().isConflict());
++
++    assertThat(entries(shipment, "SALE")).isZero();
++    assertThat(resolvedBy(id)).isNull();
++    assertThat(output).containsPattern("WARN.*refused for fin-big: Amount is above the register");
++    // the register amount itself, with sub-cent noise that rounds to it, is allowed
++    repairWith(id, "99.996", "fin-big").r().andExpect(status().isOk());
++    assertThat(entries(shipment, "SALE")).isEqualTo(1);
++  }
++
++  @Test
++  @DisplayName("the durable audit event carries the amount and the register amount")
++  void repairPublishesAuditEventWithAmounts() throws Exception {
++    UUID s = seller();
++    UUID order = UUID.randomUUID();
++    UUID shipment = UUID.randomUUID();
++    UUID id = missingSale(s, order, shipment);
++    feignSays(shipment, order, s, "DELIVERED");
++
++    repairWith(id, "80", "fin-aud").r().andExpect(status().isOk());
++
++    ArgumentCaptor<String> after = ArgumentCaptor.forClass(String.class);
++    verify(auditPublisher)
++        .publish(
++            eq("REPAIR_LEDGER_DISCREPANCY"),
++            eq("LEDGER_DISCREPANCY"),
++            eq(id.toString()),
++            isNull(),
++            after.capture(),
++            any());
++    assertThat(after.getValue())
++        .contains("\"amount\":80.00")
++        .contains("\"registerAmount\":100.00")
++        .contains("MISSING_SALE");
++  }
++
++  @Test
++  @DisplayName(
++      "when the SALE already exists, detail and log say so and never name the entered amount")
++  void repairWhenSaleAlreadyPresent(CapturedOutput output) throws Exception {
++    UUID s = seller();
++    UUID order = UUID.randomUUID();
++    UUID shipment = UUID.randomUUID();
++    UUID id = missingSale(s, order, shipment);
++    ledger.recordDelivered(order, part(shipment, s, "DELIVERED", "100.00"), "INR");
++    feignSays(shipment, order, s, "DELIVERED");
++
++    repairWith(id, "80.00", "fin-late").r().andExpect(status().isOk());
++
++    String detail =
++        jdbc.sql("SELECT detail FROM ledger_discrepancies WHERE id = :i")
++            .param("i", id)
++            .query(String.class)
++            .single();
++    assertThat(detail).contains("SALE already present (amount 100.00)");
++    assertThat(detail).doesNotContain("admin-entered");
++    assertThat(output).contains("SALE already present (amount 100.00)");
++    assertThat(output).doesNotContain("admin-entered amount 80");
++    assertThat(entries(shipment, "SALE")).isEqualTo(1);
++    assertThat(entries(shipment, "FEE")).isEqualTo(1);
++  }
++
++  @Test
++  @DisplayName("two concurrent repairs with different amounts book one SALE and one winner")
++  void concurrentRepairsBookOnce() throws Exception {
++    UUID s = seller();
++    UUID order = UUID.randomUUID();
++    UUID shipment = UUID.randomUUID();
++    UUID id = missingSale(s, order, shipment);
++    feignSays(shipment, order, s, "DELIVERED");
++    var pool = java.util.concurrent.Executors.newFixedThreadPool(2);
++    try {
++      var a = pool.submit(() -> reconciler.repair(id, "adm-a", new BigDecimal("60.00")));
++      var b = pool.submit(() -> reconciler.repair(id, "adm-b", new BigDecimal("70.00")));
++      a.get();
++      b.get();
++    } finally {
++      pool.shutdown();
++    }
++
++    assertThat(entries(shipment, "SALE")).isEqualTo(1);
++    String detail =
++        jdbc.sql("SELECT detail FROM ledger_discrepancies WHERE id = :i")
++            .param("i", id)
++            .query(String.class)
++            .single();
++    BigDecimal booked =
++        jdbc.sql("SELECT amount FROM ledger_entries WHERE shipment_id = :s AND type = 'SALE'")
++            .param("s", shipment)
++            .query(BigDecimal.class)
++            .single();
++    assertThat(detail).contains("admin-entered amount " + booked);
++    assertThat(detail).containsOnlyOnce("admin-entered");
++    assertThat(resolvedBy(id)).isIn("adm-a", "adm-b");
++    assertThat(detail)
++        .doesNotContain(booked.compareTo(new BigDecimal("60")) == 0 ? "70.00" : "60.00");
++  }
++
++  @Test
++  @DisplayName("an unmatched reversal that names another order than the SALE is 409 with a WARN")
++  void unmatchedReversalOrderMismatchIs409(CapturedOutput output) throws Exception {
++    UUID s = seller();
++    UUID shipment = UUID.randomUUID();
++    ledger.reverseReturn(
++        UUID.randomUUID(), shipment, UUID.randomUUID(), new BigDecimal("40.00"), "INR");
++    UUID id = discrepancyId(shipment, "UNMATCHED_REVERSAL");
++    ledger.recordDelivered(UUID.randomUUID(), part(shipment, s, "DELIVERED", "100.00"), "INR");
++
++    mvc.perform(
++            post("/api/admin/ledger/discrepancies/{id}/repair", id).with(as("adm-2", "ROLE_ADMIN")))
++        .andExpect(status().isConflict());
++
++    assertThat(output).containsPattern("WARN.*refused for adm-2: Reversal names another order");
++    assertThat(entries(shipment, "REFUND_REVERSAL")).isZero();
++    assertThat(resolvedBy(id)).isNull();
++  }
++}
+diff --git a/services/seller-service/seller-service-app/src/test/java/com/acme/ecommerce/seller/ledger/LedgerReversalIntegrationTest.java b/services/seller-service/seller-service-app/src/test/java/com/acme/ecommerce/seller/ledger/LedgerReversalIntegrationTest.java
+index c347bea..aa8a3f2 100644
+--- a/services/seller-service/seller-service-app/src/test/java/com/acme/ecommerce/seller/ledger/LedgerReversalIntegrationTest.java
++++ b/services/seller-service/seller-service-app/src/test/java/com/acme/ecommerce/seller/ledger/LedgerReversalIntegrationTest.java
+@@ -229,6 +229,24 @@ class LedgerReversalIntegrationTest extends AbstractSellerIntegrationTest {
+     assertThat(count(shipment, "FEE_REVERSAL")).isEqualTo(1);
+   }
+ 
++  @Test
++  @DisplayName("a reversal naming another order than the SALE's is rejected and posts nothing")
++  void reversalForAnotherOrderIsRejected() {
++    UUID s = seller("10");
++    UUID order = UUID.randomUUID();
++    UUID shipment = UUID.randomUUID();
++    deliver(order, shipment, s, "100.00", "INR");
++
++    assertThatThrownBy(
++            () ->
++                ledger.reverseReturn(
++                    UUID.randomUUID(), shipment, UUID.randomUUID(), new BigDecimal("40.00"), "INR"))
++        .isInstanceOf(IllegalArgumentException.class);
++
++    assertThat(count(shipment, "REFUND_REVERSAL")).isZero();
++    assertThat(count(shipment, "COMMISSION_REVERSAL")).isZero();
++  }
++
+   @Test
+   @DisplayName("a reversal with no SALE posts nothing and is reported once")
+   void reversalWithoutSaleWritesUnmatchedRow() {
+diff --git a/services/seller-service/seller-service-app/src/test/java/com/acme/ecommerce/seller/ledger/OrderEventConsumerTest.java b/services/seller-service/seller-service-app/src/test/java/com/acme/ecommerce/seller/ledger/OrderEventConsumerTest.java
+index c3e63bf..4a8b28c 100644
+--- a/services/seller-service/seller-service-app/src/test/java/com/acme/ecommerce/seller/ledger/OrderEventConsumerTest.java
++++ b/services/seller-service/seller-service-app/src/test/java/com/acme/ecommerce/seller/ledger/OrderEventConsumerTest.java
+@@ -73,6 +73,43 @@ class OrderEventConsumerTest {
+     verify(ledger, org.mockito.Mockito.never()).reverseRefund(any(), any());
+   }
+ 
++  @Test
++  @DisplayName("each malformed event is alerted on its own, with present/missing/invalid per id")
++  void eachMalformedReturnIsAlertedWithFieldStates(CapturedOutput output) {
++    record Case(OrderEvt event, String ids) {}
++    List<Case> cases =
++        List.of(
++            new Case(
++                returnRefunded(returnId, shipment, BigDecimal.ZERO),
++                "returnId present returnShipmentId present"),
++            new Case(
++                returnRefunded(returnId, shipment, new BigDecimal("-5.00")),
++                "returnId present returnShipmentId present"),
++            new Case(
++                returnRefunded("not-a-uuid\nFORGED", shipment, new BigDecimal("1.00")),
++                "returnId invalid returnShipmentId present"),
++            new Case(
++                returnRefunded(returnId, "nope", new BigDecimal("1.00")),
++                "returnId present returnShipmentId invalid"),
++            new Case(
++                returnRefunded(null, shipment, new BigDecimal("1.00")),
++                "returnId missing returnShipmentId present"));
++
++    for (Case c : cases) {
++      String seen = output.getAll();
++      int before = seen.split("LEDGER ALERT", -1).length - 1;
++      assertThatThrownBy(() -> listener.onEvent(c.event()))
++          .isInstanceOf(IllegalArgumentException.class);
++      String now = output.getAll();
++      assertThat(now.split("LEDGER ALERT", -1).length - 1).isEqualTo(before + 1);
++      assertThat(now.substring(seen.length())).contains(c.ids());
++    }
++
++    assertThat(output.getAll()).doesNotContain("FORGED");
++    verify(ledger, org.mockito.Mockito.never())
++        .reverseReturn(any(), any(), any(), any(), anyString());
++  }
++
+   @Test
+   @DisplayName("a well-formed RETURN_REFUNDED reverses the items value, not the refund amount")
+   void wellFormedReturnRefundedCallsReverseReturnWithItemsValue() {

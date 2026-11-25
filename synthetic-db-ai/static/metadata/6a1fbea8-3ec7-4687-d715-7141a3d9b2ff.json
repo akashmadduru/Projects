@@ -1,0 +1,15 @@
+{
+ "product_id": "6a1fbea8-3ec7-4687-d715-7141a3d9b2ff",
+ "name": "Venmi Cookware Set Edition",
+ "prompt": "studio packshot photo of a Blue Venmi Cookware Set Edition, made of cotton, cookware, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2400614150,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:00:15",
+ "file_path": "static/images/6a1fbea8-3ec7-4687-d715-7141a3d9b2ff.jpg",
+ "file_size": 32955,
+ "uploaded": false,
+ "s3_url": null
+}

@@ -160,6 +160,8 @@ class ProductCatalogServiceTest {
                 null,
                 null,
                 null,
+                null,
+                null,
                 null));
 
     assertThat(response.getSku()).isEqualTo("SKU-NEW-01");
@@ -197,7 +199,9 @@ class ProductCatalogServiceTest {
                 Map.of("color", "red", "weightGrams", 500),
                 null,
                 null,
-                List.of(new ProductImageRequest("https://img/1.png", 0))));
+                List.of(new ProductImageRequest("https://img/1.png", 0)),
+                null,
+                null));
 
     assertThat(response.getCategoryId()).isEqualTo(categoryId);
     assertThat(response.getSellerName()).isEqualTo("Acme Sellers");
@@ -233,6 +237,8 @@ class ProductCatalogServiceTest {
                         null,
                         null,
                         null,
+                        null,
+                        null,
                         null)))
         .isInstanceOf(ResourceConflictException.class);
 
@@ -257,6 +263,8 @@ class ProductCatalogServiceTest {
                         "USD",
                         true,
                         1L,
+                        null,
+                        null,
                         null,
                         null,
                         null,
@@ -293,6 +301,8 @@ class ProductCatalogServiceTest {
                 "EUR",
                 false,
                 0L,
+                null,
+                null,
                 null,
                 null,
                 null,

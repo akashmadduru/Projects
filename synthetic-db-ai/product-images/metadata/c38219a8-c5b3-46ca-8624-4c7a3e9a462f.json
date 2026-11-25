@@ -1,0 +1,13 @@
+{
+ "product_id": "c38219a8-c5b3-46ca-8624-4c7a3e9a462f",
+ "name": "Quanoqua Acrylic Paint Kit Gen 3",
+ "prompt": "studio packshot photo of a Red Quanoqua Acrylic Paint Kit Gen 3, made of nylon, art supplies, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2568378109,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:12:24",
+ "file_path": "product-images/images/c38219a8-c5b3-46ca-8624-4c7a3e9a462f.jpg",
+ "file_size": 29597
+}

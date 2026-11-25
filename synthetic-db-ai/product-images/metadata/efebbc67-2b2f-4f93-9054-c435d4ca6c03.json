@@ -1,0 +1,13 @@
+{
+ "product_id": "efebbc67-2b2f-4f93-9054-c435d4ca6c03",
+ "name": "Fylo Kurta Essential",
+ "prompt": "studio packshot photo of a Navy Blue Fylo Kurta Essential, made of ceramic, women's clothing, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3188510983,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T22:03:11",
+ "file_path": "product-images/images/efebbc67-2b2f-4f93-9054-c435d4ca6c03.jpg",
+ "file_size": 73062
+}

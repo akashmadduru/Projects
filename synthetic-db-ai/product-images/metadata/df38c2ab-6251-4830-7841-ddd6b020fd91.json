@@ -1,0 +1,13 @@
+{
+ "product_id": "df38c2ab-6251-4830-7841-ddd6b020fd91",
+ "name": "Quadexlo 4K TV Classic",
+ "prompt": "studio packshot photo of a Olive Quadexlo 4K TV Classic, made of glass, televisions, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3697945209,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:35:34",
+ "file_path": "product-images/images/df38c2ab-6251-4830-7841-ddd6b020fd91.jpg",
+ "file_size": 26610
+}

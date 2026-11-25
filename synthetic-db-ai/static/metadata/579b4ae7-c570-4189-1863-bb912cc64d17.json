@@ -1,0 +1,15 @@
+{
+ "product_id": "579b4ae7-c570-4189-1863-bb912cc64d17",
+ "name": "Tadexdex Trimmer Max",
+ "prompt": "studio packshot photo of a White Tadexdex Trimmer Max, made of nylon, grooming, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1185396867,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:25:49",
+ "file_path": "static/images/579b4ae7-c570-4189-1863-bb912cc64d17.jpg",
+ "file_size": 64998,
+ "uploaded": false,
+ "s3_url": null
+}

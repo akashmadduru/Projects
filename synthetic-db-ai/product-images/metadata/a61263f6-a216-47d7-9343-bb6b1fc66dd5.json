@@ -1,0 +1,13 @@
+{
+ "product_id": "a61263f6-a216-47d7-9343-bb6b1fc66dd5",
+ "name": "Kaex Hardcover Edition",
+ "prompt": "studio packshot photo of a Grey Kaex Hardcover Edition, made of abs plastic, books, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2308676054,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T01:40:59",
+ "file_path": "product-images/images/a61263f6-a216-47d7-9343-bb6b1fc66dd5.jpg",
+ "file_size": 50810
+}

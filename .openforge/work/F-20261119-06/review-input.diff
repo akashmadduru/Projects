@@ -1,0 +1,1563 @@
+diff --git a/docs/architecture/overview.md b/docs/architecture/overview.md
+index 7c12501..3ee4a50 100644
+--- a/docs/architecture/overview.md
++++ b/docs/architecture/overview.md
+@@ -403,7 +403,7 @@ All asynchronous, service-to-service updates flow through Kafka.
+ | Only order-service has a transactional outbox; other services can still lose an event between commit and send | [TD-P6-33](../techdebt/phase6.md#td-p6-33) |
+ | Single Kafka broker, replication factor 1, PLAINTEXT | [technical audit](../audit/technical-audit.md#8-security-audit) |
+ | One shared `INTERNAL_API_TOKEN` for every `/internal/**` call | TD-P6-12 |
+-| No gateway rate limiting; auth's Bucket4j limits are per instance | [api.md](../reference/api.md#rate-limits) |
++| No gateway rate limiting; auth's limits are shared through Redis but fail open to per instance | [api.md](../reference/api.md#rate-limits) |
+ | Duplicated event classes, no schema registry | [decision log](decision-log.md), Decision 1 |
+ | The product + inventory aggregate read blocks on inventory-service (falls back to no stock when it is down) | [ADR 0003](adr/0003-choreographed-catalog-saga-and-narrow-read-only-cross-service-call.md) |
+ 
+diff --git a/docs/reference/api.md b/docs/reference/api.md
+index b5438f1..fc9418e 100644
+--- a/docs/reference/api.md
++++ b/docs/reference/api.md
+@@ -131,8 +131,9 @@ value is clamped. Responses use Spring's `PagedModel` shape:
+ 
+ ### Rate limits
+ 
+-auth-service only (Bucket4j). Limits are **per instance and per client IP per path**, so running
+-more replicas multiplies them. There is no gateway-level rate limit yet.
++auth-service only. Limits are **per client IP per path**, counted in Redis so every replica shares
++them (if Redis is down they fall back to per instance). OTP requests also have per-phone caps
++(3 per 15 minutes, 10 per day). There is no gateway-level rate limit yet.
+ 
+ | Paths | Requests per minute |
+ |---|---|
+diff --git a/docs/reference/env-descriptions.json b/docs/reference/env-descriptions.json
+index 8402189..0a46a7a 100644
+--- a/docs/reference/env-descriptions.json
++++ b/docs/reference/env-descriptions.json
+@@ -113,9 +113,17 @@
+       "group": "Identity and tokens",
+       "text": "Redirect used when the caller does not name one."
+     },
++    "AUTH_OTP_PER_PHONE_CAPACITY": {
++      "group": "Identity and tokens",
++      "text": "OTP sends per phone per 15 minutes (shared through Redis). 0 disables the cap."
++    },
++    "AUTH_OTP_PER_PHONE_DAILY": {
++      "group": "Identity and tokens",
++      "text": "OTP sends per phone per UTC day (shared through Redis). 0 disables the cap."
++    },
+     "AUTH_RATE_LIMIT_LOGIN_CAPACITY": {
+       "group": "Identity and tokens",
+-      "text": "Login attempts per window per client (in-memory, per instance)."
++      "text": "Login attempts per window per client (shared through Redis; per instance if Redis is down)."
+     },
+     "AUTH_RATE_LIMIT_REFRESH_CAPACITY": {
+       "group": "Identity and tokens",
+diff --git a/docs/reference/environment-variables.md b/docs/reference/environment-variables.md
+index c4b232e..f1f66d3 100644
+--- a/docs/reference/environment-variables.md
++++ b/docs/reference/environment-variables.md
+@@ -53,7 +53,9 @@ service-level setting (add it under that service's `env:` in `values.yaml`). Rel
+ | `AUTH_DEFAULT_REDIRECT_URI` | auth | `http://localhost:5173/auth/callback` |  | .env + helm | Redirect used when the caller does not name one. |
+ | `AUTH_JWT_AUDIENCES` | all services | `ecommerce-platform` |  | .env + helm | Token audience (`aud`). Same rule as the issuer. |
+ | `AUTH_JWT_ISSUER` | all services | `https://auth.acme-ecommerce.internal` |  | .env + helm | Token issuer (`iss`). Must be identical in auth-service, the gateway and every resource server, or every request fails with `invalid_token`. |
+-| `AUTH_RATE_LIMIT_LOGIN_CAPACITY` | auth | `10` |  | compose | Login attempts per window per client (in-memory, per instance). |
++| `AUTH_OTP_PER_PHONE_CAPACITY` | auth | `3` |  | - | OTP sends per phone per 15 minutes (shared through Redis). 0 disables the cap. |
++| `AUTH_OTP_PER_PHONE_DAILY` | auth | `10` |  | - | OTP sends per phone per UTC day (shared through Redis). 0 disables the cap. |
++| `AUTH_RATE_LIMIT_LOGIN_CAPACITY` | auth | `10` |  | compose | Login attempts per window per client (shared through Redis; per instance if Redis is down). |
+ | `AUTH_RATE_LIMIT_REFRESH_CAPACITY` | auth | `60` |  | compose | Token refreshes per window per client (in-memory, per instance). |
+ | `AUTH_REGISTRATION_ENABLED` | auth | `false` |  | .env + helm | Allows self-service sign-up. Default `false`; the local template and the AWS chart turn it on so you can register the first admin. Turn it off again once your accounts exist. |
+ | `AUTH_STATE_COOKIE_SECRET` 🔒 | auth | `""` |  | helm | Signs the OIDC `state` cookie. Must be the same on every auth-service replica. |
+diff --git a/docs/services/auth-service.md b/docs/services/auth-service.md
+index 2ab5ff3..8c7111e 100644
+--- a/docs/services/auth-service.md
++++ b/docs/services/auth-service.md
+@@ -216,7 +216,11 @@ substitute would pass while the real behaviour was broken.
+   A social-only account (no `user_credentials` row) is indistinguishable from a missing one.
+ - Per-account lockout (5 failures, exponential backoff capped at 15m). **This is the real
+   brute-force control** — it lives in the shared database and works with any replica count. The
+-  Bucket4j per-IP throttle is in-memory, per-instance, and a soft control only.
++  per-IP throttle is a soft control only (see "Shared limiter and OTP caps" below).
++- OTP login failures count toward the same lockout: a wrong code for a known verified phone calls
++  `LoginAttemptService.recordFailure(userId)`. A wrong code for an unknown or unverified phone
++  records nothing and returns the same `AUTH_OTP_INVALID`. `AUTH_ACCOUNT_LOCKED` is returned only
++  after a correct code, so it is never an oracle for wrong codes.
+ - Google linking gated strictly on the IdP's `email_verified=true`; matching is on the OIDC `sub`,
+   never on the email address.
+ - Cookie-based (HMAC-signed) `AuthorizationRequestRepository`, so the OAuth2 flow survives a
+@@ -235,8 +239,10 @@ substitute would pass while the real behaviour was broken.
+ 3. **`AUTH_ACCOUNT_LOCKED` reveals that an account exists.** Deliberate: it is only reachable
+    after several failures against a real address, and the alternative is a user who cannot log in
+    with a password they know is correct.
+-4. **Rate limiting is per-instance.** Redis is now in the stack (Phase 2 slice, user-snapshot cache),
+-   but distributed rate limiting on top of it has not been built — this gap is unchanged.
++4. **The limiter is a fixed window and soft.** Counters are shared through Redis, so up to 2x the
++   capacity can pass across a window boundary. If Redis is unreachable the limiter fails open to a
++   per-instance limit (N replicas give N x capacity) and logs a throttled WARN.
++   See "Shared limiter and OTP caps" below.
+ 5. **Housekeeping runs on every replica.** Harmless (idempotent DELETE) but wasteful; move behind
+    a lock if the table ever grows enough for the sweep to be expensive.
+ 6. **`user-snapshot:{userId}` has no invalidation on role change or account disable.** It relies
+@@ -256,3 +262,31 @@ a keystore alias or an RFC 7638 thumbprint).
+ 4. After the longest access-token TTL, remove A.
+ 
+ Skipping step 1 or 3 is what produces the classic "everyone got logged out during the rotation".
++
++## Shared limiter and OTP caps
++
++- **Per-IP limiter.** `SharedWindowCounter` keeps one fixed-window counter per `auth:rl:{path}:{ip}`
++  in Redis (atomic INCR plus PEXPIRE in one Lua call, TTL window + 30 s). Every replica shares the
++  allowance. The 429 response is unchanged (`AUTH_RATE_LIMITED`, no `Retry-After`).
++- **Fail-open.** On any Redis error or a 250 ms timeout (`spring.data.redis.timeout` and
++  `connect-timeout`) the counter falls back to a per-instance map bounded by
++  `auth.rate-limit.max-tracked-clients`. The request is never failed. A WARN is logged at most every
++  30 s and Redis is skipped for 5 s after a failure.
++- **OTP send caps.** Checked in `OtpLoginService.request` before the user lookup, for every valid
++  E.164 number, so known and unknown numbers behave the same (202, empty body, no SMS when capped).
++  Defaults: `AUTH_OTP_PER_PHONE_CAPACITY=3` per `auth.rate-limit.otp-per-phone-window` (15 m) and
++  `AUTH_OTP_PER_PHONE_DAILY=10` per UTC day. **A value of 0 disables that cap.** Keys are
++  `auth:otp:phone:{E164}` and `auth:otp:day:{E164}`; the number is plaintext in the key and the
++  TTL bounds how long it is kept.
++- **Residual timing risk.** The known-phone verify path does more database work than the unknown
++  one (it spends a code attempt and may write a lockout counter). Tests compare status, body and
++  headers, not latency.
++- **Cross-channel risk.** Wrong OTPs sent to phone P, followed by a password attempt on email E that
++  returns `AUTH_ACCOUNT_LOCKED`, reveal that P and E belong to one account. The attacker needs both
++  candidates. Accepted, like gap 3.
++- **OTP-only users.** Accounts with no `user_credentials` row (OTP-only or social-only) cannot hold
++  lock state, so they are never locked. Their exposure is bounded by 5 attempts per code and the
++  daily cap: at most 50 guesses a day against 10^6 codes. A lock for them is deferred to backlog
++  B-9 (it needs a migration or a second lock store).
++- **Victim DoS.** An attacker can use up a victim's OTP caps (at most one window or one UTC day) and
++  lock a victim's password login through wrong OTPs; the lock is capped at 15 m, never permanent.
+diff --git a/docs/services/gateway.md b/docs/services/gateway.md
+index 73120f3..1356711 100644
+--- a/docs/services/gateway.md
++++ b/docs/services/gateway.md
+@@ -236,7 +236,7 @@ nothing in either service's log pointing at the cause.
+ 
+ | Item | Status on 2026-11-14 |
+ |---|---|
+-| Per-client rate limiting at the edge (`RequestRateLimiter` + Redis) | Not implemented. The only throttle is auth-service's per-instance Bucket4j limit, which weakens with each replica. |
++| Per-client rate limiting at the edge (`RequestRateLimiter` + Redis) | Not implemented. The only throttle is auth-service's per-IP limit (shared through Redis, per instance if Redis is down). |
+ | TLS termination, WAF | Not in the gateway. On AWS the ALB terminates TLS and the Terraform `waf` module provides the WAF ([deploy-aws](../guides/deploy-aws.md)); locally there is no TLS. |
+ | Distributed tracing | **Implemented in Phase 10**: Micrometer Tracing with OpenTelemetry export to Jaeger. |
+ | Removing auth-service's own CORS configuration | Not done. It is kept because auth-service is reachable directly in dev and in its tests; the gateway's `DedupeResponseHeader` makes the overlap harmless. |
+diff --git a/gradle/libs.versions.toml b/gradle/libs.versions.toml
+index fc150d7..c4608fb 100644
+--- a/gradle/libs.versions.toml
++++ b/gradle/libs.versions.toml
+@@ -43,14 +43,6 @@ bouncycastle = "1.85"
+ springdoc = "3.0.3"
+ mapstruct = "1.6.3"
+ lombok = "1.18.46"
+-# WHY 8.10.1 AND NOT NEWER: the `com.bucket4j:bucket4j-core` coordinate stops at
+-# 8.10.1 on Maven Central; from 8.11 the project split into JDK-specific
+-# artifacts (`bucket4j_jdk17-core`). 8.10.1 is the last release of the plain
+-# coordinate and exposes the same `io.github.bucket4j` API. Used ONLY for the
+-# per-instance, in-memory login/refresh throttle in auth-service - the real
+-# brute-force control is the per-account lockout in the database, which works
+-# regardless of replica count.
+-bucket4j = "8.10.1"
+ # Stripe Java SDK (payment-service). Not managed by the Boot BOM.
+ stripeJava = "34.1.0"
+ # OpenPDF (order-service invoice PDFs). Not managed by the Boot BOM.
+@@ -136,7 +128,6 @@ bouncycastle-bcprov = { module = "org.bouncycastle:bcprov-jdk18on", version.ref
+ bouncycastle-bcpkix = { module = "org.bouncycastle:bcpkix-jdk18on", version.ref = "bouncycastle" }
+ 
+ # --- rate limiting ----------------------------------------------------------
+-bucket4j-core = { module = "com.bucket4j:bucket4j-core", version.ref = "bucket4j" }
+ 
+ # --- AI providers -----------------------------------------------------------
+ aws-bedrockruntime = { module = "software.amazon.awssdk:bedrockruntime", version.ref = "awsSdk" }
+diff --git a/services/auth-service/auth-service-app/build.gradle b/services/auth-service/auth-service-app/build.gradle
+index 1df4c93..c7751da 100644
+--- a/services/auth-service/auth-service-app/build.gradle
++++ b/services/auth-service/auth-service-app/build.gradle
+@@ -58,9 +58,6 @@ dependencies {
+     implementation libs.spring.security.crypto
+     implementation libs.bouncycastle.bcprov
+ 
+-    // Per-instance, in-memory throttle on the unauthenticated endpoints.
+-    implementation libs.bucket4j.core
+-
+     implementation libs.micrometer.registry.prometheus
+     implementation libs.bundles.tracing
+ 
+diff --git a/services/auth-service/auth-service-app/src/main/java/com/acme/ecommerce/auth/config/AuthProperties.java b/services/auth-service/auth-service-app/src/main/java/com/acme/ecommerce/auth/config/AuthProperties.java
+index 3f78ac6..0c18d75 100644
+--- a/services/auth-service/auth-service-app/src/main/java/com/acme/ecommerce/auth/config/AuthProperties.java
++++ b/services/auth-service/auth-service-app/src/main/java/com/acme/ecommerce/auth/config/AuthProperties.java
+@@ -132,23 +132,30 @@ public record AuthProperties(
+       @DefaultValue("15m") Duration maxDuration) {}
+ 
+   /**
+-   * Per-IP soft throttle. In-memory and therefore PER REPLICA - deliberately a nuisance control,
+-   * not a security boundary. Redis-backed distributed limiting is deferred.
++   * Per-IP soft throttle plus per-phone OTP send caps. Counters live in Redis (shared by every
++   * replica) and fall back to per-instance counters when Redis is unreachable. A soft control, not
++   * a security boundary.
+    *
+    * @param enabled master switch
+    * @param loginCapacity requests per window for {@code /login} and {@code /register}
+    * @param refreshCapacity requests per window for {@code /refresh}; higher, because a legitimate
+    *     multi-tab SPA refreshes more often than it logs in
+    * @param window refill period
+-   * @param maxTrackedClients bound on the IP -> bucket map, so a spoofed-source flood cannot grow
+-   *     it without limit
++   * @param maxTrackedClients bound on the per-instance fallback counter map, so a spoofed-source
++   *     flood cannot grow it without limit
++   * @param otpPerPhoneCapacity OTP sends per phone per {@code otpPerPhoneWindow}; 0 disables
++   * @param otpPerPhoneWindow window for {@code otpPerPhoneCapacity}
++   * @param otpPerPhoneDaily OTP sends per phone per UTC day; 0 disables
+    */
+   public record RateLimit(
+       @DefaultValue("true") boolean enabled,
+       @DefaultValue("10") int loginCapacity,
+       @DefaultValue("60") int refreshCapacity,
+       @DefaultValue("1m") Duration window,
+-      @DefaultValue("50000") int maxTrackedClients) {}
++      @DefaultValue("50000") int maxTrackedClients,
++      @DefaultValue("3") int otpPerPhoneCapacity,
++      @DefaultValue("15m") Duration otpPerPhoneWindow,
++      @DefaultValue("10") int otpPerPhoneDaily) {}
+ 
+   /**
+    * Google OIDC login.
+diff --git a/services/auth-service/auth-service-app/src/main/java/com/acme/ecommerce/auth/config/SecurityConfig.java b/services/auth-service/auth-service-app/src/main/java/com/acme/ecommerce/auth/config/SecurityConfig.java
+index 9c2c931..ec78052 100644
+--- a/services/auth-service/auth-service-app/src/main/java/com/acme/ecommerce/auth/config/SecurityConfig.java
++++ b/services/auth-service/auth-service-app/src/main/java/com/acme/ecommerce/auth/config/SecurityConfig.java
+@@ -289,7 +289,8 @@ public class SecurityConfig {
+       AuthProperties properties,
+       com.acme.ecommerce.auth.web.RequestDeviceContext deviceContexts,
+       ProblemResponseWriter problems,
+-      com.acme.ecommerce.auth.metrics.AuthMetrics metrics) {
+-    return new RateLimitFilter(properties, deviceContexts, problems, metrics);
++      com.acme.ecommerce.auth.metrics.AuthMetrics metrics,
++      com.acme.ecommerce.auth.ratelimit.SharedWindowCounter counter) {
++    return new RateLimitFilter(properties, deviceContexts, problems, metrics, counter);
+   }
+ }
+diff --git a/services/auth-service/auth-service-app/src/main/java/com/acme/ecommerce/auth/ratelimit/RateLimitFilter.java b/services/auth-service/auth-service-app/src/main/java/com/acme/ecommerce/auth/ratelimit/RateLimitFilter.java
+index 3e1379c..12e220d 100644
+--- a/services/auth-service/auth-service-app/src/main/java/com/acme/ecommerce/auth/ratelimit/RateLimitFilter.java
++++ b/services/auth-service/auth-service-app/src/main/java/com/acme/ecommerce/auth/ratelimit/RateLimitFilter.java
+@@ -5,16 +5,11 @@ import com.acme.ecommerce.auth.config.AuthProperties;
+ import com.acme.ecommerce.auth.error.ProblemResponseWriter;
+ import com.acme.ecommerce.auth.metrics.AuthMetrics;
+ import com.acme.ecommerce.auth.web.RequestDeviceContext;
+-import io.github.bucket4j.Bandwidth;
+-import io.github.bucket4j.Bucket;
+ import jakarta.servlet.FilterChain;
+ import jakarta.servlet.ServletException;
+ import jakarta.servlet.http.HttpServletRequest;
+ import jakarta.servlet.http.HttpServletResponse;
+ import java.io.IOException;
+-import java.time.Duration;
+-import java.util.Map;
+-import java.util.concurrent.ConcurrentHashMap;
+ import org.slf4j.Logger;
+ import org.slf4j.LoggerFactory;
+ import org.springframework.web.filter.OncePerRequestFilter;
+@@ -24,19 +19,14 @@ import org.springframework.web.filter.OncePerRequestFilter;
+  *
+  * <p>WHAT THIS IS AND IS NOT. It is a nuisance filter: it stops a single source hammering {@code
+  * /login} from one machine, and it keeps a broken client from melting the database with refresh
+- * retries. It is NOT the brute-force control - it is in-memory, so it is per-replica (three
+- * replicas means three times the configured allowance) and it is per-source-address (a botnet or a
+- * rotating proxy pool ignores it entirely). The real control is the per-account lockout in {@code
++ * retries. It is NOT the brute-force control - it is per-source-address (a botnet or a rotating
++ * proxy pool ignores it entirely). The real control is the per-account lockout in {@code
+  * user_credentials}, which lives in the shared database and is attached to the account under attack
+- * rather than to something the attacker chooses. A distributed (Redis-backed) limiter is a deferred
+- * decision, not a forgotten one.
++ * rather than to something the attacker chooses.
+  *
+- * <p>BOUNDED MAP. The IP -> bucket map is cleared when it exceeds {@code
+- * auth.rate-limit.max-tracked-clients}. Without that bound, an attacker sending requests from
+- * spoofed or rotating addresses grows it until the heap is gone - turning a rate limiter into a
+- * denial-of-service amplifier. Clearing wholesale rather than evicting by age is a deliberate
+- * simplification: it costs one free window to whoever was mid-limit, which is far cheaper than
+- * carrying an eviction policy (and a scheduler) for a soft control.
++ * <p>SHARED COUNTER. The count is a fixed-window Redis counter ({@link SharedWindowCounter}), so
++ * every replica shares one allowance. If Redis is unreachable the counter falls back to a
++ * per-instance, size-bounded map and never fails the request.
+  *
+  * <p>Runs BEFORE the security filter chain, so a flood is rejected before it costs a database
+  * lookup or an Argon2 verification.
+@@ -76,18 +66,19 @@ public class RateLimitFilter extends OncePerRequestFilter {
+           "/api/auth/me/phone",
+           "/api/auth/me/phone/verify");
+ 
+-  private final Map<String, Bucket> buckets = new ConcurrentHashMap<>();
+-
+   private final AuthProperties.RateLimit config;
+   private final RequestDeviceContext deviceContexts;
+   private final ProblemResponseWriter problems;
+   private final AuthMetrics metrics;
++  private final SharedWindowCounter counter;
+ 
+   public RateLimitFilter(
+       AuthProperties properties,
+       RequestDeviceContext deviceContexts,
+       ProblemResponseWriter problems,
+-      AuthMetrics metrics) {
++      AuthMetrics metrics,
++      SharedWindowCounter counter) {
++    this.counter = counter;
+     this.config = properties.rateLimit();
+     this.deviceContexts = deviceContexts;
+     this.problems = problems;
+@@ -109,24 +100,15 @@ public class RateLimitFilter extends OncePerRequestFilter {
+ 
+     String path = request.getRequestURI();
+     int capacity = capacityFor(path);
+-    String key = path + "|" + deviceContexts.clientIp(request);
+-
+-    if (buckets.size() > config.maxTrackedClients()) {
+-      log.warn(
+-          "Rate-limit bucket map exceeded {} entries; clearing. "
+-              + "This usually means a source-address flood.",
+-          config.maxTrackedClients());
+-      buckets.clear();
+-    }
++    String key = "auth:rl:" + path + ":" + deviceContexts.clientIp(request);
+ 
+-    Bucket bucket = buckets.computeIfAbsent(key, ignored -> newBucket(capacity, config.window()));
+-    if (bucket.tryConsume(1)) {
++    if (counter.increment(key, config.window()) <= capacity) {
+       chain.doFilter(request, response);
+       return;
+     }
+ 
+     metrics.rateLimited(path);
+-    log.info("Rate limit exceeded for {} (per-instance, soft control)", path);
++    log.info("Rate limit exceeded for {} (soft control)", path);
+     problems.write(request, response, AuthErrorCode.AUTH_RATE_LIMITED);
+   }
+ 
+@@ -140,15 +122,4 @@ public class RateLimitFilter extends OncePerRequestFilter {
+     }
+     return 0;
+   }
+-
+-  private static Bucket newBucket(int capacity, Duration window) {
+-    return Bucket.builder()
+-        .addLimit(
+-            // Greedy refill: tokens trickle back continuously rather than all at
+-            // once at the end of the window. Interval refill produces a stampede
+-            // the instant the window rolls over, which is exactly the traffic
+-            // shape a limiter is supposed to prevent.
+-            Bandwidth.builder().capacity(capacity).refillGreedy(capacity, window).build())
+-        .build();
+-  }
+ }
+diff --git a/services/auth-service/auth-service-app/src/main/java/com/acme/ecommerce/auth/ratelimit/SharedWindowCounter.java b/services/auth-service/auth-service-app/src/main/java/com/acme/ecommerce/auth/ratelimit/SharedWindowCounter.java
+new file mode 100644
+index 0000000..6a1705a
+--- /dev/null
++++ b/services/auth-service/auth-service-app/src/main/java/com/acme/ecommerce/auth/ratelimit/SharedWindowCounter.java
+@@ -0,0 +1,96 @@
++package com.acme.ecommerce.auth.ratelimit;
++
++import com.acme.ecommerce.auth.config.AuthProperties;
++import com.acme.ecommerce.common.core.time.TimeProvider;
++import java.time.Duration;
++import java.util.List;
++import java.util.Map;
++import java.util.concurrent.ConcurrentHashMap;
++import java.util.concurrent.atomic.AtomicLong;
++import org.slf4j.Logger;
++import org.slf4j.LoggerFactory;
++import org.springframework.data.redis.core.StringRedisTemplate;
++import org.springframework.data.redis.core.script.DefaultRedisScript;
++import org.springframework.stereotype.Component;
++
++/**
++ * Fixed-window counter shared by every replica through Redis.
++ *
++ * <p>The key is {@code key:(now / window)}. INCR and PEXPIRE run in one Lua call, so a key always
++ * gets its TTL and concurrent callers cannot overshoot. A fixed window lets up to 2x the cap
++ * through across a boundary; that is accepted for a soft control.
++ *
++ * <p>FAILS OPEN: any {@link RuntimeException} from Redis (down, timeout, script error) falls back
++ * to a per-instance map with the same keys, so the limit still applies per replica and a request is
++ * never failed. The WARN is throttled, and Redis is skipped for a few seconds after a failure so an
++ * outage does not add latency to every request.
++ */
++@Component
++public class SharedWindowCounter {
++
++  private static final Logger log = LoggerFactory.getLogger(SharedWindowCounter.class);
++
++  static final String WARN_MESSAGE = "Rate limiter Redis unavailable, using per-instance fallback";
++  private static final Duration TTL_SLACK = Duration.ofSeconds(30);
++  private static final long WARN_EVERY_NANOS = Duration.ofSeconds(30).toNanos();
++  private static final long SKIP_REDIS_NANOS = Duration.ofSeconds(5).toNanos();
++
++  private static final DefaultRedisScript<Long> INCR_WITH_TTL =
++      new DefaultRedisScript<>(
++          "local c = redis.call('INCR', KEYS[1]) "
++              + "if c == 1 then redis.call('PEXPIRE', KEYS[1], ARGV[1]) end "
++              + "return c",
++          Long.class);
++
++  private final StringRedisTemplate redis;
++  private final TimeProvider timeProvider;
++  private final int maxTracked;
++  private final Map<String, AtomicLong> fallback = new ConcurrentHashMap<>();
++
++  private volatile long skipRedisUntilNanos;
++  private volatile long lastWarnNanos;
++  private volatile boolean failedOnce;
++
++  public SharedWindowCounter(
++      StringRedisTemplate redis, TimeProvider timeProvider, AuthProperties properties) {
++    this.redis = redis;
++    this.timeProvider = timeProvider;
++    this.maxTracked = properties.rateLimit().maxTrackedClients();
++  }
++
++  /** Increments the counter for the current window and returns the new count. Never throws. */
++  public long increment(String key, Duration window) {
++    String fullKey = key + ":" + (timeProvider.epochMilli() / window.toMillis());
++    long now = System.nanoTime();
++    if (!failedOnce || now - skipRedisUntilNanos >= 0) {
++      try {
++        Long count =
++            redis.execute(
++                INCR_WITH_TTL, List.of(fullKey), Long.toString(window.plus(TTL_SLACK).toMillis()));
++        if (count == null) {
++          throw new IllegalStateException("null script result");
++        }
++        return count;
++      } catch (RuntimeException e) {
++        noteFailure(now, e);
++      }
++    }
++    return fallbackIncrement(fullKey);
++  }
++
++  private void noteFailure(long now, RuntimeException e) {
++    skipRedisUntilNanos = now + SKIP_REDIS_NANOS;
++    if (!failedOnce || now - lastWarnNanos >= WARN_EVERY_NANOS) {
++      log.warn("{}: {}", WARN_MESSAGE, e.toString());
++      lastWarnNanos = now;
++    }
++    failedOnce = true;
++  }
++
++  private long fallbackIncrement(String fullKey) {
++    if (fallback.size() > maxTracked) {
++      fallback.clear();
++    }
++    return fallback.computeIfAbsent(fullKey, k -> new AtomicLong()).incrementAndGet();
++  }
++}
+diff --git a/services/auth-service/auth-service-app/src/main/java/com/acme/ecommerce/auth/service/LoginAttemptService.java b/services/auth-service/auth-service-app/src/main/java/com/acme/ecommerce/auth/service/LoginAttemptService.java
+index 16b1f84..fb3b350 100644
+--- a/services/auth-service/auth-service-app/src/main/java/com/acme/ecommerce/auth/service/LoginAttemptService.java
++++ b/services/auth-service/auth-service-app/src/main/java/com/acme/ecommerce/auth/service/LoginAttemptService.java
+@@ -57,11 +57,18 @@ public class LoginAttemptService {
+    */
+   @Transactional(propagation = Propagation.REQUIRES_NEW)
+   public void recordFailure(String email) {
+-    Optional<UserAccount> user = users.findByEmail(UserAccount.normaliseEmail(email));
+-    if (user.isEmpty()) {
+-      return;
+-    }
+-    Optional<UserCredential> credential = credentials.findById(user.get().getId());
++    users
++        .findByEmail(UserAccount.normaliseEmail(email))
++        .ifPresent(user -> recordFailure(user.getId()));
++  }
++
++  /**
++   * Records a failed attempt (password or OTP) against a known user. A user with no {@code
++   * user_credentials} row (OTP-only or social-only) cannot hold lock state, so this does nothing.
++   */
++  @Transactional(propagation = Propagation.REQUIRES_NEW)
++  public void recordFailure(UUID userId) {
++    Optional<UserCredential> credential = credentials.findById(userId);
+     if (credential.isEmpty()) {
+       return;
+     }
+@@ -86,6 +93,15 @@ public class LoginAttemptService {
+     }
+   }
+ 
++  /** True while the user's credential row holds a lock; false when there is no row. */
++  @Transactional(readOnly = true)
++  public boolean isLocked(UUID userId) {
++    return credentials
++        .findById(userId)
++        .map(credential -> credential.isLockedAt(timeProvider.now()))
++        .orElse(false);
++  }
++
+   /**
+    * Clears the counters after a successful authentication.
+    *
+diff --git a/services/auth-service/auth-service-app/src/main/java/com/acme/ecommerce/auth/service/OtpLoginService.java b/services/auth-service/auth-service-app/src/main/java/com/acme/ecommerce/auth/service/OtpLoginService.java
+index 5c1053a..a35d458 100644
+--- a/services/auth-service/auth-service-app/src/main/java/com/acme/ecommerce/auth/service/OtpLoginService.java
++++ b/services/auth-service/auth-service-app/src/main/java/com/acme/ecommerce/auth/service/OtpLoginService.java
+@@ -2,9 +2,11 @@ package com.acme.ecommerce.auth.service;
+ 
+ import com.acme.ecommerce.auth.api.AuthErrorCode;
+ import com.acme.ecommerce.auth.api.dto.AuthMethod;
++import com.acme.ecommerce.auth.config.AuthProperties;
+ import com.acme.ecommerce.auth.domain.UserAccount;
+ import com.acme.ecommerce.auth.error.AuthException;
+ import com.acme.ecommerce.auth.metrics.AuthMetrics;
++import com.acme.ecommerce.auth.ratelimit.SharedWindowCounter;
+ import com.acme.ecommerce.auth.repository.UserAccountRepository;
+ import com.acme.ecommerce.auth.service.OneTimeTokenService.Purpose;
+ import com.acme.ecommerce.auth.token.AuthenticatedPrincipal;
+@@ -38,6 +40,9 @@ public class OtpLoginService {
+   private final UserPrincipalService principals;
+   private final TwoFactorService twoFactor;
+   private final AuthMetrics metrics;
++  private final LoginAttemptService loginAttempts;
++  private final SharedWindowCounter counter;
++  private final AuthProperties.RateLimit caps;
+ 
+   /** Tokens are issued (or a second factor demanded) by {@link TwoFactorService}. */
+   public OtpLoginService(
+@@ -46,7 +51,13 @@ public class OtpLoginService {
+       NotificationGateway notifications,
+       UserPrincipalService principals,
+       AuthMetrics metrics,
+-      TwoFactorService twoFactor) {
++      TwoFactorService twoFactor,
++      LoginAttemptService loginAttempts,
++      SharedWindowCounter counter,
++      AuthProperties properties) {
++    this.loginAttempts = loginAttempts;
++    this.counter = counter;
++    this.caps = properties.rateLimit();
+     this.users = users;
+     this.tokens = tokens;
+     this.notifications = notifications;
+@@ -62,6 +73,11 @@ public class OtpLoginService {
+       if (phone.isEmpty()) {
+         return;
+       }
++      // Before the user lookup, so known and unknown numbers take the same path.
++      if (overCap(phone.get())) {
++        metrics.loginAttempt(AuthMethod.OTP, "capped");
++        return;
++      }
+       users
+           .findWithRolesByPhoneAndPhoneVerifiedTrue(phone.get())
+           .filter(UserAccount::canAuthenticate)
+@@ -84,14 +100,31 @@ public class OtpLoginService {
+     }
+   }
+ 
++  /** Per-phone window cap, then per-day cap. A cap of 0 disables that cap. */
++  private boolean overCap(String phone) {
++    if (caps.otpPerPhoneCapacity() > 0
++        && counter.increment("auth:otp:phone:" + phone, caps.otpPerPhoneWindow())
++            > caps.otpPerPhoneCapacity()) {
++      return true;
++    }
++    return caps.otpPerPhoneDaily() > 0
++        && counter.increment("auth:otp:day:" + phone, Duration.ofHours(24))
++            > caps.otpPerPhoneDaily();
++  }
++
+   /** Verifies the code and issues a fresh token family (same as password login). */
+   public LoginResult verify(String rawPhone, String code, DeviceContext device) {
+     String phone = PhoneNumbers.normalise(rawPhone).orElse(null);
+     UserAccount user =
+         phone == null ? null : users.findWithRolesByPhoneAndPhoneVerifiedTrue(phone).orElse(null);
+-    if (user == null
+-        || !tokens.verifyCode(
+-            user.getId(), Purpose.OTP_LOGIN, phone, code, PhoneVerificationService.MAX_ATTEMPTS)) {
++    if (user == null) {
++      // Nothing to lock and nothing to record: recording would build an enumeration table.
++      metrics.loginAttempt(AuthMethod.OTP, "bad_code");
++      throw new AuthException(AuthErrorCode.AUTH_OTP_INVALID, "OTP rejected");
++    }
++    if (!tokens.verifyCode(
++        user.getId(), Purpose.OTP_LOGIN, phone, code, PhoneVerificationService.MAX_ATTEMPTS)) {
++      loginAttempts.recordFailure(user.getId());
+       metrics.loginAttempt(AuthMethod.OTP, "bad_code");
+       throw new AuthException(AuthErrorCode.AUTH_OTP_INVALID, "OTP rejected");
+     }
+@@ -99,6 +132,13 @@ public class OtpLoginService {
+       metrics.loginAttempt(AuthMethod.OTP, "disabled");
+       throw new AuthException(AuthErrorCode.AUTH_ACCOUNT_DISABLED, "OTP login refused: disabled");
+     }
++    // Only a holder of a valid code sees the lock, so it is not an oracle for wrong codes.
++    if (loginAttempts.isLocked(user.getId())) {
++      metrics.loginAttempt(AuthMethod.OTP, "locked");
++      throw new AuthException(
++          AuthErrorCode.AUTH_ACCOUNT_LOCKED, "OTP login refused: account temporarily locked");
++    }
++    loginAttempts.recordSuccess(user.getId());
+     metrics.loginAttempt(AuthMethod.OTP, "success");
+     AuthenticatedPrincipal principal = principals.principalFor(user, AuthMethod.OTP);
+     // THE CONVERGENCE POINT. familyId == null starts a new family.
+diff --git a/services/auth-service/auth-service-app/src/main/resources/application.yml b/services/auth-service/auth-service-app/src/main/resources/application.yml
+index ff9a21d..fe10277 100644
+--- a/services/auth-service/auth-service-app/src/main/resources/application.yml
++++ b/services/auth-service/auth-service-app/src/main/resources/application.yml
+@@ -80,6 +80,9 @@ spring:
+     redis:
+       host: ${REDIS_HOST:localhost}
+       port: ${REDIS_PORT:6379}
++      # Fail fast: the rate limiter and session cache both fail open.
++      timeout: 250ms
++      connect-timeout: 250ms
+ 
+   # Phase 10: audit.events producer only (fail-open; short block so an outage never stalls a request).
+   kafka:
+@@ -160,6 +163,10 @@ auth:
+     refresh-capacity: ${AUTH_RATE_LIMIT_REFRESH_CAPACITY:60}
+     window: 1m
+     max-tracked-clients: 50000
++    # OTP SMS caps per phone (0 disables a cap).
++    otp-per-phone-capacity: ${AUTH_OTP_PER_PHONE_CAPACITY:3}
++    otp-per-phone-window: 15m
++    otp-per-phone-daily: ${AUTH_OTP_PER_PHONE_DAILY:10}
+ 
+   oauth2:
+     # REQUIRED for /oauth2/authorization/google to exist. Both blank (the
+diff --git a/services/auth-service/auth-service-app/src/test/java/com/acme/ecommerce/auth/cache/UserSessionCacheTest.java b/services/auth-service/auth-service-app/src/test/java/com/acme/ecommerce/auth/cache/UserSessionCacheTest.java
+index 2ff0d28..195f427 100644
+--- a/services/auth-service/auth-service-app/src/test/java/com/acme/ecommerce/auth/cache/UserSessionCacheTest.java
++++ b/services/auth-service/auth-service-app/src/test/java/com/acme/ecommerce/auth/cache/UserSessionCacheTest.java
+@@ -58,7 +58,8 @@ class UserSessionCacheTest {
+             new AuthProperties.Cookie("refresh_token", "/api/auth", true, "Lax", ""),
+             new AuthProperties.Registration(false),
+             new AuthProperties.Lockout(5, Duration.ofMinutes(1), Duration.ofMinutes(15)),
+-            new AuthProperties.RateLimit(true, 10, 60, Duration.ofMinutes(1), 50000),
++            new AuthProperties.RateLimit(
++                true, 10, 60, Duration.ofMinutes(1), 50000, 3, Duration.ofMinutes(15), 10),
+             new AuthProperties.Oauth2("", "", java.util.List.of(), "", ""),
+             new AuthProperties.Housekeeping(true, Duration.ofDays(30), Duration.ofHours(1)),
+             new AuthProperties.Storefront("http://localhost:3000"));
+diff --git a/services/auth-service/auth-service-app/src/test/java/com/acme/ecommerce/auth/oauth2/RedirectTargetPolicyTest.java b/services/auth-service/auth-service-app/src/test/java/com/acme/ecommerce/auth/oauth2/RedirectTargetPolicyTest.java
+index 02d71d3..acf8713 100644
+--- a/services/auth-service/auth-service-app/src/test/java/com/acme/ecommerce/auth/oauth2/RedirectTargetPolicyTest.java
++++ b/services/auth-service/auth-service-app/src/test/java/com/acme/ecommerce/auth/oauth2/RedirectTargetPolicyTest.java
+@@ -80,7 +80,8 @@ class RedirectTargetPolicyTest {
+         new AuthProperties.Cookie("refresh_token", "/api/auth", true, "Lax", ""),
+         new AuthProperties.Registration(false),
+         new AuthProperties.Lockout(5, Duration.ofMinutes(1), Duration.ofMinutes(15)),
+-        new AuthProperties.RateLimit(true, 10, 60, Duration.ofMinutes(1), 1000),
++        new AuthProperties.RateLimit(
++            true, 10, 60, Duration.ofMinutes(1), 1000, 3, Duration.ofMinutes(15), 10),
+         new AuthProperties.Oauth2("", "", allowed, defaultTarget, ""),
+         new AuthProperties.Housekeeping(false, Duration.ofDays(30), Duration.ofHours(1)),
+         new AuthProperties.Storefront("http://localhost:3000"));
+diff --git a/services/auth-service/auth-service-app/src/test/java/com/acme/ecommerce/auth/ratelimit/SharedRedisLimiterIT.java b/services/auth-service/auth-service-app/src/test/java/com/acme/ecommerce/auth/ratelimit/SharedRedisLimiterIT.java
+new file mode 100644
+index 0000000..af934a9
+--- /dev/null
++++ b/services/auth-service/auth-service-app/src/test/java/com/acme/ecommerce/auth/ratelimit/SharedRedisLimiterIT.java
+@@ -0,0 +1,133 @@
++package com.acme.ecommerce.auth.ratelimit;
++
++import static org.assertj.core.api.Assertions.assertThat;
++import static org.mockito.ArgumentMatchers.any;
++import static org.mockito.Mockito.mock;
++import static org.mockito.Mockito.when;
++
++import com.acme.ecommerce.auth.error.ProblemResponseWriter;
++import com.acme.ecommerce.auth.metrics.AuthMetrics;
++import com.acme.ecommerce.auth.support.RedisTestContainer;
++import com.acme.ecommerce.auth.support.TestAuthProperties;
++import com.acme.ecommerce.auth.web.RequestDeviceContext;
++import com.acme.ecommerce.common.core.time.FixedTimeProvider;
++import com.fasterxml.jackson.databind.ObjectMapper;
++import jakarta.servlet.http.HttpServletRequest;
++import java.util.Set;
++import org.junit.jupiter.api.AfterEach;
++import org.junit.jupiter.api.BeforeEach;
++import org.junit.jupiter.api.DisplayName;
++import org.junit.jupiter.api.Test;
++import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
++import org.springframework.data.redis.core.StringRedisTemplate;
++import org.springframework.mock.web.MockFilterChain;
++import org.springframework.mock.web.MockHttpServletRequest;
++import org.springframework.mock.web.MockHttpServletResponse;
++
++/** AC-1 and AC-3: two "instances" (separate Redis connections) share one per-IP allowance. */
++class SharedRedisLimiterIT {
++
++  private static final int CAPACITY = 3;
++  private static final String PATH = "/api/auth/login";
++
++  private final FixedTimeProvider time = FixedTimeProvider.atEpoch();
++  private LettuceConnectionFactory factoryA;
++  private LettuceConnectionFactory factoryB;
++  private StringRedisTemplate redisA;
++  private RateLimitFilter filterA;
++  private RateLimitFilter filterB;
++
++  @BeforeEach
++  void setUp() {
++    factoryA = new LettuceConnectionFactory(RedisTestContainer.host(), RedisTestContainer.port());
++    factoryA.afterPropertiesSet();
++    factoryB = new LettuceConnectionFactory(RedisTestContainer.host(), RedisTestContainer.port());
++    factoryB.afterPropertiesSet();
++    redisA = new StringRedisTemplate(factoryA);
++    redisA.afterPropertiesSet();
++    StringRedisTemplate redisB = new StringRedisTemplate(factoryB);
++    redisB.afterPropertiesSet();
++    redisA.execute(
++        connection -> {
++          connection.serverCommands().flushAll();
++          return null;
++        },
++        true);
++
++    var properties = TestAuthProperties.with(TestAuthProperties.rateLimit(CAPACITY, 1000));
++    RequestDeviceContext devices = mock(RequestDeviceContext.class);
++    when(devices.clientIp(any(HttpServletRequest.class)))
++        .thenAnswer(invocation -> ((HttpServletRequest) invocation.getArgument(0)).getRemoteAddr());
++    ProblemResponseWriter problems = new ProblemResponseWriter(new ObjectMapper(), time);
++    AuthMetrics metrics = mock(AuthMetrics.class);
++    filterA =
++        new RateLimitFilter(
++            properties,
++            devices,
++            problems,
++            metrics,
++            new SharedWindowCounter(redisA, time, properties));
++    filterB =
++        new RateLimitFilter(
++            properties,
++            devices,
++            problems,
++            metrics,
++            new SharedWindowCounter(redisB, time, properties));
++  }
++
++  @AfterEach
++  void tearDown() {
++    factoryA.destroy();
++    factoryB.destroy();
++  }
++
++  private MockHttpServletResponse call(RateLimitFilter filter, String ip, MockFilterChain chain)
++      throws Exception {
++    MockHttpServletRequest request = new MockHttpServletRequest("POST", PATH);
++    request.setRemoteAddr(ip);
++    MockHttpServletResponse response = new MockHttpServletResponse();
++    filter.doFilter(request, response, chain);
++    return response;
++  }
++
++  @Test
++  @DisplayName("C requests alternating across two instances pass; C+1 is 429 AUTH_RATE_LIMITED")
++  void sharedAllowance() throws Exception {
++    for (int i = 0; i < CAPACITY; i++) {
++      MockFilterChain chain = new MockFilterChain();
++      MockHttpServletResponse ok = call(i % 2 == 0 ? filterA : filterB, "203.0.113.7", chain);
++      assertThat(ok.getStatus()).isEqualTo(200);
++      assertThat(chain.getRequest()).isNotNull();
++    }
++
++    MockFilterChain blockedChain = new MockFilterChain();
++    MockHttpServletResponse blocked =
++        call(CAPACITY % 2 == 0 ? filterA : filterB, "203.0.113.7", blockedChain);
++
++    assertThat(blockedChain.getRequest()).isNull();
++    assertThat(blocked.getStatus()).isEqualTo(429);
++    assertThat(blocked.getContentAsString()).contains("\"code\":\"AUTH_RATE_LIMITED\"");
++    // Contract pinned: ProblemResponseWriter resets headers, so there is no Retry-After today.
++    assertThat(blocked.getHeader("Retry-After")).isNull();
++    assertThat(blocked.getHeaderNames()).containsExactly("Content-Type");
++    assertThat(blocked.getContentType()).startsWith("application/problem+json");
++
++    // A different source address has its own allowance.
++    assertThat(call(filterA, "198.51.100.9", new MockFilterChain()).getStatus()).isEqualTo(200);
++  }
++
++  @Test
++  @DisplayName("the counter is a Redis key auth:rl:* with a TTL")
++  void counterLivesInRedisWithTtl() throws Exception {
++    call(filterA, "203.0.113.7", new MockFilterChain());
++    call(filterB, "203.0.113.7", new MockFilterChain());
++
++    Set<String> keys = redisA.keys("auth:rl:*");
++    assertThat(keys).hasSize(1);
++    String key = keys.iterator().next();
++    assertThat(key).startsWith("auth:rl:" + PATH + ":203.0.113.7:");
++    assertThat(redisA.opsForValue().get(key)).isEqualTo("2");
++    assertThat(redisA.getExpire(key)).isBetween(1L, 90L);
++  }
++}
+diff --git a/services/auth-service/auth-service-app/src/test/java/com/acme/ecommerce/auth/ratelimit/SharedWindowCounterTest.java b/services/auth-service/auth-service-app/src/test/java/com/acme/ecommerce/auth/ratelimit/SharedWindowCounterTest.java
+new file mode 100644
+index 0000000..cb7ec63
+--- /dev/null
++++ b/services/auth-service/auth-service-app/src/test/java/com/acme/ecommerce/auth/ratelimit/SharedWindowCounterTest.java
+@@ -0,0 +1,159 @@
++package com.acme.ecommerce.auth.ratelimit;
++
++import static org.assertj.core.api.Assertions.assertThat;
++import static org.assertj.core.api.Assertions.assertThatCode;
++
++import com.acme.ecommerce.auth.support.RedisTestContainer;
++import com.acme.ecommerce.auth.support.TestAuthProperties;
++import com.acme.ecommerce.common.core.time.FixedTimeProvider;
++import io.lettuce.core.ClientOptions;
++import io.lettuce.core.SocketOptions;
++import java.net.ServerSocket;
++import java.net.Socket;
++import java.time.Duration;
++import java.util.ArrayList;
++import java.util.List;
++import java.util.concurrent.Callable;
++import java.util.concurrent.ExecutorService;
++import java.util.concurrent.Executors;
++import java.util.concurrent.Future;
++import org.junit.jupiter.api.AfterEach;
++import org.junit.jupiter.api.DisplayName;
++import org.junit.jupiter.api.Test;
++import org.junit.jupiter.api.extension.ExtendWith;
++import org.springframework.boot.test.system.CapturedOutput;
++import org.springframework.boot.test.system.OutputCaptureExtension;
++import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
++import org.springframework.data.redis.connection.lettuce.LettuceClientConfiguration;
++import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
++import org.springframework.data.redis.core.StringRedisTemplate;
++
++/** AC-2: Redis trouble of every kind degrades to a per-instance limit, never to an error. */
++@ExtendWith(OutputCaptureExtension.class)
++class SharedWindowCounterTest {
++
++  private static final Duration WINDOW = Duration.ofMinutes(1);
++  private static final int CAPACITY = 3;
++
++  private final FixedTimeProvider time = FixedTimeProvider.atEpoch();
++  private final List<LettuceConnectionFactory> factories = new ArrayList<>();
++
++  @AfterEach
++  void tearDown() {
++    factories.forEach(LettuceConnectionFactory::destroy);
++  }
++
++  private StringRedisTemplate template(String host, int port) {
++    Duration timeout = Duration.ofMillis(250);
++    LettuceClientConfiguration client =
++        LettuceClientConfiguration.builder()
++            .commandTimeout(timeout)
++            .clientOptions(
++                ClientOptions.builder()
++                    .socketOptions(SocketOptions.builder().connectTimeout(timeout).build())
++                    .build())
++            .build();
++    LettuceConnectionFactory factory =
++        new LettuceConnectionFactory(new RedisStandaloneConfiguration(host, port), client);
++    factory.afterPropertiesSet();
++    factories.add(factory);
++    StringRedisTemplate template = new StringRedisTemplate(factory);
++    template.afterPropertiesSet();
++    return template;
++  }
++
++  private SharedWindowCounter counter(StringRedisTemplate template) {
++    return new SharedWindowCounter(
++        template, time, TestAuthProperties.with(TestAuthProperties.rateLimit(CAPACITY, 1000)));
++  }
++
++  private void assertFallbackTripsAtCapacityPlusOne(SharedWindowCounter counter, String key) {
++    for (int i = 1; i <= CAPACITY; i++) {
++      long count = counter.increment(key, WINDOW);
++      assertThat(count).isEqualTo(i).isLessThanOrEqualTo(CAPACITY);
++    }
++    assertThat(counter.increment(key, WINDOW)).isEqualTo(CAPACITY + 1).isGreaterThan(CAPACITY);
++  }
++
++  @Test
++  @DisplayName("closed port: no exception, per-instance limit trips at C+1, WARN logged")
++  void closedPort(CapturedOutput output) throws Exception {
++    int port;
++    try (ServerSocket socket = new ServerSocket(0)) {
++      port = socket.getLocalPort();
++    }
++    SharedWindowCounter counter = counter(template("127.0.0.1", port));
++
++    assertThatCode(() -> counter.increment("closed", WINDOW)).doesNotThrowAnyException();
++    assertFallbackTripsAtCapacityPlusOne(counter, "closed2");
++    assertThat(output).contains(SharedWindowCounter.WARN_MESSAGE);
++  }
++
++  @Test
++  @DisplayName("Lua script error (WRONGTYPE key): no exception, fallback trips at C+1, WARN logged")
++  void scriptError(CapturedOutput output) {
++    StringRedisTemplate template = template(RedisTestContainer.host(), RedisTestContainer.port());
++    String key = "lua-error";
++    String fullKey = key + ":" + (time.epochMilli() / WINDOW.toMillis());
++    template.delete(fullKey);
++    template.opsForHash().put(fullKey, "field", "value");
++    SharedWindowCounter counter = counter(template);
++
++    assertFallbackTripsAtCapacityPlusOne(counter, key);
++    assertThat(output).contains(SharedWindowCounter.WARN_MESSAGE);
++    template.delete(fullKey);
++  }
++
++  @Test
++  @DisplayName("250 ms timeout: a server that accepts but never answers fails open quickly")
++  void timeout(CapturedOutput output) throws Exception {
++    try (ServerSocket silent = new ServerSocket(0)) {
++      Thread acceptor =
++          Thread.ofVirtual()
++              .start(
++                  () -> {
++                    try (Socket ignored = silent.accept()) {
++                      Thread.sleep(10_000);
++                    } catch (Exception e) {
++                      // closed by the test
++                    }
++                  });
++      SharedWindowCounter counter = counter(template("127.0.0.1", silent.getLocalPort()));
++
++      long started = System.nanoTime();
++      assertFallbackTripsAtCapacityPlusOne(counter, "timeout");
++      Duration elapsed = Duration.ofNanos(System.nanoTime() - started);
++
++      assertThat(elapsed).isLessThan(Duration.ofSeconds(5));
++      assertThat(output).contains(SharedWindowCounter.WARN_MESSAGE);
++      acceptor.interrupt();
++    }
++  }
++
++  @Test
++  @DisplayName("50 concurrent increments give exactly 1..50 (atomic) and the key has a TTL")
++  void concurrentIncrementsAreAtomic() throws Exception {
++    StringRedisTemplate template = template(RedisTestContainer.host(), RedisTestContainer.port());
++    SharedWindowCounter counter = counter(template);
++    String key = "concurrent-" + System.nanoTime();
++    ExecutorService pool = Executors.newFixedThreadPool(16);
++    try {
++      List<Future<Long>> futures = new ArrayList<>();
++      for (int i = 0; i < 50; i++) {
++        Callable<Long> task = () -> counter.increment(key, WINDOW);
++        futures.add(pool.submit(task));
++      }
++      List<Long> counts = new ArrayList<>();
++      for (Future<Long> future : futures) {
++        counts.add(future.get());
++      }
++      assertThat(counts).doesNotHaveDuplicates().hasSize(50).contains(1L, 50L);
++      assertThat(counts).allMatch(c -> c >= 1 && c <= 50);
++      String fullKey = key + ":" + (time.epochMilli() / WINDOW.toMillis());
++      assertThat(template.opsForValue().get(fullKey)).isEqualTo("50");
++      assertThat(template.getExpire(fullKey)).isBetween(1L, 90L);
++    } finally {
++      pool.shutdownNow();
++    }
++  }
++}
+diff --git a/services/auth-service/auth-service-app/src/test/java/com/acme/ecommerce/auth/service/OtpCapsDisabledIT.java b/services/auth-service/auth-service-app/src/test/java/com/acme/ecommerce/auth/service/OtpCapsDisabledIT.java
+new file mode 100644
+index 0000000..83d6832
+--- /dev/null
++++ b/services/auth-service/auth-service-app/src/test/java/com/acme/ecommerce/auth/service/OtpCapsDisabledIT.java
+@@ -0,0 +1,76 @@
++package com.acme.ecommerce.auth.service;
++
++import static org.assertj.core.api.Assertions.assertThat;
++import static org.mockito.ArgumentMatchers.anyString;
++import static org.mockito.ArgumentMatchers.eq;
++import static org.mockito.Mockito.reset;
++import static org.mockito.Mockito.times;
++import static org.mockito.Mockito.verify;
++import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
++
++import com.acme.ecommerce.auth.domain.UserAccount;
++import com.acme.ecommerce.auth.repository.UserAccountRepository;
++import com.acme.ecommerce.auth.support.AbstractAuthIntegrationTest;
++import com.acme.ecommerce.auth.support.DatabaseCleaner;
++import com.acme.ecommerce.auth.support.FixedClockTestConfig;
++import com.acme.ecommerce.auth.support.RedisReset;
++import com.acme.ecommerce.auth.support.UserFixtures;
++import com.acme.ecommerce.common.core.time.FixedTimeProvider;
++import com.acme.ecommerce.common.security.Roles;
++import java.time.Duration;
++import org.junit.jupiter.api.DisplayName;
++import org.junit.jupiter.api.Test;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.boot.test.context.SpringBootTest;
++import org.springframework.context.annotation.Import;
++import org.springframework.data.redis.core.StringRedisTemplate;
++import org.springframework.http.MediaType;
++import org.springframework.test.context.bean.override.mockito.MockitoBean;
++import org.springframework.test.web.servlet.MockMvc;
++
++/** A cap of 0 disables that cap (kill switch). */
++@SpringBootTest(
++    properties = {
++      "auth.rate-limit.otp-per-phone-capacity=0",
++      "auth.rate-limit.otp-per-phone-daily=0"
++    })
++@Import(FixedClockTestConfig.class)
++class OtpCapsDisabledIT extends AbstractAuthIntegrationTest {
++
++  private static final String PHONE = "+919876543211";
++
++  @Autowired private MockMvc mockMvc;
++  @Autowired private FixedTimeProvider time;
++  @Autowired private StringRedisTemplate redis;
++  @Autowired private RedisReset redisReset;
++  @Autowired private UserFixtures userFixtures;
++  @Autowired private UserAccountRepository users;
++  @Autowired private DatabaseCleaner databaseCleaner;
++  @MockitoBean private NotificationGateway notifications;
++
++  @Test
++  @DisplayName("capacity 0 and daily 0 send every time (past the cooldown) and write no counter")
++  void zeroDisablesCaps() throws Exception {
++    databaseCleaner.clean();
++    redisReset.flush();
++    time.setTo(FixedClockTestConfig.START);
++    reset(notifications);
++    UserAccount user =
++        userFixtures.createPasswordUser("off@example.com", "pw-correct-horse-1", Roles.ROLE_ADMIN);
++    UserAccount loaded = users.findById(user.getId()).orElseThrow();
++    loaded.changePhone(PHONE);
++    loaded.markPhoneVerified();
++    users.saveAndFlush(loaded);
++
++    for (int i = 0; i < 12; i++) {
++      time.advanceBy(Duration.ofSeconds(31));
++      mockMvc.perform(
++          post("/api/auth/otp/request")
++              .contentType(MediaType.APPLICATION_JSON)
++              .content("{\"phone\":\"" + PHONE + "\"}"));
++    }
++
++    verify(notifications, times(12)).sendSms(eq(PHONE), anyString());
++    assertThat(redis.keys("auth:otp:*")).isEmpty();
++  }
++}
+diff --git a/services/auth-service/auth-service-app/src/test/java/com/acme/ecommerce/auth/service/OtpCapsIT.java b/services/auth-service/auth-service-app/src/test/java/com/acme/ecommerce/auth/service/OtpCapsIT.java
+new file mode 100644
+index 0000000..bdf576e
+--- /dev/null
++++ b/services/auth-service/auth-service-app/src/test/java/com/acme/ecommerce/auth/service/OtpCapsIT.java
+@@ -0,0 +1,138 @@
++package com.acme.ecommerce.auth.service;
++
++import static org.assertj.core.api.Assertions.assertThat;
++import static org.mockito.ArgumentMatchers.anyString;
++import static org.mockito.ArgumentMatchers.eq;
++import static org.mockito.Mockito.reset;
++import static org.mockito.Mockito.times;
++import static org.mockito.Mockito.verify;
++import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
++
++import com.acme.ecommerce.auth.domain.UserAccount;
++import com.acme.ecommerce.auth.repository.UserAccountRepository;
++import com.acme.ecommerce.auth.support.AbstractAuthIntegrationTest;
++import com.acme.ecommerce.auth.support.DatabaseCleaner;
++import com.acme.ecommerce.auth.support.FixedClockTestConfig;
++import com.acme.ecommerce.auth.support.RedisReset;
++import com.acme.ecommerce.auth.support.UserFixtures;
++import com.acme.ecommerce.common.core.time.FixedTimeProvider;
++import com.acme.ecommerce.common.security.Roles;
++import java.time.Duration;
++import org.junit.jupiter.api.BeforeEach;
++import org.junit.jupiter.api.DisplayName;
++import org.junit.jupiter.api.Test;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.context.annotation.Import;
++import org.springframework.data.redis.core.StringRedisTemplate;
++import org.springframework.http.MediaType;
++import org.springframework.mock.web.MockHttpServletResponse;
++import org.springframework.test.context.bean.override.mockito.MockitoBean;
++import org.springframework.test.web.servlet.MockMvc;
++
++/** AC-4 and AC-5: per-phone window cap and per-day cap on OTP sends. */
++@Import(FixedClockTestConfig.class)
++class OtpCapsIT extends AbstractAuthIntegrationTest {
++
++  private static final String PHONE = "+919876543210";
++  private static final int CAPACITY = 3;
++  private static final int DAILY = 10;
++  private static final Duration PAST_COOLDOWN = Duration.ofSeconds(31);
++
++  @Autowired private MockMvc mockMvc;
++  @Autowired private FixedTimeProvider time;
++  @Autowired private StringRedisTemplate redis;
++  @Autowired private RedisReset redisReset;
++  @Autowired private UserFixtures userFixtures;
++  @Autowired private UserAccountRepository users;
++  @Autowired private DatabaseCleaner databaseCleaner;
++  @MockitoBean private NotificationGateway notifications;
++
++  @BeforeEach
++  void setUp() {
++    databaseCleaner.clean();
++    redisReset.flush();
++    time.setTo(FixedClockTestConfig.START);
++    reset(notifications);
++    UserAccount user =
++        userFixtures.createPasswordUser("otp@example.com", "pw-correct-horse-1", Roles.ROLE_ADMIN);
++    UserAccount loaded = users.findById(user.getId()).orElseThrow();
++    loaded.changePhone(PHONE);
++    loaded.markPhoneVerified();
++    users.saveAndFlush(loaded);
++  }
++
++  private MockHttpServletResponse request(String phone) throws Exception {
++    return mockMvc
++        .perform(
++            post("/api/auth/otp/request")
++                .contentType(MediaType.APPLICATION_JSON)
++                .content("{\"phone\":\"" + phone + "\"}"))
++        .andReturn()
++        .getResponse();
++  }
++
++  private String windowKey() {
++    return "auth:otp:phone:"
++        + PHONE
++        + ":"
++        + (time.epochMilli() / Duration.ofMinutes(15).toMillis());
++  }
++
++  @Test
++  @DisplayName("request cap+1 is the same 202 with no SMS and the phone counter exceeds the cap")
++  void windowCap() throws Exception {
++    MockHttpServletResponse normal = null;
++    MockHttpServletResponse capped = null;
++    for (int i = 1; i <= CAPACITY + 1; i++) {
++      time.advanceBy(PAST_COOLDOWN);
++      MockHttpServletResponse response = request(PHONE);
++      if (i == 1) {
++        normal = response;
++      }
++      capped = response;
++    }
++
++    assertThat(capped.getStatus()).isEqualTo(202).isEqualTo(normal.getStatus());
++    assertThat(capped.getContentAsString()).isEqualTo(normal.getContentAsString()).isEmpty();
++    assertThat(capped.getHeaderNames()).isEqualTo(normal.getHeaderNames());
++    verify(notifications, times(CAPACITY)).sendSms(eq(PHONE), anyString());
++    assertThat(Long.parseLong(redis.opsForValue().get(windowKey()))).isGreaterThan(CAPACITY);
++  }
++
++  @Test
++  @DisplayName("three phone formats share one counter key")
++  void formatsShareOneKey() throws Exception {
++    request("+91 98765 43210");
++    request("+91-98765-43210");
++    request("(+91)9876543210");
++
++    assertThat(redis.opsForValue().get(windowKey())).isEqualTo("3");
++    assertThat(redis.keys("auth:otp:phone:*")).hasSize(1);
++  }
++
++  @Test
++  @DisplayName("D sends per day, send D+1 is skipped, and after 24h a request sends again")
++  void dailyCap() throws Exception {
++    for (int i = 1; i <= DAILY + 1; i++) {
++      time.advanceBy(Duration.ofMinutes(16)); // past cooldown and into a fresh 15-minute window
++      assertThat(request(PHONE).getStatus()).isEqualTo(202);
++    }
++    verify(notifications, times(DAILY)).sendSms(eq(PHONE), anyString());
++
++    time.advanceBy(Duration.ofHours(24));
++    assertThat(request(PHONE).getStatus()).isEqualTo(202);
++    verify(notifications, times(DAILY + 1)).sendSms(eq(PHONE), anyString());
++  }
++
++  @Test
++  @DisplayName("an unknown phone gets the identical 202 (and is counted the same way)")
++  void unknownPhoneSameResponse() throws Exception {
++    MockHttpServletResponse known = request(PHONE);
++    MockHttpServletResponse unknown = request("+919000000001");
++
++    assertThat(unknown.getStatus()).isEqualTo(known.getStatus()).isEqualTo(202);
++    assertThat(unknown.getContentAsString()).isEqualTo(known.getContentAsString()).isEmpty();
++    assertThat(unknown.getHeaderNames()).isEqualTo(known.getHeaderNames());
++    assertThat(redis.keys("auth:otp:phone:*")).hasSize(2);
++  }
++}
+diff --git a/services/auth-service/auth-service-app/src/test/java/com/acme/ecommerce/auth/service/OtpLockoutIT.java b/services/auth-service/auth-service-app/src/test/java/com/acme/ecommerce/auth/service/OtpLockoutIT.java
+new file mode 100644
+index 0000000..f8650de
+--- /dev/null
++++ b/services/auth-service/auth-service-app/src/test/java/com/acme/ecommerce/auth/service/OtpLockoutIT.java
+@@ -0,0 +1,225 @@
++package com.acme.ecommerce.auth.service;
++
++import static org.assertj.core.api.Assertions.assertThat;
++import static org.assertj.core.api.Assertions.assertThatThrownBy;
++import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
++
++import com.acme.ecommerce.auth.api.AuthErrorCode;
++import com.acme.ecommerce.auth.api.dto.LoginRequest;
++import com.acme.ecommerce.auth.domain.UserAccount;
++import com.acme.ecommerce.auth.domain.UserCredential;
++import com.acme.ecommerce.auth.error.AuthException;
++import com.acme.ecommerce.auth.repository.UserAccountRepository;
++import com.acme.ecommerce.auth.repository.UserCredentialRepository;
++import com.acme.ecommerce.auth.service.OneTimeTokenService.Purpose;
++import com.acme.ecommerce.auth.support.AbstractAuthIntegrationTest;
++import com.acme.ecommerce.auth.support.DatabaseCleaner;
++import com.acme.ecommerce.auth.support.FixedClockTestConfig;
++import com.acme.ecommerce.auth.support.RedisReset;
++import com.acme.ecommerce.auth.support.UserFixtures;
++import com.acme.ecommerce.auth.token.DeviceContext;
++import com.acme.ecommerce.common.core.time.FixedTimeProvider;
++import com.acme.ecommerce.common.security.Roles;
++import com.fasterxml.jackson.databind.ObjectMapper;
++import java.time.Duration;
++import java.util.Map;
++import java.util.UUID;
++import org.junit.jupiter.api.BeforeEach;
++import org.junit.jupiter.api.DisplayName;
++import org.junit.jupiter.api.Test;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.context.annotation.Import;
++import org.springframework.http.MediaType;
++import org.springframework.mock.web.MockHttpServletResponse;
++import org.springframework.test.web.servlet.MockMvc;
++
++/** AC-6..AC-9: OTP failures feed the account lockout; unknown phones and OTP-only users do not. */
++@Import(FixedClockTestConfig.class)
++class OtpLockoutIT extends AbstractAuthIntegrationTest {
++
++  private static final String EMAIL = "lock@example.com";
++  private static final String PASSWORD = "correct-horse-battery-staple";
++  private static final String PHONE = "+919876500001";
++  private static final String UNVERIFIED_PHONE = "+919876500002";
++  private static final String UNKNOWN_PHONE = "+919876500003";
++  private static final String OTP_ONLY_PHONE = "+919876500004";
++
++  @Autowired private OtpLoginService otpLogin;
++  @Autowired private LoginService loginService;
++  @Autowired private OneTimeTokenService tokens;
++  @Autowired private MockMvc mockMvc;
++  @Autowired private ObjectMapper objectMapper;
++  @Autowired private FixedTimeProvider time;
++  @Autowired private RedisReset redisReset;
++  @Autowired private UserFixtures userFixtures;
++  @Autowired private UserAccountRepository users;
++  @Autowired private UserCredentialRepository credentials;
++  @Autowired private DatabaseCleaner databaseCleaner;
++
++  private UserAccount credentialUser;
++  private UserAccount otpOnlyUser;
++
++  @BeforeEach
++  void setUp() {
++    databaseCleaner.clean();
++    redisReset.flush();
++    time.setTo(FixedClockTestConfig.START);
++    credentialUser = userFixtures.createPasswordUser(EMAIL, PASSWORD, Roles.ROLE_ADMIN);
++    setPhone(credentialUser.getId(), PHONE, true);
++    UserAccount unverified =
++        userFixtures.createPasswordUser("unverified@example.com", PASSWORD, Roles.ROLE_ADMIN);
++    setPhone(unverified.getId(), UNVERIFIED_PHONE, false);
++    otpOnlyUser = userFixtures.createSocialOnlyUser("social@example.com", Roles.ROLE_ADMIN);
++    setPhone(otpOnlyUser.getId(), OTP_ONLY_PHONE, true);
++  }
++
++  private void setPhone(UUID userId, String phone, boolean verified) {
++    UserAccount user = users.findById(userId).orElseThrow();
++    user.changePhone(phone);
++    if (verified) {
++      user.markPhoneVerified();
++    }
++    users.saveAndFlush(user);
++  }
++
++  private static DeviceContext device() {
++    return new DeviceContext("JUnit/1.0", "198.51.100.4");
++  }
++
++  /** Issues a fresh code (replacing any earlier one, no cooldown) and returns it. */
++  private String freshCode(UUID userId, String phone) {
++    return tokens
++        .issueCode(userId, Purpose.OTP_LOGIN, phone, Duration.ofMinutes(5), Duration.ZERO)
++        .orElseThrow();
++  }
++
++  private static String wrong(String code) {
++    return "000000".equals(code) ? "000001" : "000000";
++  }
++
++  private void wrongOtp(UUID userId, String phone) {
++    String bad = wrong(freshCode(userId, phone));
++    assertThatThrownBy(() -> otpLogin.verify(phone, bad, device()))
++        .isInstanceOfSatisfying(
++            AuthException.class,
++            e -> assertThat(e.authErrorCode()).isEqualTo(AuthErrorCode.AUTH_OTP_INVALID));
++  }
++
++  private AuthErrorCode codeOf(Runnable action) {
++    try {
++      action.run();
++    } catch (AuthException e) {
++      return e.authErrorCode();
++    }
++    return null;
++  }
++
++  @Test
++  @DisplayName("5 wrong OTPs lock the account; correct OTP and correct password both get LOCKED")
++  void fiveWrongOtpsLock() {
++    for (int i = 0; i < 5; i++) {
++      wrongOtp(credentialUser.getId(), PHONE);
++    }
++
++    UserCredential credential = credentials.findById(credentialUser.getId()).orElseThrow();
++    assertThat(credential.getFailedAttempts()).isEqualTo((short) 5);
++    assertThat(credential.getLockedUntil()).isNotNull();
++
++    String good = freshCode(credentialUser.getId(), PHONE);
++    assertThat(codeOf(() -> otpLogin.verify(PHONE, good, device())))
++        .isEqualTo(AuthErrorCode.AUTH_ACCOUNT_LOCKED);
++    assertThat(codeOf(() -> loginService.login(new LoginRequest(EMAIL, PASSWORD), device())))
++        .isEqualTo(AuthErrorCode.AUTH_ACCOUNT_LOCKED);
++  }
++
++  @Test
++  @DisplayName("after locked_until passes, OTP login succeeds and the failure count resets")
++  void successResetsCounters() {
++    for (int i = 0; i < 5; i++) {
++      wrongOtp(credentialUser.getId(), PHONE);
++    }
++    time.advanceBy(Duration.ofMinutes(2));
++
++    String good = freshCode(credentialUser.getId(), PHONE);
++    assertThat(otpLogin.verify(PHONE, good, device())).isNotNull();
++
++    UserCredential credential = credentials.findById(credentialUser.getId()).orElseThrow();
++    assertThat(credential.getFailedAttempts()).isZero();
++    assertThat(credential.getLockedUntil()).isNull();
++  }
++
++  private MockHttpServletResponse verifyHttp(String phone, String code) throws Exception {
++    return mockMvc
++        .perform(
++            post("/api/auth/otp/verify")
++                .contentType(MediaType.APPLICATION_JSON)
++                .content("{\"phone\":\"" + phone + "\",\"code\":\"" + code + "\"}"))
++        .andReturn()
++        .getResponse();
++  }
++
++  @SuppressWarnings("unchecked")
++  private Map<String, Object> stableBody(MockHttpServletResponse response) throws Exception {
++    Map<String, Object> body = objectMapper.readValue(response.getContentAsString(), Map.class);
++    body.remove("correlationId");
++    body.remove("timestamp");
++    return body;
++  }
++
++  @Test
++  @DisplayName(
++      "unknown and unverified phones: 10 wrong OTPs, same AUTH_OTP_INVALID body, no row changes")
++  void unknownAndUnverifiedPhonesAreIndistinguishableAndRecordNothing() throws Exception {
++    freshCode(credentialUser.getId(), PHONE);
++    MockHttpServletResponse known =
++        verifyHttp(PHONE, wrong(freshCode(credentialUser.getId(), PHONE)));
++    assertThat(known.getStatus()).isEqualTo(401);
++    Map<String, Object> reference = stableBody(known);
++    assertThat(reference).containsEntry("code", "AUTH_OTP_INVALID");
++    int knownFailures =
++        credentials.findById(credentialUser.getId()).orElseThrow().getFailedAttempts();
++    assertThat(knownFailures).isEqualTo(1);
++
++    for (int i = 0; i < 10; i++) {
++      for (String phone : new String[] {UNKNOWN_PHONE, UNVERIFIED_PHONE}) {
++        MockHttpServletResponse response = verifyHttp(phone, "123456");
++        assertThat(response.getStatus()).isEqualTo(known.getStatus());
++        assertThat(stableBody(response)).isEqualTo(reference);
++        assertThat(response.getHeaderNames()).isEqualTo(known.getHeaderNames());
++      }
++    }
++
++    assertThat(credentials.findAll())
++        .allSatisfy(
++            c -> {
++              if (c.getUserId().equals(credentialUser.getId())) {
++                assertThat((int) c.getFailedAttempts()).isEqualTo(knownFailures);
++              } else {
++                assertThat(c.getFailedAttempts()).isZero();
++                assertThat(c.getLockedUntil()).isNull();
++              }
++            });
++  }
++
++  @Test
++  @DisplayName("OTP-only user (no credential row): never locked, no error beyond AUTH_OTP_INVALID")
++  void otpOnlyUserIsNeverLocked() throws Exception {
++    MockHttpServletResponse first =
++        verifyHttp(OTP_ONLY_PHONE, wrong(freshCode(otpOnlyUser.getId(), OTP_ONLY_PHONE)));
++    assertThat(first.getStatus()).isEqualTo(401);
++    Map<String, Object> reference = stableBody(first);
++    assertThat(reference).containsEntry("code", "AUTH_OTP_INVALID");
++
++    for (int i = 0; i < 10; i++) {
++      MockHttpServletResponse response =
++          verifyHttp(OTP_ONLY_PHONE, wrong(freshCode(otpOnlyUser.getId(), OTP_ONLY_PHONE)));
++      assertThat(response.getStatus()).isEqualTo(401);
++      assertThat(stableBody(response)).isEqualTo(reference);
++    }
++
++    assertThat(credentials.findById(otpOnlyUser.getId())).isEmpty();
++    // And the owner, holding a valid code, still gets in: there is nothing to be locked by.
++    String good = freshCode(otpOnlyUser.getId(), OTP_ONLY_PHONE);
++    assertThat(otpLogin.verify(OTP_ONLY_PHONE, good, device())).isNotNull();
++  }
++}
+diff --git a/services/auth-service/auth-service-app/src/test/java/com/acme/ecommerce/auth/support/AbstractAuthIntegrationTest.java b/services/auth-service/auth-service-app/src/test/java/com/acme/ecommerce/auth/support/AbstractAuthIntegrationTest.java
+index 16d59ab..3a4923c 100644
+--- a/services/auth-service/auth-service-app/src/test/java/com/acme/ecommerce/auth/support/AbstractAuthIntegrationTest.java
++++ b/services/auth-service/auth-service-app/src/test/java/com/acme/ecommerce/auth/support/AbstractAuthIntegrationTest.java
+@@ -45,6 +45,7 @@ public abstract class AbstractAuthIntegrationTest {
+ 
+   static {
+     POSTGRES.start();
++    RedisTestContainer.REDIS.getHost();
+   }
+ 
+   @DynamicPropertySource
+@@ -52,5 +53,7 @@ public abstract class AbstractAuthIntegrationTest {
+     registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
+     registry.add("spring.datasource.username", POSTGRES::getUsername);
+     registry.add("spring.datasource.password", POSTGRES::getPassword);
++    registry.add("spring.data.redis.host", RedisTestContainer::host);
++    registry.add("spring.data.redis.port", RedisTestContainer::port);
+   }
+ }
+diff --git a/services/auth-service/auth-service-app/src/test/java/com/acme/ecommerce/auth/support/FixedClockTestConfig.java b/services/auth-service/auth-service-app/src/test/java/com/acme/ecommerce/auth/support/FixedClockTestConfig.java
+new file mode 100644
+index 0000000..6e7a7cf
+--- /dev/null
++++ b/services/auth-service/auth-service-app/src/test/java/com/acme/ecommerce/auth/support/FixedClockTestConfig.java
+@@ -0,0 +1,19 @@
++package com.acme.ecommerce.auth.support;
++
++import com.acme.ecommerce.common.core.time.FixedTimeProvider;
++import java.time.Instant;
++import org.springframework.boot.test.context.TestConfiguration;
++import org.springframework.context.annotation.Bean;
++
++/** Replaces the platform clock so window and lockout expiry can be advanced deterministically. */
++@TestConfiguration
++public class FixedClockTestConfig {
++
++  /** Aligned to a UTC day and to every window used by the OTP caps. */
++  public static final Instant START = Instant.parse("2025-01-01T00:00:00Z");
++
++  @Bean
++  public FixedTimeProvider fixedTimeProvider() {
++    return new FixedTimeProvider(START);
++  }
++}
+diff --git a/services/auth-service/auth-service-app/src/test/java/com/acme/ecommerce/auth/support/RedisReset.java b/services/auth-service/auth-service-app/src/test/java/com/acme/ecommerce/auth/support/RedisReset.java
+new file mode 100644
+index 0000000..5d740ef
+--- /dev/null
++++ b/services/auth-service/auth-service-app/src/test/java/com/acme/ecommerce/auth/support/RedisReset.java
+@@ -0,0 +1,24 @@
++package com.acme.ecommerce.auth.support;
++
++import org.springframework.data.redis.core.StringRedisTemplate;
++import org.springframework.stereotype.Component;
++
++/** Empties the shared test Redis so counters from other tests cannot leak into assertions. */
++@Component
++public class RedisReset {
++
++  private final StringRedisTemplate redis;
++
++  public RedisReset(StringRedisTemplate redis) {
++    this.redis = redis;
++  }
++
++  public void flush() {
++    redis.execute(
++        connection -> {
++          connection.serverCommands().flushAll();
++          return null;
++        },
++        true);
++  }
++}
+diff --git a/services/auth-service/auth-service-app/src/test/java/com/acme/ecommerce/auth/support/RedisTestContainer.java b/services/auth-service/auth-service-app/src/test/java/com/acme/ecommerce/auth/support/RedisTestContainer.java
+new file mode 100644
+index 0000000..72eed92
+--- /dev/null
++++ b/services/auth-service/auth-service-app/src/test/java/com/acme/ecommerce/auth/support/RedisTestContainer.java
+@@ -0,0 +1,26 @@
++package com.acme.ecommerce.auth.support;
++
++import org.testcontainers.containers.GenericContainer;
++import org.testcontainers.utility.DockerImageName;
++
++/** One Redis per JVM (same image as deploy/local/docker-compose.yml); Ryuk removes it at exit. */
++public final class RedisTestContainer {
++
++  @SuppressWarnings("resource")
++  public static final GenericContainer<?> REDIS =
++      new GenericContainer<>(DockerImageName.parse("redis:7-alpine")).withExposedPorts(6379);
++
++  static {
++    REDIS.start();
++  }
++
++  private RedisTestContainer() {}
++
++  public static String host() {
++    return REDIS.getHost();
++  }
++
++  public static int port() {
++    return REDIS.getMappedPort(6379);
++  }
++}
+diff --git a/services/auth-service/auth-service-app/src/test/java/com/acme/ecommerce/auth/support/TestAuthProperties.java b/services/auth-service/auth-service-app/src/test/java/com/acme/ecommerce/auth/support/TestAuthProperties.java
+new file mode 100644
+index 0000000..0080f98
+--- /dev/null
++++ b/services/auth-service/auth-service-app/src/test/java/com/acme/ecommerce/auth/support/TestAuthProperties.java
+@@ -0,0 +1,36 @@
++package com.acme.ecommerce.auth.support;
++
++import com.acme.ecommerce.auth.config.AuthProperties;
++import java.time.Duration;
++import java.util.List;
++
++/** Builds {@link AuthProperties} for plain unit tests that do not start a Spring context. */
++public final class TestAuthProperties {
++
++  private TestAuthProperties() {}
++
++  public static AuthProperties with(AuthProperties.RateLimit rateLimit) {
++    return new AuthProperties(
++        new AuthProperties.Jwt(
++            "https://auth.test.internal",
++            List.of("ecommerce-platform"),
++            Duration.ofMinutes(10),
++            "irrelevant.p12",
++            "irrelevant",
++            ""),
++        new AuthProperties.Refresh(
++            Duration.ofDays(14), Duration.ofDays(30), Duration.ofSeconds(10)),
++        new AuthProperties.Cookie("refresh_token", "/api/auth", true, "Lax", ""),
++        new AuthProperties.Registration(false),
++        new AuthProperties.Lockout(5, Duration.ofMinutes(1), Duration.ofMinutes(15)),
++        rateLimit,
++        new AuthProperties.Oauth2("", "", List.of(), "", ""),
++        new AuthProperties.Housekeeping(true, Duration.ofDays(30), Duration.ofHours(1)),
++        new AuthProperties.Storefront("http://localhost:3000"));
++  }
++
++  public static AuthProperties.RateLimit rateLimit(int loginCapacity, int maxTracked) {
++    return new AuthProperties.RateLimit(
++        true, loginCapacity, 60, Duration.ofMinutes(1), maxTracked, 3, Duration.ofMinutes(15), 10);
++  }
++}

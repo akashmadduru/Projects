@@ -1,0 +1,13 @@
+{
+ "product_id": "dd0680ee-2148-42be-ed89-20797ebdd912",
+ "name": "Loor Protein Powder Lite",
+ "prompt": "studio packshot photo of a White Loor Protein Powder Lite, made of glass, supplements, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 4116556707,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:35:50",
+ "file_path": "product-images/images/dd0680ee-2148-42be-ed89-20797ebdd912.jpg",
+ "file_size": 40586
+}

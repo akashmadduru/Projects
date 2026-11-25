@@ -1,0 +1,13 @@
+{
+ "product_id": "787edbf4-d04b-4dad-c50b-327101a1873b",
+ "name": "Quasu Heating Pad Plus",
+ "prompt": "studio packshot photo of a Space Grey Quasu Heating Pad Plus, made of aluminium, personal wellness, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2703410807,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:20:00",
+ "file_path": "product-images/images/787edbf4-d04b-4dad-c50b-327101a1873b.jpg",
+ "file_size": 46326
+}

@@ -1,0 +1,13 @@
+{
+ "product_id": "eebdde96-6322-4214-e6e1-f6c9fa38513b",
+ "name": "Quaconu Dumbbell Set Max",
+ "prompt": "studio packshot photo of a Red Quaconu Dumbbell Set Max, made of glass, fitness, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3905456306,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:40:28",
+ "file_path": "product-images/images/eebdde96-6322-4214-e6e1-f6c9fa38513b.jpg",
+ "file_size": 81197
+}

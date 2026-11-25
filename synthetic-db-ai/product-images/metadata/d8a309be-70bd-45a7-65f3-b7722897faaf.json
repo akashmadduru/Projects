@@ -1,0 +1,13 @@
+{
+ "product_id": "d8a309be-70bd-45a7-65f3-b7722897faaf",
+ "name": "Pikaqua Laptop Pro",
+ "prompt": "studio packshot photo of a Grey Pikaqua Laptop Pro, made of cotton, laptops, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 800047079,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T00:39:20",
+ "file_path": "product-images/images/d8a309be-70bd-45a7-65f3-b7722897faaf.jpg",
+ "file_size": 30120
+}

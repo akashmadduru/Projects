@@ -1,0 +1,13 @@
+{
+ "product_id": "ea00cf6c-a00d-45a8-201b-078e5b964a74",
+ "name": "Minunu Razor Max",
+ "prompt": "studio packshot photo of a Red Minunu Razor Max, made of silicone, grooming, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2641387928,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T01:47:05",
+ "file_path": "product-images/images/ea00cf6c-a00d-45a8-201b-078e5b964a74.jpg",
+ "file_size": 60895
+}

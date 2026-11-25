@@ -1,0 +1,15 @@
+{
+ "product_id": "124990a9-1d4a-4a46-ce93-d2eb2cbf82d3",
+ "name": "Ioncotra Gaming Monitor Lite",
+ "prompt": "studio packshot photo of a Space Grey Ioncotra Gaming Monitor Lite, made of cotton, monitors, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3552373008,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 768,
+ "created_at": "2026-11-15T23:00:22",
+ "file_path": "static/images/124990a9-1d4a-4a46-ce93-d2eb2cbf82d3.jpg",
+ "file_size": 49658,
+ "uploaded": false,
+ "s3_url": null
+}

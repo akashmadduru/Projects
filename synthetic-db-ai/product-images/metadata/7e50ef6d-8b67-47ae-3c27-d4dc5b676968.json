@@ -1,0 +1,13 @@
+{
+ "product_id": "7e50ef6d-8b67-47ae-3c27-d4dc5b676968",
+ "name": "Pibali Wireless Mouse Ultra",
+ "prompt": "studio packshot photo of a Olive Pibali Wireless Mouse Ultra, made of abs plastic, keyboards & mice, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2142426045,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:04:37",
+ "file_path": "product-images/images/7e50ef6d-8b67-47ae-3c27-d4dc5b676968.jpg",
+ "file_size": 25056
+}

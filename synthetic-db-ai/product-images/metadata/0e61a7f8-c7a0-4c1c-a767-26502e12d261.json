@@ -1,0 +1,13 @@
+{
+ "product_id": "0e61a7f8-c7a0-4c1c-a767-26502e12d261",
+ "name": "Loven Puzzle Prime",
+ "prompt": "studio packshot photo of a Space Grey Loven Puzzle Prime, made of stainless steel, board games, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1188861300,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 768,
+ "created_at": "2026-11-15T22:48:58",
+ "file_path": "product-images/images/0e61a7f8-c7a0-4c1c-a767-26502e12d261.jpg",
+ "file_size": 98783
+}

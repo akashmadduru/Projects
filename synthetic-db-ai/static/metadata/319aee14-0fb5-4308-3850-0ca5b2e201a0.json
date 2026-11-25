@@ -1,0 +1,15 @@
+{
+ "product_id": "319aee14-0fb5-4308-3850-0ca5b2e201a0",
+ "name": "Dexnu Air Fryer Plus",
+ "prompt": "studio packshot photo of a Space Grey Dexnu Air Fryer Plus, made of silicone, small appliances, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 606557618,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-15T23:54:38",
+ "file_path": "static/images/319aee14-0fb5-4308-3850-0ca5b2e201a0.jpg",
+ "file_size": 36075,
+ "uploaded": false,
+ "s3_url": null
+}

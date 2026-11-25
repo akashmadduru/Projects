@@ -1,0 +1,13 @@
+{
+ "product_id": "d5ebd0e1-32c1-417a-3199-6a9e1c03f2f8",
+ "name": "Venormi Trekking Backpack Edition",
+ "prompt": "studio packshot photo of a Silver Venormi Trekking Backpack Edition, made of wood, camping, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 651272239,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:36:00",
+ "file_path": "product-images/images/d5ebd0e1-32c1-417a-3199-6a9e1c03f2f8.jpg",
+ "file_size": 88096
+}

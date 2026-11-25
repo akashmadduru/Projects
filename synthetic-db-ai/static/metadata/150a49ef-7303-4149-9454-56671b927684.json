@@ -1,0 +1,15 @@
+{
+ "product_id": "150a49ef-7303-4149-9454-56671b927684",
+ "name": "Liion Dress Edition",
+ "prompt": "studio packshot photo of a Grey Liion Dress Edition, made of abs plastic, women's clothing, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3618395499,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 768,
+ "created_at": "2026-11-15T23:04:35",
+ "file_path": "static/images/150a49ef-7303-4149-9454-56671b927684.jpg",
+ "file_size": 53977,
+ "uploaded": false,
+ "s3_url": null
+}

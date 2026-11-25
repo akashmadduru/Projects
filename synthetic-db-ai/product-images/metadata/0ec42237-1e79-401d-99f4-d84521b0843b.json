@@ -1,0 +1,13 @@
+{
+ "product_id": "0ec42237-1e79-401d-99f4-d84521b0843b",
+ "name": "Ionlum Monitor Max",
+ "prompt": "studio packshot photo of a Olive Ionlum Monitor Max, made of stainless steel, monitors, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1901392301,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 768,
+ "created_at": "2026-11-15T22:55:45",
+ "file_path": "product-images/images/0ec42237-1e79-401d-99f4-d84521b0843b.jpg",
+ "file_size": 59236
+}

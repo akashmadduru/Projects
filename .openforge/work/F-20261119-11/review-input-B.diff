@@ -1,0 +1,1233 @@
+diff --git a/docs/reference/endpoints.md b/docs/reference/endpoints.md
+index e1384f3..b466494 100644
+--- a/docs/reference/endpoints.md
++++ b/docs/reference/endpoints.md
+@@ -239,6 +239,8 @@ Request and response shapes for Phases 1–5 are in [api.md](api.md); later phas
+ | POST | `/internal/products/{id}/sync-prices` | InternalCatalogController |
+ | GET | `/internal/products/views/by-seller/{sellerId}` | InternalCatalogController |
+ 
++`GET /api/products/batch?ids=<uuid,uuid,..>` returns the lean product list (active products only, request order, duplicates collapsed, at most 50 ids, 400 on a non-UUID or more than 50). With `detail=true` each element is instead the same view as `GET /api/products/{id}` (images, variants, offers, buy box), inactive products are included, and the per-variant stock call is skipped (`availableQuantity` is not filled). Unknown ids are left out in both modes. Order-service uses `detail=true` to price a whole cart in one request.
++
+ ## promotion-service (30)
+ 
+ | Method | Path | Controller |
+diff --git a/docs/reference/env-descriptions.json b/docs/reference/env-descriptions.json
+index 6bccbac..b9c248f 100644
+--- a/docs/reference/env-descriptions.json
++++ b/docs/reference/env-descriptions.json
+@@ -335,6 +335,11 @@
+       "requiredInProd": true,
+       "text": "Hostname the Eureka server advertises. No default in `prod`."
+     },
++    "ORDER_PRODUCT_BATCH_READ_TIMEOUT_MS": {
++      "group": "Business rules",
++      "usedBy": "order",
++      "text": "Read timeout (ms, default 5000) of the one batched product-service call that order placement makes for all cart lines (`GET /api/products/batch?detail=true`, up to 50 products). Longer than the 3 s single-lookup timeout; connect timeout stays 1 s."
++    },
+     "ORDER_RETURNS_REFUND_POLL_INTERVAL_MS": {
+       "group": "Business rules",
+       "usedBy": "order",
+diff --git a/docs/reference/environment-variables.md b/docs/reference/environment-variables.md
+index 8f37a84..ed6edfd 100644
+--- a/docs/reference/environment-variables.md
++++ b/docs/reference/environment-variables.md
+@@ -168,6 +168,7 @@ service-level setting (add it under that service's `env:` in `values.yaml`). Rel
+ |---|---|---|---|---|---|
+ | `INVENTORY_DEFAULT_STOCK_QUANTITY` | inventory | `0` |  | compose | Stock given to a product or variant that has no stock row when product-service's catalog sync finds it. Default 0, so nothing is sellable until it is stocked; the local stack uses 100 so the demo catalog can be bought. Existing quantities are never changed. |
+ | `INVENTORY_MISSING_STOCK_ROWS` | inventory | `REJECT` |  | - | `REJECT` (default): an order line with no stock row is out of stock. `UNLIMITED`: the old behaviour, where such a line could be oversold. Escape hatch only. |
++| `ORDER_PRODUCT_BATCH_READ_TIMEOUT_MS` | order | `5000` |  | - | Read timeout (ms, default 5000) of the one batched product-service call that order placement makes for all cart lines (`GET /api/products/batch?detail=true`, up to 50 products). Longer than the 3 s single-lookup timeout; connect timeout stays 1 s. |
+ | `ORDER_RETURNS_REFUND_POLL_INTERVAL_MS` | order | `300000` |  | - | How often (ms, default 300000) the order service re-checks return refunds whose card leg is still PENDING and finishes the return once payment-service reports it settled. |
+ | `ORDER_RISK_AVG_MIN_ORDERS` | order (Compose) | _Spring default_ |  | compose | Minimum past orders before the "unusually large order" check applies (Compose default 3). |
+ | `ORDER_RISK_AVG_MULTIPLIER` | order (Compose) | _Spring default_ |  | compose | How many times the customer's average an order may be before it is flagged (Compose default 10). |
+diff --git a/docs/techdebt/README.md b/docs/techdebt/README.md
+index 5c94cd2..8560279 100644
+--- a/docs/techdebt/README.md
++++ b/docs/techdebt/README.md
+@@ -30,7 +30,6 @@ Shortcuts taken while building customer accounts (login, Google SSO, user/cart/o
+ | TD-P6-17 | Shipping/tax/COD rules hard-wired; client-side estimates | phase6 | Med | M | [phase6.md](phase6.md#td-p6-17) |
+ | TD-TEST-04 | Gateway route/authorization contract untested | testing | Med | M | [testing.md](testing.md#td-test-04) |
+ | TD-BE-03 | Cart clear after order is best-effort (stale cart only; re-order refused since TD-BE-15) | backend | Low | M | [backend.md](backend.md#td-be-03) |
+-| TD-BE-06 | Sequential product lookups in checkout | backend | Med | M | [backend.md](backend.md#td-be-06) |
+ | TD-BE-07 | No Feign circuit breakers in order-service | backend | Med | S | [backend.md](backend.md#td-be-07) |
+ | TD-BE-09 | Cart/wishlist trust client snapshots; productId unchecked | backend | Med | S | [backend.md](backend.md#td-be-09) |
+ | TD-SEC-04 | Open registration by default (email verification now exists; see TD-P6-10) | infra-security | Med | S | [infra-security.md](infra-security.md#td-sec-04) |
+@@ -41,6 +40,8 @@ Shortcuts taken while building customer accounts (login, Google SSO, user/cart/o
+ | TD-BE-12 | SecurityConfig copy-pasted across 6 services | backend | Low | M | [backend.md](backend.md#td-be-12) |
+ | TD-BE-15 | Concurrent checkouts with different keys can double-order one cart | backend | Med | M | [backend.md](backend.md#td-be-15) |
+ | TD-BE-16 | Build tooling quirks on Windows (spotless bind mount, buildx entitlement, LF endings) | backend | Low | S | [backend.md](backend.md#td-be-16) |
++| TD-BE-17 | Inactive products are readable by anonymous callers (`/{id}`, `batch?detail=true`) | backend | Low | S | [backend.md](backend.md#td-be-17) |
++| TD-BE-18 | Detail batch still makes one stock-rows call per product | backend | Low | M | [backend.md](backend.md#td-be-18) |
+ | TD-TEST-06 | Seed data cannot exercise the sale-price rule | testing | Low | S | [testing.md](testing.md#td-test-06) |
+ | TD-RT-01 | Demo product averages disagree with rating-service | ratings | Med | S | [ratings.md](ratings.md#td-rt-01) |
+ | TD-RT-02 | No scheduled reconcile of product rating fields | ratings | Med | M | [ratings.md](ratings.md#td-rt-02) |
+diff --git a/docs/techdebt/backend.md b/docs/techdebt/backend.md
+index bd89c44..17c6213 100644
+--- a/docs/techdebt/backend.md
++++ b/docs/techdebt/backend.md
+@@ -11,13 +11,6 @@ TD-BE-01, TD-BE-02, TD-BE-04 and TD-BE-05 were resolved by Phase 6; residual ris
+ - **Risk:** If cart-service is down after commit, the order exists and the cart is not cleared (only a log warning), so the cart still shows the ordered items. Since 2026-11-18 (TD-BE-15) checking out that same cart again is refused with 409 and retries the clear, so it can no longer become a second order; what remains is the stale cart until the next checkout attempt.
+ - **Fix:** Outbox row in the order transaction, relayed to cart-service or consumed from `order.events`.
+ 
+-<a id="td-be-06"></a>
+-## TD-BE-06 Sequential product lookups in checkout
+-- **Severity / Effort:** Med / M
+-- **Where:** `OrderService.build` (one `ProductFeignClient.findById` per line, max 50 lines, 3s read timeout each).
+-- **Risk:** Up to 50 serial calls; slow checkouts and gateway `orderCb` slow-call trips. Kept sequential because the token-relay interceptor reads the request thread context.
+-- **Fix:** Batch endpoint in product-service (`POST /api/products/batch`), or explicit token propagation to a bounded executor.
+-
+ <a id="td-be-07"></a>
+ ## TD-BE-07 No Feign circuit breakers in order-service
+ - **Severity / Effort:** Med / S
+@@ -58,3 +51,17 @@ TD-BE-01, TD-BE-02, TD-BE-04 and TD-BE-05 were resolved by Phase 6; residual ris
+ - **Where:** Gradle runs in an `eclipse-temurin:25-jdk` container (no host JDK). Spotless fails on the Windows bind mount ("Could not read build/spotless-clean"), so the build was copied into the container's `/tmp` and formatted sources copied back. Those Java files now have LF endings while siblings are CRLF. `docker compose up --build` needed `BUILDX_BAKE_ENTITLEMENTS_FS=0`.
+ - **Fix:** Add `.gitattributes` (`*.java text eol=lf` or `crlf`, pick one) and renormalize; install a host JDK 25 or document the container build; document the buildx variable.
+ 
++
++<a id="td-be-17"></a>
++## TD-BE-17 Inactive products are readable by anonymous callers
++- **Severity / Effort:** Low / S
++- **Where:** `GET /api/products/{id}` and `GET /api/products/batch?detail=true` (`ProductCatalogService.detail`, `findDetailsByIds`).
++- **Risk:** Both return the detail view of inactive products to anyone, because order-service needs to refuse them with a clear error. `detail=true` is not a new exposure (it is the same view `/{id}` already serves) but it adds a bulk path. The Owner decides whether inactive products should be hidden from anonymous callers or only readable with a token.
++- **Fix:** If hidden: require a service or admin token for inactive products and let order-service use it. Raised by F-20261119-11 (CTO condition 4).
++
++<a id="td-be-18"></a>
++## TD-BE-18 Detail batch still makes one stock-rows call per product
++- **Severity / Effort:** Low / M
++- **Where:** `OfferService.enrich` (called from `ProductCatalogService.detail`), per product, through `InventoryServiceClient.stockRows`.
++- **Risk:** `GET /api/products/batch?detail=true` skips variant stock but still makes about one inventory request per product, so a 50-product checkout costs up to 50 inventory calls inside one 5 s order-service read budget (`ORDER_PRODUCT_BATCH_READ_TIMEOUT_MS`). It is still far fewer calls than before, and checkout traffic stays the same shape. The unaffected backlog item B-4 is not changed by this.
++- **Fix:** Add a batched stock-rows endpoint to inventory-service (`/internal/inventory/stock/by-products`) and make `OfferService.enrich` take the rows for all products at once. Raised by F-20261119-11 (CTO condition 6).
+diff --git a/docs/techdebt/remediation-plan.md b/docs/techdebt/remediation-plan.md
+index bbfc56d..840615c 100644
+--- a/docs/techdebt/remediation-plan.md
++++ b/docs/techdebt/remediation-plan.md
+@@ -118,6 +118,7 @@ fixes grouped by service, then the larger Medium items by risk. Each row records
+ | 54 | [TD-P7-19](phase7.md) | Variant attributes are key/value input pairs (values may contain `,` and `=`). Product create/update accept `variants` and save them in the same transaction (a bad variant rolls the create back); the admin sends one request, so the "product created without variants" state is gone. Found and fixed on the way: `PUT /api/products/{id}` deleted every image row and file when `images` was omitted, which the admin does whenever images were not touched. Deals: the product picker searches the catalog (20 results, debounced) instead of loading the first 200; listed deals get names from `/api/products/batch`; variant options show SKU plus options; the list pages 20 at a time on the client (promotion-service returns the full list; deals are hand-curated). Kept by decision: Deals stay ADMIN-only and `quantityLimit` required (a deal sets a price; an unlimited deal is the costly mistake). Q&A moderation stays with TD-P7-13 | ✅ Fixed 2026-11-18 |
+ | 55 | [TD-P8-24](phase8.md#td-p8-24) | Wire `USER_REFERRAL_IP_HASH_SALT` through `config.env`, Terraform, the `app` secret and Helm `secretEnv`, and fail closed (refuse to start) under the `prod` profile when it is blank. Until then each replica hashes with its own random key, so the IP check is weak (fails safe: no wrong refusals) | 🔲 Open |
+ | 56 | [TD-SEC-15](infra-security.md#td-sec-15) | Post-deploy check that the Google OIDC callback URL is correct behind the gateway (Gateway 5.0.2 strips `X-Forwarded-*` unless `trusted-proxies` is set); then set trusted-proxies or pin the redirect URI. Same root cause as backlog B-1 | 🔲 Open |
++| 57 | [TD-BE-06](backend.md) | Checkout reads all cart products with one request: `GET /api/products/batch?ids=..&detail=true` returns the `GET /{id}` detail view (variants, offers, buy box, inactive included) for up to 50 distinct ids in request order, without the per-variant stock call; order-service `draft` makes one call through `ProductBatchFeignClient` (5 s read timeout, `ORDER_PRODUCT_BATCH_READ_TIMEOUT_MS`) and refuses an id missing from the result with PRODUCT_UNAVAILABLE before any order row is saved. The lean default of `/batch` is unchanged (golden test). Decided against parallel per-line calls (still 50 requests, token propagation across threads) and against changing the default (public contract). New items: TD-BE-17 (inactive products visible to anonymous callers), TD-BE-18 (batched stock-rows endpoint). Deploy product-service before order-service (F-20261119-11, PR-B) | ✅ Fixed 2026-11-21 |
+ 
+ ## Needs the owner
+ 
+diff --git a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/client/ProductBatchFeignClient.java b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/client/ProductBatchFeignClient.java
+new file mode 100644
+index 0000000..6e9748b
+--- /dev/null
++++ b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/client/ProductBatchFeignClient.java
+@@ -0,0 +1,24 @@
++package com.acme.ecommerce.order.client;
++
++import com.acme.ecommerce.order.client.ProductViewFeignClient.ProductView;
++import java.util.List;
++import org.springframework.cloud.openfeign.FeignClient;
++import org.springframework.web.bind.annotation.GetMapping;
++import org.springframework.web.bind.annotation.RequestParam;
++
++/**
++ * Batched product-service read ({@code GET /api/products/batch?ids=..&detail=true}): the full
++ * {@code detail} view of up to 50 products in one request. A separate contextId from {@link
++ * ProductViewFeignClient} so that its longer read timeout (see application.yml) does not apply to
++ * single lookups. The caller's bearer token is forwarded by the common-web interceptor.
++ */
++@FeignClient(
++    name = "product-service",
++    contextId = "productBatchClient",
++    url = "${services.product.url:}")
++public interface ProductBatchFeignClient {
++
++  /** At most 50 comma-separated ids; unknown ids are simply absent from the result. */
++  @GetMapping("/api/products/batch")
++  List<ProductView> batch(@RequestParam("ids") String ids, @RequestParam("detail") boolean detail);
++}
+diff --git a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/OrderService.java b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/OrderService.java
+index dc19ed4..1cfe391 100644
+--- a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/OrderService.java
++++ b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/OrderService.java
+@@ -13,7 +13,7 @@ import com.acme.ecommerce.order.api.dto.PlaceOrderRequest;
+ import com.acme.ecommerce.order.client.CartFeignClient;
+ import com.acme.ecommerce.order.client.PaymentFeignClient;
+ import com.acme.ecommerce.order.client.PaymentFeignClient.PaymentResult;
+-import com.acme.ecommerce.order.client.ProductViewFeignClient;
++import com.acme.ecommerce.order.client.ProductBatchFeignClient;
+ import com.acme.ecommerce.order.client.ProductViewFeignClient.Offer;
+ import com.acme.ecommerce.order.client.ProductViewFeignClient.ProductView;
+ import com.acme.ecommerce.order.client.ProductViewFeignClient.Variant;
+@@ -38,6 +38,7 @@ import java.math.BigDecimal;
+ import java.math.RoundingMode;
+ import java.time.Instant;
+ import java.util.ArrayList;
++import java.util.HashMap;
+ import java.util.LinkedHashMap;
+ import java.util.List;
+ import java.util.Locale;
+@@ -45,6 +46,7 @@ import java.util.Map;
+ import java.util.Objects;
+ import java.util.Optional;
+ import java.util.UUID;
++import java.util.stream.Collectors;
+ import org.slf4j.Logger;
+ import org.slf4j.LoggerFactory;
+ import org.springframework.dao.DataIntegrityViolationException;
+@@ -77,7 +79,7 @@ public class OrderService {
+   private final OrderStore store;
+   private final CartFeignClient carts;
+   private final UserFeignClient users;
+-  private final ProductViewFeignClient products;
++  private final ProductBatchFeignClient products;
+   private final PricingService pricing;
+   private final OrderRemote remote;
+   private final OrderEventPublisher events;
+@@ -89,7 +91,7 @@ public class OrderService {
+       OrderStore store,
+       CartFeignClient carts,
+       UserFeignClient users,
+-      ProductViewFeignClient products,
++      ProductBatchFeignClient products,
+       PricingService pricing,
+       OrderRemote remote,
+       OrderEventPublisher events,
+@@ -569,10 +571,8 @@ public class OrderService {
+       List<DealClaimItem> dealClaims,
+       Map<UUID, String> sellerNames,
+       int lineDiscountPercent) {
+-    List<ProductView> views = new ArrayList<>();
+-    for (Line line : lines) {
+-      views.add(fetchProduct(line.productId()));
+-    }
++    Map<UUID, ProductView> views =
++        fetchProducts(lines.stream().map(Line::productId).distinct().toList());
+     List<DealPrice> deals =
+         remote.dealPrices(
+             userId, lines.stream().map(l -> new DealKey(l.productId(), l.variantId())).toList());
+@@ -580,7 +580,7 @@ public class OrderService {
+     String currency = null;
+     for (int n = 0; n < lines.size(); n++) {
+       Line line = lines.get(n);
+-      ProductView product = views.get(n);
++      ProductView product = views.get(line.productId());
+       Variant variant = null;
+       boolean hasVariants =
+           product.variants() != null
+@@ -765,15 +765,36 @@ public class OrderService {
+     }
+   }
+ 
+-  private ProductView fetchProduct(UUID productId) {
++  /**
++   * One batched, detail-level product-service read for the distinct ids (an order has at most
++   * {@link #MAX_LINES} lines, the endpoint's cap). A requested id missing from the result is
++   * refused here, before anything is saved.
++   */
++  Map<UUID, ProductView> fetchProducts(List<UUID> productIds) {
++    Map<UUID, ProductView> found = new HashMap<>();
+     try {
+-      return products.findById(productId);
++      String csv = productIds.stream().map(UUID::toString).collect(Collectors.joining(","));
++      List<ProductView> views = products.batch(csv, true);
++      if (views != null) {
++        for (ProductView view : views) {
++          if (view != null && view.id() != null) {
++            found.putIfAbsent(view.id(), view);
++          }
++        }
++      }
+     } catch (FeignException.NotFound e) {
+       throw new CodedException(
+           ErrorCode.PRODUCT_UNAVAILABLE, "A product in your order no longer exists");
+     } catch (FeignException e) {
+       throw RemoteCalls.unavailable("product-service", e);
+     }
++    for (UUID id : productIds) {
++      if (!found.containsKey(id)) {
++        throw new CodedException(
++            ErrorCode.PRODUCT_UNAVAILABLE, "A product in your order no longer exists");
++      }
++    }
++    return found;
+   }
+ 
+   private void clearCartBestEffort(UUID orderId) {
+diff --git a/services/order-service/order-service-app/src/main/resources/application.yml b/services/order-service/order-service-app/src/main/resources/application.yml
+index 5956556..c815d29 100644
+--- a/services/order-service/order-service-app/src/main/resources/application.yml
++++ b/services/order-service/order-service-app/src/main/resources/application.yml
+@@ -254,6 +254,10 @@ spring.cloud.openfeign:
+       productViewClient:
+         connect-timeout: 1000
+         read-timeout: 3000
++      # One request for up to 50 products (detail view); longer read budget than a single lookup.
++      productBatchClient:
++        connect-timeout: 1000
++        read-timeout: ${ORDER_PRODUCT_BATCH_READ_TIMEOUT_MS:5000}
+       inventoryReservations:
+         connect-timeout: 1000
+         read-timeout: 3000
+diff --git a/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/outbox/OutboxEndToEndIntegrationTest.java b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/outbox/OutboxEndToEndIntegrationTest.java
+index bba6967..225132a 100644
+--- a/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/outbox/OutboxEndToEndIntegrationTest.java
++++ b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/outbox/OutboxEndToEndIntegrationTest.java
+@@ -15,7 +15,7 @@ import com.acme.ecommerce.order.api.dto.PlaceOrderRequest.PaymentMethodRequest;
+ import com.acme.ecommerce.order.client.CartFeignClient;
+ import com.acme.ecommerce.order.client.InventoryFeignClient;
+ import com.acme.ecommerce.order.client.PaymentFeignClient;
+-import com.acme.ecommerce.order.client.ProductViewFeignClient;
++import com.acme.ecommerce.order.client.ProductBatchFeignClient;
+ import com.acme.ecommerce.order.client.ProductViewFeignClient.ProductView;
+ import com.acme.ecommerce.order.client.PromotionFeignClient;
+ import com.acme.ecommerce.order.client.UserFeignClient;
+@@ -46,7 +46,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
+  */
+ class OutboxEndToEndIntegrationTest extends AbstractOrderIntegrationTest {
+ 
+-  @MockitoBean private ProductViewFeignClient products;
++  @MockitoBean private ProductBatchFeignClient products;
+   @MockitoBean private UserFeignClient users;
+   @MockitoBean private CartFeignClient carts;
+   @MockitoBean private InventoryFeignClient inventory;
+@@ -83,20 +83,21 @@ class OutboxEndToEndIntegrationTest extends AbstractOrderIntegrationTest {
+                 true,
+                 Instant.now(),
+                 Instant.now()));
+-    when(products.findById(shirt))
++    when(products.batch(anyString(), eq(true)))
+         .thenReturn(
+-            new ProductView(
+-                shirt,
+-                "SKU-SHIRT",
+-                "Shirt",
+-                new BigDecimal("499.00"),
+-                "INR",
+-                true,
+-                null,
+-                null,
+-                List.of(),
+-                List.of(),
+-                null));
++            List.of(
++                new ProductView(
++                    shirt,
++                    "SKU-SHIRT",
++                    "Shirt",
++                    new BigDecimal("499.00"),
++                    "INR",
++                    true,
++                    null,
++                    null,
++                    List.of(),
++                    List.of(),
++                    null)));
+     when(risks.assess(any(), any(), anyString()))
+         .thenReturn(new RiskService.Assessment(0, List.of()));
+     when(payments.create(any()))
+diff --git a/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/OrderBreakerCompensationIntegrationTest.java b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/OrderBreakerCompensationIntegrationTest.java
+index 9abf150..693d8a4 100644
+--- a/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/OrderBreakerCompensationIntegrationTest.java
++++ b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/OrderBreakerCompensationIntegrationTest.java
+@@ -3,6 +3,8 @@ package com.acme.ecommerce.order.service;
+ import static org.assertj.core.api.Assertions.assertThat;
+ import static org.assertj.core.api.Assertions.assertThatThrownBy;
+ import static org.mockito.ArgumentMatchers.any;
++import static org.mockito.ArgumentMatchers.anyString;
++import static org.mockito.ArgumentMatchers.eq;
+ import static org.mockito.Mockito.doThrow;
+ import static org.mockito.Mockito.when;
+ 
+@@ -14,7 +16,7 @@ import com.acme.ecommerce.order.api.dto.PlaceOrderRequest.PaymentMethodRequest;
+ import com.acme.ecommerce.order.client.CartFeignClient;
+ import com.acme.ecommerce.order.client.InventoryFeignClient;
+ import com.acme.ecommerce.order.client.PaymentFeignClient;
+-import com.acme.ecommerce.order.client.ProductViewFeignClient;
++import com.acme.ecommerce.order.client.ProductBatchFeignClient;
+ import com.acme.ecommerce.order.client.ProductViewFeignClient.ProductView;
+ import com.acme.ecommerce.order.client.PromotionFeignClient;
+ import com.acme.ecommerce.order.client.SellerInternalFeignClient;
+@@ -47,7 +49,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
+  */
+ class OrderBreakerCompensationIntegrationTest extends AbstractOrderIntegrationTest {
+ 
+-  @MockitoBean private ProductViewFeignClient products;
++  @MockitoBean private ProductBatchFeignClient products;
+   @MockitoBean private UserFeignClient users;
+   @MockitoBean private CartFeignClient carts;
+   @MockitoBean private InventoryFeignClient inventory;
+@@ -102,20 +104,21 @@ class OrderBreakerCompensationIntegrationTest extends AbstractOrderIntegrationTe
+                 true,
+                 Instant.now(),
+                 Instant.now()));
+-    when(products.findById(shirt))
++    when(products.batch(anyString(), eq(true)))
+         .thenReturn(
+-            new ProductView(
+-                shirt,
+-                "SKU-Shirt",
+-                "Shirt",
+-                new BigDecimal("499.00"),
+-                "INR",
+-                true,
+-                null,
+-                null,
+-                List.of(),
+-                List.of(),
+-                null));
++            List.of(
++                new ProductView(
++                    shirt,
++                    "SKU-Shirt",
++                    "Shirt",
++                    new BigDecimal("499.00"),
++                    "INR",
++                    true,
++                    null,
++                    null,
++                    List.of(),
++                    List.of(),
++                    null)));
+     when(risks.assess(any(), any(), any())).thenReturn(new RiskService.Assessment(0, List.of()));
+     when(inventory.reserve(any()))
+         .thenReturn(
+diff --git a/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/OrderPlacementIntegrationTest.java b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/OrderPlacementIntegrationTest.java
+index 1ce1c55..196cb4e 100644
+--- a/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/OrderPlacementIntegrationTest.java
++++ b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/OrderPlacementIntegrationTest.java
+@@ -23,7 +23,7 @@ import com.acme.ecommerce.order.client.DependencyBreakerCapability;
+ import com.acme.ecommerce.order.client.InventoryFeignClient;
+ import com.acme.ecommerce.order.client.PaymentFeignClient;
+ import com.acme.ecommerce.order.client.PaymentFeignClient.PaymentResult;
+-import com.acme.ecommerce.order.client.ProductViewFeignClient;
++import com.acme.ecommerce.order.client.ProductBatchFeignClient;
+ import com.acme.ecommerce.order.client.ProductViewFeignClient.ProductView;
+ import com.acme.ecommerce.order.client.PromotionFeignClient;
+ import com.acme.ecommerce.order.client.RemoteCalls;
+@@ -39,7 +39,9 @@ import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
+ import java.math.BigDecimal;
+ import java.nio.charset.StandardCharsets;
+ import java.time.Instant;
++import java.util.HashMap;
+ import java.util.List;
++import java.util.Map;
+ import java.util.UUID;
+ import org.junit.jupiter.api.BeforeEach;
+ import org.junit.jupiter.api.DisplayName;
+@@ -55,7 +57,11 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
+  */
+ class OrderPlacementIntegrationTest extends AbstractOrderIntegrationTest {
+ 
+-  @MockitoBean private ProductViewFeignClient products;
++  @MockitoBean private ProductBatchFeignClient products;
++
++  /** The product-service catalog behind the batch stub: id to its detail view. */
++  private final Map<UUID, ProductView> catalog = new HashMap<>();
++
+   @MockitoBean private UserFeignClient users;
+   @MockitoBean private CartFeignClient carts;
+   @MockitoBean private OrderRemote remote;
+@@ -107,8 +113,9 @@ class OrderPlacementIntegrationTest extends AbstractOrderIntegrationTest {
+                 true,
+                 Instant.now(),
+                 Instant.now()));
+-    when(products.findById(shirt)).thenReturn(product(shirt, "Shirt", "499.00", "INR", true));
+-    when(products.findById(mug)).thenReturn(product(mug, "Mug", "10.00", "USD", true));
++    catalog.put(shirt, product(shirt, "Shirt", "499.00", "INR", true));
++    catalog.put(mug, product(mug, "Mug", "10.00", "USD", true));
++    when(products.batch(anyString(), eq(true))).thenAnswer(inv -> fromCatalog(inv.getArgument(0)));
+     when(risks.assess(any(), any(), anyString()))
+         .thenReturn(new RiskService.Assessment(0, List.of()));
+     when(remote.reserveStock(any(), any(), anyString()))
+@@ -128,6 +135,16 @@ class OrderPlacementIntegrationTest extends AbstractOrderIntegrationTest {
+             new PaymentResult("pay-1", null, "REQUIRES_PAYMENT", "RAZORPAY", null, "rzp_test"));
+   }
+ 
++  /** What the batch endpoint returns: the known ids among those requested, in request order. */
++  private List<ProductView> fromCatalog(String csv) {
++    return java.util.Arrays.stream(csv.split(","))
++        .map(UUID::fromString)
++        .distinct()
++        .map(catalog::get)
++        .filter(java.util.Objects::nonNull)
++        .toList();
++  }
++
+   private PlaceOrderRequest buyNow(UUID productId, int qty) {
+     return new PlaceOrderRequest(
+         addressId,
+@@ -222,7 +239,7 @@ class OrderPlacementIntegrationTest extends AbstractOrderIntegrationTest {
+   @DisplayName("an inactive product cannot be ordered")
+   void inactiveProduct() {
+     UUID retired = UUID.randomUUID();
+-    when(products.findById(retired)).thenReturn(product(retired, "Old", "5.00", "INR", false));
++    catalog.put(retired, product(retired, "Old", "5.00", "INR", false));
+ 
+     assertThatThrownBy(() -> orders.place(user, "c@example.com", "key-old", buyNow(retired, 1)))
+         .isInstanceOf(CodedException.class)
+@@ -856,14 +873,15 @@ class OrderPlacementIntegrationTest extends AbstractOrderIntegrationTest {
+   void openProductBreaker() {
+     var registry = DependencyBreakerCapability.defaultRegistry();
+     var host = new StubHost(503);
+-    ProductViewFeignClient real =
++    ProductBatchFeignClient real =
+         realClient(
+-            ProductViewFeignClient.class,
++            ProductBatchFeignClient.class,
+             "product-service",
+             new DependencyBreakerCapability(registry),
+             host);
+-    when(products.findById(any())).thenAnswer(inv -> real.findById(inv.getArgument(0)));
+-    trip(() -> real.findById(shirt), registry, "product-service");
++    when(products.batch(anyString(), anyBoolean()))
++        .thenAnswer(inv -> real.batch(inv.getArgument(0), inv.getArgument(1)));
++    trip(() -> real.batch(shirt.toString(), true), registry, "product-service");
+ 
+     assertFailsFast(
+         () -> orders.place(user, "c@example.com", "open-product", buyNow(shirt, 1)), host);
+@@ -1016,13 +1034,14 @@ class OrderPlacementIntegrationTest extends AbstractOrderIntegrationTest {
+   void productNotFoundKeepsDomainError() {
+     var registry = DependencyBreakerCapability.defaultRegistry();
+     var host = new StubHost(404);
+-    ProductViewFeignClient real =
++    ProductBatchFeignClient real =
+         realClient(
+-            ProductViewFeignClient.class,
++            ProductBatchFeignClient.class,
+             "product-service",
+             new DependencyBreakerCapability(registry),
+             host);
+-    when(products.findById(any())).thenAnswer(inv -> real.findById(inv.getArgument(0)));
++    when(products.batch(anyString(), anyBoolean()))
++        .thenAnswer(inv -> real.batch(inv.getArgument(0), inv.getArgument(1)));
+ 
+     for (int i = 0; i < 25; i++) {
+       assertThatThrownBy(
+@@ -1060,4 +1079,320 @@ class OrderPlacementIntegrationTest extends AbstractOrderIntegrationTest {
+     assertThat(registry.circuitBreaker("dep-user-service").getState())
+         .isEqualTo(CircuitBreaker.State.CLOSED);
+   }
++
++  // --- AC-10..14: one batched product lookup (PR-B) ------------------------------------------
++
++  private static com.acme.ecommerce.cart.api.dto.CartItemResponse cartLine(
++      UUID productId, int qty, UUID variantId, UUID offerId, String name, String price) {
++    return new com.acme.ecommerce.cart.api.dto.CartItemResponse(
++        productId,
++        qty,
++        name,
++        new BigDecimal(price),
++        "INR",
++        "http://evil.example/cart.png",
++        new BigDecimal(price).multiply(BigDecimal.valueOf(qty)),
++        Instant.parse("2026-11-20T10:00:00Z"),
++        variantId,
++        null,
++        offerId,
++        null);
++  }
++
++  private void cartWith(List<com.acme.ecommerce.cart.api.dto.CartItemResponse> items) {
++    when(carts.getCart())
++        .thenReturn(
++            new com.acme.ecommerce.cart.api.dto.CartResponse(
++                items, "INR", items.size(), BigDecimal.ZERO, List.of()));
++  }
++
++  private static com.acme.ecommerce.order.client.ProductViewFeignClient.Variant variant(
++      UUID id, String price, String salePrice, boolean active) {
++    return new com.acme.ecommerce.order.client.ProductViewFeignClient.Variant(
++        id,
++        "V-" + id.toString().substring(0, 4),
++        Map.of("size", "M"),
++        new BigDecimal(price),
++        salePrice == null ? null : new BigDecimal(salePrice),
++        null,
++        active);
++  }
++
++  private static ProductView productWith(
++      UUID id,
++      String name,
++      String price,
++      boolean active,
++      List<com.acme.ecommerce.order.client.ProductViewFeignClient.Variant> variants,
++      List<com.acme.ecommerce.order.client.ProductViewFeignClient.Offer> offers) {
++    return new ProductView(
++        id,
++        "SKU-" + name,
++        name,
++        new BigDecimal(price),
++        "INR",
++        active,
++        null,
++        "http://cdn.example/" + name + ".png",
++        variants,
++        offers,
++        null);
++  }
++
++  private CodedException placeFromCartFails(String key) {
++    Throwable t =
++        org.assertj.core.api.Assertions.catchThrowable(
++            () -> orders.place(user, "c@example.com", key, fromCart()));
++    assertThat(t).isInstanceOf(CodedException.class);
++    return (CodedException) t;
++  }
++
++  @Test
++  @DisplayName("AC-10: a 50-line cart makes exactly one product-service request, priced per line")
++  void fiftyLineCartMakesOneProductRequest() {
++    List<com.acme.ecommerce.cart.api.dto.CartItemResponse> items = new java.util.ArrayList<>();
++    Map<UUID, BigDecimal> expectedUnit = new HashMap<>();
++    for (int i = 0; i < 50; i++) {
++      UUID id = UUID.randomUUID();
++      String name = "P" + i;
++      BigDecimal base = new BigDecimal(10 + i);
++      if (i % 5 == 0) {
++        UUID variantId = UUID.randomUUID();
++        catalog.put(
++            id,
++            productWith(
++                id,
++                name,
++                base.toString(),
++                true,
++                List.of(variant(variantId, base.add(BigDecimal.ONE).toString(), null, true)),
++                List.of()));
++        items.add(cartLine(id, 1, variantId, null, "client-name", "0.01"));
++        expectedUnit.put(id, base.add(BigDecimal.ONE));
++      } else if (i % 7 == 3) {
++        UUID offerId = UUID.randomUUID();
++        var offer =
++            new com.acme.ecommerce.order.client.ProductViewFeignClient.Offer(
++                offerId,
++                UUID.randomUUID(),
++                "Seller",
++                null,
++                base.add(BigDecimal.TWO),
++                null,
++                "INR",
++                2,
++                9);
++        catalog.put(id, productWith(id, name, base.toString(), true, List.of(), List.of(offer)));
++        items.add(cartLine(id, 1, null, offerId, "client-name", "0.01"));
++        expectedUnit.put(id, base.add(BigDecimal.TWO));
++      } else {
++        catalog.put(id, productWith(id, name, base.toString(), true, List.of(), List.of()));
++        items.add(cartLine(id, 1, null, null, "client-name", "0.01"));
++        expectedUnit.put(id, base);
++      }
++    }
++    cartWith(items);
++
++    OrderService.Placement p = orders.place(user, "c@example.com", "fifty", fromCart());
++
++    var csv = org.mockito.ArgumentCaptor.forClass(String.class);
++    verify(products, times(1)).batch(csv.capture(), eq(true));
++    assertThat(csv.getValue().split(",")).hasSize(50).doesNotHaveDuplicates();
++    assertThat(p.order().items()).hasSize(50);
++    BigDecimal subtotal = BigDecimal.ZERO;
++    for (var line : p.order().items()) {
++      assertThat(line.unitPrice())
++          .as("price of %s", line.name())
++          .isEqualByComparingTo(expectedUnit.get(line.productId()));
++      assertThat(line.name()).startsWith("P");
++      subtotal = subtotal.add(expectedUnit.get(line.productId()));
++    }
++    assertThat(p.order().subtotalAmount()).isEqualByComparingTo(subtotal);
++    assertThat(p.order().currency()).isEqualTo("INR");
++  }
++
++  @Test
++  @DisplayName("AC-11: an inactive product keeps PRODUCT_UNAVAILABLE and the message names it")
++  void inactiveProductNamedInMessage() {
++    UUID retired = UUID.randomUUID();
++    catalog.put(retired, productWith(retired, "Old Lamp", "5.00", false, List.of(), List.of()));
++    cartWith(List.of(cartLine(retired, 1, null, null, "x", "5.00")));
++
++    CodedException e = placeFromCartFails("a11-inactive");
++
++    assertThat(e.errorCode()).isEqualTo(ErrorCode.PRODUCT_UNAVAILABLE);
++    assertThat(e.getMessage()).contains("Old Lamp");
++    assertThat(orderCount()).isZero();
++  }
++
++  @Test
++  @DisplayName("AC-11: an inactive or unknown variant keeps PRODUCT_UNAVAILABLE naming the product")
++  void variantUnavailableNamedInMessage() {
++    UUID p = UUID.randomUUID();
++    UUID inactiveVariant = UUID.randomUUID();
++    catalog.put(
++        p,
++        productWith(
++            p,
++            "Tee",
++            "20.00",
++            true,
++            List.of(variant(inactiveVariant, "20.00", null, false)),
++            List.of()));
++
++    cartWith(List.of(cartLine(p, 1, inactiveVariant, null, "x", "20.00")));
++    CodedException inactive = placeFromCartFails("a11-v-inactive");
++    cartWith(List.of(cartLine(p, 1, UUID.randomUUID(), null, "x", "20.00")));
++    CodedException unknown = placeFromCartFails("a11-v-unknown");
++
++    for (CodedException e : List.of(inactive, unknown)) {
++      assertThat(e.errorCode()).isEqualTo(ErrorCode.PRODUCT_UNAVAILABLE);
++      assertThat(e.getMessage()).contains("Tee");
++    }
++    assertThat(orderCount()).isZero();
++  }
++
++  @Test
++  @DisplayName("AC-11: a product with variants but no variant on the line is VALIDATION_FAILED")
++  void missingVariantChoiceIsValidationFailed() {
++    UUID p = UUID.randomUUID();
++    UUID v = UUID.randomUUID();
++    catalog.put(
++        p,
++        productWith(
++            p, "Hoodie", "50.00", true, List.of(variant(v, "50.00", null, true)), List.of()));
++    cartWith(List.of(cartLine(p, 1, null, null, "x", "50.00")));
++
++    CodedException e = placeFromCartFails("a11-choose");
++
++    assertThat(e.errorCode()).isEqualTo(ErrorCode.VALIDATION_FAILED);
++    assertThat(e.getMessage()).contains("Hoodie");
++    assertThat(orderCount()).isZero();
++  }
++
++  @Test
++  @DisplayName("AC-13: the same product on two lines sends one id and prices both lines")
++  void sameProductOnTwoLinesIsOneLookup() {
++    UUID p = UUID.randomUUID();
++    UUID v1 = UUID.randomUUID();
++    UUID v2 = UUID.randomUUID();
++    catalog.put(
++        p,
++        productWith(
++            p,
++            "Shoe",
++            "100.00",
++            true,
++            List.of(variant(v1, "120.00", null, true), variant(v2, "150.00", "140.00", true)),
++            List.of()));
++    cartWith(List.of(cartLine(p, 1, v1, null, "x", "1.00"), cartLine(p, 2, v2, null, "x", "1.00")));
++
++    OrderService.Placement placed = orders.place(user, "c@example.com", "a13", fromCart());
++
++    var csv = org.mockito.ArgumentCaptor.forClass(String.class);
++    verify(products, times(1)).batch(csv.capture(), eq(true));
++    assertThat(csv.getValue()).isEqualTo(p.toString());
++    assertThat(placed.order().items()).hasSize(2);
++    assertThat(placed.order().items())
++        .filteredOn(i -> v1.equals(i.variantId()))
++        .singleElement()
++        .satisfies(i -> assertThat(i.lineTotal()).isEqualByComparingTo("120.00"));
++    assertThat(placed.order().items())
++        .filteredOn(i -> v2.equals(i.variantId()))
++        .singleElement()
++        .satisfies(i -> assertThat(i.lineTotal()).isEqualByComparingTo("280.00"));
++  }
++
++  @Test
++  @DisplayName("AC-14: a batch that omits a requested id is PRODUCT_UNAVAILABLE with no order row")
++  void batchOmittingAnIdLeavesNoOrder() {
++    UUID gone = UUID.randomUUID();
++    // shirt is in the catalog, gone is not: the stubbed batch returns only the shirt.
++    cartWith(
++        List.of(
++            cartLine(shirt, 1, null, null, "Shirt", "499.00"),
++            cartLine(gone, 1, null, null, "Gone", "5.00")));
++
++    CodedException e = placeFromCartFails("a14");
++
++    assertThat(e.errorCode()).isEqualTo(ErrorCode.PRODUCT_UNAVAILABLE);
++    assertThat(orderCount()).isZero();
++    verify(remote, never()).reserveStock(any(), any(), anyString());
++  }
++
++  @Test
++  @DisplayName("AC-12: client-supplied cart price, name and image are ignored; the catalog wins")
++  void clientSuppliedCartFieldsAreIgnored() {
++    UUID tee = UUID.randomUUID();
++    catalog.put(tee, productWith(tee, "Tee", "499.00", true, List.of(), List.of()));
++    cartWith(List.of(cartLine(tee, 2, null, null, "HACKED NAME", "0.01")));
++
++    OrderService.Placement placed = orders.place(user, "c@example.com", "a12-ignore", fromCart());
++
++    var line = placed.order().items().get(0);
++    assertThat(line.unitPrice()).isEqualByComparingTo("499.00");
++    assertThat(line.name()).isEqualTo("Tee");
++    assertThat(line.imageUrl()).isEqualTo("http://cdn.example/Tee.png");
++    assertThat(placed.order().subtotalAmount()).isEqualByComparingTo("998.00");
++  }
++
++  @Autowired(required = false)
++  private List<feign.RequestInterceptor> feignInterceptors = List.of();
++
++  @Test
++  @DisplayName("AC-12: the batch call carries the request's Authorization bearer, never another")
++  void batchCallForwardsTheCallersBearer() {
++    var forwarding =
++        feignInterceptors.stream()
++            .filter(
++                i ->
++                    i
++                        instanceof
++                        com.acme.ecommerce.common.web.feign.CorrelationAndAuthForwardingInterceptor)
++            .findFirst();
++    assertThat(forwarding).as("the common-web interceptor is registered for Feign").isPresent();
++
++    java.util.concurrent.atomic.AtomicReference<feign.Request> seen =
++        new java.util.concurrent.atomic.AtomicReference<>();
++    feign.Client capture =
++        (request, options) -> {
++          seen.set(request);
++          return feign.Response.builder()
++              .status(200)
++              .request(request)
++              .headers(Map.of("Content-Type", List.of("application/json")))
++              .body("[]", StandardCharsets.UTF_8)
++              .build();
++        };
++    ProductBatchFeignClient real =
++        feign.Feign.builder()
++            .contract(new org.springframework.cloud.openfeign.support.SpringMvcContract())
++            .decoder(
++                (response, type) -> {
++                  try (var in = response.body().asInputStream()) {
++                    return JSON.readValue(in, JSON.constructType(type));
++                  }
++                })
++            .requestInterceptor(forwarding.get())
++            .client(capture)
++            .target(ProductBatchFeignClient.class, "http://product-service");
++
++    var mockRequest = new org.springframework.mock.web.MockHttpServletRequest();
++    mockRequest.addHeader("Authorization", "Bearer alice-token");
++    org.springframework.web.context.request.RequestContextHolder.setRequestAttributes(
++        new org.springframework.web.context.request.ServletRequestAttributes(mockRequest));
++    try {
++      real.batch(shirt.toString(), true);
++    } finally {
++      org.springframework.web.context.request.RequestContextHolder.resetRequestAttributes();
++    }
++
++    assertThat(seen.get().headers().get("Authorization")).containsExactly("Bearer alice-token");
++    assertThat(seen.get().url()).contains("/api/products/batch").contains("detail=true");
++
++    // Sanity for the assertion above: with no inbound request there is nothing to forward, so the
++    // header is absent rather than another user's.
++    real.batch(shirt.toString(), true);
++    assertThat(seen.get().headers()).doesNotContainKey("Authorization");
++  }
+ }
+diff --git a/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/OrderServiceFetchProductsTest.java b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/OrderServiceFetchProductsTest.java
+new file mode 100644
+index 0000000..98f673b
+--- /dev/null
++++ b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/OrderServiceFetchProductsTest.java
+@@ -0,0 +1,111 @@
++package com.acme.ecommerce.order.service;
++
++import static org.assertj.core.api.Assertions.assertThat;
++import static org.assertj.core.api.Assertions.assertThatThrownBy;
++import static org.mockito.ArgumentMatchers.anyBoolean;
++import static org.mockito.ArgumentMatchers.anyString;
++import static org.mockito.ArgumentMatchers.eq;
++import static org.mockito.Mockito.mock;
++import static org.mockito.Mockito.verify;
++import static org.mockito.Mockito.when;
++
++import com.acme.ecommerce.common.core.error.CodedException;
++import com.acme.ecommerce.common.core.error.ErrorCode;
++import com.acme.ecommerce.order.client.ProductBatchFeignClient;
++import com.acme.ecommerce.order.client.ProductViewFeignClient.ProductView;
++import feign.FeignException;
++import feign.Request;
++import java.math.BigDecimal;
++import java.nio.charset.StandardCharsets;
++import java.util.HashMap;
++import java.util.List;
++import java.util.Map;
++import java.util.UUID;
++import org.junit.jupiter.api.BeforeEach;
++import org.junit.jupiter.api.DisplayName;
++import org.junit.jupiter.api.Test;
++
++/** The batched product lookup of {@code OrderService.draft} (TD-BE-06), without Spring. */
++class OrderServiceFetchProductsTest {
++
++  private final ProductBatchFeignClient batch = mock(ProductBatchFeignClient.class);
++  private OrderService orders;
++
++  @BeforeEach
++  void setUp() {
++    orders = new OrderService(null, null, null, batch, null, null, null, null, null, null);
++  }
++
++  private static ProductView view(UUID id) {
++    return new ProductView(
++        id, "SKU", "Name", new BigDecimal("1.00"), "INR", true, null, null, null, null, null);
++  }
++
++  private static Request request() {
++    return Request.create(
++        Request.HttpMethod.GET,
++        "http://product-service/api/products/batch",
++        Map.of(),
++        null,
++        StandardCharsets.UTF_8,
++        null);
++  }
++
++  @Test
++  @DisplayName("one request with the ids joined, detail=true, and a map keyed by id")
++  void oneRequestForAllIds() {
++    UUID a = UUID.randomUUID();
++    UUID b = UUID.randomUUID();
++    when(batch.batch(anyString(), anyBoolean())).thenReturn(List.of(view(b), view(a)));
++
++    Map<UUID, ProductView> out = orders.fetchProducts(List.of(a, b));
++
++    verify(batch).batch(a + "," + b, true);
++    assertThat(out).containsOnlyKeys(a, b);
++    assertThat(out.get(a).id()).isEqualTo(a);
++  }
++
++  @Test
++  @DisplayName("an id missing from the result is PRODUCT_UNAVAILABLE")
++  void missingIdIsRefused() {
++    UUID a = UUID.randomUUID();
++    UUID b = UUID.randomUUID();
++    when(batch.batch(anyString(), eq(true))).thenReturn(List.of(view(a)));
++
++    assertThatThrownBy(() -> orders.fetchProducts(List.of(a, b)))
++        .isInstanceOf(CodedException.class)
++        .extracting(e -> ((CodedException) e).errorCode())
++        .isEqualTo(ErrorCode.PRODUCT_UNAVAILABLE);
++  }
++
++  @Test
++  @DisplayName("a null or empty batch body is a missing id, not a NullPointerException")
++  void nullBodyIsRefused() {
++    UUID a = UUID.randomUUID();
++    when(batch.batch(anyString(), eq(true))).thenReturn(null);
++
++    assertThatThrownBy(() -> orders.fetchProducts(List.of(a)))
++        .isInstanceOf(CodedException.class)
++        .extracting(e -> ((CodedException) e).errorCode())
++        .isEqualTo(ErrorCode.PRODUCT_UNAVAILABLE);
++  }
++
++  @Test
++  @DisplayName("a Feign 5xx is DEPENDENCY_UNAVAILABLE (503); a 404 is PRODUCT_UNAVAILABLE")
++  void feignErrorsAreMapped() {
++    UUID a = UUID.randomUUID();
++    when(batch.batch(anyString(), eq(true)))
++        .thenThrow(new FeignException.ServiceUnavailable("down", request(), null, new HashMap<>()));
++    assertThatThrownBy(() -> orders.fetchProducts(List.of(a)))
++        .isInstanceOf(CodedException.class)
++        .extracting(e -> ((CodedException) e).errorCode())
++        .isEqualTo(ErrorCode.DEPENDENCY_UNAVAILABLE);
++
++    when(batch.batch(anyString(), eq(true)))
++        .thenThrow(new FeignException.NotFound("nf", request(), null, new HashMap<>()));
++    assertThatThrownBy(() -> orders.fetchProducts(List.of(a)))
++        .isInstanceOf(CodedException.class)
++        .extracting(e -> ((CodedException) e).errorCode())
++        .isEqualTo(ErrorCode.PRODUCT_UNAVAILABLE);
++  }
++}
+diff --git a/services/product-service/product-service-app/src/main/java/com/acme/ecommerce/product/service/ProductCatalogService.java b/services/product-service/product-service-app/src/main/java/com/acme/ecommerce/product/service/ProductCatalogService.java
+index 78d4b3c..c5fd3d5 100644
+--- a/services/product-service/product-service-app/src/main/java/com/acme/ecommerce/product/service/ProductCatalogService.java
++++ b/services/product-service/product-service-app/src/main/java/com/acme/ecommerce/product/service/ProductCatalogService.java
+@@ -177,6 +177,24 @@ public class ProductCatalogService {
+     return out;
+   }
+ 
++  /**
++   * The {@code GET /{id}} detail view for each distinct known id, in request order, inactive
++   * products included, unknown ids skipped. Variant stock is not fetched (order-service never reads
++   * it), so this makes no inventory call.
++   */
++  public List<ProductResponse> findDetailsByIds(List<UUID> ids) {
++    Map<UUID, Product> byId = new HashMap<>();
++    products.findAllById(ids).forEach(p -> byId.put(p.getId(), p));
++    List<ProductResponse> out = new ArrayList<>();
++    for (UUID id : new LinkedHashSet<>(ids)) {
++      Product p = byId.get(id);
++      if (p != null) {
++        out.add(detail(p, false));
++      }
++    }
++    return out;
++  }
++
+   /** A single product by slug, with images and variants. */
+   public ProductResponse findBySlug(String slug) {
+     Product product =
+@@ -185,7 +203,11 @@ public class ProductCatalogService {
+   }
+ 
+   private ProductResponse detail(Product product) {
+-    List<ProductVariantResponse> variants = variantResponses(product.getId(), true);
++    return detail(product, true);
++  }
++
++  private ProductResponse detail(Product product, boolean withStock) {
++    List<ProductVariantResponse> variants = variantResponses(product.getId(), withStock);
+     ProductResponse response =
+         toResponse(
+             product,
+diff --git a/services/product-service/product-service-app/src/main/java/com/acme/ecommerce/product/web/ProductController.java b/services/product-service/product-service-app/src/main/java/com/acme/ecommerce/product/web/ProductController.java
+index 8fc6a96..8f9d84a 100644
+--- a/services/product-service/product-service-app/src/main/java/com/acme/ecommerce/product/web/ProductController.java
++++ b/services/product-service/product-service-app/src/main/java/com/acme/ecommerce/product/web/ProductController.java
+@@ -310,9 +310,14 @@ public class ProductController {
+     return discovery.facets(filterOf(params, request));
+   }
+ 
+-  /** Lean products by id, in request order (max 50). Public. */
++  /**
++   * Lean products by id, in request order (max 50). With {@code detail=true} each element is the
++   * {@code GET /{id}} detail view and inactive products are included. Public.
++   */
+   @GetMapping("/batch")
+-  public List<ProductResponse> batch(@RequestParam(name = "ids") String ids) {
++  public List<ProductResponse> batch(
++      @RequestParam(name = "ids") String ids,
++      @RequestParam(name = "detail", defaultValue = "false") boolean detail) {
+     List<UUID> parsed = new ArrayList<>();
+     for (String raw : ProductListParams.splitCsv(ids)) {
+       try {
+@@ -324,7 +329,7 @@ public class ProductController {
+     if (parsed.size() > MAX_BATCH) {
+       throw ValidationException.forField("ids", "at most " + MAX_BATCH + " ids");
+     }
+-    return catalog.findByIds(parsed);
++    return detail ? catalog.findDetailsByIds(parsed) : catalog.findByIds(parsed);
+   }
+ 
+   /** One product by slug. Public. */
+diff --git a/services/product-service/product-service-app/src/test/java/com/acme/ecommerce/product/service/ProductCatalogServiceTest.java b/services/product-service/product-service-app/src/test/java/com/acme/ecommerce/product/service/ProductCatalogServiceTest.java
+index a492671..fc75d75 100644
+--- a/services/product-service/product-service-app/src/test/java/com/acme/ecommerce/product/service/ProductCatalogServiceTest.java
++++ b/services/product-service/product-service-app/src/test/java/com/acme/ecommerce/product/service/ProductCatalogServiceTest.java
+@@ -18,6 +18,7 @@ import com.acme.ecommerce.product.api.dto.ProductResponse;
+ import com.acme.ecommerce.product.client.InventoryServiceClient;
+ import com.acme.ecommerce.product.domain.Product;
+ import com.acme.ecommerce.product.domain.ProductImage;
++import com.acme.ecommerce.product.domain.ProductVariant;
+ import com.acme.ecommerce.product.event.ProductEventPublisher;
+ import com.acme.ecommerce.product.event.ProductEventType;
+ import com.acme.ecommerce.product.repository.ProductFilter;
+@@ -440,6 +441,59 @@ class ProductCatalogServiceTest {
+         .build();
+   }
+ 
++  @Test
++  @DisplayName(
++      "findDetailsByIds: request order, duplicates collapsed, inactive kept, unknown skipped,"
++          + " and no inventory call (B1)")
++  void findDetailsByIdsKeepsOrderAndSkipsStock() throws Exception {
++    UUID a = UUID.fromString("00000000-0000-4000-8000-00000000000a");
++    UUID b = UUID.fromString("00000000-0000-4000-8000-00000000000b");
++    UUID unknown = UUID.fromString("00000000-0000-4000-8000-0000000000ff");
++    Product pa = newTestProduct();
++    setId(pa, a);
++    Product pb = newTestProduct();
++    setId(pb, b);
++    pb.setActive(false);
++    ProductVariant variant = variantOf(pa);
++    when(products.findAllById(List.of(b, a, b, unknown))).thenReturn(List.of(pa, pb));
++    when(variants.findByProductIdOrderBySortOrderAscSkuAsc(a)).thenReturn(List.of(variant));
++    when(variants.findByProductIdOrderBySortOrderAscSkuAsc(b)).thenReturn(List.of());
++
++    List<ProductResponse> out = service.findDetailsByIds(List.of(b, a, b, unknown));
++
++    assertThat(out).extracting(ProductResponse::getId).containsExactly(b, a);
++    assertThat(out.get(0).isActive()).isFalse();
++    assertThat(out.get(1).getVariants()).hasSize(1);
++    assertThat(out.get(1).getVariants().get(0).getAvailableQuantity()).isNull();
++    verifyNoInteractions(inventory);
++  }
++
++  @Test
++  @DisplayName("positive sanity: findById on a product with variants does call inventory for stock")
++  void findByIdFetchesVariantStock() throws Exception {
++    UUID a = UUID.fromString("00000000-0000-4000-8000-00000000000a");
++    Product pa = newTestProduct();
++    setId(pa, a);
++    when(products.findById(a)).thenReturn(Optional.of(pa));
++    when(variants.findByProductIdOrderBySortOrderAscSkuAsc(a)).thenReturn(List.of(variantOf(pa)));
++
++    service.findById(a);
++
++    verify(inventory).getVariantStock(any(), any());
++  }
++
++  private static ProductVariant variantOf(Product product) {
++    return ProductVariant.builder()
++        .id(UUID.fromString("00000000-0000-4000-8000-0000000000c1"))
++        .productId(product.getId())
++        .sku("SKU-01-RED")
++        .attributes("{\"color\":\"red\"}")
++        .active(true)
++        .createdAt(NOW)
++        .updatedAt(NOW)
++        .build();
++  }
++
+   /** {@code @Version} is Hibernate-managed; a plain unit test has to set it via reflection. */
+   private static void setVersion(Product product, Long version) throws Exception {
+     Field field = Product.class.getDeclaredField("version");
+diff --git a/services/product-service/product-service-app/src/test/java/com/acme/ecommerce/product/web/ProductBatchDetailIntegrationTest.java b/services/product-service/product-service-app/src/test/java/com/acme/ecommerce/product/web/ProductBatchDetailIntegrationTest.java
+new file mode 100644
+index 0000000..2448c58
+--- /dev/null
++++ b/services/product-service/product-service-app/src/test/java/com/acme/ecommerce/product/web/ProductBatchDetailIntegrationTest.java
+@@ -0,0 +1,139 @@
++package com.acme.ecommerce.product.web;
++
++import static org.assertj.core.api.Assertions.assertThat;
++import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
++import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
++import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
++
++import com.acme.ecommerce.product.support.AbstractProductIntegrationTest;
++import java.nio.charset.StandardCharsets;
++import java.util.ArrayList;
++import java.util.List;
++import java.util.UUID;
++import java.util.stream.Collectors;
++import org.junit.jupiter.api.DisplayName;
++import org.junit.jupiter.api.Test;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.core.io.ClassPathResource;
++import org.springframework.test.web.servlet.MockMvc;
++
++/**
++ * {@code GET /api/products/batch}: the lean default is unchanged, and {@code detail=true} returns
++ * the {@code GET /{id}} view (F-20261119-11 / TD-BE-06).
++ */
++class ProductBatchDetailIntegrationTest extends AbstractProductIntegrationTest {
++
++  private static final String KEYBOARD = "11111111-1111-4111-8111-111111111111";
++  private static final String MOUSE = "22222222-2222-4222-8222-222222222222";
++
++  /** Seeded with active = false. */
++  private static final String HEADSET = "55555555-5555-4555-8555-555555555555";
++
++  @Autowired private MockMvc mockMvc;
++
++  private String body(String url, String... params) throws Exception {
++    var request = get(url);
++    for (int i = 0; i < params.length; i += 2) {
++      request = request.param(params[i], params[i + 1]);
++    }
++    return mockMvc
++        .perform(request)
++        .andExpect(status().isOk())
++        .andReturn()
++        .getResponse()
++        .getContentAsString(StandardCharsets.UTF_8);
++  }
++
++  @Test
++  @DisplayName("the lean default response is byte-identical to the pre-change golden")
++  void leanDefaultIsByteIdentical() throws Exception {
++    String golden =
++        new ClassPathResource("golden/batch-lean-seed.json")
++            .getContentAsString(StandardCharsets.UTF_8);
++    // Request order, a duplicate and an inactive product: the inactive one is dropped, the
++    // duplicate collapsed.
++    String ids = String.join(",", HEADSET, MOUSE, KEYBOARD, MOUSE);
++
++    assertThat(body("/api/products/batch", "ids", ids)).isEqualTo(golden);
++    // An explicit detail=false is the same default.
++    assertThat(body("/api/products/batch", "ids", ids, "detail", "false")).isEqualTo(golden);
++    // Sanity for the golden itself: it holds the two active products and not the inactive one.
++    assertThat(golden).contains("SKU-MOUSE-01").contains("SKU-KEYBOARD-01");
++    assertThat(golden).doesNotContain("SKU-HEADSET-01");
++  }
++
++  @Test
++  @DisplayName("detail=true: each element is exactly the GET /{id} detail shape")
++  void detailParityWithFindById() throws Exception {
++    List<String> singles = new ArrayList<>();
++    for (String id : List.of(HEADSET, MOUSE, KEYBOARD)) {
++      singles.add(body("/api/products/" + id));
++    }
++    String expected = singles.stream().collect(Collectors.joining(",", "[", "]"));
++
++    String actual =
++        body(
++            "/api/products/batch",
++            "ids",
++            String.join(",", HEADSET, MOUSE, KEYBOARD, MOUSE),
++            "detail",
++            "true");
++
++    assertThat(actual).isEqualTo(expected);
++    // Sanity: the detail shape really differs from lean (it carries the variants array).
++    assertThat(actual).contains("\"variants\"").contains("SKU-HEADSET-01");
++  }
++
++  @Test
++  @DisplayName("detail=true keeps request order, includes inactive and collapses duplicates")
++  void detailOrderInactiveAndDuplicates() throws Exception {
++    mockMvc
++        .perform(
++            get("/api/products/batch")
++                .param("ids", String.join(",", HEADSET, KEYBOARD, HEADSET, MOUSE))
++                .param("detail", "true"))
++        .andExpect(status().isOk())
++        .andExpect(jsonPath("$.length()").value(3))
++        .andExpect(jsonPath("$[0].id").value(HEADSET))
++        .andExpect(jsonPath("$[0].active").value(false))
++        .andExpect(jsonPath("$[1].id").value(KEYBOARD))
++        .andExpect(jsonPath("$[2].id").value(MOUSE));
++  }
++
++  @Test
++  @DisplayName("detail=true skips unknown ids; an empty list gives an empty array")
++  void detailUnknownAndEmpty() throws Exception {
++    String unknown = UUID.randomUUID().toString();
++    mockMvc
++        .perform(
++            get("/api/products/batch").param("ids", unknown + "," + MOUSE).param("detail", "true"))
++        .andExpect(status().isOk())
++        .andExpect(jsonPath("$.length()").value(1))
++        .andExpect(jsonPath("$[0].id").value(MOUSE));
++    assertThat(body("/api/products/batch", "ids", "", "detail", "true")).isEqualTo("[]");
++    assertThat(body("/api/products/batch", "ids", "")).isEqualTo("[]");
++  }
++
++  @Test
++  @DisplayName("the caps are unchanged: 51 ids and a non-UUID are 400, 50 ids are fine")
++  void capsUnchanged() throws Exception {
++    for (String detail : List.of("false", "true")) {
++      String fifty =
++          java.util.stream.IntStream.range(0, 50)
++              .mapToObj(i -> UUID.randomUUID().toString())
++              .collect(Collectors.joining(","));
++      mockMvc
++          .perform(get("/api/products/batch").param("ids", fifty).param("detail", detail))
++          .andExpect(status().isOk());
++      mockMvc
++          .perform(
++              get("/api/products/batch")
++                  .param("ids", fifty + "," + UUID.randomUUID())
++                  .param("detail", detail))
++          .andExpect(status().isBadRequest());
++      mockMvc
++          .perform(get("/api/products/batch").param("ids", "not-a-uuid").param("detail", detail))
++          .andExpect(status().isBadRequest());
++    }
++  }
++}
+diff --git a/services/product-service/product-service-app/src/test/resources/golden/batch-lean-seed.json b/services/product-service/product-service-app/src/test/resources/golden/batch-lean-seed.json
+new file mode 100644
+index 0000000..bf74c46
+--- /dev/null
++++ b/services/product-service/product-service-app/src/test/resources/golden/batch-lean-seed.json
+@@ -0,0 +1 @@
++[{"id":"22222222-2222-4222-8222-222222222222","sku":"SKU-MOUSE-01","name":"Wireless Mouse","priceAmount":49.50,"priceCurrency":"USD","active":true,"version":0,"categoryId":null,"sellerName":null,"specifications":null,"images":[],"lastKnownQuantity":null,"description":null,"listPrice":null,"salePrice":null,"discountPercent":null,"thumbnailUrl":null,"videoUrls":null,"view360Url":null,"weightGrams":null,"dimensionsLength":null,"dimensionsWidth":null,"dimensionsHeight":null,"color":null,"material":null,"averageRating":null,"ratingCount":0,"reviewCount":0,"ratingDistribution":null,"sellerRating":null,"brand":null,"attributes":null,"slug":"wireless-mouse","hasVariants":false,"variants":null,"variantOptions":null,"offers":null,"buyBox":null,"variantBuyBoxes":null,"sellerId":"00000000-0000-0000-0000-00000000a11e","listedBy":"PLATFORM","sponsored":null,"adId":null,"moderationStatus":"APPROVED","moderationNote":null,"featured":false,"sellerVerified":false},{"id":"11111111-1111-4111-8111-111111111111","sku":"SKU-KEYBOARD-01","name":"Mechanical Keyboard","priceAmount":129.99,"priceCurrency":"USD","active":true,"version":0,"categoryId":null,"sellerName":null,"specifications":null,"images":[],"lastKnownQuantity":null,"description":null,"listPrice":null,"salePrice":null,"discountPercent":null,"thumbnailUrl":null,"videoUrls":null,"view360Url":null,"weightGrams":null,"dimensionsLength":null,"dimensionsWidth":null,"dimensionsHeight":null,"color":null,"material":null,"averageRating":null,"ratingCount":0,"reviewCount":0,"ratingDistribution":null,"sellerRating":null,"brand":null,"attributes":null,"slug":"mechanical-keyboard","hasVariants":false,"variants":null,"variantOptions":null,"offers":null,"buyBox":null,"variantBuyBoxes":null,"sellerId":"00000000-0000-0000-0000-00000000a11e","listedBy":"PLATFORM","sponsored":null,"adId":null,"moderationStatus":"APPROVED","moderationNote":null,"featured":false,"sellerVerified":false}]
+\ No newline at end of file

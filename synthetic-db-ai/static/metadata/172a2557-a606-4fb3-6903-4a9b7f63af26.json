@@ -1,0 +1,15 @@
+{
+ "product_id": "172a2557-a606-4fb3-6903-4a9b7f63af26",
+ "name": "Liventra Eau de Toilette Ultra",
+ "prompt": "studio packshot photo of a Red Liventra Eau de Toilette Ultra, made of cotton, fragrances, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1810105382,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 768,
+ "created_at": "2026-11-15T23:06:16",
+ "file_path": "static/images/172a2557-a606-4fb3-6903-4a9b7f63af26.jpg",
+ "file_size": 97949,
+ "uploaded": false,
+ "s3_url": null
+}

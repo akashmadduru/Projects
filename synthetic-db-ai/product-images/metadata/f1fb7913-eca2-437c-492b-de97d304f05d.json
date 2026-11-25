@@ -1,0 +1,13 @@
+{
+ "product_id": "f1fb7913-eca2-437c-492b-de97d304f05d",
+ "name": "Arextra Frying Pan Edition",
+ "prompt": "studio packshot photo of a White Arextra Frying Pan Edition, made of glass, cookware, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3005359091,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T22:04:49",
+ "file_path": "product-images/images/f1fb7913-eca2-437c-492b-de97d304f05d.jpg",
+ "file_size": 49782
+}

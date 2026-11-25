@@ -1,0 +1,13 @@
+{
+ "product_id": "ddc4c3bf-e4a1-4fc6-a9bf-1539863d7905",
+ "name": "Exmi Air Purifier Essential",
+ "prompt": "studio packshot photo of a Silver Exmi Air Purifier Essential, made of ceramic, personal wellness, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3889612243,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:49:56",
+ "file_path": "product-images/images/ddc4c3bf-e4a1-4fc6-a9bf-1539863d7905.jpg",
+ "file_size": 61912
+}

@@ -1,0 +1,13 @@
+{
+ "product_id": "f5282542-9158-4991-d68b-65672fef9f18",
+ "name": "Quanoqua Speaker Edition",
+ "prompt": "studio packshot photo of a Red Quanoqua Speaker Edition, made of leather, speakers, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3912237490,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T22:06:41",
+ "file_path": "product-images/images/f5282542-9158-4991-d68b-65672fef9f18.jpg",
+ "file_size": 55985
+}

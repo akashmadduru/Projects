@@ -8,6 +8,7 @@ Phase 7 was built under "no tests, no HLD/LLD, record shortcuts as debt". The in
 ## TD-P7-01 No tests for Phase 7
 - **Severity / Effort:** High / L
 - **Where:** product-service (search, facets, variants, slug, views, sitemap), cart-service (alerts, variant lines), order-service (variant pricing, deals, bought-together, variant returns), inventory-service (variant stock), promotion-service (offers, deals), rating-service (Q&A, media, filters); storefront (SearchBar, FilterPanel, variant picker, compare, lightbox, SEO hook, alerts page); admin (product form variants, Deals view).
+- **Progress 2026-11-17:** hybrid search and its pgvector SQL now run in CI-style integration tests (all pass); stock rows for every variant are synced and tested; stale storefront component tests (ProductGrid, AccountMenu, drawer) fixed. Still untested: facets SQL, variant pricing, deal claim/release, alert triggers, media upload, a PDP-to-checkout e2e.
 - **Risk:** The only safety net is the one-off e2e scripts. Existing storefront component tests (ProductCard etc.) were not updated for the new deal fetch and Compare button, so they are likely stale. `phase6-e2e.mjs` check D3 was reordered during integration (invoice fetched before cancel, because cancelled orders return 409 by design). Extends [TD-P6-05](phase6.md#td-p6-05), TD-TEST-01/02.
 - **Fix:** Contract tests for search/facets SQL, variant pricing, deal claim/release, alert triggers, media upload validation; fix stale storefront tests; Playwright for PDP variant to checkout.
 
@@ -46,32 +47,18 @@ Phase 7 was built under "no tests, no HLD/LLD, record shortcuts as debt". The in
 - **Risk:** The PUT is delete-and-recreate for ids missing from the request (no soft delete). Variant ids stored in carts, wishlists, orders and alerts are plain uuids with no foreign key, so a deleted variant leaves dangling references. No validation beyond blank/length on SKU and price. Order-service reads variants through its own `ProductView` DTO (a second Feign client) instead of a shared response type.
 - **Fix:** Soft-delete (`active=false`) instead of removal; validate SKU format and price; shared contract type for product responses.
 
-<a id="td-p7-07"></a>
-## TD-P7-07 Variant stock gaps
-- **Severity / Effort:** High / M
-- **Where:** `services/inventory-service/.../` (`variant_stock`, `GET /api/inventory/by-product/{id}`, `GET /internal/inventory/variants`); admin product form.
-- **Risk:** A variant with no `variant_stock` row is unlimited (same hole as [TD-P6-04](phase6.md#td-p6-04)), so admin-created variants can be oversold until someone calls `PUT /api/inventory/variants/{id}`; the admin variant editor does not set stock and nothing syncs product-service variant edits to inventory. Variant stock is not aggregated into the product-level `stock_levels` row, so product-level "out of stock" is not derived for variant products. `by-product` returns a synthetic stub (id null, quantity = sum of variants) for variant-only products. The inventory V6 migration backfills `product_id` on seeded variant rows with hard-coded ids, which fixes seed data only. Seed variant rows had `product_id` NULL until V6, so the breakdown omitted them.
-- **Fix:** Create a stock row (0 or a default) when a variant is created; call it from the admin editor; derive product availability from variant stock; fail closed on missing rows.
-
-<a id="td-p7-08"></a>
-## TD-P7-08 Returns keyed on (productId, variantId) only for new rows
-- **Severity / Effort:** Med / S
-- **Where:** `order-service/.../service/ReturnService.java`, `order_return_items.variant_id` (V4).
-- **Risk:** Rows created before V4 keep `variant_id` null. When a client omits `variantId`, a product with exactly one variant line resolves to it; an ambiguous omission falls back to the non-variant key and is rejected. Returns of pre-V4 variant lines restock to the product row, not the variant. Residual of [TD-P6-14](phase6.md#td-p6-14) (return rules).
-- **Fix:** Backfill `variant_id` from `order_items` for existing returns; make `variantId` required when the line has one.
-
 <a id="td-p7-09"></a>
 ## TD-P7-09 Deals pricing is best-effort and loosely scoped
 - **Severity / Effort:** Med / M
 - **Where:** `order-service/.../` deal pricing/claims calls; `promotion-service/.../` deals; `apps/product-catalog/src/` deal badge (`useDeal`).
-- **Risk:** If promotion-service is down, order-service silently charges the list price and claims nothing. Deal currency is not compared with product currency. A product-level deal also matches variant lines. Claim release lives inside `restoreStockBestEffort` (covers cancel, expiry and payment failure, but couples two concerns, and is as lossy as [TD-P6-01](phase6.md#td-p6-01)). No per-user quantity cap. The cart snapshot gets the deal price only from the PDP/card single add; "add all" bought-together items do not.
+- **Risk:** If promotion-service is down, order-service silently charges the list price and claims nothing. Deal currency is not compared with product currency. A product-level deal also matches variant lines. Claim release lives inside `restoreStockBestEffort` (covers cancel, expiry and payment failure, but couples two concerns, and is as lossy as [TD-P6-33](phase6.md#td-p6-33)). No per-user quantity cap. The cart snapshot gets the deal price only from the PDP/card single add; "add all" bought-together items do not.
 - **Fix:** Reject or retry on promotion-service failure at checkout instead of silently falling back; compare currencies; a separate release step in the outbox; per-user cap.
 
 <a id="td-p7-10"></a>
 ## TD-P7-10 Bank offers and EMI are display-only
 - **Severity / Effort:** Med / M
 - **Where:** `promotion-service/.../` (bank offers, EMI config); storefront PDP Offers card.
-- **Risk:** Shown on the product page but not applied at checkout, so a customer sees "10% off with HDFC" that never materialises (same shape as [TD-P6-16](phase6.md#td-p6-16)). The three bank offers and the EMI plan config are seeded/hard-coded with no admin CRUD.
+- **Risk:** Shown on the product page but not applied at checkout, so a customer sees "10% off with HDFC" that never materialises. The three bank offers and the EMI plan config are seeded/hard-coded with no admin CRUD.
 - **Fix:** Apply at payment time using card BIN/bank from the payment provider; admin CRUD for offers; or label as "indicative" in the UI until then.
 
 <a id="td-p7-11"></a>
@@ -85,7 +72,7 @@ Phase 7 was built under "no tests, no HLD/LLD, record shortcuts as debt". The in
 ## TD-P7-12 Recommendations and view tracking
 - **Severity / Effort:** Low / M
 - **Where:** `<product>/` `product_views`, also-viewed; `order-service/.../` bought-together; `user-service/.../` recently-viewed.
-- **Risk:** `POST /api/products/{id}/views` is public with a client-chosen `sessionId`: no rate limit or de-dupe, so view counts can be poisoned. Also-viewed is a live self-join (no materialisation); bought-together is a live co-occurrence SQL query with no cache and no recency weighting. The 30-day cleanup job runs on every instance (no lock, see [TD-P6-13](phase6.md#td-p6-13)). Recently-viewed (signed-in) does not validate the product id and keeps only the last 50. Bought-together "add all" skips products with variants and links to the PDP instead.
+- **Risk:** `POST /api/products/{id}/views` is public with a client-chosen `sessionId`: no rate limit or de-dupe, so view counts can be poisoned. Also-viewed is a live self-join (no materialisation); bought-together is a live co-occurrence SQL query with no cache and no recency weighting. The 30-day cleanup job runs on one instance at a time (`JobLock`). Recently-viewed (signed-in) does not validate the product id and keeps only the last 50. Bought-together "add all" skips products with variants and links to the PDP instead.
 - **Fix:** Rate limit by IP/session; precompute co-views/co-purchases nightly; validate ids; ShedLock.
 
 <a id="td-p7-13"></a>
@@ -101,13 +88,6 @@ Phase 7 was built under "no tests, no HLD/LLD, record shortcuts as debt". The in
 - **Where:** `<rating>/` media service/controller; `deploy/local/docker-compose.yml` volume `rating-media` (`/data/media`); gateway route.
 - **Risk:** Files sit on a local docker volume: single node only, no CDN or object storage, not covered by backup. No virus scan, no EXIF stripping, no re-encode or thumbnails; files are read fully into memory when streamed. Deletes remove the file before the DB commit, so a DB failure leaves rows pointing at missing files (GET returns 404), and there is no sweeper for files whose row is gone. No per-user upload rate limit or storage quota. Multipart over 6 MB is rejected by Spring before the 5 MB check, so the error body is the generic multipart one, not a field-level 400; the gateway has no explicit body-size cap (default). Admin ReviewsView does not show photos. `media` is always empty in `rating.events` because photos are attached after the review is saved.
 - **Fix:** S3/MinIO with signed or CDN URLs; thumbnailing and re-encode (strips EXIF); delete DB row first then file via a sweeper; quotas; gateway request-size filter.
-
-<a id="td-p7-15"></a>
-## TD-P7-15 rating-service runs as root
-- **Severity / Effort:** Med / S
-- **Where:** `deploy/local/docker-compose.yml` (rating-service `user: "0:0"`); rating-service Dockerfile and the offline thin Dockerfile.
-- **Risk:** The service runs as uid 0 so the fresh named volume is writable. A compromise of an upload path (the only service accepting file uploads) gets root inside the container.
-- **Fix:** `chown` `/data/media` to the app user in the image (both the repo Dockerfile and the thin Dockerfile) and drop the `user:` override. Existing volumes need a one-time chown.
 
 <a id="td-p7-16"></a>
 ## TD-P7-16 SEO is client-side only; sitemap is minimal
@@ -144,9 +124,3 @@ Phase 7 was built under "no tests, no HLD/LLD, record shortcuts as debt". The in
 - **Risk:** Admin users `p7c-admin-*` (ROLE_ADMIN inserted via SQL) and users `p7c-user-*`, `p7e2e-*`, `p7e2eb-*` remain with their orders (COD, some cancelled, one delivered and returned), questions/answers, one review with a photo on Hoodie Fleece, a deactivated "E2E deal", an admin deal "Bed deal", and a still-active triggered BACK_IN_STOCK alert on hoodie variant 14. Variant stock was altered for testing: variants 01/02/06 set to 50/49/2 (06 sold out), hoodie variants restored to 50; the Blender price was restored to 99.99 by editing `sale_price` directly in `product_db`. If the volume is ever shared or promoted, the admin accounts are a backdoor. Credentials are intentionally not recorded here. Extends [TD-P6-25](phase6.md#td-p6-25).
 - **Fix:** Delete these rows (or `docker compose down -v`) before sharing the environment.
 
-<a id="td-p7-21"></a>
-## TD-P7-21 Internal-token wiring and dead code from integration
-- **Severity / Effort:** Low / S
-- **Where:** `deploy/local/docker-compose.yml` (product-service `INTERNAL_API_TOKEN`); product-service Feign inventory client (`getByProductWithAuth`).
-- **Risk:** product-service now reads variant stock via `GET /internal/inventory/variants?ids=` with `X-Internal-Token`, adding another consumer of the shared static secret ([TD-P6-12](phase6.md#td-p6-12)). The earlier JWT-forwarding method `getByProductWithAuth` was left in place, unused. Variants with no `variant_stock` row still return `availableQuantity` null (unlimited, see TD-P7-07). All Phase 7 service images were again built through the offline mirror, not the repo Dockerfiles ([TD-P6-06](phase6.md#td-p6-06) covers this).
-- **Fix:** Delete the unused Feign method; fold into the shared-token cleanup.

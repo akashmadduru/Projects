@@ -1,0 +1,15 @@
+{
+ "product_id": "45b3e8f4-10b2-4e75-354a-af95b7646cab",
+ "name": "Bafy Smartphone Edition",
+ "prompt": "studio packshot photo of a Space Grey Bafy Smartphone Edition, made of bamboo, mobiles & smartphones, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1024567286,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:11:01",
+ "file_path": "static/images/45b3e8f4-10b2-4e75-354a-af95b7646cab.jpg",
+ "file_size": 34808,
+ "uploaded": false,
+ "s3_url": null
+}

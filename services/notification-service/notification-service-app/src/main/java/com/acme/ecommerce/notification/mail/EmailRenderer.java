@@ -68,7 +68,9 @@ public class EmailRenderer {
       case GIFT_CARD ->
           layout(
               "You received a gift card",
-              (d.get("from") == null ? "Hi " + name + "," : d.get("from") + " sent you a gift card"),
+              (d.get("from") == null
+                  ? "Hi " + name + ","
+                  : d.get("from") + " sent you a gift card"),
               "Gift card value: "
                   + d.getOrDefault("currency", "")
                   + " "
@@ -173,16 +175,22 @@ public class EmailRenderer {
           layout(
               "New reply on your support ticket " + d.getOrDefault("ticketRef", ""),
               "Hi " + name + ",",
-              "Our support team replied to \"" + d.getOrDefault("subject", "your request") + "\":\n\n"
+              "Our support team replied to \""
+                  + d.getOrDefault("subject", "your request")
+                  + "\":\n\n"
                   + d.getOrDefault("message", ""),
               "View conversation",
               d.get("link"));
       case SUPPORT_STATUS ->
           layout(
-              "Your support ticket " + d.getOrDefault("ticketRef", "") + " is now "
+              "Your support ticket "
+                  + d.getOrDefault("ticketRef", "")
+                  + " is now "
                   + d.getOrDefault("status", "updated"),
               "Hi " + name + ",",
-              "The status of \"" + d.getOrDefault("subject", "your request") + "\" changed to "
+              "The status of \""
+                  + d.getOrDefault("subject", "your request")
+                  + "\" changed to "
                   + d.getOrDefault("status", "updated")
                   + ". You can reply or rate our support from your account.",
               "View ticket",
@@ -222,7 +230,8 @@ public class EmailRenderer {
     StringBuilder html = new StringBuilder();
     html.append("<!doctype html><html><body style=\"margin:0;padding:24px;background:#f5f5f4;")
         .append("font-family:Arial,Helvetica,sans-serif;color:#111\">")
-        .append("<table role=\"presentation\" width=\"100%\" style=\"max-width:520px;margin:0 auto;")
+        .append(
+            "<table role=\"presentation\" width=\"100%\" style=\"max-width:520px;margin:0 auto;")
         .append("background:#fff;border:2px solid #111;border-radius:12px\"><tr><td")
         .append(" style=\"padding:28px\">")
         .append("<h1 style=\"font-size:20px;margin:0 0 12px\">")

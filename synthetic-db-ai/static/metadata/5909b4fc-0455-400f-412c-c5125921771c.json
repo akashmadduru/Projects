@@ -1,0 +1,15 @@
+{
+ "product_id": "5909b4fc-0455-400f-412c-c5125921771c",
+ "name": "Voion Necklace Edition",
+ "prompt": "studio packshot photo of a Olive Voion Necklace Edition, made of leather, watches & jewellery, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2900771946,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:50:43",
+ "file_path": "static/images/5909b4fc-0455-400f-412c-c5125921771c.jpg",
+ "file_size": 50073,
+ "uploaded": false,
+ "s3_url": null
+}

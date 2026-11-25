@@ -1,0 +1,15 @@
+{
+ "product_id": "17770b00-47e9-45b3-f6b0-ea1f240a5c50",
+ "name": "Venzear Tent Gen 3",
+ "prompt": "studio packshot photo of a Olive Venzear Tent Gen 3, made of cotton, camping, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 364823731,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 768,
+ "created_at": "2026-11-15T23:06:28",
+ "file_path": "static/images/17770b00-47e9-45b3-f6b0-ea1f240a5c50.jpg",
+ "file_size": 65788,
+ "uploaded": false,
+ "s3_url": null
+}

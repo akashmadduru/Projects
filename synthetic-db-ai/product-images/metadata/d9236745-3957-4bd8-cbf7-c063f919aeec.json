@@ -1,0 +1,13 @@
+{
+ "product_id": "d9236745-3957-4bd8-cbf7-c063f919aeec",
+ "name": "Lisu Flash Drive Prime",
+ "prompt": "studio packshot photo of a Silver Lisu Flash Drive Prime, made of aluminium, storage, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 994380564,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:49:36",
+ "file_path": "product-images/images/d9236745-3957-4bd8-cbf7-c063f919aeec.jpg",
+ "file_size": 29045
+}

@@ -1,5 +1,8 @@
 /**
- * Create / edit a review: star rating, optional title and text
+ * Create / edit a review: star rating, optional title and text, optional photos.
+ *
+ * Photos upload after the review is saved. If some fail, the form stays open with the failed
+ * photos and offers Retry or Continue, instead of dropping them with a toast.
  */
 
 import { useState } from 'react'
@@ -35,6 +38,8 @@ export function ReviewForm({ productId, existing, onSaved, onCancel }: Props) {
   const [files, setFiles] = useState<File[]>([])
   const [media, setMedia] = useState<ReviewMedia[]>(existing?.media ?? [])
   const [fileError, setFileError] = useState<string | undefined>()
+  /** Saved review whose photos did not all upload: retry or continue, never re-submit. */
+  const [pending, setPending] = useState<Review | undefined>()
 
   const addFiles = (list: FileList | null) => {
     if (!list) return
@@ -59,6 +64,41 @@ export function ReviewForm({ productId, existing, onSaved, onCancel }: Props) {
     }
   }
 
+  /** Uploads `list`; on any failure keeps those files and waits for Retry / Continue. */
+  const uploadThenFinish = async (saved: Review, list: File[]) => {
+    const failed: File[] = []
+    for (const file of list) {
+      try {
+        await ratingApi.uploadMedia(saved.id, file)
+      } catch {
+        failed.push(file)
+      }
+    }
+    if (failed.length === 0) {
+      setPending(undefined)
+      onSaved(saved)
+      return
+    }
+    setFiles(failed)
+    setPending(saved)
+  }
+
+  const retryUploads = async () => {
+    if (!pending) return
+    setSubmitting(true)
+    try {
+      await uploadThenFinish(pending, files)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const continueWithout = () => {
+    if (!pending) return
+    notify(`Review saved without ${files.length} photo${files.length === 1 ? '' : 's'}.`)
+    onSaved(pending)
+  }
+
   const submit = async (event: React.FormEvent) => {
     event.preventDefault()
     if (rating < 1) {
@@ -76,16 +116,7 @@ export function ReviewForm({ productId, existing, onSaved, onCancel }: Props) {
       const saved = existing
         ? await ratingApi.update(existing.id, input, existing.version)
         : await ratingApi.create(productId, input)
-      let failed = 0
-      for (const file of files) {
-        try {
-          await ratingApi.uploadMedia(saved.id, file)
-        } catch {
-          failed++
-        }
-      }
-      if (failed > 0) notify(`Review saved, but ${failed} photo${failed === 1 ? '' : 's'} could not be uploaded.`)
-      onSaved(saved)
+      await uploadThenFinish(saved, files)
     } catch (err) {
       setError(errorMessage(err))
     } finally {
@@ -194,6 +225,21 @@ export function ReviewForm({ productId, existing, onSaved, onCancel }: Props) {
           </p>
         )}
       </div>
+      {pending ? (
+        <div role="alert" className="space-y-3 rounded-xl border-2 border-error/40 bg-error/5 p-3">
+          <p className="text-sm font-semibold text-on-surface">
+            Your review is saved, but {files.length} photo{files.length === 1 ? '' : 's'} could not be uploaded.
+          </p>
+          <div className="flex flex-wrap gap-3">
+            <button type="button" onClick={() => void retryUploads()} disabled={submitting} className={primaryButtonClass}>
+              {submitting ? 'Uploading...' : 'Retry upload'}
+            </button>
+            <button type="button" onClick={continueWithout} disabled={submitting} className={secondaryButtonClass}>
+              Continue without them
+            </button>
+          </div>
+        </div>
+      ) : (
       <div className="flex flex-wrap gap-3">
         <button type="submit" disabled={submitting} className={primaryButtonClass}>
           {submitting ? 'Saving...' : existing ? 'Save changes' : 'Submit review'}
@@ -204,6 +250,7 @@ export function ReviewForm({ productId, existing, onSaved, onCancel }: Props) {
           </button>
         )}
       </div>
+      )}
     </form>
   )
 }

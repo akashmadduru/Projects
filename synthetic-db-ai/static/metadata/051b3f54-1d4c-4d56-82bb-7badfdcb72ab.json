@@ -1,0 +1,15 @@
+{
+ "product_id": "051b3f54-1d4c-4d56-82bb-7badfdcb72ab",
+ "name": "Tapi BP Monitor Gen 3",
+ "prompt": "studio packshot photo of a Blue Tapi BP Monitor Gen 3, made of nylon, medical devices, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2566443294,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 768,
+ "created_at": "2026-11-15T22:33:38",
+ "file_path": "static/images/051b3f54-1d4c-4d56-82bb-7badfdcb72ab.jpg",
+ "file_size": 76933,
+ "uploaded": false,
+ "s3_url": null
+}

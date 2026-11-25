@@ -1,0 +1,13 @@
+{
+ "product_id": "9cab75ad-099d-4623-52ac-92ac00ab7746",
+ "name": "Basuvo Pressure Cooker Essential",
+ "prompt": "studio packshot photo of a Space Grey Basuvo Pressure Cooker Essential, made of ceramic, cookware, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3945373690,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:10:15",
+ "file_path": "product-images/images/9cab75ad-099d-4623-52ac-92ac00ab7746.jpg",
+ "file_size": 50205
+}

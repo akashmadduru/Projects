@@ -1,0 +1,13 @@
+{
+ "product_id": "a6f4189f-2715-4a25-6392-a0f0cd5effb5",
+ "name": "Orcopi Bike Lock Essential",
+ "prompt": "studio packshot photo of a Silver Orcopi Bike Lock Essential, made of stainless steel, cycling, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 259568164,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:15:40",
+ "file_path": "product-images/images/a6f4189f-2715-4a25-6392-a0f0cd5effb5.jpg",
+ "file_size": 41928
+}

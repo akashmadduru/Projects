@@ -1,0 +1,15 @@
+{
+ "product_id": "23ee9353-1d84-489b-a3a4-546116a4b1ef",
+ "name": "Pibanu Eau de Toilette Gen 3",
+ "prompt": "studio packshot photo of a Green Pibanu Eau de Toilette Gen 3, made of nylon, fragrances, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3944613034,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:45:08",
+ "file_path": "static/images/23ee9353-1d84-489b-a3a4-546116a4b1ef.jpg",
+ "file_size": 68859,
+ "uploaded": false,
+ "s3_url": null
+}

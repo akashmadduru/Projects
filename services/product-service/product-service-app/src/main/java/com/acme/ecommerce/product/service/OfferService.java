@@ -141,10 +141,15 @@ public class OfferService {
   }
 
   static BigDecimal effective(OfferResponse o) {
-    return o.getSalePrice() != null && o.getSalePrice().signum() > 0 ? o.getSalePrice() : o.getPrice();
+    return o.getSalePrice() != null && o.getSalePrice().signum() > 0
+        ? o.getSalePrice()
+        : o.getPrice();
   }
 
-  /** score = effective * (1 + 0.05 * (5 - rating)) * (1 + 0.005 * dispatchDays); lowest wins, ties -> platform. */
+  /**
+   * score = effective * (1 + 0.05 * (5 - rating)) * (1 + 0.005 * dispatchDays); lowest wins, ties
+   * -> platform.
+   */
   static OfferResponse buyBox(List<OfferResponse> candidates) {
     List<OfferResponse> active = candidates.stream().filter(OfferResponse::isActive).toList();
     List<OfferResponse> inStock =
@@ -206,7 +211,8 @@ public class OfferService {
             ? offers.findByProductIdAndVariantIdIsNullAndSellerId(p.getId(), sellerId)
             : offers.findByProductIdAndVariantIdAndSellerId(p.getId(), in.variantId(), sellerId);
     if (existing.isPresent()) {
-      throw new ResourceConflictException("This seller already has an offer for that product/variant");
+      throw new ResourceConflictException(
+          "This seller already has an offer for that product/variant");
     }
     Instant now = time.now();
     Offer o =
@@ -217,7 +223,10 @@ public class OfferService {
             .sellerId(sellerId)
             .price(in.price())
             .salePrice(in.salePrice())
-            .currency(in.currency() == null || in.currency().isBlank() ? p.getPriceCurrency() : in.currency())
+            .currency(
+                in.currency() == null || in.currency().isBlank()
+                    ? p.getPriceCurrency()
+                    : in.currency())
             .condition("NEW")
             .dispatchDays(in.dispatchDays() == null ? 1 : Math.max(0, in.dispatchDays()))
             .active(in.active() == null || in.active())
@@ -318,7 +327,12 @@ public class OfferService {
               .findById(variantId)
               .ifPresent(
                   v -> {
-                    if (box.getPrice().compareTo(v.getPriceAmount() == null ? BigDecimal.valueOf(-1) : v.getPriceAmount()) != 0
+                    if (box.getPrice()
+                                .compareTo(
+                                    v.getPriceAmount() == null
+                                        ? BigDecimal.valueOf(-1)
+                                        : v.getPriceAmount())
+                            != 0
                         || !Objects.equals(box.getSalePrice(), v.getSalePrice())) {
                       v.setPriceAmount(box.getPrice());
                       v.setSalePrice(box.getSalePrice());

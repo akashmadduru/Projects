@@ -1,0 +1,13 @@
+{
+ "product_id": "55a7e72a-7494-4d5e-5bc7-e3beb42ce033",
+ "name": "Fyar Cricket Bat Edition",
+ "prompt": "studio packshot photo of a Green Fyar Cricket Bat Edition, made of ceramic, team sports, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3454071769,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:05:53",
+ "file_path": "product-images/images/55a7e72a-7494-4d5e-5bc7-e3beb42ce033.jpg",
+ "file_size": 122897
+}

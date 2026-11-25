@@ -1,0 +1,13 @@
+{
+ "product_id": "6933a289-bca9-4b00-799d-a23893b3479c",
+ "name": "Kadex Spice Box Gen 3",
+ "prompt": "studio packshot photo of a Blue Kadex Spice Box Gen 3, made of nylon, pantry, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 711727826,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:34:20",
+ "file_path": "product-images/images/6933a289-bca9-4b00-799d-a23893b3479c.jpg",
+ "file_size": 28693
+}

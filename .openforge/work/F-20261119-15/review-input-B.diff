@@ -1,0 +1,1396 @@
+diff --git a/docs/guides/runbooks/payment-problems.md b/docs/guides/runbooks/payment-problems.md
+index 702aa32..98c807f 100644
+--- a/docs/guides/runbooks/payment-problems.md
++++ b/docs/guides/runbooks/payment-problems.md
+@@ -97,14 +97,47 @@ SELECT status, count(*) FROM orders.outbox WHERE kind = 'ENSURE_COD_PAYMENT' GRO
+ ```
+ A row that is `DEAD` (about 10 hours of failures, logged as "OUTBOX DEAD") has an order with no payment row: fix
+ payment-service, then retry it from the admin outbox retry endpoint. A repair for a cancelled order, or an order that
+-already has a row, goes DONE with no call. A WARN
++already has a row, goes DONE with no call. An ERROR
+ "already has a ... payment row" means the order's payment id points at a non-COD row: it was left unchanged, ask a
+ developer.
+ 
+-A COD order placed before this change, while payment-service was down, may still have no row. Its refund fails loudly
+-with 404, the wallet is not credited and the return stays PICKED_UP, and there is no fallback credit. A 409 means the COD
+-payment is still COD_PENDING (the order was never marked delivered and collected). Fix the cause, then retry. Older
+-orders without a row are handled in a follow-up change (backlog B-10, part B).
++A placement that takes longer than 60 seconds can leave a harmless COD_PENDING row on an order that is later CANCELLED
++(the repair ran while the order was still open). No money moves: cancelling a COD order is a no-op for payments and a
++COD_PENDING return routes to NONE. Leave the row alone.
++
++COD orders placed before this change may have no payment row. They are repaired lazily, when they need it: a COD refund
++(admin refund or the retry of a stuck PICKED_UP return) and the COD_COLLECTED delivery step both ensure the row first, then
++carry on. Nothing else is needed for a stuck return: retry the refund. A return still PICKED_UP after the retry has a
++cause in the log: "COD LEGACY CREDIT MISMATCH" (see below), a 503 (payment-service down or too old to answer the credit
++lookup: deploy payment-service first, then retry), or a 409 "No usable COD payment row" (the order is cancelled, or its
++payment row is a card row: ask a developer).
++
++**Delivered legacy orders whose collect-mark went DEAD.** Before this change a delivery's `COD_COLLECTED` step got 404 for
++a rowless order and went DEAD after about 10 hours. Re-arm them in batches: delivery now ensures the row, then marks it
++collected. Run ONE statement, wait until the queue drains (`SELECT status, count(*) FROM orders.outbox WHERE
++kind = 'COD_COLLECTED' GROUP BY status;` shows no PENDING), then run the next. It touches only DEAD COD_COLLECTED rows,
++oldest first, at most 500 per statement:
++```sql
++UPDATE orders.outbox SET status = 'PENDING', attempts = 0, next_attempt_at = now()
++WHERE id IN (
++  SELECT id FROM orders.outbox
++  WHERE kind = 'COD_COLLECTED' AND status = 'DEAD'
++  ORDER BY created_at, seq
++  LIMIT 500);
++```
++A re-armed row for a cancelled order, or an order that was never delivered, creates no row and moves no money.
++
++**Legacy orders that keep no row.** A legacy COD order that was never delivered, never returned and never re-armed keeps no
++payment row. That is accepted: no money is involved on it.
++
++**"COD LEGACY CREDIT MISMATCH" (409 on a COD return refund).** Before F-09 a failed COD refund fell back to a wallet credit
++under the key `return-rest-<returnId>`. The refund found such a credit, but its user, amount or currency differs from the
++return's rest leg, so nothing was sent and the return stays PICKED_UP. A human settles it: find the return
++(`SELECT id, order_id, rest_leg_amount, status FROM orders.order_returns WHERE id = '<returnId>';` from the log line),
++find the credit
++(`SELECT user_id, amount, currency, created_at FROM payment.wallet_txns WHERE idempotency_key = 'return-rest-<returnId>';`),
++decide what the customer is owed, pay or adjust by hand with the finance team, then close the return by hand. Do not retry
++the refund until it is settled: it will answer 409 again.
+ 
+ **Rollback note.** Rolling order-service back leaves `ENSURE_COD_PAYMENT` rows PENDING: the older build skips kinds it does
+ not know, reports them once per pass, and they do not delay any other order's rows. They are harmless. Optionally mark
+diff --git a/docs/reference/endpoints.md b/docs/reference/endpoints.md
+index 8d0c417..8eb4593 100644
+--- a/docs/reference/endpoints.md
++++ b/docs/reference/endpoints.md
+@@ -174,7 +174,7 @@ Request and response shapes for Phases 1–5 are in [api.md](api.md); later phas
+ | GET | `/internal/privacy/users/{userId}/export` | PrivacyExportController |
+ | POST | `/internal/subscriptions/run-due` | InternalSubscriptionController |
+ 
+-## payment-service (19)
++## payment-service (20)
+ 
+ | Method | Path | Controller |
+ |---|---|---|
+@@ -195,6 +195,7 @@ Request and response shapes for Phases 1–5 are in [api.md](api.md); later phas
+ | GET | `/internal/privacy/users/{userId}/deletion-blockers` | PrivacyBlockersController |
+ | GET | `/internal/privacy/users/{userId}/export` | PrivacyExportController |
+ | GET | `/internal/wallet/{userId}` | InternalWalletController |
++| GET | `/internal/wallet/credits/{key}` | InternalWalletController |
+ | POST | `/internal/wallet/credit` | InternalWalletController |
+ | POST | `/internal/wallet/debit` | InternalWalletController |
+ 
+diff --git a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/client/PaymentFeignClient.java b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/client/PaymentFeignClient.java
+index 63d02b3..456584c 100644
+--- a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/client/PaymentFeignClient.java
++++ b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/client/PaymentFeignClient.java
+@@ -1,5 +1,6 @@
+ package com.acme.ecommerce.order.client;
+ 
++import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+ import java.math.BigDecimal;
+ import java.util.UUID;
+ import org.springframework.cloud.openfeign.FeignClient;
+@@ -14,7 +15,7 @@ import org.springframework.web.bind.annotation.RequestBody;
+     name = "payment-service",
+     contextId = "paymentInternal",
+     url = "${services.payment.url:}",
+-    configuration = InternalFeignConfig.class)
++    configuration = {InternalFeignConfig.class, NoUserTokenFeignConfig.class})
+ public interface PaymentFeignClient {
+ 
+   record CreatePayment(
+@@ -29,9 +30,13 @@ public interface PaymentFeignClient {
+       String publishableKey) {}
+ 
+   /** The fields of payment-service's PaymentResponse that the COD ensure needs (extras ignored). */
+-  @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)
++  @JsonIgnoreProperties(ignoreUnknown = true)
+   record PaymentRow(String paymentId, String status, String method, BigDecimal amount) {}
+ 
++  /** GET /internal/wallet/credits/{key}: always 200; a payment-service without it answers 404. */
++  @JsonIgnoreProperties(ignoreUnknown = true)
++  record CreditLookup(boolean found, UUID userId, BigDecimal amount, String currency) {}
++
+   record RefundRequest(
+       BigDecimal amount, String reason, String idempotencyKey, String destination) {}
+ 
+@@ -68,6 +73,9 @@ public interface PaymentFeignClient {
+   @PostMapping("/internal/payments")
+   PaymentRow ensureRow(@RequestBody CreatePayment request);
+ 
++  @org.springframework.web.bind.annotation.GetMapping("/internal/wallet/credits/{key}")
++  CreditLookup creditLookup(@PathVariable("key") String key);
++
+   @PostMapping("/internal/payments/orders/{orderId}/refunds")
+   RefundResult refund(@PathVariable("orderId") UUID orderId, @RequestBody RefundRequest request);
+ 
+diff --git a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/outbox/Outbox.java b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/outbox/Outbox.java
+index f0d2111..d86d074 100644
+--- a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/outbox/Outbox.java
++++ b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/outbox/Outbox.java
+@@ -47,14 +47,7 @@ public class Outbox {
+ 
+   /** Records an effect with a payload, deduplicated by {@code idemKey}. */
+   public void enqueue(Kind kind, UUID aggregateId, Object payload, String idemKey) {
+-    jdbc.sql(
+-            "INSERT INTO orders.outbox (aggregate_id, kind, payload, idem_key)"
+-                + " VALUES (:a, :k, CAST(:p AS jsonb), :i) ON CONFLICT (idem_key) DO NOTHING")
+-        .param("a", aggregateId)
+-        .param("k", kind.name())
+-        .param("p", toJson(payload))
+-        .param("i", idemKey)
+-        .update();
++    enqueue(kind, aggregateId, payload, idemKey, Duration.ZERO);
+   }
+ 
+   /**
+diff --git a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/outbox/OutboxRelay.java b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/outbox/OutboxRelay.java
+index 8b0418f..e57a738 100644
+--- a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/outbox/OutboxRelay.java
++++ b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/outbox/OutboxRelay.java
+@@ -207,7 +207,7 @@ public class OutboxRelay {
+       case RELEASE_COUPON -> remote.releaseCouponNow(id);
+       case RELEASE_COINS -> remote.releaseCoinsNow(id);
+       case CANCEL_PAYMENT -> remote.cancelPaymentNow(id);
+-      case COD_COLLECTED -> remote.codCollectedNow(id);
++      case COD_COLLECTED -> codRows.collect(id);
+       case CLEAR_CART ->
+           remote.clearCartNow(read(row.payload(), OrderRemote.ClearCartPayload.class));
+       case ENSURE_COD_PAYMENT ->
+diff --git a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/repository/OrderRepository.java b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/repository/OrderRepository.java
+index c25b65b..e096cc4 100644
+--- a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/repository/OrderRepository.java
++++ b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/repository/OrderRepository.java
+@@ -24,7 +24,9 @@ public interface OrderRepository
+ 
+   /** Sets the payment id only while it is still null; returns rows changed (0 or 1). */
+   @org.springframework.data.jpa.repository.Modifying(clearAutomatically = true)
+-  @Query("update Order o set o.paymentId = :paymentId where o.id = :id and o.paymentId is null")
++  @Query(
++      "update Order o set o.paymentId = :paymentId, o.version = o.version + 1"
++          + " where o.id = :id and o.paymentId is null")
+   int attachPaymentIfAbsent(@Param("id") UUID id, @Param("paymentId") String paymentId);
+ 
+   /** Row lock, so sibling returns of one order freeze their refund legs one at a time. */
+diff --git a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/CodPaymentRows.java b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/CodPaymentRows.java
+index 0e0e7f3..57ff445 100644
+--- a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/CodPaymentRows.java
++++ b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/CodPaymentRows.java
+@@ -1,11 +1,17 @@
+ package com.acme.ecommerce.order.service;
+ 
++import com.acme.ecommerce.common.core.error.CodedException;
++import com.acme.ecommerce.common.core.error.ErrorCode;
+ import com.acme.ecommerce.order.client.PaymentFeignClient;
+ import com.acme.ecommerce.order.client.PaymentFeignClient.CreatePayment;
++import com.acme.ecommerce.order.client.PaymentFeignClient.CreditLookup;
+ import com.acme.ecommerce.order.client.PaymentFeignClient.PaymentRow;
++import com.acme.ecommerce.order.client.RemoteCalls;
+ import com.acme.ecommerce.order.outbox.Outbox;
+ import com.acme.ecommerce.order.outbox.Outbox.Kind;
+ import com.acme.ecommerce.order.service.OrderStore.CodRowSpec;
++import com.acme.ecommerce.order.service.OrderStore.ReturnRefundPlan;
++import feign.FeignException;
+ import java.math.BigDecimal;
+ import java.nio.charset.StandardCharsets;
+ import java.time.Duration;
+@@ -44,8 +50,11 @@ public class CodPaymentRows {
+   private final Outbox outbox;
+   private final OrderStore store;
+   private final PaymentFeignClient payments;
++  private final OrderRemote remote;
+ 
+-  public CodPaymentRows(Outbox outbox, OrderStore store, PaymentFeignClient payments) {
++  public CodPaymentRows(
++      Outbox outbox, OrderStore store, PaymentFeignClient payments, OrderRemote remote) {
++    this.remote = remote;
+     this.outbox = outbox;
+     this.store = store;
+     this.payments = payments;
+@@ -74,7 +83,11 @@ public class CodPaymentRows {
+    */
+   public Outcome ensure(UUID orderId) {
+     Optional<CodRowSpec> found = store.codRowSpec(orderId);
+-    if (found.isEmpty() || !found.get().cod()) {
++    if (found.isEmpty()) {
++      log.warn("ensure: order {} not found; nothing to do", orderId);
++      return Outcome.SKIPPED_NOT_COD;
++    }
++    if (!found.get().cod()) {
+       return Outcome.SKIPPED_NOT_COD;
+     }
+     CodRowSpec spec = found.get();
+@@ -113,4 +126,73 @@ public class CodPaymentRows {
+         ? Outcome.CREATED
+         : Outcome.EXISTING;
+   }
++
++  /**
++   * Delivery of a COD order: ensure the row first (a legacy order has none), then mark it
++   * collected, only when the row is ours (CREATED or EXISTING) and the order really is collected. A
++   * cancelled or undelivered order gets no mark and no money moves.
++   */
++  public Outcome collect(UUID orderId) {
++    Outcome outcome = ensure(orderId);
++    if ((outcome == Outcome.CREATED || outcome == Outcome.EXISTING)
++        && store.codRowSpec(orderId).map(CodRowSpec::collected).orElse(false)) {
++      remote.codCollectedNow(orderId);
++    }
++    return outcome;
++  }
++
++  /**
++   * Before a COD refund goes to payment-service (route PAYMENT_WALLET), on every attempt: was this
++   * return already paid by the pre-F-09 wallet fallback (credit {@code return-rest-<returnId>})?
++   *
++   * @return true when that credit exists and matches exactly (same user, amount by compareTo, same
++   *     currency): the rest leg is done and must not be sent again. A different credit is a 409
++   *     with no money moved. Otherwise the row is ensured (and collect-marked when collected).
++   */
++  public boolean prepareRefund(ReturnRefundPlan plan) {
++    CodRowSpec spec = store.codRowSpec(plan.orderId()).orElse(null);
++    if (spec == null || !spec.cod()) {
++      return false;
++    }
++    try {
++      CreditLookup credit = null;
++      boolean oldPaymentService = false;
++      try {
++        credit = payments.creditLookup("return-rest-" + plan.returnId());
++      } catch (FeignException.NotFound e) {
++        oldPaymentService = true;
++      }
++      if (credit != null && credit.found()) {
++        if (plan.userId().equals(credit.userId())
++            && credit.amount() != null
++            && credit.amount().compareTo(plan.rest()) == 0
++            && plan.currency().equals(credit.currency())) {
++          return true;
++        }
++        log.error(
++            "COD LEGACY CREDIT MISMATCH: return {} of order {} has a return-rest credit that differs"
++                + " from the frozen rest leg; a human must settle it",
++            plan.returnId(),
++            plan.orderId());
++        throw new CodedException(
++            ErrorCode.RESOURCE_CONFLICT, "A different legacy refund credit exists for this return");
++      }
++      if (oldPaymentService && spec.paymentId() == null) {
++        throw new CodedException(
++            ErrorCode.DEPENDENCY_UNAVAILABLE, "payment-service cannot confirm the legacy credit");
++      }
++      Outcome outcome = ensure(plan.orderId());
++      if (outcome != Outcome.CREATED && outcome != Outcome.EXISTING) {
++        log.error("COD refund of return {} blocked: ensure gave {}", plan.returnId(), outcome);
++        throw new CodedException(
++            ErrorCode.RESOURCE_CONFLICT, "No usable COD payment row (" + outcome + ")");
++      }
++      if (spec.collected()) {
++        remote.codCollectedNow(plan.orderId());
++      }
++      return false;
++    } catch (FeignException e) {
++      throw RemoteCalls.translate("payment-service", e);
++    }
++  }
+ }
+diff --git a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/OrderStore.java b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/OrderStore.java
+index c431fe1..6471399 100644
+--- a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/OrderStore.java
++++ b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/OrderStore.java
+@@ -161,7 +161,8 @@ public class OrderStore {
+       BigDecimal remainder,
+       boolean cod,
+       boolean cancelled,
+-      String paymentId) {}
++      String paymentId,
++      boolean collected) {}
+ 
+   @Transactional(readOnly = true)
+   public Optional<CodRowSpec> codRowSpec(UUID orderId) {
+@@ -175,7 +176,13 @@ public class OrderStore {
+                     o.getTotalAmount().subtract(o.getWalletAmount()),
+                     o.getPaymentMethod() == PaymentMethod.COD,
+                     o.getStatus() == OrderStatus.CANCELLED,
+-                    o.getPaymentId()));
++                    o.getPaymentId(),
++                    o.getDeliveredAt() != null
++                        && List.of(
++                                PaymentStatus.COD_COLLECTED,
++                                PaymentStatus.PARTIALLY_REFUNDED,
++                                PaymentStatus.REFUNDED)
++                            .contains(o.getPaymentStatus())));
+   }
+ 
+   /** Attaches the payment id only if none is set; true when this call attached it. */
+diff --git a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/ReturnService.java b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/ReturnService.java
+index 2643fd0..836aaec 100644
+--- a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/ReturnService.java
++++ b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/ReturnService.java
+@@ -32,9 +32,15 @@ public class ReturnService {
+   private final OrderRemote remote;
+   private final OrderEventPublisher events;
+   private final TransactionTemplate tx;
++  private final CodPaymentRows codRows;
+ 
+   public ReturnService(
+-      OrderStore store, OrderRemote remote, OrderEventPublisher events, TransactionTemplate tx) {
++      OrderStore store,
++      OrderRemote remote,
++      OrderEventPublisher events,
++      TransactionTemplate tx,
++      CodPaymentRows codRows) {
++    this.codRows = codRows;
+     this.store = store;
+     this.remote = remote;
+     this.events = events;
+@@ -102,13 +108,21 @@ public class ReturnService {
+ 
+   private ReturnResponse runLegs(ReturnRefundPlan plan) {
+     UUID id = plan.returnId();
++    // A COD return that an older build already paid under return-rest-<id> is never paid twice.
++    boolean legacyPaid =
++        "PAYMENT_WALLET".equals(plan.route())
++            && !"SUCCEEDED".equals(plan.restState())
++            && codRows.prepareRefund(plan);
+     if (plan.wallet().signum() > 0 && !plan.walletDone()) {
+       remote.creditWallet(
+           plan.userId(), plan.wallet(), plan.currency(), plan.orderId(), "return-wallet-" + id);
+       store.markWalletLegDone(id);
+     }
+     String state = plan.restState();
+-    if (!"NONE".equals(plan.route()) && !"SUCCEEDED".equals(state)) {
++    if (legacyPaid) {
++      store.setRestLegState(id, "SUCCEEDED");
++      state = "SUCCEEDED";
++    } else if (!"NONE".equals(plan.route()) && !"SUCCEEDED".equals(state)) {
+       state = restLeg(plan);
+     }
+     if ("PENDING".equals(state)) {
+diff --git a/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/client/PaymentFeignClientHeadersTest.java b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/client/PaymentFeignClientHeadersTest.java
+new file mode 100644
+index 0000000..34084e4
+--- /dev/null
++++ b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/client/PaymentFeignClientHeadersTest.java
+@@ -0,0 +1,95 @@
++package com.acme.ecommerce.order.client;
++
++import static org.assertj.core.api.Assertions.assertThat;
++
++import com.acme.ecommerce.common.web.feign.CorrelationAndAuthForwardingInterceptor;
++import com.acme.ecommerce.order.client.PaymentFeignClient.CreatePayment;
++import com.acme.ecommerce.order.config.OrderProperties;
++import feign.Capability;
++import feign.Feign;
++import feign.Request;
++import feign.RequestInterceptor;
++import feign.Response;
++import java.math.BigDecimal;
++import java.util.Map;
++import java.util.UUID;
++import java.util.concurrent.atomic.AtomicReference;
++import java.util.function.Consumer;
++import org.junit.jupiter.api.AfterEach;
++import org.junit.jupiter.api.DisplayName;
++import org.junit.jupiter.api.Test;
++import org.springframework.cloud.openfeign.FeignClient;
++import org.springframework.cloud.openfeign.support.SpringMvcContract;
++import org.springframework.mock.web.MockHttpServletRequest;
++import org.springframework.web.context.request.RequestContextHolder;
++import org.springframework.web.context.request.ServletRequestAttributes;
++
++/**
++ * B-10 security fix: the COD ensure now runs on admin refund and collect request threads, so the
++ * payment client must send X-Internal-Token and never the caller's bearer.
++ */
++class PaymentFeignClientHeadersTest {
++
++  @AfterEach
++  void clear() {
++    RequestContextHolder.resetRequestAttributes();
++  }
++
++  private Request capture(boolean withStripper, Consumer<PaymentFeignClient> call) {
++    OrderProperties props = new OrderProperties();
++    props.getInternal().setToken("secret-token");
++    AtomicReference<Request> seen = new AtomicReference<>();
++    Feign.Builder b =
++        Feign.builder()
++            .contract(new SpringMvcContract())
++            .encoder((o, t, template) -> template.body("{}"))
++            .decoder((r, t) -> null)
++            .client(
++                (req, opts) -> {
++                  seen.set(req);
++                  return Response.builder().status(200).request(req).headers(Map.of()).build();
++                })
++            .requestInterceptor(new CorrelationAndAuthForwardingInterceptor())
++            .requestInterceptor(
++                (RequestInterceptor) new InternalFeignConfig().internalTokenInterceptor(props));
++    if (withStripper) {
++      b.addCapability((Capability) new NoUserTokenFeignConfig().stripUserTokenCapability());
++    }
++    MockHttpServletRequest inbound = new MockHttpServletRequest();
++    inbound.addHeader("Authorization", "Bearer admin-jwt");
++    RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(inbound));
++    call.accept(b.target(PaymentFeignClient.class, "http://payment-service"));
++    return seen.get();
++  }
++
++  private static CreatePayment body() {
++    return new CreatePayment(
++        UUID.randomUUID(), UUID.randomUUID(), new BigDecimal("10.00"), "INR", "COD");
++  }
++
++  @Test
++  @DisplayName("ensureRow and create send X-Internal-Token and no Authorization header")
++  void internalTokenNoBearer() {
++    for (Consumer<PaymentFeignClient> call :
++        java.util.List.<Consumer<PaymentFeignClient>>of(
++            c -> c.ensureRow(body()), c -> c.create(body()))) {
++      Request sent = capture(true, call);
++      assertThat(sent.headers().get("X-Internal-Token")).containsExactly("secret-token");
++      assertThat(sent.headers()).doesNotContainKey("Authorization");
++    }
++  }
++
++  @Test
++  @DisplayName("positive sanity: without the stripper the bearer would be forwarded")
++  void withoutStripperBearerLeaks() {
++    Request sent = capture(false, c -> c.ensureRow(body()));
++    assertThat(sent.headers().get("Authorization")).containsExactly("Bearer admin-jwt");
++  }
++
++  @Test
++  @DisplayName("the client is wired to the token config and the stripper")
++  void clientReferencesBothConfigs() {
++    assertThat(PaymentFeignClient.class.getAnnotation(FeignClient.class).configuration())
++        .contains(InternalFeignConfig.class, NoUserTokenFeignConfig.class);
++  }
++}
+diff --git a/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/client/PaymentRowDecodeTest.java b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/client/PaymentRowDecodeTest.java
+new file mode 100644
+index 0000000..8893a9e
+--- /dev/null
++++ b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/client/PaymentRowDecodeTest.java
+@@ -0,0 +1,27 @@
++package com.acme.ecommerce.order.client;
++
++import static org.assertj.core.api.Assertions.assertThat;
++
++import com.acme.ecommerce.order.client.PaymentFeignClient.PaymentRow;
++import com.fasterxml.jackson.databind.ObjectMapper;
++import org.junit.jupiter.api.DisplayName;
++import org.junit.jupiter.api.Test;
++
++class PaymentRowDecodeTest {
++
++  @Test
++  @DisplayName("a PaymentResponse-shaped body with extra fields decodes into PaymentRow")
++  void decodesWithUnknownFields() throws Exception {
++    String json =
++        "{\"paymentId\":\"p-1\",\"orderId\":\"o-1\",\"status\":\"COD_PENDING\",\"method\":\"COD\","
++            + "\"amount\":380.00,\"currency\":\"INR\",\"mode\":\"RAZORPAY\",\"clientSecret\":null,"
++            + "\"somethingNew\":{\"a\":1}}";
++
++    PaymentRow row = new ObjectMapper().readValue(json, PaymentRow.class);
++
++    assertThat(row.paymentId()).isEqualTo("p-1");
++    assertThat(row.method()).isEqualTo("COD");
++    assertThat(row.status()).isEqualTo("COD_PENDING");
++    assertThat(row.amount()).isEqualByComparingTo("380.00");
++  }
++}
+diff --git a/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/outbox/OutboxIntegrationTest.java b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/outbox/OutboxIntegrationTest.java
+index 7befba8..3b3df50 100644
+--- a/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/outbox/OutboxIntegrationTest.java
++++ b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/outbox/OutboxIntegrationTest.java
+@@ -73,9 +73,25 @@ class OutboxIntegrationTest extends AbstractOrderIntegrationTest {
+     assertThat(statuses()).isEmpty();
+   }
+ 
++  /** COD_COLLECTED now ensures the row first, so the order must exist (delivered, with a row). */
++  private void seedCollectedCod(UUID id) {
++    jdbc.update(
++        "insert into orders.orders (id, user_id, status, currency, total_amount, idempotency_key,"
++            + " address_id, ship_full_name, ship_line1, ship_city, ship_postal_code, ship_country,"
++            + " subtotal_amount, payment_method, wallet_amount, payment_status, payment_id,"
++            + " delivered_at)"
++            + " values (?, ?, 'DELIVERED', 'INR', 100, ?, ?, 'T', '1 Road', 'City', '560001', 'IN',"
++            + " 100, 'COD', 0, 'COD_COLLECTED', 'pay-1', now())",
++        id,
++        UUID.randomUUID(),
++        "seed-" + id,
++        UUID.randomUUID());
++  }
++
+   @Test
+   @DisplayName("due rows are delivered through the matching call and marked DONE")
+   void deliversAndMarksDone() {
++    seedCollectedCod(order);
+     outbox.enqueue(Kind.RESTORE_STOCK, order);
+     outbox.enqueue(Kind.COD_COLLECTED, order);
+ 
+@@ -131,6 +147,7 @@ class OutboxIntegrationTest extends AbstractOrderIntegrationTest {
+   @Test
+   @DisplayName("after the last allowed attempt the row is DEAD and no longer blocks the order")
+   void deadAfterMaxAttempts() {
++    seedCollectedCod(order);
+     doThrow(new IllegalStateException("inventory down")).when(remote).restoreStockNow(order);
+     outbox.enqueue(Kind.RESTORE_STOCK, order);
+     outbox.enqueue(Kind.COD_COLLECTED, order);
+diff --git a/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/CodPaymentRowsIntegrationTest.java b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/CodPaymentRowsIntegrationTest.java
+index 42f77eb..4e2333b 100644
+--- a/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/CodPaymentRowsIntegrationTest.java
++++ b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/CodPaymentRowsIntegrationTest.java
+@@ -3,6 +3,7 @@ package com.acme.ecommerce.order.service;
+ import static org.assertj.core.api.Assertions.assertThat;
+ import static org.assertj.core.api.Assertions.assertThatThrownBy;
+ import static org.mockito.ArgumentMatchers.any;
++import static org.mockito.ArgumentMatchers.argThat;
+ import static org.mockito.Mockito.never;
+ import static org.mockito.Mockito.times;
+ import static org.mockito.Mockito.verify;
+@@ -16,6 +17,7 @@ import com.acme.ecommerce.order.outbox.OutboxRelay;
+ import com.acme.ecommerce.order.service.CodPaymentRows.Outcome;
+ import com.acme.ecommerce.order.support.AbstractOrderIntegrationTest;
+ import java.math.BigDecimal;
++import java.util.List;
+ import java.util.UUID;
+ import org.junit.jupiter.api.DisplayName;
+ import org.junit.jupiter.api.Test;
+@@ -35,6 +37,7 @@ class CodPaymentRowsIntegrationTest extends AbstractOrderIntegrationTest {
+ 
+   @Autowired private CodPaymentRows codRows;
+   @Autowired private OutboxRelay relay;
++  @Autowired private com.acme.ecommerce.order.outbox.Outbox outbox;
+   @Autowired private JdbcTemplate jdbc;
+ 
+   private UUID seed(String method, String status, String total, String wallet) {
+@@ -167,7 +170,7 @@ class CodPaymentRowsIntegrationTest extends AbstractOrderIntegrationTest {
+     relay.relay();
+     relay.relay();
+ 
+-    verify(payments, times(1)).ensureRow(any());
++    verify(payments, times(1)).ensureRow(argThat(r -> id.equals(r.orderId())));
+     assertThat(paymentIdOf(id)).isEqualTo(PAYMENT_ID);
+     assertThat(outboxStatus(id)).isEqualTo("DONE");
+   }
+@@ -183,7 +186,7 @@ class CodPaymentRowsIntegrationTest extends AbstractOrderIntegrationTest {
+ 
+     relay.relay();
+ 
+-    verify(payments, never()).ensureRow(any());
++    verify(payments, never()).ensureRow(argThat(r -> id.equals(r.orderId())));
+     assertThat(outboxStatus(id)).isEqualTo("DONE");
+   }
+ 
+@@ -207,6 +210,189 @@ class CodPaymentRowsIntegrationTest extends AbstractOrderIntegrationTest {
+     assertThat(outboxStatus(id)).isEqualTo("DONE");
+   }
+ 
++  // ---- PR-B: collect, legacy rowless, concurrency, non-blocking -------------------------------
++
++  private void collected(UUID id) {
++    jdbc.update(
++        "update orders.orders set status = 'DELIVERED', payment_status = 'COD_COLLECTED',"
++            + " delivered_at = now() where id = ?",
++        id);
++  }
++
++  private void dueNow(String kind, UUID id) {
++    jdbc.update(
++        "update orders.outbox set next_attempt_at = now() where idem_key = ?", kind + ":" + id);
++  }
++
++  @Test
++  @DisplayName("AC-6/7: a collected rowless legacy order: ensure with its figures, then collect")
++  void legacyRowlessCollected() {
++    UUID id = seed("COD", "PLACED", "500.00", "120.00");
++    collected(id);
++    rowReturned("COD", "380.00");
++
++    assertThat(codRows.collect(id)).isEqualTo(Outcome.CREATED);
++
++    ArgumentCaptor<CreatePayment> sent = ArgumentCaptor.forClass(CreatePayment.class);
++    verify(payments, times(1)).ensureRow(sent.capture());
++    assertThat(sent.getValue().amount()).isEqualByComparingTo("380.00");
++    assertThat(sent.getValue().method()).isEqualTo("COD");
++    assertThat(paymentIdOf(id)).isEqualTo(PAYMENT_ID);
++    verify(remote, times(1)).codCollectedNow(id);
++    // redelivery: the row exists, no second ensure call
++    assertThat(codRows.collect(id)).isEqualTo(Outcome.EXISTING);
++    verify(payments, times(1)).ensureRow(argThat(r -> id.equals(r.orderId())));
++  }
++
++  @Test
++  @DisplayName("AC-7: a COD_PENDING (undelivered) legacy order gets a row but is never collected")
++  void undeliveredNotCollected() {
++    UUID id = seed("COD", "PLACED", "500.00", "0");
++    jdbc.update("update orders.orders set payment_status = 'COD_PENDING' where id = ?", id);
++    rowReturned("COD", "500.00");
++
++    assertThat(codRows.collect(id)).isEqualTo(Outcome.CREATED);
++
++    assertThat(paymentIdOf(id)).isEqualTo(PAYMENT_ID);
++    verify(remote, never()).codCollectedNow(id);
++  }
++
++  @Test
++  @DisplayName("AC-9: a cancelled order gets no row and no collected mark")
++  void cancelledNotCollected() {
++    UUID id = seed("COD", "CANCELLED", "500.00", "0");
++
++    assertThat(codRows.collect(id)).isEqualTo(Outcome.SKIPPED_CANCELLED);
++
++    verify(payments, never()).ensureRow(argThat(r -> id.equals(r.orderId())));
++    verify(remote, never()).codCollectedNow(id);
++  }
++
++  @Test
++  @DisplayName("AC-11: a re-armed COD_COLLECTED row ensures the row, then marks it collected")
++  void relayCollect() {
++    UUID id = seed("COD", "PLACED", "500.00", "0");
++    collected(id);
++    rowReturned("COD", "500.00");
++    outbox.enqueue(com.acme.ecommerce.order.outbox.Outbox.Kind.COD_COLLECTED, id);
++    dueNow("COD_COLLECTED", id);
++
++    relay.relay();
++    relay.relay();
++
++    verify(payments, times(1)).ensureRow(argThat(r -> id.equals(r.orderId())));
++    verify(remote, times(1)).codCollectedNow(id);
++    assertThat(
++            jdbc.queryForObject(
++                "select status from orders.outbox where idem_key = ?",
++                String.class,
++                "COD_COLLECTED:" + id))
++        .isEqualTo("DONE");
++  }
++
++  @Test
++  @DisplayName("AC-8: two threads ensuring one order: one CREATED, one EXISTING, one attach")
++  void twoThreads() throws Exception {
++    UUID id = seed("COD", "PLACED", "500.00", "0");
++    rowReturned("COD", "500.00");
++    var pool = java.util.concurrent.Executors.newFixedThreadPool(2);
++    var go = new java.util.concurrent.CountDownLatch(1);
++    try {
++      var a =
++          pool.submit(
++              () -> {
++                go.await();
++                return codRows.ensure(id);
++              });
++      var b =
++          pool.submit(
++              () -> {
++                go.await();
++                return codRows.ensure(id);
++              });
++      go.countDown();
++      assertThat(
++              List.of(
++                  a.get(10, java.util.concurrent.TimeUnit.SECONDS),
++                  b.get(10, java.util.concurrent.TimeUnit.SECONDS)))
++          .containsExactlyInAnyOrder(Outcome.CREATED, Outcome.EXISTING);
++    } finally {
++      pool.shutdownNow();
++    }
++    assertThat(paymentIdOf(id)).isEqualTo(PAYMENT_ID);
++  }
++
++  @Test
++  @DisplayName("AC-14: an ensure blocked on payment-service holds no transaction or row lock")
++  void blockedEnsureDoesNotBlockOthers() throws Exception {
++    UUID slow = seed("COD", "PLACED", "500.00", "0");
++    UUID other = seed("COD", "PLACED", "300.00", "0");
++    var entered = new java.util.concurrent.CountDownLatch(1);
++    var release = new java.util.concurrent.CountDownLatch(1);
++    when(payments.ensureRow(any()))
++        .thenAnswer(
++            i -> {
++              CreatePayment c = i.getArgument(0);
++              if (c.orderId().equals(slow)) {
++                entered.countDown();
++                release.await();
++              }
++              return new PaymentRow(
++                  c.orderId().equals(slow) ? PAYMENT_ID : "1c1f6a52-5d3e-4a53-9a39-5b6f3c1d2e11",
++                  "COD_PENDING",
++                  "COD",
++                  c.amount());
++            });
++    var pool = java.util.concurrent.Executors.newFixedThreadPool(2);
++    try {
++      var blocked = pool.submit(() -> codRows.ensure(slow));
++      assertThat(entered.await(10, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
++
++      var meanwhile =
++          pool.submit(
++              () -> {
++                jdbc.update(
++                    "update orders.orders set total_amount = total_amount where id = ?", slow);
++                return codRows.ensure(other);
++              });
++      assertThat(meanwhile.get(10, java.util.concurrent.TimeUnit.SECONDS))
++          .isEqualTo(Outcome.CREATED);
++      assertThat(blocked.isDone()).isFalse();
++      release.countDown();
++      assertThat(blocked.get(10, java.util.concurrent.TimeUnit.SECONDS)).isEqualTo(Outcome.CREATED);
++    } finally {
++      release.countDown();
++      pool.shutdownNow();
++    }
++  }
++
++  @Test
++  @DisplayName("AC-14: two repair rows, one failing: the other still goes DONE")
++  void oneFailingRepairDoesNotBlockTheOther() {
++    UUID bad = seed("COD", "PLACED", "500.00", "0");
++    UUID good = seed("COD", "PLACED", "300.00", "0");
++    when(payments.ensureRow(any()))
++        .thenAnswer(
++            i -> {
++              CreatePayment c = i.getArgument(0);
++              if (c.orderId().equals(bad)) {
++                throw new IllegalStateException("payment-service down");
++              }
++              return new PaymentRow(PAYMENT_ID, "COD_PENDING", "COD", c.amount());
++            });
++    for (UUID id : List.of(bad, good)) {
++      codRows.enqueueRepair(id);
++      dueNow("ENSURE_COD_PAYMENT", id);
++    }
++
++    relay.relay();
++
++    assertThat(outboxStatus(good)).isEqualTo("DONE");
++    assertThat(paymentIdOf(good)).isEqualTo(PAYMENT_ID);
++    assertThat(outboxStatus(bad)).isEqualTo("PENDING");
++    assertThat(paymentIdOf(bad)).isNull();
++  }
++
+   private String outboxStatus(UUID id) {
+     return jdbc.queryForObject(
+         "select status from orders.outbox where idem_key = ?",
+diff --git a/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/ReturnRefundLegacyCodIntegrationTest.java b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/ReturnRefundLegacyCodIntegrationTest.java
+new file mode 100644
+index 0000000..8f92744
+--- /dev/null
++++ b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/ReturnRefundLegacyCodIntegrationTest.java
+@@ -0,0 +1,364 @@
++package com.acme.ecommerce.order.service;
++
++import static org.assertj.core.api.Assertions.assertThat;
++import static org.assertj.core.api.Assertions.assertThatThrownBy;
++import static org.mockito.ArgumentMatchers.any;
++import static org.mockito.Mockito.never;
++import static org.mockito.Mockito.reset;
++import static org.mockito.Mockito.times;
++import static org.mockito.Mockito.verify;
++import static org.mockito.Mockito.when;
++
++import com.acme.ecommerce.common.core.error.CodedException;
++import com.acme.ecommerce.common.core.error.ErrorCode;
++import com.acme.ecommerce.order.client.PaymentFeignClient;
++import com.acme.ecommerce.order.client.PaymentFeignClient.CreditLookup;
++import com.acme.ecommerce.order.client.PaymentFeignClient.PaymentRow;
++import com.acme.ecommerce.order.client.PaymentFeignClient.RefundRequest;
++import com.acme.ecommerce.order.client.PaymentFeignClient.RefundResult;
++import com.acme.ecommerce.order.client.PaymentFeignClient.WalletCredit;
++import com.acme.ecommerce.order.client.PromotionFeignClient;
++import com.acme.ecommerce.order.domain.Order;
++import com.acme.ecommerce.order.domain.Order.ReturnLine;
++import com.acme.ecommerce.order.domain.Order.ShipTo;
++import com.acme.ecommerce.order.domain.OrderStatus;
++import com.acme.ecommerce.order.domain.PaymentMethod;
++import com.acme.ecommerce.order.domain.Pricing;
++import com.acme.ecommerce.order.domain.ReturnReason;
++import com.acme.ecommerce.order.event.OrderEventPublisher;
++import com.acme.ecommerce.order.repository.OrderRepository;
++import com.acme.ecommerce.order.support.AbstractOrderIntegrationTest;
++import feign.FeignException;
++import feign.Request;
++import java.math.BigDecimal;
++import java.time.Instant;
++import java.util.ArrayList;
++import java.util.HashMap;
++import java.util.List;
++import java.util.Map;
++import java.util.UUID;
++import org.junit.jupiter.api.BeforeEach;
++import org.junit.jupiter.api.DisplayName;
++import org.junit.jupiter.api.Test;
++import org.mockito.ArgumentCaptor;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.jdbc.core.JdbcTemplate;
++import org.springframework.test.context.bean.override.mockito.MockitoBean;
++
++/**
++ * B-10 PR-B: a COD return stuck on the old 404, with or without the pre-F-09 wallet credit
++ * (return-rest-id). The legacy credit must match exactly; nothing is ever paid twice.
++ */
++class ReturnRefundLegacyCodIntegrationTest extends AbstractOrderIntegrationTest {
++
++  private static final String PAYMENT_ID = "0b1f6a52-5d3e-4a53-9a39-5b6f3c1d2e10";
++
++  @MockitoBean private PaymentFeignClient payments;
++  @MockitoBean private PromotionFeignClient promotions;
++  @MockitoBean private OrderEventPublisher events;
++
++  @Autowired private ReturnService returns;
++  @Autowired private OrderStore store;
++  @Autowired private OrderRepository orders;
++  @Autowired private JdbcTemplate jdbc;
++
++  private final UUID product = UUID.randomUUID();
++  private UUID user;
++  private UUID orderId;
++
++  @BeforeEach
++  void stubs() {
++    reset(payments);
++    when(payments.refund(any(), any()))
++        .thenAnswer(
++            i ->
++                new RefundResult(
++                    "PARTIALLY_REFUNDED",
++                    ((RefundRequest) i.getArgument(1)).amount(),
++                    "SUCCEEDED"));
++    when(payments.ensureRow(any()))
++        .thenReturn(new PaymentRow(PAYMENT_ID, "COD_PENDING", "COD", new BigDecimal("300.00")));
++    when(payments.creditLookup(any())).thenReturn(new CreditLookup(false, null, null, null));
++  }
++
++  /** A delivered COD order, qty items of 100 each, with a wallet part; payment id optional. */
++  private void codOrder(int qty, String wallet, boolean withRow, boolean delivered) {
++    Instant now = Instant.now();
++    Order o =
++        Order.draft(
++            UUID.randomUUID(),
++            "a@b.c",
++            UUID.randomUUID().toString(),
++            UUID.randomUUID(),
++            new ShipTo("N", "1", "l1", null, "c", "s", "560001", "IN"),
++            "INR",
++            PaymentMethod.COD,
++            now);
++    o.addItem(product, null, null, "sku", "P", new BigDecimal("100.00"), qty, null);
++    BigDecimal sub = new BigDecimal("100.00").multiply(BigDecimal.valueOf(qty));
++    o.applyMoney(0, BigDecimal.ZERO, new BigDecimal(wallet), false, null);
++    o.begin(
++        new Pricing(
++            sub,
++            BigDecimal.ZERO,
++            BigDecimal.ZERO,
++            sub,
++            BigDecimal.ZERO,
++            null,
++            null,
++            null,
++            null,
++            BigDecimal.ZERO,
++            false),
++        null,
++        null,
++        now);
++    if (delivered) {
++      o.advance(OrderStatus.DELIVERED, "delivered", null, null, now);
++    }
++    orders.saveAndFlush(o);
++    user = o.getUserId();
++    orderId = o.getId();
++    if (withRow) {
++      jdbc.update("update orders.orders set payment_id = ? where id = ?", PAYMENT_ID, orderId);
++    }
++  }
++
++  private UUID pickedUpReturn() {
++    UUID id =
++        store
++            .requestReturn(
++                user,
++                orderId,
++                List.of(new ReturnLine(product, null, 1)),
++                ReturnReason.DAMAGED,
++                null,
++                "SOURCE",
++                null)
++            .ret()
++            .id();
++    store.decide(id, true, null);
++    store.pickedUp(id);
++    return id;
++  }
++
++  private String status(UUID id) {
++    return jdbc.queryForObject(
++        "select status from orders.order_returns where id = ?", String.class, id);
++  }
++
++  private void legacyCredit(UUID returnId, UUID who, String amount, String currency) {
++    when(payments.creditLookup("return-rest-" + returnId))
++        .thenReturn(new CreditLookup(true, who, new BigDecimal(amount), currency));
++  }
++
++  private void assertNoMoneyMoved() {
++    verify(payments, never()).refund(any(), any());
++    verify(payments, never()).walletCredit(any());
++  }
++
++  // ---- C6: the legacy credit must match exactly ---------------------------------------------
++
++  @Test
++  @DisplayName("a legacy credit for a different user is a 409 with no credit and no refund")
++  void differentUser() {
++    codOrder(3, "0", true, true);
++    UUID id = pickedUpReturn();
++    legacyCredit(id, UUID.randomUUID(), "100.00", "INR");
++
++    assertThatThrownBy(() -> returns.refund(id))
++        .isInstanceOfSatisfying(
++            CodedException.class,
++            e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.RESOURCE_CONFLICT));
++
++    assertNoMoneyMoved();
++    assertThat(status(id)).isEqualTo("PICKED_UP");
++  }
++
++  @Test
++  @DisplayName("a legacy credit of a different amount is a 409 with no credit and no refund")
++  void differentAmount() {
++    codOrder(3, "0", true, true);
++    UUID id = pickedUpReturn();
++    legacyCredit(id, user, "99.99", "INR");
++
++    assertThatThrownBy(() -> returns.refund(id)).isInstanceOf(CodedException.class);
++
++    assertNoMoneyMoved();
++    assertThat(status(id)).isEqualTo("PICKED_UP");
++  }
++
++  @Test
++  @DisplayName("a legacy credit in a different currency is a 409 with no credit and no refund")
++  void differentCurrency() {
++    codOrder(3, "0", true, true);
++    UUID id = pickedUpReturn();
++    legacyCredit(id, user, "100.00", "USD");
++
++    assertThatThrownBy(() -> returns.refund(id)).isInstanceOf(CodedException.class);
++
++    assertNoMoneyMoved();
++    assertThat(status(id)).isEqualTo("PICKED_UP");
++  }
++
++  @Test
++  @DisplayName(
++      "an exact legacy credit (amount by compareTo): no refund call, REFUNDED, retry quiet")
++  void exactMatch() {
++    codOrder(3, "0", true, true);
++    UUID id = pickedUpReturn();
++    legacyCredit(id, user, "100", "INR"); // scale differs on purpose
++
++    returns.refund(id);
++
++    assertThat(status(id)).isEqualTo("REFUNDED");
++    assertNoMoneyMoved();
++    verify(payments, never()).ensureRow(any());
++    assertThat(
++            jdbc.queryForObject(
++                "select rest_leg_state from orders.order_returns where id = ?", String.class, id))
++        .isEqualTo("SUCCEEDED");
++    returns.refund(id);
++    assertNoMoneyMoved();
++  }
++
++  // ---- the stuck return is completed ---------------------------------------------------------
++
++  @Test
++  @DisplayName("positive control: no legacy credit, rowless COD return -> ensure, refund once")
++  void rowlessIsEnsuredThenRefundedOnce() {
++    codOrder(3, "0", false, true);
++    UUID id = pickedUpReturn();
++
++    returns.refund(id);
++    returns.refund(id);
++
++    assertThat(status(id)).isEqualTo("REFUNDED");
++    verify(payments, times(1)).ensureRow(any());
++    ArgumentCaptor<RefundRequest> sent = ArgumentCaptor.forClass(RefundRequest.class);
++    verify(payments, times(1)).refund(any(), sent.capture());
++    assertThat(sent.getValue().amount()).isEqualByComparingTo("100.00");
++    assertThat(sent.getValue().destination()).isEqualTo("WALLET");
++    assertThat(sent.getValue().idempotencyKey()).isEqualTo("return-" + id);
++    assertThat(
++            jdbc.queryForObject(
++                "select payment_id from orders.orders where id = ?", String.class, orderId))
++        .isEqualTo(PAYMENT_ID);
++    // collected on delivery: the row is marked collected before the refund
++    verify(payments, times(1)).codCollected(orderId);
++  }
++
++  @Test
++  @DisplayName("lookup 404 (old payment-service): a row is there -> refund proceeds")
++  void lookup404WithRow() {
++    codOrder(3, "0", true, true);
++    UUID id = pickedUpReturn();
++    when(payments.creditLookup(any())).thenThrow(notFound());
++
++    returns.refund(id);
++
++    assertThat(status(id)).isEqualTo("REFUNDED");
++    verify(payments, times(1)).refund(any(), any());
++  }
++
++  @Test
++  @DisplayName("lookup 404 and no row: 503, PICKED_UP, no ensure, no money")
++  void lookup404Rowless() {
++    codOrder(3, "0", false, true);
++    UUID id = pickedUpReturn();
++    when(payments.creditLookup(any())).thenThrow(notFound());
++
++    assertThatThrownBy(() -> returns.refund(id))
++        .isInstanceOfSatisfying(
++            CodedException.class,
++            e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.DEPENDENCY_UNAVAILABLE));
++
++    assertNoMoneyMoved();
++    verify(payments, never()).ensureRow(any());
++    assertThat(status(id)).isEqualTo("PICKED_UP");
++  }
++
++  @Test
++  @DisplayName("rowless and payment-service down on the ensure: 503, PICKED_UP, no money")
++  void ensureDown() {
++    codOrder(3, "0", false, true);
++    UUID id = pickedUpReturn();
++    when(payments.ensureRow(any())).thenThrow(unavailable());
++
++    assertThatThrownBy(() -> returns.refund(id))
++        .isInstanceOfSatisfying(
++            CodedException.class,
++            e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.DEPENDENCY_UNAVAILABLE));
++
++    assertNoMoneyMoved();
++    assertThat(status(id)).isEqualTo("PICKED_UP");
++  }
++
++  @Test
++  @DisplayName("COD_PENDING (undelivered) return: route NONE, no lookup, no ensure, no money")
++  void codPendingMovesNothing() {
++    codOrder(3, "0", false, false);
++    UUID id = jdbcPickedUpUndelivered();
++
++    returns.refund(id);
++
++    assertNoMoneyMoved();
++    verify(payments, never()).ensureRow(any());
++    verify(payments, never()).creditLookup(any());
++  }
++
++  /** requestReturn needs a delivered order; flip to COD_PENDING after the return is picked up. */
++  private UUID jdbcPickedUpUndelivered() {
++    jdbc.update(
++        "update orders.orders set status = 'DELIVERED', delivered_at = now() where id = ?",
++        orderId);
++    UUID id = pickedUpReturn();
++    jdbc.update("update orders.orders set payment_status = 'COD_PENDING' where id = ?", orderId);
++    return id;
++  }
++
++  // ---- AC-12: the cap ------------------------------------------------------------------------
++
++  @Test
++  @DisplayName(
++      "AC-12: 3 x 100 COD with wallet 100, three returns: credits sum 100, refunds sum 200")
++  void capHoldsAcrossReturns() {
++    codOrder(3, "100", true, true);
++    List<UUID> ids = new ArrayList<>();
++    for (int i = 0; i < 3; i++) {
++      ids.add(pickedUpReturn());
++    }
++
++    for (UUID id : ids) {
++      returns.refund(id);
++      returns.refund(id); // a retry pays nothing
++    }
++
++    ArgumentCaptor<WalletCredit> credits = ArgumentCaptor.forClass(WalletCredit.class);
++    verify(payments, times(3)).walletCredit(credits.capture());
++    ArgumentCaptor<RefundRequest> refunds = ArgumentCaptor.forClass(RefundRequest.class);
++    verify(payments, times(3)).refund(any(), refunds.capture());
++    Map<String, BigDecimal> walletByKey = new HashMap<>();
++    credits.getAllValues().forEach(c -> walletByKey.put(c.idempotencyKey(), c.amount()));
++    BigDecimal wallet = walletByKey.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
++    BigDecimal rest =
++        refunds.getAllValues().stream()
++            .map(RefundRequest::amount)
++            .reduce(BigDecimal.ZERO, BigDecimal::add);
++    assertThat(wallet).isEqualByComparingTo("100.00");
++    assertThat(rest).isEqualByComparingTo("200.00");
++    ids.forEach(id -> assertThat(status(id)).isEqualTo("REFUNDED"));
++  }
++
++  private static FeignException notFound() {
++    return new FeignException.NotFound("nf", request(), null, null);
++  }
++
++  private static FeignException unavailable() {
++    return new FeignException.ServiceUnavailable("down", request(), null, null);
++  }
++
++  private static Request request() {
++    return Request.create(Request.HttpMethod.GET, "http://payment", Map.of(), null, null, null);
++  }
++}
+diff --git a/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/ReturnServiceRefundTest.java b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/ReturnServiceRefundTest.java
+index c765497..656e268 100644
+--- a/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/ReturnServiceRefundTest.java
++++ b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/ReturnServiceRefundTest.java
+@@ -43,7 +43,8 @@ class ReturnServiceRefundTest {
+   private final OrderRemote remote = mock(OrderRemote.class);
+   private final OrderEventPublisher events = mock(OrderEventPublisher.class);
+   private final TransactionTemplate tx = mock(TransactionTemplate.class);
+-  private final ReturnService service = new ReturnService(store, remote, events, tx);
++  private final CodPaymentRows codRows = mock(CodPaymentRows.class);
++  private final ReturnService service = new ReturnService(store, remote, events, tx, codRows);
+ 
+   private static final java.time.Instant LEASE = java.time.Instant.parse("2026-11-21T10:00:00Z");
+   private final UUID id = UUID.randomUUID();
+diff --git a/services/payment-service/payment-service-app/src/main/java/com/acme/ecommerce/payment/repository/WalletRepository.java b/services/payment-service/payment-service-app/src/main/java/com/acme/ecommerce/payment/repository/WalletRepository.java
+index 4bc816f..2d8228f 100644
+--- a/services/payment-service/payment-service-app/src/main/java/com/acme/ecommerce/payment/repository/WalletRepository.java
++++ b/services/payment-service/payment-service-app/src/main/java/com/acme/ecommerce/payment/repository/WalletRepository.java
+@@ -86,6 +86,20 @@ public class WalletRepository {
+         .optional();
+   }
+ 
++  /** A CREDIT row by its idempotency key: who got how much (no balance, no ids). */
++  public record Credit(UUID userId, BigDecimal amount, String currency) {}
++
++  public Optional<Credit> findCredit(String key) {
++    return jdbc.sql(
++            "SELECT user_id, amount, currency FROM payment.wallet_txns"
++                + " WHERE idempotency_key = :k AND type = 'CREDIT'")
++        .param("k", key)
++        .query(
++            (rs, n) ->
++                new Credit(rs.getObject(1, UUID.class), rs.getBigDecimal(2), rs.getString(3)))
++        .optional();
++  }
++
+   public boolean txnExists(String key) {
+     return jdbc.sql("SELECT EXISTS (SELECT 1 FROM payment.wallet_txns WHERE idempotency_key = :k)")
+         .param("k", key)
+diff --git a/services/payment-service/payment-service-app/src/main/java/com/acme/ecommerce/payment/service/PaymentService.java b/services/payment-service/payment-service-app/src/main/java/com/acme/ecommerce/payment/service/PaymentService.java
+index 344726b..6d82750 100644
+--- a/services/payment-service/payment-service-app/src/main/java/com/acme/ecommerce/payment/service/PaymentService.java
++++ b/services/payment-service/payment-service-app/src/main/java/com/acme/ecommerce/payment/service/PaymentService.java
+@@ -123,6 +123,9 @@ public class PaymentService {
+     var existing = payments.findByOrderId(subject);
+     if (existing.isPresent()) {
+       Payment e = existing.get();
++      if ("COD".equals(req.method()) && !"COD".equals(e.method())) {
++        return view(e); // a COD ensure never waits on a card order; the caller sees the method
++      }
+       return view(awaitsRazorpayOrder(e) ? awaitRazorpayOrder(e) : e);
+     }
+     String currency = req.currency().toUpperCase(Locale.ROOT);
+diff --git a/services/payment-service/payment-service-app/src/main/java/com/acme/ecommerce/payment/service/WalletService.java b/services/payment-service/payment-service-app/src/main/java/com/acme/ecommerce/payment/service/WalletService.java
+index 18038f4..0a87217 100644
+--- a/services/payment-service/payment-service-app/src/main/java/com/acme/ecommerce/payment/service/WalletService.java
++++ b/services/payment-service/payment-service-app/src/main/java/com/acme/ecommerce/payment/service/WalletService.java
+@@ -11,6 +11,7 @@ import java.math.BigDecimal;
+ import java.math.RoundingMode;
+ import java.util.List;
+ import java.util.Locale;
++import java.util.Optional;
+ import java.util.Set;
+ import java.util.UUID;
+ import java.util.concurrent.atomic.AtomicBoolean;
+@@ -51,6 +52,11 @@ public class WalletService {
+         .orElse(new Balance(BigDecimal.ZERO.setScale(2), null));
+   }
+ 
++  /** Read-only lookup of a credit by key, for order-service's legacy COD refund check. */
++  public Optional<WalletRepository.Credit> findCredit(String key) {
++    return wallets.findCredit(key);
++  }
++
+   public WalletView view(UUID userId) {
+     Balance b = balance(userId);
+     return new WalletView(
+diff --git a/services/payment-service/payment-service-app/src/main/java/com/acme/ecommerce/payment/web/InternalWalletController.java b/services/payment-service/payment-service-app/src/main/java/com/acme/ecommerce/payment/web/InternalWalletController.java
+index 80c6c79..496461c 100644
+--- a/services/payment-service/payment-service-app/src/main/java/com/acme/ecommerce/payment/web/InternalWalletController.java
++++ b/services/payment-service/payment-service-app/src/main/java/com/acme/ecommerce/payment/web/InternalWalletController.java
+@@ -42,6 +42,9 @@ public class InternalWalletController {
+ 
+   public record ReverseResult(boolean reversed) {}
+ 
++  /** Always 200; only these fields, never a balance or a transaction id. */
++  public record CreditLookup(boolean found, UUID userId, BigDecimal amount, String currency) {}
++
+   private final WalletService wallet;
+ 
+   public InternalWalletController(WalletService wallet) {
+@@ -53,6 +56,15 @@ public class InternalWalletController {
+     return wallet.balance(userId);
+   }
+ 
++  /** Was a credit made under this key? Internal only; the answer names no balance or txn id. */
++  @GetMapping("/credits/{key}")
++  public CreditLookup credit(@PathVariable String key) {
++    return wallet
++        .findCredit(key)
++        .map(c -> new CreditLookup(true, c.userId(), c.amount(), c.currency()))
++        .orElse(new CreditLookup(false, null, null, null));
++  }
++
+   @PostMapping("/debit")
+   public Balance debit(@Valid @RequestBody DebitRequest r) {
+     return wallet.debit(r.userId(), r.amount(), r.currency(), r.orderId(), r.idempotencyKey());
+diff --git a/services/payment-service/payment-service-app/src/test/java/com/acme/ecommerce/payment/service/CodEnsureConcurrencyIntegrationTest.java b/services/payment-service/payment-service-app/src/test/java/com/acme/ecommerce/payment/service/CodEnsureConcurrencyIntegrationTest.java
+index 1fbeecb..0e3303d 100644
+--- a/services/payment-service/payment-service-app/src/test/java/com/acme/ecommerce/payment/service/CodEnsureConcurrencyIntegrationTest.java
++++ b/services/payment-service/payment-service-app/src/test/java/com/acme/ecommerce/payment/service/CodEnsureConcurrencyIntegrationTest.java
+@@ -1,6 +1,10 @@
+ package com.acme.ecommerce.payment.service;
+ 
+ import static org.assertj.core.api.Assertions.assertThat;
++import static org.mockito.Mockito.clearInvocations;
++import static org.mockito.Mockito.doReturn;
++import static org.mockito.Mockito.never;
++import static org.mockito.Mockito.verify;
+ import static org.mockito.Mockito.verifyNoInteractions;
+ 
+ import com.acme.ecommerce.payment.api.dto.CreatePaymentRequest;
+@@ -30,6 +34,7 @@ class CodEnsureConcurrencyIntegrationTest extends AbstractPaymentIntegrationTest
+   @Autowired private PaymentService service;
+   @Autowired private JdbcClient jdbc;
+   @MockitoSpyBean private RazorpayGateway razorpay;
++  @Autowired private com.acme.ecommerce.payment.repository.PaymentRepository payments;
+ 
+   private static CreatePaymentRequest cod(UUID order, UUID user, String amount) {
+     return new CreatePaymentRequest(
+@@ -149,4 +154,30 @@ class CodEnsureConcurrencyIntegrationTest extends AbstractPaymentIntegrationTest
+         .update();
+     assertThat(walletTxns(user)).isEqualTo(1);
+   }
++
++  @Test
++  @DisplayName("a COD ensure over a pending card row returns it at once, no Razorpay wait")
++  void codEnsureOverCardRowDoesNotWait() {
++    UUID order = UUID.randomUUID();
++    UUID user = UUID.randomUUID();
++    payments.insert(
++        order,
++        user,
++        "CARD",
++        "RAZORPAY",
++        new BigDecimal("380.00"),
++        "INR",
++        "REQUIRES_PAYMENT",
++        null,
++        null,
++        "ORDER");
++    doReturn(true).when(razorpay).enabled();
++    clearInvocations(razorpay);
++
++    PaymentResponse r = service.create(cod(order, user, "380.00"));
++
++    assertThat(r.method()).isEqualTo("CARD");
++    assertThat(rows(order)).isEqualTo(1);
++    verify(razorpay, never()).enabled();
++  }
+ }
+diff --git a/services/payment-service/payment-service-app/src/test/java/com/acme/ecommerce/payment/web/InternalWalletControllerTest.java b/services/payment-service/payment-service-app/src/test/java/com/acme/ecommerce/payment/web/InternalWalletControllerTest.java
+new file mode 100644
+index 0000000..2acff83
+--- /dev/null
++++ b/services/payment-service/payment-service-app/src/test/java/com/acme/ecommerce/payment/web/InternalWalletControllerTest.java
+@@ -0,0 +1,85 @@
++package com.acme.ecommerce.payment.web;
++
++import static org.assertj.core.api.Assertions.assertThat;
++
++import com.acme.ecommerce.payment.service.WalletService;
++import com.acme.ecommerce.payment.support.AbstractPaymentIntegrationTest;
++import java.math.BigDecimal;
++import java.net.URI;
++import java.net.http.HttpClient;
++import java.net.http.HttpRequest;
++import java.net.http.HttpResponse;
++import java.util.UUID;
++import org.junit.jupiter.api.DisplayName;
++import org.junit.jupiter.api.Test;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.boot.test.context.SpringBootTest;
++import org.springframework.boot.test.web.server.LocalServerPort;
++
++/** B-10 C8: GET /internal/wallet/credits/{key}: token guarded, only user, amount and currency. */
++@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
++class InternalWalletControllerTest extends AbstractPaymentIntegrationTest {
++
++  @LocalServerPort private int port;
++  @Autowired private WalletService wallet;
++
++  private HttpResponse<String> get(String key, String token) throws Exception {
++    HttpRequest.Builder b =
++        HttpRequest.newBuilder(
++            URI.create("http://localhost:" + port + "/internal/wallet/credits/" + key));
++    if (token != null) {
++      b.header("X-Internal-Token", token);
++    }
++    return HttpClient.newHttpClient().send(b.GET().build(), HttpResponse.BodyHandlers.ofString());
++  }
++
++  @Test
++  @DisplayName("a credit under the key is found with user, amount and currency only")
++  void found() throws Exception {
++    UUID user = UUID.randomUUID();
++    String key = "return-rest-" + UUID.randomUUID();
++    wallet.credit(user, new BigDecimal("40.00"), "INR", "REFUND", "ref-1", key);
++
++    HttpResponse<String> r = get(key, "test-internal-token");
++
++    assertThat(r.statusCode()).isEqualTo(200);
++    assertThat(r.body())
++        .contains("\"found\":true")
++        .contains("\"userId\":\"" + user + "\"")
++        .contains("\"currency\":\"INR\"")
++        .containsPattern("\"amount\":40(\\.0+)?[,}]");
++    // Nothing else leaks: no balance, no transaction id or reference.
++    assertThat(r.body()).doesNotContain("balance").doesNotContain("ref-1").doesNotContain("\"id\"");
++  }
++
++  @Test
++  @DisplayName("an unknown key and a DEBIT key both answer 200 found=false")
++  void notFound() throws Exception {
++    UUID user = UUID.randomUUID();
++    wallet.credit(user, new BigDecimal("50.00"), "INR", "REFUND", "r", "seed-" + user);
++    String debitKey = "debit-" + user;
++    wallet.debit(user, new BigDecimal("10.00"), "INR", UUID.randomUUID(), debitKey);
++
++    for (String key : new String[] {"missing-" + UUID.randomUUID(), debitKey}) {
++      HttpResponse<String> r = get(key, "test-internal-token");
++      assertThat(r.statusCode()).isEqualTo(200);
++      assertThat(r.body()).contains("\"found\":false").doesNotContain(user.toString());
++    }
++  }
++
++  @Test
++  @DisplayName("a missing or wrong X-Internal-Token is refused, even for an existing credit")
++  void tokenRequired() throws Exception {
++    UUID user = UUID.randomUUID();
++    String key = "return-rest-" + UUID.randomUUID();
++    wallet.credit(user, new BigDecimal("40.00"), "INR", "REFUND", "ref-2", key);
++
++    for (String token : new String[] {null, "wrong-token", ""}) {
++      HttpResponse<String> r = get(key, token);
++      assertThat(r.statusCode()).isIn(401, 403);
++      assertThat(r.body()).doesNotContain(user.toString()).doesNotContain("\"found\"");
++    }
++    // Positive sanity: the same request with the right token does return the credit.
++    assertThat(get(key, "test-internal-token").body()).contains(user.toString());
++  }
++}

@@ -1,0 +1,13 @@
+{
+ "product_id": "cf426445-1ffd-40f5-f6c6-eb6248390234",
+ "name": "Exquano Granola Gen 3",
+ "prompt": "studio packshot photo of a Olive Exquano Granola Gen 3, made of glass, snacks, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2650646843,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T01:57:50",
+ "file_path": "product-images/images/cf426445-1ffd-40f5-f6c6-eb6248390234.jpg",
+ "file_size": 54228
+}

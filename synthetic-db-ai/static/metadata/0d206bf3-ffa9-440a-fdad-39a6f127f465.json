@@ -1,0 +1,15 @@
+{
+ "product_id": "0d206bf3-ffa9-440a-fdad-39a6f127f465",
+ "name": "Orba Board Game Series 2",
+ "prompt": "studio packshot photo of a Silver Orba Board Game Series 2, made of abs plastic, board games, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3892727448,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 768,
+ "created_at": "2026-11-15T22:46:16",
+ "file_path": "static/images/0d206bf3-ffa9-440a-fdad-39a6f127f465.jpg",
+ "file_size": 160387,
+ "uploaded": false,
+ "s3_url": null
+}

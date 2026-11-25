@@ -1,0 +1,13 @@
+{
+ "product_id": "d29cfc9d-4c0f-4e65-ff61-9ce389aa2f91",
+ "name": "Exlo Fountain Pen Classic",
+ "prompt": "studio packshot photo of a Silver Exlo Fountain Pen Classic, made of leather, stationery, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1833219516,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:18:07",
+ "file_path": "product-images/images/d29cfc9d-4c0f-4e65-ff61-9ce389aa2f91.jpg",
+ "file_size": 23813
+}

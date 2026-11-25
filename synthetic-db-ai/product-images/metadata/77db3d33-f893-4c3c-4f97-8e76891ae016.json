@@ -1,0 +1,13 @@
+{
+ "product_id": "77db3d33-f893-4c3c-4f97-8e76891ae016",
+ "name": "Venfylum Robot Vacuum Gen 3",
+ "prompt": "studio packshot photo of a Midnight Venfylum Robot Vacuum Gen 3, made of aluminium, cleaning, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 415206178,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:04:49",
+ "file_path": "product-images/images/77db3d33-f893-4c3c-4f97-8e76891ae016.jpg",
+ "file_size": 69598
+}

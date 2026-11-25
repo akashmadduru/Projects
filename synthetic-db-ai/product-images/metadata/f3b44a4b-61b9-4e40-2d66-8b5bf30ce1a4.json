@@ -1,0 +1,13 @@
+{
+ "product_id": "f3b44a4b-61b9-4e40-2d66-8b5bf30ce1a4",
+ "name": "Rimi Notebook Lite",
+ "prompt": "studio packshot photo of a Green Rimi Notebook Lite, made of stainless steel, laptops, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3976845624,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T22:05:41",
+ "file_path": "product-images/images/f3b44a4b-61b9-4e40-2d66-8b5bf30ce1a4.jpg",
+ "file_size": 35595
+}

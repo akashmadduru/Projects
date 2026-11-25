@@ -1,0 +1,13 @@
+{
+ "product_id": "b79952ee-bc80-4f84-f4ae-4d929070e2d8",
+ "name": "Mitraar Smartphone Edition",
+ "prompt": "studio packshot photo of a Olive Mitraar Smartphone Edition, made of leather, mobiles & smartphones, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 4068517583,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:27:02",
+ "file_path": "product-images/images/b79952ee-bc80-4f84-f4ae-4d929070e2d8.jpg",
+ "file_size": 38799
+}

@@ -1,0 +1,15 @@
+{
+ "product_id": "64991475-8ac8-48bd-c6ac-894c4e764ec8",
+ "name": "Kamiven Soundbar Gen 3",
+ "prompt": "studio packshot photo of a White Kamiven Soundbar Gen 3, made of silicone, speakers, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2620276542,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:30:22",
+ "file_path": "static/images/64991475-8ac8-48bd-c6ac-894c4e764ec8.jpg",
+ "file_size": 39122,
+ "uploaded": false,
+ "s3_url": null
+}

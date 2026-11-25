@@ -1,0 +1,13 @@
+{
+ "product_id": "44fc05d6-a426-4811-45f8-bf01425675cf",
+ "name": "Orli Badminton Racket Classic",
+ "prompt": "studio packshot photo of a Rose Gold Orli Badminton Racket Classic, made of leather, team sports, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3670332849,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:54:28",
+ "file_path": "product-images/images/44fc05d6-a426-4811-45f8-bf01425675cf.jpg",
+ "file_size": 89412
+}

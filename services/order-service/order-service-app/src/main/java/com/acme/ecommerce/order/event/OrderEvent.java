@@ -7,10 +7,10 @@ import java.util.UUID;
 /**
  * Payload of the {@code order.events} topic (JSON, key = orderId). Times are ISO-8601 strings.
  *
- * <p>Phase 9 additions (additive): {@code shipments} (every shipment of the order),
- * {@code shipmentId} (SHIPMENT_STATUS_CHANGED: the shipment that moved; {@code status} and the
- * tracking fields are then that shipment's), {@code returnShipmentId}/{@code returnId}/{@code
- * refundAmount} (RETURN_* events).
+ * <p>Phase 9 additions (additive): {@code shipments} (every shipment of the order), {@code
+ * shipmentId} (SHIPMENT_STATUS_CHANGED: the shipment that moved; {@code status} and the tracking
+ * fields are then that shipment's), {@code returnShipmentId}/{@code returnId}/{@code refundAmount}
+ * (RETURN_* events).
  */
 public record OrderEvent(
     UUID eventId,

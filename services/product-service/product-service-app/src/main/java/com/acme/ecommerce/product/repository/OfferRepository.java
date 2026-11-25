@@ -21,7 +21,8 @@ public interface OfferRepository extends JpaRepository<Offer, UUID> {
   Optional<Offer> findByProductIdAndVariantIdAndSellerId(
       UUID productId, UUID variantId, UUID sellerId);
 
-  @Query("select distinct o.productId from Offer o where o.sellerId = :sellerId and o.active = true")
+  @Query(
+      "select distinct o.productId from Offer o where o.sellerId = :sellerId and o.active = true")
   List<UUID> findProductIdsBySeller(UUID sellerId);
 
   @Query("select o from Offer o where o.productId in :ids and o.active = true")

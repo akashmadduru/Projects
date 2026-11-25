@@ -1,0 +1,13 @@
+{
+ "product_id": "86876556-3568-49cf-d639-ff0893e0cad4",
+ "name": "Exion Keyboard Series 2",
+ "prompt": "studio packshot photo of a Blue Exion Keyboard Series 2, made of bamboo, keyboards & mice, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3905139393,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:54:51",
+ "file_path": "product-images/images/86876556-3568-49cf-d639-ff0893e0cad4.jpg",
+ "file_size": 49467
+}

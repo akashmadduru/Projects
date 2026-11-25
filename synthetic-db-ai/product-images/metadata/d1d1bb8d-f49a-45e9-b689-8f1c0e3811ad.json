@@ -1,0 +1,13 @@
+{
+ "product_id": "d1d1bb8d-f49a-45e9-b689-8f1c0e3811ad",
+ "name": "Exvenor Strategy Game Lite",
+ "prompt": "studio packshot photo of a Grey Exvenor Strategy Game Lite, made of polyester, board games, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2074371220,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:44:33",
+ "file_path": "product-images/images/d1d1bb8d-f49a-45e9-b689-8f1c0e3811ad.jpg",
+ "file_size": 56822
+}

@@ -4,13 +4,6 @@ Index: [README](README.md). Feature scope: [Product Roadmap, Phase 6](../phases/
 
 Phase 6 was built under "no tests, no HLD/LLD, record shortcuts as debt". The integration run passed 98 of 99 end-to-end checks; the one failure was a bug in the check script, not the product. Only **SIMULATED** payment mode was exercised. Paths below are relative to the repo root; `<svc>` means `services/<name>/<name>-app/src/main`.
 
-<a id="td-p6-01"></a>
-## TD-P6-01 No outbox: post-commit side effects can be lost
-- **Severity / Effort:** High / L
-- **Where:** `services/order-service/order-service-app/.../service/OrderService.java`, `OrderRemote.java`, `OrderLifecycleService.java`, `event/OrderEventPublisher.java`.
-- **Risk:** Stock reserve/release, coupon redeem/release, cart clear and the `order.events` publish all happen after the DB commit. A crash in between leaks stock or a coupon redemption, or drops an event (so no email). Compensation is best-effort and only logged. Supersedes the cart-clear part of TD-BE-03.
-- **Fix:** Transactional outbox table written in the order transaction, relayed by a poller to inventory, promotion, cart and Kafka; retries plus a dead-letter state.
-
 <a id="td-p6-02"></a>
 ## TD-P6-02 Stripe and Razorpay live mode never exercised
 - **Severity / Effort:** High / S
@@ -18,24 +11,11 @@ Phase 6 was built under "no tests, no HLD/LLD, record shortcuts as debt". The in
 - **Risk:** Only SIMULATED mode and unit tests with mocked HTTP were verified. Razorpay (added 2026-11-15, [ADR 0005](../architecture/adr/0005-multiple-payment-providers.md)) was written from public API documentation and never called; its request shapes, the `X-Refund-Idempotency` header and event names are unconfirmed. Stripe: Stripe SDK 34.1.0 was chosen without a live account. The webhook endpoint returns 404 unless the webhook secret is set. In SIMULATED mode refunds are only recorded in the DB.
 - **Fix:** Run the Razorpay test-mode checklist in [integrations §3b](../guides/integrations.md#3b-payment-gateway-razorpay) (pay, fail, refund, webhook replay, tampered signature). Stripe: set `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET` in `deploy/local/.env`; run a test-mode pay, fail, refund and webhook cycle (Stripe CLI `listen`); replace `deserializeUnsafe` with version-checked parsing.
 
-<a id="td-p6-03"></a>
-## TD-P6-03 Late payment after cancel; PaymentIntent not cancelled
-- **Severity / Effort:** High / M
-- **Where:** `OrderService`/`OrderStore` cancel path; `OrderLifecycleService` payment-result handling (internal call from `payment-service/.../service/OrderReporter.java`).
-- **Risk:** Cancelling a PENDING_PAYMENT order does not cancel the Stripe PaymentIntent (payment-service has no cancel endpoint). A late SUCCEEDED is refunded inline in the payment-result call; if that refund fails it is only logged, and payment-service will not retry because order-service returned 200. Customer is charged for a cancelled order.
-- **Fix:** Add a cancel-PaymentIntent endpoint and call it on cancel/expiry; make late-success refund a retried outbox task (see TD-P6-01).
-
-<a id="td-p6-04"></a>
-## TD-P6-04 Stock reservation has gaps (residual of TD-BE-01)
-- **Severity / Effort:** High / M
-- **Where:** `services/inventory-service/inventory-service-app/` reserve/release; `OrderRemote.java`.
-- **Risk:** Reservation decrements `stock_levels.quantity` directly (the `reservedQuantity` column is unused). Products with no inventory row are treated as unlimited, and the seeded catalog has no rows, so OUT_OF_STOCK only fires where a row exists. Release for returns trusts caller quantities (no cap check).
-- **Fix:** Seed inventory rows for every product (or fail closed when missing); use `reservedQuantity` with commit-on-ship; cap release by what was reserved.
-
 <a id="td-p6-05"></a>
 ## TD-P6-05 No tests for Phase 6; existing tests stale
-- **Severity / Effort:** High / L
+- **Severity / Effort:** Med / L
 - **Where:** payment-service, promotion-service, notification-service, order lifecycle/returns, cart saved-items, admin Orders/Returns/Coupons views and `adminApi.ts`, storefront checkout/orders/returns. Stale: auth-service tests will not compile (`UserResponse` gained 2 constructor args, `AuthMethod` gained OTP, `SecurityConfig`/`RateLimitFilter` paths changed); storefront tests still use the old Order types and `place(addressId, key)` signature; existing admin vitest suite not re-run.
+- **Progress 2026-11-17:** the stale half is done: auth-service tests compile and pass again (5 files repaired), the storefront type-checks fully with tests and its stale tests are fixed, the admin suite was re-run and passes. Added: order placement on a real database (12 cases incl. compensation), cancel/late-payment, wallet credit-back, payment cancel, Razorpay verify/webhook, gift cards. Still untested: coupon rules and OTP, promotion- and notification-service, returns, the order state machine, a checkout e2e.
 - **Risk:** Money, stock and auth flows have only the one-off e2e script as a safety net. Extends TD-TEST-01/02/03.
 - **Fix:** Fix auth-service and storefront tests first, then add service tests for payment (webhook, refund idempotency), order state machine, coupon rules, OTP; Playwright for checkout.
 
@@ -60,13 +40,6 @@ Phase 6 was built under "no tests, no HLD/LLD, record shortcuts as debt". The in
 - **Risk:** No real SMS provider. The SMS text, including the OTP, is logged and mailed to `sms+<digits>@acme.local` (visible in Mailpit). Phone OTP cannot work for real users.
 - **Fix:** Integrate Twilio/SNS (or an Indian DLT-registered gateway); stop logging message bodies.
 
-<a id="td-p6-09"></a>
-## TD-P6-09 OTP codes hashed with plain SHA-256
-- **Severity / Effort:** Med / S
-- **Where:** `services/auth-service/auth-service-app/.../service/OneTimeTokenService.java` (`hash = sha256(userId:purpose:code)`).
-- **Risk:** A 6-digit code is brute-forceable offline if the DB leaks. Protection is only the 5-minute TTL and 5 attempts. (Link tokens are 256-bit random, so plain SHA-256 is fine for them.)
-- **Fix:** HMAC-SHA256 with a server-side pepper from env/secret store.
-
 <a id="td-p6-10"></a>
 ## TD-P6-10 Login not blocked for unverified email; no captcha
 - **Severity / Effort:** Med / S
@@ -88,13 +61,6 @@ Phase 6 was built under "no tests, no HLD/LLD, record shortcuts as debt". The in
 - **Risk:** One secret for all service-to-service calls: no rotation, no per-caller identity, no mTLS. Comparison is constant-time. The Feign interceptor also forwards the caller's user bearer token to notification-service and payment-service order calls, where it is ignored. Adds to TD-BE-12 (copy-paste).
 - **Fix:** Move the filter into a shared lib; per-service tokens or mTLS/service JWTs; stop relaying user tokens on internal calls.
 
-<a id="td-p6-13"></a>
-## TD-P6-13 Scheduled jobs have no distributed lock
-- **Severity / Effort:** Med / M
-- **Where:** `order-service/.../service/OrderLifecycleService.java` (60 s pending-payment expiry, `@Scheduled`), `payment-service/.../service/OrderReporter.java` (outcome re-reporter).
-- **Risk:** Every replica runs the expiry job; harmless today because it is idempotent. The re-reporter polls every 30 s, gives up after 200 attempts per payment, and has no alerting or dead-letter.
-- **Fix:** ShedLock (or DB advisory lock); dead-letter state plus alert when re-reporting gives up.
-
 <a id="td-p6-14"></a>
 ## TD-P6-14 Return refund rules incomplete
 - **Severity / Effort:** Med / M
@@ -109,13 +75,6 @@ Phase 6 was built under "no tests, no HLD/LLD, record shortcuts as debt". The in
 - **Risk:** Courier, text only, no logo/layout, and no rupee glyph (prints INR). Unlikely to satisfy a GST invoice format audit. Done this way because OpenPDF could not be resolved (Central 403).
 - **Fix:** Switch to OpenPDF with an embedded Unicode font; add GSTIN, HSN, and place-of-supply fields.
 
-<a id="td-p6-16"></a>
-## TD-P6-16 First-order coupons still shown to returning customers
-- **Severity / Effort:** Med / S
-- **Where:** `services/promotion-service/promotion-service-app/.../service/CouponService.java` (validate and available), `OrderService` placement.
-- **Risk:** WELCOME10 is listed and validates for returning customers; only `POST /api/orders` rejects it (422 `COUPON_NOT_APPLICABLE`). `firstOrder` is an optional flag enforced at redeem only. The customer sees a discount that vanishes at placement.
-- **Fix:** promotion-service asks order-service (internal) for order history, or the storefront hides first-order coupons after the first order.
-
 <a id="td-p6-17"></a>
 ## TD-P6-17 Shipping, tax and COD rules are hard-wired
 - **Severity / Effort:** Med / M
@@ -129,13 +88,6 @@ Phase 6 was built under "no tests, no HLD/LLD, record shortcuts as debt". The in
 - **Where:** `services/promotion-service/promotion-service-app/`; `apps/admin-product-catalog/src/` Coupons view.
 - **Risk:** Admin coupon list is unpaged (limit 500; admin UI fetches the first 100, no pagination UI). Editing a coupon does not re-evaluate existing redemptions. `max_discount` is read in order currency with no per-currency caps. Coupon datetimes use the browser timezone with no timezone shown. The storefront validates a coupon once and does not re-validate when subtotal or address changes (server recomputes at placement).
 - **Fix:** Paged list endpoint and UI; per-currency caps; show/store UTC explicitly; re-validate on cart change.
-
-<a id="td-p6-19"></a>
-## TD-P6-19 Expired one-time tokens never purged
-- **Severity / Effort:** Low / S
-- **Where:** `OneTimeTokenService.purgeExpired` in auth-service (defined, no caller); `RefreshTokenReaper.java` is the housekeeping pattern to copy.
-- **Risk:** `one_time_tokens` rows are only deleted when superseded; table grows.
-- **Fix:** Call `purgeExpired` from a scheduled job.
 
 <a id="td-p6-20"></a>
 ## TD-P6-20 Phone enumeration and reset side effects
@@ -177,7 +129,7 @@ Phase 6 was built under "no tests, no HLD/LLD, record shortcuts as debt". The in
 - **Severity / Effort:** Low / S
 - **Where:** `auth_db`, `product_db`, `inventory_db`, `promotion_db` on the dev volume.
 - **Risk:** Admin account `p6int-admin@example.com` (ROLE_ADMIN, inserted via SQL) and several `p6e2e-*@example.com` users remain. A deactivated INR product "P6 INR Test Item <id>" (with an inventory row of 100) and deactivated `P6E*` coupons remain. Credentials are intentionally not recorded here. If the volume is ever shared or promoted, the admin account is a backdoor.
-- **Fix:** Delete these rows (or `docker compose down -v`) before sharing the environment; related to TD-SEC-06 (no proper dev-admin bootstrap).
+- **Fix:** Delete these rows (or `docker compose down -v`) before sharing the environment; create admins as in the [first-admin runbook](../guides/runbooks/first-admin-user.md#local-development-docker-compose).
 
 <a id="td-p6-26"></a>
 ## TD-P6-26 Notification infra is dev-only
@@ -186,26 +138,12 @@ Phase 6 was built under "no tests, no HLD/LLD, record shortcuts as debt". The in
 - **Risk:** Mailpit image is unpinned and has no auth; production needs a real SMTP relay via `MAIL_HOST/MAIL_PORT/MAIL_USERNAME/MAIL_PASSWORD`. Emails are hand-built HTML strings (no template engine). Services use the deprecated spring-kafka `JsonDeserializer`; `order.events` is serialized with type headers off and ISO-string times, so consumers must not require `__TypeId__`.
 - **Fix:** Pin the image; add a template engine; move to typed deserializers with a shared event contract (see TD-RT-06).
 
-<a id="td-p6-27"></a>
-## TD-P6-27 Admin order list N+1
-- **Severity / Effort:** Low / S
-- **Where:** `order-service/.../web/AdminOrderController.java` (item count per order).
-- **Risk:** One extra query per order on the list page; slow with large pages.
-- **Fix:** Fetch counts with a grouped query or a denormalized column.
-
 <a id="td-p6-28"></a>
 ## TD-P6-28 Saved-for-later price snapshots go stale
 - **Severity / Effort:** Low / S
 - **Where:** `services/cart-service/cart-service-app/` saved items.
 - **Risk:** `saved_items` keep a price snapshot, stale on move-to-cart (order-service re-prices at checkout, so no financial error). Capped at 50 lines.
 - **Fix:** Re-fetch price on move-to-cart. Same family as TD-BE-09.
-
-<a id="td-p6-29"></a>
-## TD-P6-29 Spotless not run on Phase 6 code
-- **Severity / Effort:** Low / S
-- **Where:** new code in payment, promotion, notification, auth, order, cart services.
-- **Risk:** Lines over 100 columns may exist; CI's `spotlessCheck` would fail. See also TD-BE-16.
-- **Fix:** Run `./gradlew spotlessApply` once the build works.
 
 <a id="td-p6-30"></a>
 ## TD-P6-30 Razorpay order creation has no idempotency key
@@ -227,3 +165,10 @@ Phase 6 was built under "no tests, no HLD/LLD, record shortcuts as debt". The in
 - **Where:** `PaymentProviders.resolve`, `PaymentService.pickProvider`.
 - **Risk:** A non-INR order falls back to Stripe, or is refused (HTTP 4xx) if Razorpay was named and Stripe is off. Automatic capture must be enabled in the Razorpay dashboard; with manual capture, payments authorise but never settle. Payouts (RazorpayX) stay out of scope ([TD-P9-08](phase9.md)).
 - **Fix:** Document and alert on manual capture; add multi-currency once the business enables it in Razorpay.
+
+<a id="td-p6-33"></a>
+## TD-P6-33 Only order-service has an outbox
+- **Severity / Effort:** Med / M
+- **Where:** product-service `ProductEventPublisher`, inventory-service `InventoryEventPublisher`, rating-, user-, seller-service publishers.
+- **Risk:** Residual of TD-P6-01 (fixed 2026-11-17 for order-service: `orders.outbox` is written in the same transaction as the order change; `OutboxRelay` delivers stock restore, deal/exchange/coupon/coins release, payment cancel, COD collected, return restock and `order.events` with retries, per-order ordering and a DEAD state listed at `GET /api/admin/orders/outbox`). The other services still publish after commit, best effort: a crash or Kafka outage between commit and send loses e.g. a `product.events` update (search and inventory caches drift until the next change; embeddings already self-heal by polling).
+- **Fix:** Lift `Outbox`/`OutboxRelay` into common-web and use it in product- and inventory-service first.

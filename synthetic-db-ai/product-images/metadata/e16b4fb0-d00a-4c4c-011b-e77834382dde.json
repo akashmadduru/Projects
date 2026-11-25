@@ -1,0 +1,13 @@
+{
+ "product_id": "e16b4fb0-d00a-4c4c-011b-e77834382dde",
+ "name": "Dextaex Blender Gen 3",
+ "prompt": "studio packshot photo of a Rose Gold Dextaex Blender Gen 3, made of aluminium, small appliances, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2689307171,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:55:15",
+ "file_path": "product-images/images/e16b4fb0-d00a-4c4c-011b-e77834382dde.jpg",
+ "file_size": 33298
+}

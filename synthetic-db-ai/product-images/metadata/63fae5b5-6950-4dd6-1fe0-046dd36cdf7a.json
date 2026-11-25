@@ -1,0 +1,13 @@
+{
+ "product_id": "63fae5b5-6950-4dd6-1fe0-046dd36cdf7a",
+ "name": "Katra Laptop Plus",
+ "prompt": "studio packshot photo of a Blue Katra Laptop Plus, made of polyester, laptops, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 403935534,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:29:59",
+ "file_path": "product-images/images/63fae5b5-6950-4dd6-1fe0-046dd36cdf7a.jpg",
+ "file_size": 48688
+}

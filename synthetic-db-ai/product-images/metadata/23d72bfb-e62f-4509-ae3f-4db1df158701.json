@@ -1,0 +1,13 @@
+{
+ "product_id": "23d72bfb-e62f-4509-ae3f-4db1df158701",
+ "name": "Kaquaion Basmati Rice Gen 3",
+ "prompt": "studio packshot photo of a Olive Kaquaion Basmati Rice Gen 3, made of nylon, pantry, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2383144810,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:21:22",
+ "file_path": "product-images/images/23d72bfb-e62f-4509-ae3f-4db1df158701.jpg",
+ "file_size": 78198
+}

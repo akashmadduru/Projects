@@ -1,0 +1,15 @@
+{
+ "id": "F-20261119-07",
+ "slug": "phone-enumeration",
+ "step": "pr-ready-owner-push",
+ "branch": "forge/F-20261119-07-phone-enumeration",
+ "worktree": ".openforge/worktrees/F-20261119-07",
+ "base_sha": "a04ad61022c80d18ad22866d6609eb72adde5bbb",
+ "implementer": [
+  "forge-backend-engineer",
+  "forge-frontend-engineer"
+ ],
+ "head_sha": "2e3ce50b95165154428b6b34d044a8f834ec1875",
+ "portfolio": "O-01",
+ "owner_push_approved": "2026-11-20 (AskUserQuestion)"
+}

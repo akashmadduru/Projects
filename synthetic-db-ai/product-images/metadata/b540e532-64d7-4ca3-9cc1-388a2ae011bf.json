@@ -1,0 +1,13 @@
+{
+ "product_id": "b540e532-64d7-4ca3-9cc1-388a2ae011bf",
+ "name": "Quali Ultrabook Gen 3",
+ "prompt": "studio packshot photo of a Rose Gold Quali Ultrabook Gen 3, made of nylon, laptops, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 944400481,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:18:44",
+ "file_path": "product-images/images/b540e532-64d7-4ca3-9cc1-388a2ae011bf.jpg",
+ "file_size": 39823
+}

@@ -1,0 +1,13 @@
+{
+ "product_id": "a18c0f52-567f-4ad0-9f89-2527943ed725",
+ "name": "Zeli Mechanical Keyboard Ultra",
+ "prompt": "studio packshot photo of a Blue Zeli Mechanical Keyboard Ultra, made of aluminium, keyboards & mice, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 749184635,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T00:38:37",
+ "file_path": "product-images/images/a18c0f52-567f-4ad0-9f89-2527943ed725.jpg",
+ "file_size": 58369
+}

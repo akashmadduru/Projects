@@ -1,0 +1,13 @@
+{
+ "product_id": "bccf4344-c086-4a40-3c6e-d4fc54ba0539",
+ "name": "Arrili Smartwatch Gen 3",
+ "prompt": "studio packshot photo of a Blue Arrili Smartwatch Gen 3, made of nylon, smart watches, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 19746733,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:33:16",
+ "file_path": "product-images/images/bccf4344-c086-4a40-3c6e-d4fc54ba0539.jpg",
+ "file_size": 48636
+}

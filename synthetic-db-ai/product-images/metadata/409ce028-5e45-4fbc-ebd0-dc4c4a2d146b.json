@@ -1,0 +1,13 @@
+{
+ "product_id": "409ce028-5e45-4fbc-ebd0-dc4c4a2d146b",
+ "name": "Liexdex 4K TV Elite",
+ "prompt": "studio packshot photo of a Space Grey Liexdex 4K TV Elite, made of bamboo, televisions, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3932115959,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T00:33:40",
+ "file_path": "product-images/images/409ce028-5e45-4fbc-ebd0-dc4c4a2d146b.jpg",
+ "file_size": 52524
+}

@@ -69,7 +69,15 @@ class FederatedIdentityResolverTest {
     TimeProvider timeProvider = new FixedTimeProvider(Instant.parse("2026-01-01T00:00:00Z"));
     resolver =
         new FederatedIdentityResolver(
-            identities, users, roles, new UserPrincipalService(users), timeProvider, metrics);
+            identities,
+            users,
+            roles,
+            new UserPrincipalService(
+                users,
+                org.mockito.Mockito.mock(
+                    com.acme.ecommerce.auth.repository.UserTotpRepository.class)),
+            timeProvider,
+            metrics);
   }
 
   private static OidcIdentity identity(boolean emailVerified) {

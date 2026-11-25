@@ -1,0 +1,13 @@
+{
+ "product_id": "fff5a0b3-2075-4ac2-1b8f-64af1bcea09a",
+ "name": "Nuze Hair Dryer Elite",
+ "prompt": "studio packshot photo of a Space Grey Nuze Hair Dryer Elite, made of aluminium, hair care, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1040241083,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T00:31:12",
+ "file_path": "product-images/images/fff5a0b3-2075-4ac2-1b8f-64af1bcea09a.jpg",
+ "file_size": 64486
+}

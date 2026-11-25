@@ -1,0 +1,16 @@
+{
+ "id": "F-20261119-15",
+ "slug": "cod-payment-row",
+ "step": "pr",
+ "branch": "forge/F-20261119-15-cod-payment-row",
+ "worktree": ".openforge/worktrees/F-20261119-15",
+ "base_sha": "b7f5b97462288d77ce44ea7384dc301b1d227ef9",
+ "implementer": "forge-backend-engineer",
+ "head_sha": "8ff29132fe435135becbdb0ab53f431448d4fa87",
+ "portfolio": "B-10",
+ "depends_on": "F-20261119-11",
+ "pr_split": [
+  "b7f5b97462288d77ce44ea7384dc301b1d227ef9..60a105077f734f67cef5fee76ba5682f023d8c65",
+  "60a105077f734f67cef5fee76ba5682f023d8c65..8ff29132fe435135becbdb0ab53f431448d4fa87"
+ ]
+}

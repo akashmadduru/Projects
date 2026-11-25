@@ -1,0 +1,13 @@
+{
+ "product_id": "c4a35491-01ad-40c9-ec2d-c8e462a478bf",
+ "name": "Kalum Puzzle Pro",
+ "prompt": "studio packshot photo of a Grey Kalum Puzzle Pro, made of leather, board games, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3622153232,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T00:40:23",
+ "file_path": "product-images/images/c4a35491-01ad-40c9-ec2d-c8e462a478bf.jpg",
+ "file_size": 53134
+}

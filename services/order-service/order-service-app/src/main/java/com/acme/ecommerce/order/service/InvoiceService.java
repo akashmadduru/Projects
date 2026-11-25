@@ -20,9 +20,9 @@ import org.springframework.stereotype.Service;
 /**
  * Renders a GST-style tax invoice as a PDF.
  *
- * <p>Hand-rolled minimal PDF (monospaced Courier text, base-14 font, no embedded resources):
- * Maven Central was unreachable when this was built so OpenPDF could not be resolved. See tech
- * debt: swap for OpenPDF (the catalog entry is already in libs.versions.toml).
+ * <p>Hand-rolled minimal PDF (monospaced Courier text, base-14 font, no embedded resources): Maven
+ * Central was unreachable when this was built so OpenPDF could not be resolved. See tech debt: swap
+ * for OpenPDF (the catalog entry is already in libs.versions.toml).
  */
 @Service
 public class InvoiceService {
@@ -86,23 +86,30 @@ public class InvoiceService {
    */
   public byte[] render(OrderResponse o, UUID shipmentId) {
     ShipmentResponse ship = pick(o, shipmentId);
-    boolean split = ship != null && o.shipments().size() > 1;
+    // Non-null only for one shipment of a split order; tested directly so null checks are explicit.
+    ShipmentResponse splitShip = ship != null && o.shipments().size() > 1 ? ship : null;
+    boolean split = splitShip != null;
     BigDecimal share = BigDecimal.ONE;
-    if (split && o.subtotalAmount() != null && o.subtotalAmount().signum() > 0) {
-      share = ship.amount().divide(o.subtotalAmount(), 8, RoundingMode.HALF_UP);
+    if (splitShip != null && o.subtotalAmount() != null && o.subtotalAmount().signum() > 0) {
+      share = splitShip.amount().divide(o.subtotalAmount(), 8, RoundingMode.HALF_UP);
     }
     final BigDecimal sh = share;
     java.util.function.UnaryOperator<BigDecimal> part =
         v -> v == null ? null : split ? v.multiply(sh).setScale(2, RoundingMode.HALF_UP) : v;
-    List<OrderItemResponse> invItems = split ? ship.items() : o.items();
-    BigDecimal subtotalAmt = split ? ship.amount() : o.subtotalAmount();
+    List<OrderItemResponse> invItems = splitShip != null ? splitShip.items() : o.items();
+    BigDecimal subtotalAmt = splitShip != null ? splitShip.amount() : o.subtotalAmount();
     List<Line> lines = new ArrayList<>();
     OrderProperties.Seller seller = props.getSeller();
-    boolean otherSeller =
+    // The marketplace seller's name when someone other than the platform fulfils it, else null.
+    String otherSellerName =
         ship != null
-            && ship.sellerName() != null
-            && !ship.sellerName().equalsIgnoreCase(seller.getName())
-            && !"Acme Retail".equalsIgnoreCase(ship.sellerName());
+                && ship.sellerName() != null
+                && !ship.sellerName().equalsIgnoreCase(seller.getName())
+                && !"Acme Retail".equalsIgnoreCase(ship.sellerName())
+            ? ship.sellerName()
+            : null;
+    String otherSellerWarehouse =
+        otherSellerName == null || ship == null ? null : ship.warehouseCode();
     String rule = "-".repeat(WIDTH_CHARS);
 
     lines.add(new Line("TAX INVOICE", true, 16));
@@ -110,16 +117,23 @@ public class InvoiceService {
     lines.add(new Line("Invoice No : " + invoiceNumber(o, ship), true, SIZE));
     lines.add(new Line("Date       : " + DATE.format(o.placedAt()), false, SIZE));
     lines.add(new Line("Order      : " + o.id(), false, SIZE));
-    if (split) {
-      lines.add(new Line("Shipment   : " + ship.id(), false, SIZE));
+    if (splitShip != null) {
+      lines.add(new Line("Shipment   : " + splitShip.id(), false, SIZE));
     }
-    lines.add(new Line("Payment    : " + o.paymentMethod() + " (" + o.paymentStatus() + ")", false, SIZE));
+    lines.add(
+        new Line(
+            "Payment    : " + o.paymentMethod() + " (" + o.paymentStatus() + ")", false, SIZE));
     lines.add(new Line("", false, SIZE));
     lines.add(new Line("SOLD BY", true, SIZE));
-    if (otherSeller) {
-      lines.add(new Line(ship.sellerName(), false, SIZE));
-      lines.add(new Line("Marketplace seller - fulfilled from " + ship.warehouseCode(), false, SIZE));
-      lines.add(new Line("Sold via " + seller.getName() + " marketplace, GSTIN: " + seller.getGstin(), false, SIZE));
+    if (otherSellerName != null) {
+      lines.add(new Line(otherSellerName, false, SIZE));
+      lines.add(
+          new Line("Marketplace seller - fulfilled from " + otherSellerWarehouse, false, SIZE));
+      lines.add(
+          new Line(
+              "Sold via " + seller.getName() + " marketplace, GSTIN: " + seller.getGstin(),
+              false,
+              SIZE));
     } else {
       lines.add(new Line(seller.getName(), false, SIZE));
       lines.add(new Line(seller.getAddress(), false, SIZE));
@@ -128,15 +142,20 @@ public class InvoiceService {
     lines.add(new Line("", false, SIZE));
     ShipToResponse s = o.shipTo();
     lines.add(new Line("BILL TO / SHIP TO", true, SIZE));
-    lines.add(new Line(s.fullName() + (o.email() == null ? "" : "  <" + o.email() + ">"), false, SIZE));
+    lines.add(
+        new Line(s.fullName() + (o.email() == null ? "" : "  <" + o.email() + ">"), false, SIZE));
     lines.add(new Line(s.line1(), false, SIZE));
     if (s.line2() != null && !s.line2().isBlank()) {
       lines.add(new Line(s.line2(), false, SIZE));
     }
     lines.add(
         new Line(
-            s.city() + (s.state() == null ? "" : ", " + s.state()) + " " + s.postalCode()
-                + ", " + s.country(),
+            s.city()
+                + (s.state() == null ? "" : ", " + s.state())
+                + " "
+                + s.postalCode()
+                + ", "
+                + s.country(),
             false,
             SIZE));
     if (s.phone() != null) {
@@ -149,7 +168,11 @@ public class InvoiceService {
     for (OrderItemResponse i : invItems) {
       lines.add(
           new Line(
-              row(i.name(), String.valueOf(i.quantity()), money(i.unitPrice()), money(i.lineTotal())),
+              row(
+                  i.name(),
+                  String.valueOf(i.quantity()),
+                  money(i.unitPrice()),
+                  money(i.lineTotal())),
               false,
               SIZE));
     }
@@ -271,8 +294,11 @@ public class InvoiceService {
               + " 0 R >>");
       String stream = pages.get(p);
       objects.add(
-          "<< /Length " + stream.getBytes(StandardCharsets.ISO_8859_1).length + " >>\nstream\n"
-              + stream + "endstream");
+          "<< /Length "
+              + stream.getBytes(StandardCharsets.ISO_8859_1).length
+              + " >>\nstream\n"
+              + stream
+              + "endstream");
     }
 
     ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -283,7 +309,8 @@ public class InvoiceService {
       write(out, (i + 1) + " 0 obj\n" + objects.get(i) + "\nendobj\n");
     }
     int xref = out.size();
-    StringBuilder x = new StringBuilder("xref\n0 " + (objects.size() + 1) + "\n0000000000 65535 f \n");
+    StringBuilder x =
+        new StringBuilder("xref\n0 " + (objects.size() + 1) + "\n0000000000 65535 f \n");
     for (int off : offsets) {
       x.append(String.format(Locale.ENGLISH, "%010d 00000 n \n", off));
     }

@@ -1,0 +1,15 @@
+{
+ "product_id": "3f4ebd15-869c-453d-676e-e686984abebf",
+ "name": "Basuta Olive Oil Edition",
+ "prompt": "studio packshot photo of a Blue Basuta Olive Oil Edition, made of silicone, pantry, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2989518608,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:54:12",
+ "file_path": "static/images/3f4ebd15-869c-453d-676e-e686984abebf.jpg",
+ "file_size": 32937,
+ "uploaded": false,
+ "s3_url": null
+}

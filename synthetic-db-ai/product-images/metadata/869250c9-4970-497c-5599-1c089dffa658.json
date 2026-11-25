@@ -1,0 +1,13 @@
+{
+ "product_id": "869250c9-4970-497c-5599-1c089dffa658",
+ "name": "Nudex Analog Watch Pro",
+ "prompt": "studio packshot photo of a Grey Nudex Analog Watch Pro, made of nylon, watches & jewellery, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1272445904,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:54:59",
+ "file_path": "product-images/images/869250c9-4970-497c-5599-1c089dffa658.jpg",
+ "file_size": 56863
+}

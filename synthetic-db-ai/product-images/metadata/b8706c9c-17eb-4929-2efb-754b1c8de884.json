@@ -1,0 +1,13 @@
+{
+ "product_id": "b8706c9c-17eb-4929-2efb-754b1c8de884",
+ "name": "Extra Electric Shaver Max",
+ "prompt": "studio packshot photo of a Red Extra Electric Shaver Max, made of leather, grooming, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1246471960,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:09:16",
+ "file_path": "product-images/images/b8706c9c-17eb-4929-2efb-754b1c8de884.jpg",
+ "file_size": 56762
+}

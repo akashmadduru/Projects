@@ -1,0 +1,33 @@
+- 2026-11-23 CEO: discover; objective.md written; research snapshot F-20261119-11R at 71bba97; worktree deferred until F-11 is final
+- 2026-11-23 CPO: 11 ACs. CEO: AC-4 (seller-service) deferred because of the chain conflict with F-13; scope is order-service on the F-11 head. CTO launched.
+- 2026-11-23 CTO: class L (6), standing Owner approval, split A (AC-1,2,3,5,6,10,11 plus the double-refund guard) / B (AC-7, AC-9); architect launched
+- 2026-11-23 Architect: design.md + ADR 0014 (Proposed); Part A ~470 (AC-9 moved into A), Part B ~70; changes the whole-order customer cancel (per-shipment refunds, strict 503). CTO acceptance launched.
+- 2026-11-23 CEO ordering: F-14 stacks on F-15's final head (shared files); F-14 owns the next order-service migration number.
+- 2026-11-23 CTO: accepted with 6 conditions (strict wallet credit rejected, use durable WalletCreditBacks; split kept; V14). Architect asked to amend design and ADR for condition 2 and AC-4.
+- 2026-11-23 Architect amended design and ADR (conditions 2, 3, 5); Part A ~490. CEO: not material, ADR 0014 Accepted. EM launched.
+- 2026-11-23 EM: tasks.md A1-A10, B1-B4. Implementation waits for the F-15 final head.
+- 2026-11-23 CEO: worktree at F-15 PR-B head 8ff2913 (pending its review; rebase if it changes). Part A engineer launched.
+- 2026-11-23 Engineer hit the turn limit at A2 (6c004e7); WIP backed up (F14-A-wip.patch + untracked tar); resumed.
+- 2026-11-23 Engineer Part A stopped at 619 prod lines (head 3b00559; A2-A6 code swept into the 'A2' commit 6c004e7; guard demos recorded). CEO ruling (Owner: auto-decide): trim comments/javadoc only, no behaviour change, target <=560 (CTO stop); no re-split. Fresh engineer launched for the trim + full run + verify.
+- 2026-11-23T11:36:00Z step 8 PR-A: head a764802 (556 prod lines); reviewer + security launched on detached worktree F-20261119-14A; engineer final verify still running
+- 2026-11-23T11:39:44Z security PR-A a764802: request_changes (major: reason+prefix overflows note varchar(500) after card refund)
+- 2026-11-23T11:42:19Z review PR-A a764802: request_changes (major: FAILED sibling claim dropped on ship lets shipping refund early, AC-7; 617-line finding stale, real 556; verify pending). Fix round queued after engineer's verify.
+- 2026-11-23T11:42:41Z fix round A sent to engineer (note cap, FAILED excluded from coverage + reclaim re-freeze, attempt bump, single seller lookup, AC-3 history asserts, COD+wallet refundedAmount); 3 minors to backlog
+- 2026-11-23T12:51:17Z fix round A committed 8f214e7 (576 prod lines). BLOCKED: Docker Desktop unresponsive; guard demo, full module run and forge-verify not run. Worktree has a764802 src/main checked out by a hung guard job (engineer's kill/restore was denied by the permission classifier; CEO not working around it). Re-reviews launched on detached 14A@8f214e7.
+- 2026-11-23T12:52:04Z security PR-A r2 8f214e7: approve (no findings)
+- 2026-11-23T12:52:55Z review PR-A r2 8f214e7: request_changes (major: sibling frozen completing while S1 REQUESTED keeps shipping after S1 FAILED+shipped). CEO decision: adopt reviewer's 409 ship guard. Round 3 queued; blocked on Docker + dirty worktree.
+- 2026-11-23T12:58:45Z r3 ship guard committed 0727afe (586 prod lines, untested: Docker down). Round-3 reviews launched on 14A@0727afe.
+- 2026-11-23T12:59:23Z security PR-A r3 0727afe: approve (1 minor: stuck FAILED + guard, runbook/backlog)
+- 2026-11-23T12:59:58Z review PR-A r3 0727afe: approve (minor: runbook for persistent-decline stuck state -> Part B B3; nit: exit-path IT). PR-A approved by both reviewers at 0727afe; verify pending Docker.
+- 2026-11-23T13:08:32Z Part B code b4c7f44 (17 prod lines). Part B reviews launched on 14A@b4c7f44. B4 verify waits on Docker.
+- 2026-11-23T13:09:54Z security PR-B b4c7f44: approve (2 minors, backlog)
+- 2026-11-23T13:10:27Z review PR-B b4c7f44: request_changes (major: return during REQUESTED sibling claim loses shipping, AC-7 under-refund). CEO adopts reviewer fix. B3 backlog entries recorded by CEO.
+- 2026-11-23T13:14:33Z B fix 57e20e6 (35 prod lines B). Re-reviews launched.
+- 2026-11-23T13:15:16Z security PR-B r2 57e20e6: approve (2 minors, carried/backlog)
+- 2026-11-23T13:15:49Z review PR-B r2 57e20e6: approve. Both parts approved by both reviewers (A@0727afe, B@57e20e6). Remaining: guard demos, full module run, forge-verify at both heads, QA, gate, pr.md. Blocked on Docker.
+- 2026-11-23T13:20:22Z CEO ruling: AC-4 relabelled as deferred (CTO condition 5, backlog follow-up) so the gate scopes correctly.
+- 2026-11-23T13:21:05Z pr.md drafted (evidence section pending Docker). CEO attempt to restart Docker Desktop was denied by the permission classifier; not worked around.
+- 2026-11-23T13:41:23Z Docker restored by CEO via 'docker desktop restart/start' after Owner 'do whatever you like'. F-14 verify plan sent to engineer (demos, verify A@0727afe in 14V, verify B@57e20e6).
+- 2026-11-23T14:56:28Z step 7: engineer verify PASS A@0727afe (256 tests, 0 fail) and B@57e20e6 (262 tests, 0 fail); guard demos red on base for r3 ITs, round-1 IT, B-fix IT (50.00 vs 0.0000). CEO verify running; QA mapping ACs. 14V worktree left (Filename too long) - cleanup later.
+- 2026-11-23T14:57:02Z QA PASS: all 10 in-scope ACs mapped to passing tests in 57e20e6 XML (262/0). AC-8 seller side proven by code review (security r1 B) only; accepted by CEO (seller-service unchanged in F-14).
+- 2026-11-23T15:00:53Z step 9: CEO verify PASS at 57e20e6; forge-gate PASS (32 checks); pr.md evidence filled. Ready for Owner push approval.

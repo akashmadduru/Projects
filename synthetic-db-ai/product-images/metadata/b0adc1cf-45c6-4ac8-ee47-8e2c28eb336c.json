@@ -1,0 +1,13 @@
+{
+ "product_id": "b0adc1cf-45c6-4ac8-ee47-8e2c28eb336c",
+ "name": "Quadex Action Camera Max",
+ "prompt": "studio packshot photo of a Red Quadex Action Camera Max, made of wood, cameras, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1668544984,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:22:38",
+ "file_path": "product-images/images/b0adc1cf-45c6-4ac8-ee47-8e2c28eb336c.jpg",
+ "file_size": 57615
+}

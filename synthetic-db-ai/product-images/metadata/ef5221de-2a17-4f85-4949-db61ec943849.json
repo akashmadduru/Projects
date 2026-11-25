@@ -1,0 +1,13 @@
+{
+ "product_id": "ef5221de-2a17-4f85-4949-db61ec943849",
+ "name": "Lumvenar Smart TV Ultra",
+ "prompt": "studio packshot photo of a Black Lumvenar Smart TV Ultra, made of glass, televisions, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1660495771,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:17:06",
+ "file_path": "product-images/images/ef5221de-2a17-4f85-4949-db61ec943849.jpg",
+ "file_size": 32613
+}

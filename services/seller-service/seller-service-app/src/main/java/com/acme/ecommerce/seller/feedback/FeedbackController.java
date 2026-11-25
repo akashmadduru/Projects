@@ -30,19 +30,28 @@ public class FeedbackController {
 
   @PostMapping("/api/sellers/{id}/feedback")
   @ResponseStatus(HttpStatus.CREATED)
-  public Feedback create(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id, @RequestBody FeedbackRequest request) {
+  public Feedback create(
+      @AuthenticationPrincipal Jwt jwt,
+      @PathVariable UUID id,
+      @RequestBody FeedbackRequest request) {
     return feedback.create(UUID.fromString(jwt.getSubject()), id, request);
   }
 
   @GetMapping("/api/sellers/{id}/feedback")
-  public Paged<Feedback> list(@PathVariable UUID id, @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
+  public Paged<Feedback> list(
+      @PathVariable UUID id,
+      @RequestParam(defaultValue = "0") int page,
+      @RequestParam(defaultValue = "20") int size) {
     return feedback.list(id, page, size);
   }
 
   /** The calling seller's own feedback. */
   @GetMapping("/api/seller/feedback")
   @PreAuthorize("hasRole('SELLER')")
-  public Paged<Feedback> mine(@AuthenticationPrincipal Jwt jwt, @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
+  public Paged<Feedback> mine(
+      @AuthenticationPrincipal Jwt jwt,
+      @RequestParam(defaultValue = "0") int page,
+      @RequestParam(defaultValue = "20") int size) {
     return feedback.list(sellers.requireByUser(UUID.fromString(jwt.getSubject())).id(), page, size);
   }
 }

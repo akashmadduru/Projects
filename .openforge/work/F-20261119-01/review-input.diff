@@ -1,0 +1,2479 @@
+diff --git a/deploy/aws/helm/ecommerce/templates/deployment.yaml b/deploy/aws/helm/ecommerce/templates/deployment.yaml
+index c8d0010..d80c920 100644
+--- a/deploy/aws/helm/ecommerce/templates/deployment.yaml
++++ b/deploy/aws/helm/ecommerce/templates/deployment.yaml
+@@ -122,6 +122,12 @@ spec:
+             - { name: GATEWAY_RATE_LIMIT_WRITES, value: {{ $g.gateway.rateLimitWritesPerMinute | quote }} }
+             - { name: GATEWAY_RATE_LIMIT_READS, value: {{ $g.gateway.rateLimitReadsPerMinute | quote }} }
+             - { name: GATEWAY_RATE_LIMIT_TRUSTED_PROXY_HOPS, value: {{ $g.gateway.trustedProxyHops | quote }} }
++            {{- /* Boot defaults to NATIVE on Kubernetes, which makes Netty trust the forgeable leftmost X-Forwarded-For entry; the rate limiter counts from the right itself. */}}
++            - { name: SERVER_FORWARD_HEADERS_STRATEGY, value: "none" }
++            {{- end }}
++            {{- if eq $name "user-service" }}
++            {{- /* Referral abuse checks read the client from X-Forwarded-For: the gateway's trusted hops plus the gateway's own append. */}}
++            - { name: USER_REFERRAL_TRUSTED_PROXY_HOPS, value: {{ add (int $g.gateway.trustedProxyHops) 1 | quote }} }
+             {{- end }}
+             {{- if eq $name "auth-service" }}
+             - { name: AUTH_ALLOWED_REDIRECT_URIS, value: "{{ $g.shopUrl }}/auth/callback,{{ $g.adminUrl }}/auth/callback" }
+diff --git a/docs/phases/phase-08-retention-and-loyalty.md b/docs/phases/phase-08-retention-and-loyalty.md
+index 14b92e8..e91e431 100644
+--- a/docs/phases/phase-08-retention-and-loyalty.md
++++ b/docs/phases/phase-08-retention-and-loyalty.md
+@@ -15,7 +15,7 @@
+ | 5 | **Order again / Buy it again** list | One-click repeat purchase for consumables | — | order-service, storefront | S | ✅ Built (`/api/orders/buy-again`, `/account/buy-again`) |
+ | 6 | **Notification centre** in the app (order updates, offers, alerts) | Single place for every message | Toasts only | notification-service, Header | M | ✅ Built (bell, `/account/notifications`); badge polls every 60 s, no retention ([TD-P8-15](../techdebt/phase8.md#td-p8-15), [TD-P8-18](../techdebt/phase8.md#td-p8-18)) |
+ | 7 | **Personalised home page** (recently viewed, recommended, deals for you) | First screen sells | Same catalog for everyone | recommendation-service, home | M | ✅ Built in the storefront on existing endpoints (no recommendation-service); about 7 requests on load ([TD-P8-18](../techdebt/phase8.md#td-p8-18)) |
+-| 8 | **Referral programme** (invite → both get credit) | Cheapest acquisition channel | — | loyalty-service, user-service | M | ✅ Built, partial: reward not reported back to user-service, no abuse checks ([TD-P8-13](../techdebt/phase8.md#td-p8-13)) |
++| 8 | **Referral programme** (invite → both get credit) | Cheapest acquisition channel | — | loyalty-service, user-service | M | ✅ Built. Claims are refused for a code under 10 minutes old or, when `USER_REFERRAL_IP_LOOKBACK` is set, a network the referrer used within that window (hashed IPs; the IP check is OFF by default until the gateway forwards a trustworthy client IP, backlog B-1; settings `USER_REFERRAL_*`); salt wiring is [TD-P8-24](../techdebt/phase8.md#td-p8-24) |
+ | 9 | **Multiple and shareable lists** (gift lists, wedding registry, public wishlist link) | Gifting and social sharing | One private wishlist | cart-service | S | ✅ Built (CRUD, share link, public page); hybrid storage, unpaged ([TD-P8-16](../techdebt/phase8.md#td-p8-16)) |
+ | 10 | **Subscribe & Save** for repeat items (auto-reorder on a schedule, discount) | Predictable recurring revenue | — | order-service scheduler, payment-service | L | ✅ Built, partial: 5% discount, COD/WALLET only, daily job under a cluster lock ([TD-P8-11](../techdebt/phase8.md#td-p8-11)) |
+ | 11 | **Web push and email marketing campaigns** with opt-in preferences | Re-engagement at scale | — | notification-service, account settings | M | ✅ Built, partial: push never delivered to a real service; campaign audience only users with profiles; send is in-process ([TD-P8-02](../techdebt/phase8.md#td-p8-02), [TD-P8-03](../techdebt/phase8.md#td-p8-03), [TD-P8-04](../techdebt/phase8.md#td-p8-04)) |
+diff --git a/docs/reference/api.md b/docs/reference/api.md
+index c32881e..b5438f1 100644
+--- a/docs/reference/api.md
++++ b/docs/reference/api.md
+@@ -74,7 +74,7 @@ Every error is an RFC 9457 `application/problem+json` document:
+ 5xx responses never include exception text; the details are in the service log under the
+ `X-Correlation-Id` returned with the response.
+ 
+-All 38 codes (`libs/common-core/.../error/ErrorCode.java`):
++All 40 codes (`libs/common-core/.../error/ErrorCode.java`):
+ 
+ | HTTP | Code | Title |
+ |---|---|---|
+@@ -112,6 +112,8 @@ All 38 codes (`libs/common-core/.../error/ErrorCode.java`):
+ | 422 | `DOMAIN_RULE_VIOLATION` | Domain rule violation |
+ | 422 | `GIFT_CARD_INVALID` | Gift card invalid |
+ | 422 | `PAYMENT_METHOD_UNAVAILABLE` | Payment method unavailable |
++| 422 | `REFERRAL_CODE_TOO_NEW` | Referral code too new |
++| 422 | `REFERRAL_IP_MATCH` | Referral not allowed from this network |
+ | 429 | `RATE_LIMITED` | Too many requests |
+ | 500 | `INTERNAL_ERROR` | Internal server error |
+ | 503 | `DEPENDENCY_UNAVAILABLE` | Dependency unavailable |
+diff --git a/docs/reference/endpoints.md b/docs/reference/endpoints.md
+index 3b395ac..e1384f3 100644
+--- a/docs/reference/endpoints.md
++++ b/docs/reference/endpoints.md
+@@ -391,3 +391,5 @@ Request and response shapes for Phases 1–5 are in [api.md](api.md); later phas
+ | GET | `/internal/users/{userId}/membership` | InternalEngageController |
+ | GET | `/internal/users/{userId}/preferences` | InternalEngageController |
+ | POST | `/internal/users/membership/payment-result` | InternalEngageController |
++
++`GET /api/referrals` records a hashed copy of the caller's IP (never the raw address). `POST /api/referrals/claim` answers 422 `REFERRAL_CODE_TOO_NEW` or `REFERRAL_IP_MATCH` when a claim is refused.
+diff --git a/docs/reference/env-descriptions.json b/docs/reference/env-descriptions.json
+index 1f66e03..9baa926 100644
+--- a/docs/reference/env-descriptions.json
++++ b/docs/reference/env-descriptions.json
+@@ -32,8 +32,13 @@
+     },
+     "SERVER_FORWARD_HEADERS_STRATEGY": {
+       "group": "Platform",
+-      "usedBy": "auth (Helm)",
+-      "text": "Makes auth-service honour `X-Forwarded-Host/Proto`, so the Google sign-in callback URL uses the public host instead of the internal one."
++      "usedBy": "auth, gateway (Helm)",
++      "text": "auth-service: `framework`, so the Google sign-in callback URL uses the public host instead of the internal one. gateway: `none`, because Spring Boot defaults to `native` on Kubernetes, which would make the gateway trust the forgeable leftmost `X-Forwarded-For` entry; the rate limiter and the referral checks count from the right themselves."
++    },
++    "USER_FORWARD_HEADERS_STRATEGY": {
++      "group": "Platform",
++      "usedBy": "user",
++      "text": "Maps to `server.forward-headers-strategy` for user-service. Keep the default `none`: the referral IP checks read the raw `X-Forwarded-For` chain, and Spring Boot's Kubernetes default (`native`) would make Tomcat rewrite it first."
+     },
+     "RATING_MEDIA_DIR": {
+       "group": "Platform",
+@@ -345,6 +350,27 @@
+       "usedBy": "order (Compose)",
+       "text": "How many times the customer's average an order may be before it is flagged (Compose default 10)."
+     },
++    "USER_REFERRAL_IP_HASH_SALT": {
++      "group": "Business rules",
++      "secret": true,
++      "text": "Secret key for hashing client IPs on referral pages and claims (HMAC-SHA256; raw IPs are never stored). Blank fails safe: a random key is made per process and a WARN is logged, so IP matches can only be missed (hashes differ across restarts and replicas), never wrongly refused, and the code-age check still applies. Production must set it."
++    },
++    "USER_REFERRAL_IP_LOOKBACK": {
++      "group": "Business rules",
++      "text": "How far back a referrer's recorded network counts when a referee claims. A claim from a network the referrer used within this window is refused. Default 0: the IP check is OFF and no IP activity is recorded, until the gateway forwards a trustworthy client IP (backlog B-1); do not enable it behind the current gateway. A blank value keeps the default."
++    },
++    "USER_REFERRAL_IP_RETENTION": {
++      "group": "Business rules",
++      "text": "How long hashed IPs are kept before the daily cleanup deletes them. Keep it at least as long as the lookback; if shorter, retention is the effective lookback. 0 or negative disables the cleanup (hashed IPs are then kept indefinitely; a WARN is logged at startup). A blank value keeps the default."
++    },
++    "USER_REFERRAL_MIN_CODE_AGE": {
++      "group": "Business rules",
++      "text": "Minimum age of a referral code before it can be claimed. A newer code is refused. 0 turns the check off."
++    },
++    "USER_REFERRAL_TRUSTED_PROXY_HOPS": {
++      "group": "Business rules",
++      "text": "Which `X-Forwarded-For` entry, counted from the right, is the caller's IP for the referral checks. Each proxy appends, so only entries on the left can be forged. 1 for Compose (the gateway appends the caller); 3 on AWS (CloudFront, ALB, gateway). 0 ignores the header and uses the socket peer."
++    },
+     "USER_REFERRAL_REWARD_COINS": {
+       "group": "Business rules",
+       "text": "Coins awarded for a successful referral."
+@@ -518,6 +544,8 @@
+     "VITE_STOREFRONT_ORIGIN": "Admin app: the storefront origin, used only to build \"Preview on storefront\" links in the theme editor. Default `http://localhost:3000`."
+   },
+   "deploy": {
++    "VAPID_PUBLIC_KEY": "Browser-push (VAPID) public key for the notification service, base64url. Blank in a non-prod environment: a keypair is generated on first start. Under `prod` blank turns web push off.",
++    "VAPID_PRIVATE_KEY": "Browser-push (VAPID) private key paired with `VAPID_PUBLIC_KEY`. Required for web push under `prod`.",
+     "AWS_REGION": "Region for everything except CloudFront certificates and WAF (always us-east-1).",
+     "AWS_PROFILE": "Named AWS CLI profile; blank uses the default credential chain.",
+     "PROJECT": "Name prefix for every resource.",
+diff --git a/docs/reference/environment-variables.md b/docs/reference/environment-variables.md
+index bc31714..bd19fab 100644
+--- a/docs/reference/environment-variables.md
++++ b/docs/reference/environment-variables.md
+@@ -35,12 +35,13 @@ service-level setting (add it under that service's `env:` in `values.yaml`). Rel
+ | `MANAGEMENT_SERVER_ADDRESS` | gateway (Helm) | _Spring default_ |  | helm | Bind address for a separate management port. The gateway defaults to `127.0.0.1` in `prod`, which Kubernetes probes cannot reach; the chart sets `0.0.0.0`. |
+ | `MANAGEMENT_SERVER_PORT` | all services (Helm) | _Spring default_ |  | helm | Port for actuator (health, metrics). Equal to the service port for every service except the gateway, whose `prod` profile uses a separate port 8081. |
+ | `RATING_MEDIA_DIR` | rating | `/data/media` |  | compose + helm | Directory where review images are stored. On AWS this is an EBS volume, which is why rating-service runs one replica. |
+-| `SERVER_FORWARD_HEADERS_STRATEGY` | auth (Helm) | _Spring default_ |  | helm | Makes auth-service honour `X-Forwarded-Host/Proto`, so the Google sign-in callback URL uses the public host instead of the internal one. |
++| `SERVER_FORWARD_HEADERS_STRATEGY` | auth, gateway (Helm) | _Spring default_ |  | helm | auth-service: `framework`, so the Google sign-in callback URL uses the public host instead of the internal one. gateway: `none`, because Spring Boot defaults to `native` on Kubernetes, which would make the gateway trust the forgeable leftmost `X-Forwarded-For` entry; the rate limiter and the referral checks count from the right themselves. |
+ | `SERVER_PORT` | all services | _per service_ |  | helm | Port the service listens on. Each service has its own default (gateway 8080, auth 8081, product 8082 ... support 8092). |
+ | `SPRING_CONFIG_ADDITIONAL_LOCATION` | all services (Helm) | _Spring default_ |  | helm | Extra config directory. On AWS it points at `/config/`, where the discovery ConfigMap is mounted. |
+ | `SPRING_LIFECYCLE_TIMEOUT_PER_SHUTDOWN_PHASE` | all services (Helm) | _Spring default_ |  | helm | How long a pod may spend finishing in-flight requests on shutdown. Must be shorter than the pod termination grace period. |
+ | `SPRING_PROFILES_ACTIVE` | all services | _Spring default_ |  | compose + helm | Spring profile. `prod` turns on production behaviour: no default passwords, secure cookies, payments refuse to run in simulated mode. Set by Helm on AWS. |
+ | `STOREFRONT_BASE_URL` | auth, cart, notification, seller, support, user | `http://localhost:3000` |  | .env + helm | Public origin of the storefront. Used in links inside emails (verify, reset password, order, referral) and as a CORS/redirect reference. |
++| `USER_FORWARD_HEADERS_STRATEGY` | user | `none` |  | - | Maps to `server.forward-headers-strategy` for user-service. Keep the default `none`: the referral IP checks read the raw `X-Forwarded-For` chain, and Spring Boot's Kubernetes default (`native`) would make Tomcat rewrite it first. |
+ 
+ ## Identity and tokens
+ 
+@@ -111,8 +112,8 @@ service-level setting (add it under that service's `env:` in `values.yaml`). Rel
+ | `SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH` | notification | _Spring default_ |  | compose + helm | SMTP authentication on/off. `true` with a real provider. |
+ | `SPRING_MAIL_PROPERTIES_MAIL_SMTP_SSL_ENABLE` | notification | _Spring default_ |  | compose + helm | Implicit TLS (port 465). |
+ | `SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE` | notification | _Spring default_ |  | compose + helm | Upgrade the SMTP connection with STARTTLS (port 587). |
+-| `VAPID_PRIVATE_KEY` 🔒 | notification | `""` |  | .env | Browser-push private key, paired with `VAPID_PUBLIC_KEY`. Required for web push under `prod`, where it is never generated or stored in the database. |
+-| `VAPID_PUBLIC_KEY` | notification | `""` |  | .env | Browser-push public key (base64url; `npx web-push generate-vapid-keys`). Blank outside `prod`: generated on first start and stored in the database. Blank under `prod`: web push is off (an ERROR is logged). Changing the pair invalidates every browser subscription. |
++| `VAPID_PRIVATE_KEY` 🔒 | notification | `""` |  | .env + helm | Browser-push private key, paired with `VAPID_PUBLIC_KEY`. Required for web push under `prod`, where it is never generated or stored in the database. |
++| `VAPID_PUBLIC_KEY` | notification | `""` |  | .env + helm | Browser-push public key (base64url; `npx web-push generate-vapid-keys`). Blank outside `prod`: generated on first start and stored in the database. Blank under `prod`: web push is off (an ERROR is logged). Changing the pair invalidates every browser subscription. |
+ | `VAPID_SUBJECT` | notification | `mailto:admin@acme.local` |  | .env + helm | Contact (`mailto:`) sent to push services. |
+ 
+ ## Edge, CORS and rate limits
+@@ -166,7 +167,12 @@ service-level setting (add it under that service's `env:` in `values.yaml`). Rel
+ | `ORDER_RISK_AVG_MIN_ORDERS` | order (Compose) | _Spring default_ |  | compose | Minimum past orders before the "unusually large order" check applies (Compose default 3). |
+ | `ORDER_RISK_AVG_MULTIPLIER` | order (Compose) | _Spring default_ |  | compose | How many times the customer's average an order may be before it is flagged (Compose default 10). |
+ | `ORDER_RISK_VELOCITY_THRESHOLD` | order (Compose) | _Spring default_ |  | compose | Orders in a short window that trigger a velocity risk flag (Compose default 8). Mapped by Spring onto `order.risk.*`. |
++| `USER_REFERRAL_IP_HASH_SALT` 🔒 | user | `""` |  | - | Secret key for hashing client IPs on referral pages and claims (HMAC-SHA256; raw IPs are never stored). Blank fails safe: a random key is made per process and a WARN is logged, so IP matches can only be missed (hashes differ across restarts and replicas), never wrongly refused, and the code-age check still applies. Production must set it. |
++| `USER_REFERRAL_IP_LOOKBACK` | user | `0` |  | - | How far back a referrer's recorded network counts when a referee claims. A claim from a network the referrer used within this window is refused. Default 0: the IP check is OFF and no IP activity is recorded, until the gateway forwards a trustworthy client IP (backlog B-1); do not enable it behind the current gateway. A blank value keeps the default. |
++| `USER_REFERRAL_IP_RETENTION` | user | `30d` |  | - | How long hashed IPs are kept before the daily cleanup deletes them. Keep it at least as long as the lookback; if shorter, retention is the effective lookback. 0 or negative disables the cleanup (hashed IPs are then kept indefinitely; a WARN is logged at startup). A blank value keeps the default. |
++| `USER_REFERRAL_MIN_CODE_AGE` | user | `10m` |  | - | Minimum age of a referral code before it can be claimed. A newer code is refused. 0 turns the check off. |
+ | `USER_REFERRAL_REWARD_COINS` | user | `100` |  | - | Coins awarded for a successful referral. |
++| `USER_REFERRAL_TRUSTED_PROXY_HOPS` | user | `1` |  | helm | Which `X-Forwarded-For` entry, counted from the right, is the caller's IP for the referral checks. Each proxy appends, so only entries on the left can be forged. 1 for Compose (the gateway appends the caller); 3 on AWS (CloudFront, ALB, gateway). 0 ignores the header and uses the socket peer. |
+ 
+ ## AI and search
+ 
+@@ -224,6 +230,8 @@ Read by `deploy.sh` / `destroy.sh`. Commented-out lines in the template are opti
+ | `RAZORPAY_KEY_ID` | `""` | **One provider required.** Razorpay key id. Set all three Razorpay values or none. You may configure Stripe, Razorpay or both. |
+ | `RAZORPAY_KEY_SECRET` 🔒 |  | Razorpay key secret (all three Razorpay values or none). |
+ | `RAZORPAY_WEBHOOK_SECRET` 🔒 |  | Secret of the Razorpay webhook endpoint (all three Razorpay values or none). |
++| `VAPID_PUBLIC_KEY` 🔒 |  | Browser-push (VAPID) public key for the notification service, base64url. Blank in a non-prod environment: a keypair is generated on first start. Under `prod` blank turns web push off. |
++| `VAPID_PRIVATE_KEY` 🔒 |  | Browser-push (VAPID) private key paired with `VAPID_PUBLIC_KEY`. Required for web push under `prod`. |
+ | `GOOGLE_CLIENT_ID` | `""` | Optional. Blank disables Google sign-in. |
+ | `GOOGLE_CLIENT_SECRET` 🔒 |  | Optional. Blank disables Google sign-in. |
+ | `KUBERNETES_API_ALLOWED_CIDRS` | `0.0.0.0/0` | Comma-separated CIDRs allowed to reach the Kubernetes API. Narrow it for production. |
+diff --git a/docs/techdebt/README.md b/docs/techdebt/README.md
+index 0bba591..68b75c1 100644
+--- a/docs/techdebt/README.md
++++ b/docs/techdebt/README.md
+@@ -101,7 +101,6 @@ Shortcuts taken while building customer accounts (login, Google SSO, user/cart/o
+ | TD-P8-09 | Coins: earn-rate deviation, expiry informational, consumer limits | phase8 | Med | M | [phase8.md](phase8.md#td-p8-09) |
+ | TD-P8-11 | Subscribe and Save: generic failure mail, no discount line | phase8 | Med | M | [phase8.md](phase8.md#td-p8-11) |
+ | TD-P8-12 | Membership: no renew/proration, uncached live lookups | phase8 | Med | M | [phase8.md](phase8.md#td-p8-12) |
+-| TD-P8-13 | Referral claims have no abuse checks | phase8 | Med | S | [phase8.md](phase8.md#td-p8-13) |
+ | TD-P8-10 | Order list DTO lacks coins/wallet | phase8 | Low | S | [phase8.md](phase8.md#td-p8-10) |
+ | TD-P8-15 | Inbox/preferences shortcuts (no retention, coupled text) | phase8 | Low | M | [phase8.md](phase8.md#td-p8-15) |
+ | TD-P8-16 | Lists: hybrid storage, unpaged, no move endpoint | phase8 | Low | S | [phase8.md](phase8.md#td-p8-16) |
+@@ -110,6 +109,8 @@ Shortcuts taken while building customer accounts (login, Google SSO, user/cart/o
+ | TD-P8-19 | Phase 8 test data and Mailpit messages left in dev | phase8 | Low | S | [phase8.md](phase8.md#td-p8-19) |
+ | TD-P8-20 | notification_db setup script, throwaway password, offline builds | phase8 | Low | S | [phase8.md](phase8.md#td-p8-20) |
+ | TD-P8-22 | Wallet product gaps: one currency, no top-up or admin adjustment | phase8 | Low | M | [phase8.md](phase8.md#td-p8-22) |
++| TD-P8-24 | Referral IP hash salt not wired through Helm; prod does not fail closed | phase8 | Med | S | [phase8.md](phase8.md#td-p8-24) |
++| TD-SEC-15 | Google OIDC callback relies on X-Forwarded-Host/Proto/Port that Gateway 5.0.2 strips | infra-security | Med | S | [infra-security.md](infra-security.md#td-sec-15) |
+ | TD-P9-01 | No tests for Phase 9; admin/storefront specs likely stale | phase9 | High | L | [phase9.md](phase9.md#td-p9-01) |
+ | TD-P9-02 | Legacy stock totals still exist beside warehouse stock (reconciled hourly) | phase9 | Med | M | [phase9.md](phase9.md#td-p9-02) |
+ | TD-P9-09 | KYC format-only; bank data under one static key (role revoke and masking fixed) | phase9 | High | M | [phase9.md](phase9.md#td-p9-09) |
+diff --git a/docs/techdebt/infra-security.md b/docs/techdebt/infra-security.md
+index 28663be..62e7112 100644
+--- a/docs/techdebt/infra-security.md
++++ b/docs/techdebt/infra-security.md
+@@ -43,3 +43,10 @@ Index: [README](README.md)
+ - **Where:** `db-snapshots/*_20261112-011622.sql`, added in commit `5943ec7` (2026-11-12) to the public repository. Deleted from the branch and pushed in `38a92a3`/`97cd7e2` (2026-11-14): the branch tip no longer serves them (HTTP 404), but `5943ec7` still does.
+ - **Risk:** Anyone with a clone can read SCRAM verifiers for 4 Postgres roles (including the `postgres` superuser), an Argon2id password hash, and refresh-token hashes with IP and user agent.
+ - **Fix:** Follow the [runbook](../guides/runbooks/leaked-database-dump.md): change the exposed account password, optionally rotate the local role passwords, purge history with `git filter-branch` (rehearsed on a clone: 13 commits rewritten, tip tree otherwise identical) and force-push, then ask GitHub to drop cached views. Prevention (Gitleaks rules, pre-commit hook, `db-snapshot.sh`) is already in place.
++
++<a id="td-sec-15"></a>
++## TD-SEC-15 Google OIDC callback relies on X-Forwarded-* headers the gateway strips
++- **Severity / Effort:** Med / S
++- **Where:** auth-service Google login callback (redirect URI built from `X-Forwarded-Host`/`-Proto`/`-Port`); Spring Cloud Gateway 5.0.2 forwarding config.
++- **Risk:** Gateway 5.0.2 strips `X-Forwarded-*` unless `spring.cloud.gateway.server.webflux.trusted-proxies` is set, so the callback URL may be built from the gateway's internal host and Google sign-in could fail (or use a wrong origin) after deploy. Found by the F-20261119-01 round 3 security review; pre-existing. The same root cause stops user-service seeing the real client IP, which is why `USER_REFERRAL_IP_LOOKBACK` defaults to 0 (backlog B-1).
++- **Fix:** Post-deploy check of the Google login on the real domain; then set `trusted-proxies` on the gateway (shared with B-1) or pin the redirect URI explicitly.
+diff --git a/docs/techdebt/phase8.md b/docs/techdebt/phase8.md
+index af845d8..d0169af 100644
+--- a/docs/techdebt/phase8.md
++++ b/docs/techdebt/phase8.md
+@@ -69,13 +69,6 @@ Phase 8 was built under "no tests, no HLD/LLD, record shortcuts as debt". The in
+ - **Risk:** No auto-renew, no proration or refund on cancel, no expiring-soon reminder. The payment result relies on payment-service routing purpose `MEMBERSHIP` to `/internal/users/membership/payment-result`. Free shipping, 2x coins and members-only deals each make a live user-service lookup with no cache, and a failure means "not a member", so a member can be charged shipping or miss a bonus during an outage. Deals' `members_only_until` only filters the public active list and internal prices, so a member who sees a deal late still pays list price if promotion-service is down (extends [TD-P7-09](phase7.md#td-p7-09)). No admin view of plans or member counts (no admin endpoints in the contract).
+ - **Fix:** Short-TTL cache plus fail-open for members; renewal and reminder jobs; admin plans and members endpoints.
+ 
+-<a id="td-p8-13"></a>
+-## TD-P8-13 Referral claims have no abuse checks
+-- **Severity / Effort:** Med / S
+-- **Where:** user-service referrals (`POST /api/referrals/claim`); promotion-service `CoinService.referralReward`.
+-- **Risk:** Narrowed 2026-11-18: promotion-service already reports the reward back (`POST /internal/referrals/by-referee/{id}/rewarded`) and reads a typed lookup, and the storefront now shows the claim result. Left: no abuse checks on a claim (same device or IP as the referrer, account age). The reward only pays after the referee's first delivered order, which limits farming to real orders.
+-- **Fix:** Record the claim IP/device and refuse (or hold for review) a claim matching the referrer's; minimum account age.
+-
+ <a id="td-p8-15"></a>
+ ## TD-P8-15 Notification centre, preferences and inbox shortcuts
+ - **Severity / Effort:** Low / M
+@@ -131,3 +124,12 @@ Phase 8 was built under "no tests, no HLD/LLD, record shortcuts as debt". The in
+ - **Where:** payment-service `WalletService`; admin and storefront wallet screens.
+ - **Risk:** Residual of TD-P8-07 (fixed 2026-11-17: money owed back to a wallet is recorded in `orders.pending_wallet_credits` before payment-service is called and retried with backoff until it lands; "WALLET CREDIT STUCK" is logged at ERROR after 10 attempts). The debit was already atomic (row lock plus balance check), so a checkout race fails cleanly with 409. A wallet still holds one currency (reset only at a zero balance), and there is no top-up, withdrawal, expiry or audited admin adjustment.
+ - **Fix:** Product decisions first (multi-currency or conversion rules, top-up via the payment providers); then an admin adjustment endpoint, audited.
++
++<a id="td-p8-24"></a>
++## TD-P8-24 Referral IP hash salt is not wired through Helm and prod does not fail closed
++- **Severity / Effort:** Med / S
++- **Where:** `user-service/.../` `membership/IpFingerprint`, `user.referral.ip-hash-salt` (`USER_REFERRAL_IP_HASH_SALT`); `deploy/aws/helm/ecommerce` values and `app` secret; `config.env` and Terraform.
++- **Risk:** The referral abuse checks (TD-P8-13, fixed) hash client IPs with HMAC-SHA256 keyed by this salt. Nothing sets it in the AWS deployment, so each replica uses its own random per-process key. That fails safe (IP matches can only be missed, never wrongly refused; the code-age check still applies), but the IP check is then weak in production: hashes differ across replicas and restarts, so a same-network claim usually passes. Under the `prod` profile the service also starts without the salt and only logs a WARN.
++- **Fix:** Plumb the secret through `config.env` → Terraform → `app` secret → Helm `secretEnv` (as done for the VAPID keys, TD-P8-05); add a `prod`-profile guard that refuses to start with a blank salt.
++- **Also (round 2 review):** a salt shorter than 32 bytes only logs a WARN today; generate one with `openssl rand -hex 32` and fail the `prod` start on a short one too.
++- **Residual risk (accepted):** `REFERRAL_CODE_TOO_NEW` and `REFERRAL_IP_MATCH` are distinct 422s and a refusal does not use up the claim, so a caller can learn that a referrer's code is young, or that the caller's own real IP was used by the referrer in the last 30 days. The client IP is taken from `X-Forwarded-For` counted from the right (`USER_REFERRAL_TRUSTED_PROXY_HOPS`), so a forged header cannot probe other IPs. The codes stay distinct for support and UX. The auth-service `application.yml` comment saying the gateway overwrites `X-Forwarded-For` is wrong (it appends) and is out of scope here.
+diff --git a/docs/techdebt/remediation-plan.md b/docs/techdebt/remediation-plan.md
+index 251cb83..03c3445 100644
+--- a/docs/techdebt/remediation-plan.md
++++ b/docs/techdebt/remediation-plan.md
+@@ -88,7 +88,7 @@ fixes grouped by service, then the larger Medium items by risk. Each row records
+ | 34 | [TD-SEC-09](infra-security.md) | `ProductionSettingsGuard` (auth-service, `prod` profile only) refuses to start with `auth.cookie.secure=false` or any redirect URI that is not https or is localhost. Helm already sets HTTPS URLs and `AUTH_COOKIE_SECURE=true` (unit test) | ✅ Fixed 2026-11-18 |
+ | 35 | [TD-P8-05](phase8.md) | Under `prod`, notification-service uses VAPID keys only from the environment and never generates or stores a private key in the database (push stays off with an ERROR if missing). Keys plumbed through `config.env` → Terraform → `app` secret → Helm `secretEnv`; generation and rotation documented | ✅ Fixed 2026-11-18 |
+ | 36 | [TD-SEC-10](infra-security.md) | The shared Feign interceptor relays the user's bearer token only to in-cluster targets (discovery names, compose/Kubernetes service names, `.svc`/`.cluster.local`/`.internal`/`.local`, localhost, private IPs); an override pointing elsewhere gets no token (unit test) | ✅ Fixed 2026-11-18 |
+-| 37 | [TD-P8-13](phase8.md) | Narrowed: the reward is already reported back to user-service; the storefront now toasts the claim result. Abuse checks (IP/device, account age) remain | 🟡 Narrowed 2026-11-18 |
++| 37 | TD-P8-13 | Claims are now refused when the code is under 10 minutes old (`REFERRAL_CODE_TOO_NEW`) or, when `USER_REFERRAL_IP_LOOKBACK` is set, the referee's network matches an IP the referrer used in that window (`REFERRAL_IP_MATCH`; OFF by default, 0, until the gateway forwards a trustworthy client IP, backlog B-1). IPs are stored only as keyed HMAC hashes (nothing recorded while the check is off), kept 30 days, and cleared on account deletion. Thresholds are settings (`USER_REFERRAL_*`); the salt still needs wiring through Helm ([TD-P8-24](phase8.md#td-p8-24)) | ✅ Fixed 2026-11-19 |
+ | 38 | [TD-ADM-08](admin.md) | Checked first with EXPLAIN on postgres:17 (50k users): `lower()` on the `citext` email resolves to `lower(email::text)`, so a trigram GIN index on that expression is used (BitmapOr with the display-name index). Added auth V5 (`pg_trgm` in the `auth` schema, two GIN indexes); the auth suite runs the migration | ✅ Fixed 2026-11-18 |
+ | 39 | [TD-ADM-04](admin.md) | `GET /api/inventory?lowStock=true` filters `quantity <= low_stock_threshold` in SQL. The dashboard tile shows its `totalElements` (it had also been capped at 8 by a `slice`) and lists the lowest 8 (integration test) | ✅ Fixed 2026-11-18 |
+ | 40 | [TD-P8-14](phase8.md) | Decided against making `order_id` nullable: every insert and lookup keys on it, and `reference_id` is always written with the same value, so the collision risk is only UUID randomness. Added payment V5 `UNIQUE (purpose, reference_id)` so the real invariant holds if the columns ever diverge, and the admin ledger shows the purpose (column renamed "For", membership and gift card badges) | ✅ Fixed 2026-11-18 |
+@@ -106,6 +106,8 @@ fixes grouped by service, then the larger Medium items by risk. Each row records
+ | 52 | [TD-P7-17](phase7.md) | Wishlist renders one card per saved row; a saved variant shows its options, price and image, its heart removes that row, and its link preselects it (`?variant=`, kept across the `/products/:id` redirect). Failed review photo uploads keep the form open with Retry and Continue instead of a toast. Lightbox kept hand-rolled (no library: bundle size) and now tested. 360-degree: a link to the product's hosted viewer (`view360Url`, http(s) only); an in-page spin viewer is not planned. `eslint-plugin-react-hooks` 5.2.0 installed (`rules-of-hooks` error, `exhaustive-deps` warn); two intentional dependency omissions documented. Lint also found that the brand-name substitution regex in `i18n.ts` contained literal backspace characters, so a renamed store never replaced "Cartwise": fixed | ✅ Fixed 2026-11-18 |
+ | 53 | [TD-P7-18](phase7.md), [TD-P6-24](phase6.md) | Checkout (with Stripe), orders, sign-in pages, wishlist and the account area are lazy routes; React and the router are a `react-vendor` chunk, Stripe its own. Main chunk 584 kB → 259 kB, no Vite size warning | ✅ Fixed 2026-11-18 |
+ | 54 | [TD-P7-19](phase7.md) | Variant attributes are key/value input pairs (values may contain `,` and `=`). Product create/update accept `variants` and save them in the same transaction (a bad variant rolls the create back); the admin sends one request, so the "product created without variants" state is gone. Found and fixed on the way: `PUT /api/products/{id}` deleted every image row and file when `images` was omitted, which the admin does whenever images were not touched. Deals: the product picker searches the catalog (20 results, debounced) instead of loading the first 200; listed deals get names from `/api/products/batch`; variant options show SKU plus options; the list pages 20 at a time on the client (promotion-service returns the full list; deals are hand-curated). Kept by decision: Deals stay ADMIN-only and `quantityLimit` required (a deal sets a price; an unlimited deal is the costly mistake). Q&A moderation stays with TD-P7-13 | ✅ Fixed 2026-11-18 |
++| 55 | [TD-P8-24](phase8.md#td-p8-24) | Wire `USER_REFERRAL_IP_HASH_SALT` through `config.env`, Terraform, the `app` secret and Helm `secretEnv`, and fail closed (refuse to start) under the `prod` profile when it is blank. Until then each replica hashes with its own random key, so the IP check is weak (fails safe: no wrong refusals) | 🔲 Open |
++| 56 | [TD-SEC-15](infra-security.md#td-sec-15) | Post-deploy check that the Google OIDC callback URL is correct behind the gateway (Gateway 5.0.2 strips `X-Forwarded-*` unless `trusted-proxies` is set); then set trusted-proxies or pin the redirect URI. Same root cause as backlog B-1 | 🔲 Open |
+ 
+ ## Needs the owner
+ 
+diff --git a/libs/common-core/src/main/java/com/acme/ecommerce/common/core/error/ErrorCode.java b/libs/common-core/src/main/java/com/acme/ecommerce/common/core/error/ErrorCode.java
+index d16fdb6..0d19c19 100644
+--- a/libs/common-core/src/main/java/com/acme/ecommerce/common/core/error/ErrorCode.java
++++ b/libs/common-core/src/main/java/com/acme/ecommerce/common/core/error/ErrorCode.java
+@@ -98,6 +98,12 @@ public enum ErrorCode {
+   /** Gift card code is unknown, already redeemed, expired or cancelled. */
+   GIFT_CARD_INVALID("GIFT_CARD_INVALID", 422, "Gift card invalid"),
+ 
++  /** Referral code was created too recently to be used. */
++  REFERRAL_CODE_TOO_NEW("REFERRAL_CODE_TOO_NEW", 422, "Referral code too new"),
++
++  /** Referral claim comes from a network the referrer recently used. */
++  REFERRAL_IP_MATCH("REFERRAL_IP_MATCH", 422, "Referral not allowed from this network"),
++
+   /** Wallet or coin balance is too low for the requested debit. */
+   INSUFFICIENT_BALANCE("INSUFFICIENT_BALANCE", 409, "Insufficient balance"),
+ 
+diff --git a/libs/common-core/src/test/java/com/acme/ecommerce/common/core/error/ErrorCodeTest.java b/libs/common-core/src/test/java/com/acme/ecommerce/common/core/error/ErrorCodeTest.java
+new file mode 100644
+index 0000000..289ebf7
+--- /dev/null
++++ b/libs/common-core/src/test/java/com/acme/ecommerce/common/core/error/ErrorCodeTest.java
+@@ -0,0 +1,30 @@
++package com.acme.ecommerce.common.core.error;
++
++import static org.assertj.core.api.Assertions.assertThat;
++
++import java.util.Arrays;
++import org.junit.jupiter.api.DisplayName;
++import org.junit.jupiter.api.Test;
++
++class ErrorCodeTest {
++
++  @Test
++  @DisplayName("the referral refusal codes are 422 with a stable code string")
++  void referralCodes() {
++    assertThat(ErrorCode.REFERRAL_CODE_TOO_NEW.code()).isEqualTo("REFERRAL_CODE_TOO_NEW");
++    assertThat(ErrorCode.REFERRAL_CODE_TOO_NEW.status()).isEqualTo(422);
++    assertThat(ErrorCode.REFERRAL_IP_MATCH.code()).isEqualTo("REFERRAL_IP_MATCH");
++    assertThat(ErrorCode.REFERRAL_IP_MATCH.status()).isEqualTo(422);
++    assertThat(ErrorCode.REFERRAL_IP_MATCH.type())
++        .isEqualTo("https://errors.acme-ecommerce.internal/referral-ip-match");
++  }
++
++  @Test
++  @DisplayName("every code string is unique and equals its enum name")
++  void codesUnique() {
++    assertThat(Arrays.stream(ErrorCode.values()).map(ErrorCode::code)).doesNotHaveDuplicates();
++    for (ErrorCode c : ErrorCode.values()) {
++      assertThat(c.code()).isEqualTo(c.name());
++    }
++  }
++}
+diff --git a/services/user-service/user-service-app/build.gradle b/services/user-service/user-service-app/build.gradle
+index 64c91d9..c6ae00e 100644
+--- a/services/user-service/user-service-app/build.gradle
++++ b/services/user-service/user-service-app/build.gradle
+@@ -22,6 +22,8 @@ dependencies {
+     // TD-TEST-01: address rules are tested against a real Postgres (Testcontainers).
+     testImplementation libs.bundles.testing.unit
+     testImplementation libs.bundles.testing.containers
++    testImplementation libs.spring.security.test
++    testImplementation libs.spring.boot.webmvc.test
+ 
+     compileOnly libs.lombok
+     annotationProcessor libs.lombok
+diff --git a/services/user-service/user-service-app/src/main/java/com/acme/ecommerce/user/config/UserProperties.java b/services/user-service/user-service-app/src/main/java/com/acme/ecommerce/user/config/UserProperties.java
+index cac55ea..1afa6d0 100644
+--- a/services/user-service/user-service-app/src/main/java/com/acme/ecommerce/user/config/UserProperties.java
++++ b/services/user-service/user-service-app/src/main/java/com/acme/ecommerce/user/config/UserProperties.java
+@@ -1,10 +1,13 @@
+ package com.acme.ecommerce.user.config;
+ 
++import jakarta.annotation.PostConstruct;
+ import java.time.Duration;
+ import lombok.AllArgsConstructor;
+ import lombok.Builder;
+ import lombok.Data;
+ import lombok.NoArgsConstructor;
++import lombok.ToString;
++import lombok.extern.slf4j.Slf4j;
+ import org.springframework.boot.context.properties.ConfigurationProperties;
+ 
+ /**
+@@ -13,6 +16,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
+  * <p>JavaBean binding, so defaults are field initializers ({@code @DefaultValue} only applies to
+  * constructor parameters and record components). Environment overrides live in application.yml.
+  */
++@Slf4j
+ @Data
+ @NoArgsConstructor
+ @AllArgsConstructor
+@@ -20,6 +24,74 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
+ @ConfigurationProperties(prefix = "user")
+ public class UserProperties {
+   @Builder.Default private Jwt jwt = new Jwt();
++  @Builder.Default private Referral referral = new Referral();
++
++  @PostConstruct
++  void validateReferral() {
++    Referral r = referral;
++    if (r == null) {
++      throw new IllegalStateException("user.referral must not be null");
++    }
++    requireDuration("user.referral.min-code-age", r.minCodeAge);
++    requireDuration("user.referral.ip-lookback", r.ipLookback);
++    requireDuration("user.referral.ip-retention", r.ipRetention);
++    if (r.ipLookback.toSeconds() > 0) {
++      log.warn(
++          "user.referral.ip-lookback ({}) enables the same-network referral check. It needs a"
++              + " trustworthy client IP from the gateway (backlog B-1 / F-20261119-03) and must"
++              + " not be enabled behind the current gateway",
++          r.ipLookback);
++    }
++    if (r.ipRetention.compareTo(Duration.ofSeconds(1)) < 0) {
++      log.warn(
++          "user.referral.ip-retention ({}) is zero or negative: the nightly purge is DISABLED and"
++              + " hashed IPs are kept indefinitely",
++          r.ipRetention);
++    } else if (r.ipRetention.compareTo(r.ipLookback) < 0) {
++      log.warn(
++          "user.referral.ip-retention ({}) is shorter than ip-lookback ({}): the effective"
++              + " lookback is the retention",
++          r.ipRetention,
++          r.ipLookback);
++    }
++  }
++
++  private static void requireDuration(String name, Duration value) {
++    if (value == null) {
++      throw new IllegalStateException(
++          name + " must not be null (use a duration such as 10m or 30d, or 0 to disable)");
++    }
++  }
++
++  /** Referral claim abuse checks (TD-P8-13). A zero duration disables the matching check. */
++  @Data
++  @NoArgsConstructor
++  @AllArgsConstructor
++  @Builder
++  public static class Referral {
++    /** A referral code must be at least this old before it can be claimed. */
++    @Builder.Default private Duration minCodeAge = Duration.ofMinutes(10);
++
++    /**
++     * A claim is refused when the referrer was seen from the claimant's IP within this window. Zero
++     * (the default) disables the check and no IP activity is recorded: enable only once the gateway
++     * forwards a trustworthy client IP (backlog B-1).
++     */
++    @Builder.Default private Duration ipLookback = Duration.ZERO;
++
++    /** Hashed IPs older than this are deleted by the nightly job. */
++    @Builder.Default private Duration ipRetention = Duration.ofDays(30);
++
++    /** HMAC key for IP hashing; blank means a random per-process key (matches only in-process). */
++    @ToString.Exclude @Builder.Default private String ipHashSalt = "";
++
++    /**
++     * Trusted proxies that append to X-Forwarded-For before this service (gateway hops plus the
++     * gateway's own append): the client is that entry counted from the right. 0 uses the socket
++     * peer.
++     */
++    @Builder.Default private int trustedProxyHops = 1;
++  }
+ 
+   /** Token validation contract with custom helper methods. */
+   @Data
+diff --git a/services/user-service/user-service-app/src/main/java/com/acme/ecommerce/user/membership/IpFingerprint.java b/services/user-service/user-service-app/src/main/java/com/acme/ecommerce/user/membership/IpFingerprint.java
+new file mode 100644
+index 0000000..448ef6b
+--- /dev/null
++++ b/services/user-service/user-service-app/src/main/java/com/acme/ecommerce/user/membership/IpFingerprint.java
+@@ -0,0 +1,69 @@
++package com.acme.ecommerce.user.membership;
++
++import com.acme.ecommerce.user.config.UserProperties;
++import java.net.Inet6Address;
++import java.net.InetAddress;
++import java.nio.charset.StandardCharsets;
++import java.security.GeneralSecurityException;
++import java.security.SecureRandom;
++import java.util.HexFormat;
++import javax.crypto.Mac;
++import javax.crypto.spec.SecretKeySpec;
++import org.slf4j.Logger;
++import org.slf4j.LoggerFactory;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.stereotype.Component;
++
++/**
++ * Keyed hash of an IP (HMAC-SHA256, 64 lowercase hex). The raw address never leaves this class and
++ * is never logged. A blank salt yields a random per-process key: hashes then only match in-process,
++ * which can miss a match but never refuse wrongly.
++ */
++@Component
++public class IpFingerprint {
++
++  private static final Logger log = LoggerFactory.getLogger(IpFingerprint.class);
++  private static final String ALGORITHM = "HmacSHA256";
++  private static final int MIN_SALT_BYTES = 32;
++
++  private final SecretKeySpec key;
++
++  @Autowired
++  public IpFingerprint(UserProperties properties) {
++    this(properties.getReferral().getIpHashSalt());
++  }
++
++  IpFingerprint(String salt) {
++    byte[] keyBytes;
++    if (salt == null || salt.isBlank()) {
++      keyBytes = new byte[32];
++      new SecureRandom().nextBytes(keyBytes);
++      log.warn(
++          "user.referral.ip-hash-salt is blank: using a random per-process key, so referral IP"
++              + " matches only work within this process. Set USER_REFERRAL_IP_HASH_SALT in production.");
++    } else {
++      keyBytes = salt.getBytes(StandardCharsets.UTF_8);
++      if (keyBytes.length < MIN_SALT_BYTES) {
++        log.warn(
++            "user.referral.ip-hash-salt is shorter than {} bytes: a leaked table could be brute"
++                + " forced offline. Generate one with `openssl rand -hex 32`.",
++            MIN_SALT_BYTES);
++      }
++    }
++    this.key = new SecretKeySpec(keyBytes, ALGORITHM);
++  }
++
++  public String hash(InetAddress address) {
++    byte[] bytes = address.getAddress();
++    byte[] message = new byte[bytes.length + 1];
++    message[0] = (byte) (address instanceof Inet6Address ? 6 : 4);
++    System.arraycopy(bytes, 0, message, 1, bytes.length);
++    try {
++      Mac mac = Mac.getInstance(ALGORITHM);
++      mac.init(key);
++      return HexFormat.of().formatHex(mac.doFinal(message));
++    } catch (GeneralSecurityException e) {
++      throw new IllegalStateException("HmacSHA256 unavailable", e);
++    }
++  }
++}
+diff --git a/services/user-service/user-service-app/src/main/java/com/acme/ecommerce/user/membership/ReferralService.java b/services/user-service/user-service-app/src/main/java/com/acme/ecommerce/user/membership/ReferralService.java
+index ed2af39..d2dd639 100644
+--- a/services/user-service/user-service-app/src/main/java/com/acme/ecommerce/user/membership/ReferralService.java
++++ b/services/user-service/user-service-app/src/main/java/com/acme/ecommerce/user/membership/ReferralService.java
+@@ -2,20 +2,33 @@ package com.acme.ecommerce.user.membership;
+ 
+ import com.acme.ecommerce.common.core.error.CodedException;
+ import com.acme.ecommerce.common.core.error.ErrorCode;
++import com.acme.ecommerce.common.web.job.JobLock;
++import com.acme.ecommerce.user.config.UserProperties;
++import java.net.InetAddress;
+ import java.security.SecureRandom;
+ import java.util.Locale;
+ import java.util.Optional;
+ import java.util.UUID;
++import org.slf4j.Logger;
++import org.slf4j.LoggerFactory;
++import org.springframework.beans.factory.annotation.Autowired;
+ import org.springframework.beans.factory.annotation.Value;
+ import org.springframework.dao.DuplicateKeyException;
+ import org.springframework.jdbc.core.simple.JdbcClient;
++import org.springframework.scheduling.annotation.Scheduled;
+ import org.springframework.stereotype.Service;
+ import org.springframework.transaction.annotation.Transactional;
+ 
+ @Service
+ public class ReferralService {
+ 
++  private static final Logger log = LoggerFactory.getLogger(ReferralService.class);
++
+   private static final String ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
++
++  /** Most recent hashed IPs kept per user; bounds growth from a rotating client address. */
++  static final int MAX_ACTIVITY_ROWS = 20;
++
+   private static final SecureRandom RANDOM = new SecureRandom();
+ 
+   public record ReferralView(String code, String link, long invited, long rewarded, long rewards) {}
+@@ -25,19 +38,31 @@ public class ReferralService {
+   private final JdbcClient jdbc;
+   private final String storefront;
+   private final int rewardCoins;
++  private final IpFingerprint fingerprint;
++  private final UserProperties properties;
++
++  /** Cluster-wide guard so only one replica runs the retention job per tick. */
++  @Autowired private JobLock jobLock;
+ 
+   public ReferralService(
+       JdbcClient jdbc,
+       @Value("${user.storefront-url:http://localhost:3000}") String storefront,
+-      @Value("${user.referral.reward-coins:100}") int rewardCoins) {
++      @Value("${user.referral.reward-coins:100}") int rewardCoins,
++      IpFingerprint fingerprint,
++      UserProperties properties) {
+     this.jdbc = jdbc;
+     this.storefront = storefront;
+     this.rewardCoins = rewardCoins;
++    this.fingerprint = fingerprint;
++    this.properties = properties;
+   }
+ 
+   @Transactional
+-  public ReferralView view(UUID userId) {
++  public ReferralView view(UUID userId, InetAddress ip) {
+     String code = codeFor(userId);
++    if (ip != null && ipCheckOn()) {
++      recordActivity(userId, fingerprint.hash(ip));
++    }
+     long invited =
+         jdbc.sql("SELECT count(*) FROM users.referral_claims WHERE referrer_user_id = :u")
+             .param("u", userId)
+@@ -54,26 +79,43 @@ public class ReferralService {
+         code, storefront + "/register?ref=" + code, invited, rewarded, rewarded * rewardCoins);
+   }
+ 
++  /**
++   * {@code ip} may be null when the caller's address is unknown; the IP checks are then skipped.
++   */
+   @Transactional
+-  public void claim(UUID userId, String rawCode) {
++  public void claim(UUID userId, String rawCode, InetAddress ip) {
+     String code = rawCode == null ? "" : rawCode.trim().toUpperCase(Locale.ROOT);
+-    UUID referrer =
+-        jdbc.sql("SELECT user_id FROM users.referral_codes WHERE code = :c")
++    long minAgeSeconds = properties.getReferral().getMinCodeAge().toSeconds();
++    CodeOwner owner =
++        jdbc.sql(
++                "SELECT user_id, created_at > now() - (:s * interval '1 second') AS too_new FROM"
++                    + " users.referral_codes WHERE code = :c")
++            .param("s", minAgeSeconds)
+             .param("c", code)
+-            .query(UUID.class)
++            .query(
++                (rs, n) ->
++                    new CodeOwner(rs.getObject("user_id", UUID.class), rs.getBoolean("too_new")))
+             .optional()
+             .orElseThrow(
+                 () -> new CodedException(ErrorCode.RESOURCE_NOT_FOUND, "Referral code not found"));
++    UUID referrer = owner.userId();
+     if (referrer.equals(userId)) {
+       throw new CodedException(ErrorCode.DOMAIN_RULE_VIOLATION, "You cannot use your own code");
+     }
++    if (claimExists(userId)) {
++      throw new CodedException(
++          ErrorCode.RESOURCE_CONFLICT, "A referral code was already applied to this account");
++    }
++    String ipHash = ip == null || !ipCheckOn() ? null : fingerprint.hash(ip);
++    refuseIfAbusive(referrer, owner.tooNew() && minAgeSeconds > 0, ipHash);
+     try {
+       jdbc.sql(
+-              "INSERT INTO users.referral_claims (referee_user_id, referrer_user_id, code) VALUES"
+-                  + " (:r, :p, :c)")
++              "INSERT INTO users.referral_claims (referee_user_id, referrer_user_id, code,"
++                  + " claim_ip_hash) VALUES (:r, :p, :c, :h)")
+           .param("r", userId)
+           .param("p", referrer)
+           .param("c", code)
++          .param("h", ipHash)
+           .update();
+     } catch (DuplicateKeyException e) {
+       throw new CodedException(
+@@ -81,6 +123,109 @@ public class ReferralService {
+     }
+   }
+ 
++  private boolean ipCheckOn() {
++    return properties.getReferral().getIpLookback().toSeconds() > 0;
++  }
++
++  private record CodeOwner(UUID userId, boolean tooNew) {}
++
++  /** Abuse checks, in order: code age, then network match. A throw rolls the claim back. */
++  private void refuseIfAbusive(UUID referrer, boolean codeTooNew, String ipHash) {
++    if (codeTooNew) {
++      throw new CodedException(
++          ErrorCode.REFERRAL_CODE_TOO_NEW, "This referral code cannot be used yet");
++    }
++    long lookback = properties.getReferral().getIpLookback().toSeconds();
++    if (ipCheckOn() && ipHash != null) {
++      boolean sameNetwork =
++          jdbc.sql(
++                  "SELECT EXISTS (SELECT 1 FROM users.referral_ip_activity WHERE user_id = :p AND"
++                      + " ip_hash = :h AND last_seen_at > now() - (:s * interval '1 second'))")
++              .param("p", referrer)
++              .param("h", ipHash)
++              .param("s", lookback)
++              .query(Boolean.class)
++              .single();
++      if (sameNetwork) {
++        throw new CodedException(
++            ErrorCode.REFERRAL_IP_MATCH, "This referral code cannot be used from this network");
++      }
++    }
++  }
++
++  private boolean claimExists(UUID referee) {
++    return jdbc.sql(
++            "SELECT EXISTS (SELECT 1 FROM users.referral_claims WHERE referee_user_id = :r)")
++        .param("r", referee)
++        .query(Boolean.class)
++        .single();
++  }
++
++  /**
++   * Upserts the referrer's hashed IP (an existing row is only refreshed when over an hour old).
++   * Only a newly inserted row can exceed the cap, so only then are all but the {@link
++   * #MAX_ACTIVITY_ROWS} most recent rows for the user dropped; a refresh or a throttled view writes
++   * nothing more.
++   */
++  private void recordActivity(UUID userId, String hash) {
++    boolean inserted =
++        jdbc.sql(
++                "INSERT INTO users.referral_ip_activity (user_id, ip_hash) VALUES (:u, :h) ON"
++                    + " CONFLICT (user_id, ip_hash) DO UPDATE SET last_seen_at = now() WHERE"
++                    + " users.referral_ip_activity.last_seen_at < now() - interval '1 hour'"
++                    + " RETURNING (xmax = 0)")
++            .param("u", userId)
++            .param("h", hash)
++            .query(Boolean.class)
++            .optional()
++            .orElse(false);
++    if (!inserted) {
++      return;
++    }
++    jdbc.sql(
++            "DELETE FROM users.referral_ip_activity WHERE user_id = :u AND ip_hash NOT IN (SELECT"
++                + " ip_hash FROM users.referral_ip_activity WHERE user_id = :u ORDER BY"
++                + " last_seen_at DESC, ip_hash LIMIT :n)")
++        .param("u", userId)
++        .param("n", MAX_ACTIVITY_ROWS)
++        .update();
++  }
++
++  /**
++   * Daily: drops hashed IPs past the retention window; the claims themselves stay. A retention of
++   * zero or less disables the purge.
++   */
++  @Scheduled(cron = "${user.referral.ip-cleanup-cron:0 40 3 * * *}")
++  public void purgeExpiredIps() {
++    jobLock.runExclusive("user-referral-ip-retention", this::purgeExpiredIpsLocked);
++  }
++
++  private void purgeExpiredIpsLocked() {
++    long seconds = properties.getReferral().getIpRetention().toSeconds();
++    if (seconds <= 0) {
++      log.debug("Referral IP purge skipped: user.referral.ip-retention is zero or negative");
++      return;
++    }
++    int activity =
++        jdbc.sql(
++                "DELETE FROM users.referral_ip_activity WHERE last_seen_at < now() - (:s *"
++                    + " interval '1 second')")
++            .param("s", seconds)
++            .update();
++    int claims =
++        jdbc.sql(
++                "UPDATE users.referral_claims SET claim_ip_hash = NULL WHERE claim_ip_hash IS NOT"
++                    + " NULL AND claimed_at < now() - (:s * interval '1 second')")
++            .param("s", seconds)
++            .update();
++    if (activity + claims > 0) {
++      log.info(
++          "Referral IP retention: removed {} activity row(s), cleared {} claim hash(es)",
++          activity,
++          claims);
++    }
++  }
++
+   @Transactional(readOnly = true)
+   public Optional<ByReferee> byReferee(UUID refereeId) {
+     return jdbc.sql(
+diff --git a/services/user-service/user-service-app/src/main/java/com/acme/ecommerce/user/privacy/PrivacyService.java b/services/user-service/user-service-app/src/main/java/com/acme/ecommerce/user/privacy/PrivacyService.java
+index df73d28..71905ac 100644
+--- a/services/user-service/user-service-app/src/main/java/com/acme/ecommerce/user/privacy/PrivacyService.java
++++ b/services/user-service/user-service-app/src/main/java/com/acme/ecommerce/user/privacy/PrivacyService.java
+@@ -504,6 +504,8 @@ public class PrivacyService {
+             "DELETE FROM users.recently_viewed WHERE user_id = :u",
+             "DELETE FROM users.user_preferences WHERE user_id = :u",
+             "DELETE FROM users.referral_codes WHERE user_id = :u",
++            "DELETE FROM users.referral_ip_activity WHERE user_id = :u",
++            "UPDATE users.referral_claims SET claim_ip_hash = NULL WHERE referee_user_id = :u",
+             "DELETE FROM users.delete_codes WHERE user_id = :u",
+             "DELETE FROM users.export_jobs WHERE user_id = :u",
+             "UPDATE users.memberships SET email = NULL, auto_renew = false WHERE user_id = :u",
+diff --git a/services/user-service/user-service-app/src/main/java/com/acme/ecommerce/user/web/ClientIp.java b/services/user-service/user-service-app/src/main/java/com/acme/ecommerce/user/web/ClientIp.java
+new file mode 100644
+index 0000000..efcfd08
+--- /dev/null
++++ b/services/user-service/user-service-app/src/main/java/com/acme/ecommerce/user/web/ClientIp.java
+@@ -0,0 +1,78 @@
++package com.acme.ecommerce.user.web;
++
++import jakarta.servlet.http.HttpServletRequest;
++import java.net.InetAddress;
++import java.util.Optional;
++
++/**
++ * Resolves the caller's IP.
++ *
++ * <p>Each trusted proxy appends the address it received the request from to {@code
++ * X-Forwarded-For}, so only entries on the left can be forged by the caller. With {@code hops} = N
++ * (> 0) the client is the N-th entry from the RIGHT, mirroring the gateway's {@code
++ * RateLimitWebFilter.remoteIp}. N = 0, fewer than N entries, or an entry that is not an IP literal
++ * falls back to the socket peer. Never throws.
++ *
++ * <p>Parsing is resolver-free: {@link InetAddress#ofLiteral} only parses IP literals and never
++ * falls back to a DNS or hosts lookup, unlike {@link InetAddress#getByName}. An IPv4-mapped IPv6
++ * address ({@code ::ffff:1.2.3.4}) becomes an {@code Inet4Address} and so equals the plain IPv4
++ * address.
++ */
++public final class ClientIp {
++
++  private static final int MAX_ENTRY_LENGTH = 64;
++
++  private ClientIp() {}
++
++  public static Optional<InetAddress> resolve(HttpServletRequest request, int hops) {
++    if (request == null) {
++      return Optional.empty();
++    }
++    if (hops > 0) {
++      String forwarded = request.getHeader("X-Forwarded-For");
++      if (forwarded != null) {
++        String[] parts = forwarded.split(",");
++        if (parts.length >= hops) {
++          Optional<InetAddress> client = parse(parts[parts.length - hops]);
++          if (client.isPresent()) {
++            return client;
++          }
++        }
++      }
++    }
++    return parse(request.getRemoteAddr());
++  }
++
++  private static Optional<InetAddress> parse(String raw) {
++    if (raw == null) {
++      return Optional.empty();
++    }
++    String s = raw.trim();
++    if (s.isEmpty() || s.length() > MAX_ENTRY_LENGTH) {
++      return Optional.empty();
++    }
++    if (s.startsWith("[")) {
++      int close = s.indexOf(']');
++      if (close < 0) {
++        return Optional.empty();
++      }
++      s = s.substring(1, close);
++    }
++    int zone = s.indexOf('%');
++    if (zone >= 0) {
++      s = s.substring(0, zone);
++    }
++    int firstColon = s.indexOf(':');
++    if (firstColon >= 0 && firstColon == s.lastIndexOf(':') && s.indexOf('.') >= 0) {
++      s = s.substring(0, firstColon); // IPv4:port
++    }
++    if (s.isEmpty() || (s.indexOf(':') < 0 && s.chars().filter(c -> c == '.').count() != 3)) {
++      return Optional.empty(); // dotted quad only: ofLiteral would also accept "1" or "127.1"
++    }
++    try {
++      return Optional.of(InetAddress.ofLiteral(s));
++    } catch (IllegalArgumentException e) {
++      return Optional.empty();
++    }
++  }
++}
+diff --git a/services/user-service/user-service-app/src/main/java/com/acme/ecommerce/user/web/EngageController.java b/services/user-service/user-service-app/src/main/java/com/acme/ecommerce/user/web/EngageController.java
+index a6e1139..3c7673d 100644
+--- a/services/user-service/user-service-app/src/main/java/com/acme/ecommerce/user/web/EngageController.java
++++ b/services/user-service/user-service-app/src/main/java/com/acme/ecommerce/user/web/EngageController.java
+@@ -1,5 +1,6 @@
+ package com.acme.ecommerce.user.web;
+ 
++import com.acme.ecommerce.user.config.UserProperties;
+ import com.acme.ecommerce.user.membership.MembershipService;
+ import com.acme.ecommerce.user.membership.MembershipService.JoinResult;
+ import com.acme.ecommerce.user.membership.MembershipService.MembershipView;
+@@ -8,6 +9,7 @@ import com.acme.ecommerce.user.membership.PreferenceService.Preferences;
+ import com.acme.ecommerce.user.membership.PreferenceService.PreferencesUpdate;
+ import com.acme.ecommerce.user.membership.ReferralService;
+ import com.acme.ecommerce.user.membership.ReferralService.ReferralView;
++import jakarta.servlet.http.HttpServletRequest;
+ import jakarta.validation.constraints.NotBlank;
+ import java.util.UUID;
+ import org.springframework.http.HttpStatus;
+@@ -34,13 +36,16 @@ public class EngageController {
+   private final PreferenceService preferences;
+   private final ReferralService referrals;
+   private final JdbcClient jdbc;
++  private final UserProperties properties;
+ 
+   public EngageController(
+       MembershipService membership,
+       PreferenceService preferences,
+       ReferralService referrals,
+-      JdbcClient jdbc) {
++      JdbcClient jdbc,
++      UserProperties properties) {
+     this.jdbc = jdbc;
++    this.properties = properties;
+     this.membership = membership;
+     this.preferences = preferences;
+     this.referrals = referrals;
+@@ -76,14 +81,22 @@ public class EngageController {
+   }
+ 
+   @GetMapping("/api/referrals")
+-  public ReferralView referrals(@AuthenticationPrincipal Jwt jwt) {
+-    return referrals.view(uid(jwt));
++  public ReferralView referrals(@AuthenticationPrincipal Jwt jwt, HttpServletRequest http) {
++    return referrals.view(
++        uid(jwt),
++        ClientIp.resolve(http, properties.getReferral().getTrustedProxyHops()).orElse(null));
+   }
+ 
+   @PostMapping("/api/referrals/claim")
+   @ResponseStatus(HttpStatus.NO_CONTENT)
+-  public void claim(@AuthenticationPrincipal Jwt jwt, @RequestBody ClaimRequest request) {
+-    referrals.claim(uid(jwt), request.code());
++  public void claim(
++      @AuthenticationPrincipal Jwt jwt,
++      @RequestBody ClaimRequest request,
++      HttpServletRequest http) {
++    referrals.claim(
++        uid(jwt),
++        request.code(),
++        ClientIp.resolve(http, properties.getReferral().getTrustedProxyHops()).orElse(null));
+   }
+ 
+   /** Makes sure a profile row (email) exists so the user is reachable by audience listings. */
+diff --git a/services/user-service/user-service-app/src/main/resources/application.yml b/services/user-service/user-service-app/src/main/resources/application.yml
+index fbaf306..f41fe39 100644
+--- a/services/user-service/user-service-app/src/main/resources/application.yml
++++ b/services/user-service/user-service-app/src/main/resources/application.yml
+@@ -100,6 +100,9 @@ spring:
+ server:
+   port: ${SERVER_PORT:8085}
+   shutdown: graceful
++  # Read the raw X-Forwarded-For chain on every platform. Spring Boot's default on Kubernetes is NATIVE
++  # (Tomcat RemoteIpValve), which rewrites that header before the referral checks count hops from its right.
++  forward-headers-strategy: ${USER_FORWARD_HEADERS_STRATEGY:none}
+ 
+ # -----------------------------------------------------------------------------
+ # user-service's own settings. Every one is documented on
+@@ -110,6 +113,13 @@ user:
+   storefront-url: ${STOREFRONT_BASE_URL:http://localhost:3000}
+   referral:
+     reward-coins: ${USER_REFERRAL_REWARD_COINS:100}
++    min-code-age: ${USER_REFERRAL_MIN_CODE_AGE:10m}
++    # 0 = IP check off (no IP activity recorded) until the gateway forwards a trustworthy client IP (B-1).
++    ip-lookback: ${USER_REFERRAL_IP_LOOKBACK:0}
++    ip-retention: ${USER_REFERRAL_IP_RETENTION:30d}
++    ip-hash-salt: ${USER_REFERRAL_IP_HASH_SALT:}
++    # Local compose: the gateway appends the socket peer, so 1. AWS: gateway hops + 1 (Helm sets 3).
++    trusted-proxy-hops: ${USER_REFERRAL_TRUSTED_PROXY_HOPS:1}
+   jwt:
+     # SAME ENV VARS AND SAME DEFAULTS AS auth-service's `auth.jwt.*`, the
+     # gateway's `gateway.jwt.*` and product-service's `product.jwt.*`. Any of
+diff --git a/services/user-service/user-service-app/src/main/resources/db/migration/V5__referral_abuse_checks.sql b/services/user-service/user-service-app/src/main/resources/db/migration/V5__referral_abuse_checks.sql
+new file mode 100644
+index 0000000..0b4cb81
+--- /dev/null
++++ b/services/user-service/user-service-app/src/main/resources/db/migration/V5__referral_abuse_checks.sql
+@@ -0,0 +1,13 @@
++-- TD-P8-13: referral claim abuse checks. IPs are stored only as keyed hashes (HMAC-SHA256, 64 hex).
++CREATE TABLE users.referral_ip_activity
++(
++    user_id      uuid        NOT NULL,
++    ip_hash      char(64)    NOT NULL,
++    last_seen_at timestamptz NOT NULL DEFAULT now(),
++    PRIMARY KEY (user_id, ip_hash)
++);
++CREATE INDEX ix_referral_ip_activity_seen ON users.referral_ip_activity (last_seen_at);
++
++ALTER TABLE users.referral_claims
++    ADD COLUMN claim_ip_hash char(64);
++CREATE INDEX ix_referral_claims_ip_age ON users.referral_claims (claimed_at) WHERE claim_ip_hash IS NOT NULL;
+diff --git a/services/user-service/user-service-app/src/test/java/com/acme/ecommerce/user/config/UserPropertiesValidationTest.java b/services/user-service/user-service-app/src/test/java/com/acme/ecommerce/user/config/UserPropertiesValidationTest.java
+new file mode 100644
+index 0000000..3da5712
+--- /dev/null
++++ b/services/user-service/user-service-app/src/test/java/com/acme/ecommerce/user/config/UserPropertiesValidationTest.java
+@@ -0,0 +1,114 @@
++package com.acme.ecommerce.user.config;
++
++import static org.assertj.core.api.Assertions.assertThat;
++import static org.assertj.core.api.Assertions.assertThatCode;
++import static org.assertj.core.api.Assertions.assertThatThrownBy;
++
++import ch.qos.logback.classic.Level;
++import ch.qos.logback.classic.Logger;
++import ch.qos.logback.classic.spi.ILoggingEvent;
++import ch.qos.logback.core.read.ListAppender;
++import java.time.Duration;
++import org.junit.jupiter.api.DisplayName;
++import org.junit.jupiter.api.Test;
++import org.slf4j.LoggerFactory;
++import org.springframework.boot.context.properties.EnableConfigurationProperties;
++import org.springframework.boot.test.context.runner.ApplicationContextRunner;
++
++class UserPropertiesValidationTest {
++
++  private static UserProperties with(Duration minAge, Duration lookback, Duration retention) {
++    UserProperties p = new UserProperties();
++    p.getReferral().setMinCodeAge(minAge);
++    p.getReferral().setIpLookback(lookback);
++    p.getReferral().setIpRetention(retention);
++    return p;
++  }
++
++  private static Duration d(long days) {
++    return Duration.ofDays(days);
++  }
++
++  @Test
++  @DisplayName("a null duration is a clear startup error naming the property")
++  void nullDurationsFailClearly() {
++    assertThatThrownBy(() -> with(null, d(1), d(1)).validateReferral())
++        .isInstanceOf(IllegalStateException.class)
++        .hasMessageContaining("user.referral.min-code-age");
++    assertThatThrownBy(() -> with(d(1), null, d(1)).validateReferral())
++        .hasMessageContaining("user.referral.ip-lookback");
++    assertThatThrownBy(() -> with(d(1), d(1), null).validateReferral())
++        .hasMessageContaining("user.referral.ip-retention");
++  }
++
++  @Test
++  @DisplayName(
++      "a blank environment value never reaches the service as null: the binder keeps the default")
++  void blankEnvKeepsDefault() {
++    new ApplicationContextRunner()
++        .withUserConfiguration(Props.class)
++        .withPropertyValues(
++            "user.referral.ip-lookback=",
++            "user.referral.min-code-age=",
++            "user.referral.ip-retention=")
++        .run(
++            ctx -> {
++              assertThat(ctx).hasNotFailed();
++              UserProperties.Referral r = ctx.getBean(UserProperties.class).getReferral();
++              assertThat(r.getIpLookback()).isEqualTo(Duration.ZERO);
++              assertThat(r.getMinCodeAge()).isEqualTo(Duration.ofMinutes(10));
++              assertThat(r.getIpRetention()).isEqualTo(Duration.ofDays(30));
++            });
++  }
++
++  @EnableConfigurationProperties(UserProperties.class)
++  static class Props {}
++
++  @Test
++  @DisplayName("zero or negative retention warns that the purge is disabled; sane values do not")
++  void nonPositiveRetentionWarns() {
++    Logger logger = (Logger) LoggerFactory.getLogger(UserProperties.class);
++    ListAppender<ILoggingEvent> appender = new ListAppender<>();
++    appender.start();
++    logger.addAppender(appender);
++    try {
++      assertThatCode(() -> with(d(1), Duration.ZERO, Duration.ZERO).validateReferral())
++          .doesNotThrowAnyException();
++      with(d(1), Duration.ZERO, Duration.ofSeconds(-5)).validateReferral();
++      assertThat(appender.list)
++          .hasSize(2)
++          .allSatisfy(
++              e -> {
++                assertThat(e.getLevel()).isEqualTo(Level.WARN);
++                assertThat(e.getFormattedMessage()).contains("purge is DISABLED");
++              });
++      appender.list.clear();
++      with(d(1), Duration.ZERO, d(30)).validateReferral();
++      assertThat(appender.list).isEmpty();
++    } finally {
++      logger.detachAppender(appender);
++    }
++  }
++
++  @Test
++  @DisplayName("enabling the ip check warns once that it needs a trustworthy client IP")
++  void enabledIpCheckWarns() {
++    Logger logger = (Logger) LoggerFactory.getLogger(UserProperties.class);
++    ListAppender<ILoggingEvent> appender = new ListAppender<>();
++    appender.start();
++    logger.addAppender(appender);
++    try {
++      with(d(1), d(1), d(30)).validateReferral();
++      assertThat(appender.list).hasSize(1);
++      assertThat(appender.list.get(0).getLevel()).isEqualTo(Level.WARN);
++      assertThat(appender.list.get(0).getFormattedMessage())
++          .contains("trustworthy client IP")
++          .contains("F-20261119-03");
++      appender.list.clear();
++      with(d(1), Duration.ZERO, d(30)).validateReferral();
++      assertThat(appender.list).isEmpty();
++    } finally {
++      logger.detachAppender(appender);
++    }
++  }
++}
+diff --git a/services/user-service/user-service-app/src/test/java/com/acme/ecommerce/user/membership/IpFingerprintTest.java b/services/user-service/user-service-app/src/test/java/com/acme/ecommerce/user/membership/IpFingerprintTest.java
+new file mode 100644
+index 0000000..cf6c96b
+--- /dev/null
++++ b/services/user-service/user-service-app/src/test/java/com/acme/ecommerce/user/membership/IpFingerprintTest.java
+@@ -0,0 +1,79 @@
++package com.acme.ecommerce.user.membership;
++
++import static org.assertj.core.api.Assertions.assertThat;
++
++import ch.qos.logback.classic.Logger;
++import ch.qos.logback.classic.spi.ILoggingEvent;
++import ch.qos.logback.core.read.ListAppender;
++import java.net.InetAddress;
++import java.util.List;
++import org.junit.jupiter.api.DisplayName;
++import org.junit.jupiter.api.Test;
++import org.slf4j.LoggerFactory;
++
++class IpFingerprintTest {
++
++  private static InetAddress ip(String literal) throws Exception {
++    return InetAddress.getByName(literal);
++  }
++
++  @Test
++  @DisplayName("deterministic, 64 lowercase hex, and never contains the dotted IP")
++  void deterministicHex() throws Exception {
++    IpFingerprint f = new IpFingerprint("salt-a");
++    String h = f.hash(ip("203.0.113.7"));
++    assertThat(h).matches("^[0-9a-f]{64}$").doesNotContain("203.0.113.7");
++    assertThat(new IpFingerprint("salt-a").hash(ip("203.0.113.7"))).isEqualTo(h);
++    assertThat(f.hash(ip("203.0.113.8"))).isNotEqualTo(h);
++  }
++
++  @Test
++  @DisplayName("different salts give different hashes")
++  void saltMatters() throws Exception {
++    assertThat(new IpFingerprint("a").hash(ip("203.0.113.7")))
++        .isNotEqualTo(new IpFingerprint("b").hash(ip("203.0.113.7")));
++  }
++
++  @Test
++  @DisplayName("v4 and v6 with equal address bytes differ")
++  void familySeparated() throws Exception {
++    IpFingerprint f = new IpFingerprint("salt");
++    InetAddress v4 = InetAddress.getByAddress(new byte[] {1, 2, 3, 4});
++    InetAddress v6 = InetAddress.getByAddress(new byte[16]);
++    InetAddress v6b =
++        InetAddress.getByAddress(new byte[] {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 4});
++    assertThat(f.hash(v4)).isNotEqualTo(f.hash(v6b));
++    assertThat(f.hash(v6)).isNotEqualTo(f.hash(v6b));
++  }
++
++  @Test
++  @DisplayName("blank salt still hashes stably within one instance but not across instances")
++  void blankSalt() throws Exception {
++    IpFingerprint a = new IpFingerprint("");
++    assertThat(a.hash(ip("203.0.113.7"))).isEqualTo(a.hash(ip("203.0.113.7"))).hasSize(64);
++    assertThat(new IpFingerprint("  ").hash(ip("203.0.113.7")))
++        .isNotEqualTo(a.hash(ip("203.0.113.7")));
++  }
++
++  private static List<String> warningsFor(String salt) {
++    Logger logger = (Logger) LoggerFactory.getLogger(IpFingerprint.class);
++    ListAppender<ILoggingEvent> appender = new ListAppender<>();
++    appender.start();
++    logger.addAppender(appender);
++    try {
++      new IpFingerprint(salt);
++      return appender.list.stream().map(ILoggingEvent::getFormattedMessage).toList();
++    } finally {
++      logger.detachAppender(appender);
++    }
++  }
++
++  @Test
++  @DisplayName("a salt under 32 bytes warns at startup without failing; a long one is silent")
++  void shortSaltWarns() {
++    List<String> weak = warningsFor("short-salt");
++    assertThat(weak).hasSize(1);
++    assertThat(weak.get(0)).contains("shorter than 32 bytes").doesNotContain("short-salt");
++    assertThat(warningsFor("x".repeat(32))).isEmpty();
++  }
++}
+diff --git a/services/user-service/user-service-app/src/test/java/com/acme/ecommerce/user/membership/ReferralAbuseConfigIntegrationTest.java b/services/user-service/user-service-app/src/test/java/com/acme/ecommerce/user/membership/ReferralAbuseConfigIntegrationTest.java
+new file mode 100644
+index 0000000..9db02c2
+--- /dev/null
++++ b/services/user-service/user-service-app/src/test/java/com/acme/ecommerce/user/membership/ReferralAbuseConfigIntegrationTest.java
+@@ -0,0 +1,222 @@
++package com.acme.ecommerce.user.membership;
++
++import static org.assertj.core.api.Assertions.assertThat;
++import static org.assertj.core.api.Assertions.assertThatThrownBy;
++
++import com.acme.ecommerce.common.core.error.CodedException;
++import com.acme.ecommerce.common.core.error.ErrorCode;
++import com.acme.ecommerce.user.config.UserProperties;
++import com.acme.ecommerce.user.support.AbstractUserIntegrationTest;
++import java.net.InetAddress;
++import java.time.Duration;
++import java.util.UUID;
++import org.junit.jupiter.api.DisplayName;
++import org.junit.jupiter.api.Test;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.jdbc.core.simple.JdbcClient;
++import org.springframework.test.context.TestPropertySource;
++
++/** AC-8: the thresholds come from settings, not constants. */
++@TestPropertySource(
++    properties = {
++      "user.referral.min-code-age=2h",
++      "user.referral.ip-lookback=1d",
++      "user.referral.ip-retention=1d"
++    })
++class ReferralAbuseConfigIntegrationTest extends AbstractUserIntegrationTest {
++
++  @Autowired private JdbcClient jdbc;
++  @Autowired private UserProperties properties;
++  @Autowired private ReferralService referrals;
++
++  private static InetAddress ip(String literal) throws Exception {
++    return InetAddress.getByName(literal);
++  }
++
++  private void codeAge(UUID referrer, String interval) {
++    jdbc.sql(
++            "UPDATE users.referral_codes SET created_at = now() - CAST(:i AS interval) WHERE"
++                + " user_id = :u")
++        .param("i", interval)
++        .param("u", referrer)
++        .update();
++  }
++
++  private void activityAge(UUID referrer, String interval) {
++    jdbc.sql(
++            "UPDATE users.referral_ip_activity SET last_seen_at = now() - CAST(:i AS interval)"
++                + " WHERE user_id = :u")
++        .param("i", interval)
++        .param("u", referrer)
++        .update();
++  }
++
++  private int activityRows(UUID referrer) {
++    return jdbc.sql("SELECT count(*)::int FROM users.referral_ip_activity WHERE user_id = :u")
++        .param("u", referrer)
++        .query(Integer.class)
++        .single();
++  }
++
++  @Test
++  @DisplayName("the overridden values bind")
++  void binds() {
++    UserProperties.Referral r = properties.getReferral();
++    assertThat(r.getMinCodeAge()).isEqualTo(Duration.ofHours(2));
++    assertThat(r.getIpLookback()).isEqualTo(Duration.ofDays(1));
++    assertThat(r.getIpRetention()).isEqualTo(Duration.ofDays(1));
++    assertThat(r.getTrustedProxyHops()).isEqualTo(1);
++    assertThat(r.getIpHashSalt()).isEqualTo("test-only-referral-salt");
++    assertThat(r.toString()).doesNotContain("test-only-referral-salt");
++  }
++
++  @Test
++  @DisplayName("a code aged 1h is refused and one aged 3h passes")
++  void minCodeAgeFromConfig() throws Exception {
++    UUID referrer = UUID.randomUUID();
++    String code = referrals.view(referrer, ip("203.0.113.9")).code();
++    codeAge(referrer, "1 hour");
++    assertThatThrownBy(() -> referrals.claim(UUID.randomUUID(), code, ip("198.51.100.4")))
++        .isInstanceOfSatisfying(
++            CodedException.class,
++            e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.REFERRAL_CODE_TOO_NEW));
++    codeAge(referrer, "3 hours");
++    UUID referee = UUID.randomUUID();
++    referrals.claim(referee, code, ip("198.51.100.4"));
++    assertThat(referrals.byReferee(referee)).isPresent();
++  }
++
++  @Test
++  @DisplayName("activity 2d old is ignored and 12h old still matches")
++  void lookbackFromConfig() throws Exception {
++    UUID referrer = UUID.randomUUID();
++    String code = referrals.view(referrer, ip("203.0.113.9")).code();
++    codeAge(referrer, "1 day");
++    activityAge(referrer, "12 hours");
++    assertThatThrownBy(() -> referrals.claim(UUID.randomUUID(), code, ip("203.0.113.9")))
++        .isInstanceOfSatisfying(
++            CodedException.class,
++            e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.REFERRAL_IP_MATCH));
++    activityAge(referrer, "2 days");
++    UUID referee = UUID.randomUUID();
++    referrals.claim(referee, code, ip("203.0.113.9"));
++    assertThat(referrals.byReferee(referee)).isPresent();
++  }
++
++  @Test
++  @DisplayName("the purge uses the configured retention: 2d old goes, 12h old stays")
++  void retentionFromConfig() throws Exception {
++    UUID oldUser = UUID.randomUUID();
++    UUID freshUser = UUID.randomUUID();
++    referrals.view(oldUser, ip("203.0.113.9"));
++    referrals.view(freshUser, ip("203.0.113.9"));
++    activityAge(oldUser, "2 days");
++    activityAge(freshUser, "12 hours");
++    referrals.purgeExpiredIps();
++    assertThat(activityRows(oldUser)).isZero();
++    assertThat(activityRows(freshUser)).isEqualTo(1);
++  }
++
++  /** Runs the body with the given thresholds, then restores the bean (AC-9). */
++  private void withThresholds(Duration minCodeAge, Duration ipLookback, ThrowingRunnable body)
++      throws Exception {
++    UserProperties.Referral r = properties.getReferral();
++    Duration age = r.getMinCodeAge();
++    Duration lookback = r.getIpLookback();
++    try {
++      r.setMinCodeAge(minCodeAge);
++      r.setIpLookback(ipLookback);
++      body.run();
++    } finally {
++      r.setMinCodeAge(age);
++      r.setIpLookback(lookback);
++    }
++  }
++
++  private interface ThrowingRunnable {
++    void run() throws Exception;
++  }
++
++  @Test
++  @DisplayName("AC-9: with both checks off, a young code from the same network is accepted")
++  void bothChecksOff() throws Exception {
++    withThresholds(
++        Duration.ZERO,
++        Duration.ZERO,
++        () -> {
++          UUID referrer = UUID.randomUUID();
++          String code = referrals.view(referrer, ip("203.0.113.9")).code();
++          UUID referee = UUID.randomUUID();
++          referrals.claim(referee, code, ip("203.0.113.9"));
++          assertThat(referrals.byReferee(referee)).isPresent();
++        });
++  }
++
++  @Test
++  @DisplayName("AC-9: lookback 0 keeps the age check but ignores the network")
++  void ipCheckOffAgeCheckOn() throws Exception {
++    withThresholds(
++        Duration.ofHours(2),
++        Duration.ZERO,
++        () -> {
++          UUID referrer = UUID.randomUUID();
++          String code = referrals.view(referrer, ip("203.0.113.9")).code();
++          assertThatThrownBy(() -> referrals.claim(UUID.randomUUID(), code, ip("198.51.100.4")))
++              .isInstanceOfSatisfying(
++                  CodedException.class,
++                  e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.REFERRAL_CODE_TOO_NEW));
++        });
++  }
++
++  @Test
++  @DisplayName("AC-9: age 0 keeps the network check but ignores the code age")
++  void ageCheckOffIpCheckOn() throws Exception {
++    withThresholds(
++        Duration.ZERO,
++        Duration.ofDays(1),
++        () -> {
++          UUID referrer = UUID.randomUUID();
++          String code = referrals.view(referrer, ip("203.0.113.9")).code();
++          assertThatThrownBy(() -> referrals.claim(UUID.randomUUID(), code, ip("203.0.113.9")))
++              .isInstanceOfSatisfying(
++                  CodedException.class,
++                  e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.REFERRAL_IP_MATCH));
++        });
++  }
++
++  @Test
++  @DisplayName("sub-second and negative durations count as disabled")
++  void subSecondAndNegativeAreDisabled() throws Exception {
++    for (Duration off : new Duration[] {Duration.ofMillis(500), Duration.ofSeconds(-5)}) {
++      withThresholds(
++          off,
++          off,
++          () -> {
++            UUID referrer = UUID.randomUUID();
++            String code = referrals.view(referrer, ip("203.0.113.9")).code();
++            UUID referee = UUID.randomUUID();
++            referrals.claim(referee, code, ip("203.0.113.9"));
++            assertThat(referrals.byReferee(referee)).isPresent();
++          });
++    }
++  }
++
++  @Test
++  @DisplayName("retention 0 or negative skips the purge, so nothing is deleted")
++  void nonPositiveRetentionSkipsPurge() throws Exception {
++    UserProperties.Referral r = properties.getReferral();
++    Duration retention = r.getIpRetention();
++    try {
++      for (Duration off : new Duration[] {Duration.ZERO, Duration.ofSeconds(-5)}) {
++        r.setIpRetention(off);
++        UUID user = UUID.randomUUID();
++        referrals.view(user, ip("203.0.113.9"));
++        activityAge(user, "2 days");
++        referrals.purgeExpiredIps();
++        assertThat(activityRows(user)).isEqualTo(1);
++      }
++    } finally {
++      r.setIpRetention(retention);
++    }
++  }
++}
+diff --git a/services/user-service/user-service-app/src/test/java/com/acme/ecommerce/user/membership/ReferralAbuseIntegrationTest.java b/services/user-service/user-service-app/src/test/java/com/acme/ecommerce/user/membership/ReferralAbuseIntegrationTest.java
+new file mode 100644
+index 0000000..f49afc8
+--- /dev/null
++++ b/services/user-service/user-service-app/src/test/java/com/acme/ecommerce/user/membership/ReferralAbuseIntegrationTest.java
+@@ -0,0 +1,403 @@
++package com.acme.ecommerce.user.membership;
++
++import static org.assertj.core.api.Assertions.assertThat;
++import static org.assertj.core.api.Assertions.assertThatThrownBy;
++
++import com.acme.ecommerce.common.core.error.CodedException;
++import com.acme.ecommerce.common.core.error.ErrorCode;
++import com.acme.ecommerce.user.support.AbstractUserIntegrationTest;
++import java.net.InetAddress;
++import java.util.ArrayList;
++import java.util.List;
++import java.util.Map;
++import java.util.UUID;
++import java.util.concurrent.CountDownLatch;
++import java.util.concurrent.ExecutorService;
++import java.util.concurrent.Executors;
++import java.util.concurrent.Future;
++import java.util.concurrent.TimeUnit;
++import org.junit.jupiter.api.DisplayName;
++import org.junit.jupiter.api.Test;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.jdbc.core.simple.JdbcClient;
++import org.springframework.test.context.TestPropertySource;
++
++/** TD-P8-13: referral abuse checks, against a real Postgres. */
++@TestPropertySource(properties = "user.referral.ip-lookback=30d")
++class ReferralAbuseIntegrationTest extends AbstractUserIntegrationTest {
++
++  private static final String HEX64 = "^[0-9a-f]{64}$";
++
++  @Autowired private JdbcClient jdbc;
++  @Autowired private ReferralService referrals;
++  @Autowired private IpFingerprint fingerprint;
++
++  private static InetAddress ip(String literal) throws Exception {
++    return InetAddress.getByName(literal);
++  }
++
++  private static InetAddress safeIp(String literal) {
++    try {
++      return ip(literal);
++    } catch (Exception e) {
++      throw new IllegalStateException(e);
++    }
++  }
++
++  private String hashOf(String literal) throws Exception {
++    return fingerprint.hash(InetAddress.getByName(literal));
++  }
++
++  private List<Map<String, Object>> activity(UUID user) {
++    return jdbc.sql("SELECT * FROM users.referral_ip_activity WHERE user_id = :u")
++        .param("u", user)
++        .query()
++        .listOfRows();
++  }
++
++  private String claimHash(UUID referee) {
++    return jdbc.sql("SELECT claim_ip_hash FROM users.referral_claims WHERE referee_user_id = :u")
++        .param("u", referee)
++        .query(String.class)
++        .optional()
++        .orElse(null);
++  }
++
++  private int claimRows(UUID referee) {
++    return jdbc.sql("SELECT count(*)::int FROM users.referral_claims WHERE referee_user_id = :u")
++        .param("u", referee)
++        .query(Integer.class)
++        .single();
++  }
++
++  /** Makes the referrer's code old enough to pass the default minimum-age check. */
++  private void age(UUID referrer) {
++    setCodeAge(referrer, "1 day");
++  }
++
++  private void setCodeAge(UUID referrer, String interval) {
++    jdbc.sql(
++            "UPDATE users.referral_codes SET created_at = now() - CAST(:i AS interval) WHERE"
++                + " user_id = :u")
++        .param("i", interval)
++        .param("u", referrer)
++        .update();
++  }
++
++  private void backdateActivity(UUID referrer, String interval) {
++    jdbc.sql(
++            "UPDATE users.referral_ip_activity SET last_seen_at = now() - CAST(:i AS interval)"
++                + " WHERE user_id = :u")
++        .param("i", interval)
++        .param("u", referrer)
++        .update();
++  }
++
++  private static void assertRefused(Runnable call, ErrorCode expected) {
++    assertThatThrownBy(call::run)
++        .isInstanceOfSatisfying(
++            CodedException.class, e -> assertThat(e.errorCode()).isEqualTo(expected));
++  }
++
++  @Test
++  @DisplayName("view records one hashed row; repeats within the hour do not advance it")
++  void viewRecordsThrottled() throws Exception {
++    UUID user = UUID.randomUUID();
++    referrals.view(user, ip("203.0.113.9"));
++    List<Map<String, Object>> rows = activity(user);
++    assertThat(rows).hasSize(1);
++    assertThat((String) rows.get(0).get("ip_hash")).matches(HEX64).isEqualTo(hashOf("203.0.113.9"));
++
++    Object first = rows.get(0).get("last_seen_at");
++    referrals.view(user, ip("203.0.113.9"));
++    referrals.view(user, ip("203.0.113.9"));
++    rows = activity(user);
++    assertThat(rows).hasSize(1);
++    assertThat(rows.get(0).get("last_seen_at")).isEqualTo(first);
++  }
++
++  @Test
++  @DisplayName("a stale row is refreshed; a second IP adds a second row; no IP adds none")
++  void viewRefreshesAndDedupes() throws Exception {
++    UUID user = UUID.randomUUID();
++    referrals.view(user, ip("203.0.113.9"));
++    jdbc.sql(
++            "UPDATE users.referral_ip_activity SET last_seen_at = now() - interval '2 hours'"
++                + " WHERE user_id = :u")
++        .param("u", user)
++        .update();
++    referrals.view(user, ip("203.0.113.9"));
++    Integer stale =
++        jdbc.sql(
++                "SELECT count(*)::int FROM users.referral_ip_activity WHERE user_id = :u AND"
++                    + " last_seen_at > now() - interval '1 hour'")
++            .param("u", user)
++            .query(Integer.class)
++            .single();
++    assertThat(stale).isEqualTo(1);
++
++    referrals.view(user, ip("198.51.100.4"));
++    assertThat(activity(user)).hasSize(2);
++    referrals.view(user, null);
++    assertThat(activity(user)).hasSize(2);
++  }
++
++  @Test
++  @DisplayName("claim stores the hash only; no column holds the raw IP")
++  void claimStoresHashOnly() throws Exception {
++    UUID referrer = UUID.randomUUID();
++    UUID referee = UUID.randomUUID();
++    String code = referrals.view(referrer, ip("203.0.113.9")).code();
++    age(referrer);
++    referrals.claim(referee, code, ip("198.51.100.4"));
++
++    assertThat(claimHash(referee)).matches(HEX64).isEqualTo(hashOf("198.51.100.4"));
++    for (String table : List.of("referral_ip_activity", "referral_claims")) {
++      List<Map<String, Object>> rows =
++          jdbc.sql("SELECT * FROM users." + table).query().listOfRows();
++      assertThat(rows.toString()).doesNotContain("203.0.113.9").doesNotContain("198.51.100.4");
++    }
++    UUID noIp = UUID.randomUUID();
++    referrals.claim(noIp, code, null);
++    assertThat(claimRows(noIp)).isEqualTo(1);
++    assertThat(claimHash(noIp)).isNull();
++  }
++
++  @Test
++  @DisplayName("only the 20 most recent hashed IPs are kept per user, in the same transaction")
++  void activityCapKeepsMostRecent() throws Exception {
++    UUID user = UUID.randomUUID();
++    UUID other = UUID.randomUUID();
++    referrals.view(other, ip("198.51.100.1"));
++    for (int i = 1; i <= 25; i++) {
++      referrals.view(user, ip("10.0.0." + i));
++      // make this row strictly older than the next insert so recency is unambiguous
++      jdbc.sql(
++              "UPDATE users.referral_ip_activity SET last_seen_at = now() - (CAST(:age AS int) *"
++                  + " interval '1 minute') WHERE user_id = :u AND ip_hash = :h")
++          .param("age", 100 - i)
++          .param("u", user)
++          .param("h", hashOf("10.0.0." + i))
++          .update();
++    }
++    assertThat(activity(user)).hasSize(ReferralService.MAX_ACTIVITY_ROWS);
++    assertThat(activity(user))
++        .extracting(r -> r.get("ip_hash"))
++        .contains(hashOf("10.0.0.25"), hashOf("10.0.0.6"))
++        .doesNotContain(hashOf("10.0.0.1"), hashOf("10.0.0.5"));
++    assertThat(activity(other)).hasSize(1);
++  }
++
++  @Test
++  @DisplayName("claiming an unknown code is 404 and records no activity")
++  void unknownCodeRecordsNothing() throws Exception {
++    UUID user = UUID.randomUUID();
++    assertThatThrownBy(() -> referrals.claim(user, "NOSUCHCD", ip("198.51.100.4")))
++        .isInstanceOfSatisfying(
++            CodedException.class,
++            e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.RESOURCE_NOT_FOUND));
++    assertThat(activity(user)).isEmpty();
++    assertThat(claimRows(user)).isZero();
++  }
++
++  @Test
++  @DisplayName("own code is 422 and a second claim is 409 (unchanged behaviour)")
++  void existingRulesUnchanged() throws Exception {
++    UUID referrer = UUID.randomUUID();
++    UUID referee = UUID.randomUUID();
++    String code = referrals.view(referrer, null).code();
++    age(referrer);
++    assertThatThrownBy(() -> referrals.claim(referrer, code, null))
++        .isInstanceOfSatisfying(
++            CodedException.class,
++            e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.DOMAIN_RULE_VIOLATION));
++    referrals.claim(referee, code, null);
++    assertThatThrownBy(() -> referrals.claim(referee, code, null))
++        .isInstanceOfSatisfying(
++            CodedException.class,
++            e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.RESOURCE_CONFLICT));
++  }
++
++  @Test
++  @DisplayName("retention job deletes old activity and nulls old claim hashes, keeping claims")
++  void purgeRemovesOnlyExpired() throws Exception {
++    UUID referrer = UUID.randomUUID();
++    String code = referrals.view(referrer, ip("203.0.113.9")).code();
++    age(referrer);
++    referrals.view(referrer, ip("203.0.113.10"));
++    jdbc.sql(
++            "UPDATE users.referral_ip_activity SET last_seen_at = now() - interval '31 days'"
++                + " WHERE user_id = :u AND ip_hash = :h")
++        .param("u", referrer)
++        .param("h", hashOf("203.0.113.9"))
++        .update();
++    UUID oldReferee = UUID.randomUUID();
++    UUID newReferee = UUID.randomUUID();
++    referrals.claim(oldReferee, code, ip("198.51.100.4"));
++    referrals.claim(newReferee, code, ip("198.51.100.5"));
++    jdbc.sql(
++            "UPDATE users.referral_claims SET claimed_at = now() - interval '31 days' WHERE"
++                + " referee_user_id = :u")
++        .param("u", oldReferee)
++        .update();
++
++    referrals.purgeExpiredIps();
++
++    assertThat(activity(referrer))
++        .extracting(r -> r.get("ip_hash"))
++        .containsExactly(hashOf("203.0.113.10"));
++    assertThat(claimRows(oldReferee)).isEqualTo(1);
++    assertThat(claimHash(oldReferee)).isNull();
++    assertThat(claimHash(newReferee)).isEqualTo(hashOf("198.51.100.5"));
++  }
++
++  @Test
++  @DisplayName("AC-1: an aged code and a different network is accepted")
++  void agedCodeDifferentIpAccepted() throws Exception {
++    UUID referrer = UUID.randomUUID();
++    UUID referee = UUID.randomUUID();
++    String code = referrals.view(referrer, ip("203.0.113.9")).code();
++    age(referrer);
++    referrals.claim(referee, code, ip("198.51.100.4"));
++    assertThat(claimRows(referee)).isEqualTo(1);
++  }
++
++  @Test
++  @DisplayName("AC-2: a young code is refused with no row")
++  void youngCodeRefused() throws Exception {
++    UUID referrer = UUID.randomUUID();
++    UUID referee = UUID.randomUUID();
++    String code = referrals.view(referrer, ip("203.0.113.9")).code();
++    assertRefused(
++        () -> referrals.claim(referee, code, safeIp("198.51.100.4")),
++        ErrorCode.REFERRAL_CODE_TOO_NEW);
++    assertThat(claimRows(referee)).isZero();
++  }
++
++  @Test
++  @DisplayName("AC-3 and AC-15: the referrer's network is refused, however the IPv6 is written")
++  void sameIpRefused() throws Exception {
++    UUID referrer = UUID.randomUUID();
++    String code = referrals.view(referrer, ip("203.0.113.9")).code();
++    String code6 = referrals.view(referrer, ip("2001:DB8::1")).code();
++    age(referrer);
++    UUID referee = UUID.randomUUID();
++    assertRefused(
++        () -> referrals.claim(referee, code, safeIp("203.0.113.9")), ErrorCode.REFERRAL_IP_MATCH);
++    assertRefused(
++        () -> referrals.claim(referee, code6, safeIp("2001:0db8:0:0:0:0:0:1")),
++        ErrorCode.REFERRAL_IP_MATCH);
++    assertRefused(
++        () -> referrals.claim(referee, code6, safeIp("2001:db8::1%1")),
++        ErrorCode.REFERRAL_IP_MATCH);
++    assertThat(claimRows(referee)).isZero();
++  }
++
++  @Test
++  @DisplayName("AC-4: activity older than the lookback is ignored")
++  void oldActivityIgnored() throws Exception {
++    UUID referrer = UUID.randomUUID();
++    String code = referrals.view(referrer, ip("203.0.113.9")).code();
++    age(referrer);
++    backdateActivity(referrer, "31 days");
++    UUID referee = UUID.randomUUID();
++    referrals.claim(referee, code, ip("203.0.113.9"));
++    assertThat(claimRows(referee)).isEqualTo(1);
++  }
++
++  @Test
++  @DisplayName("AC-10: a young code with the same IP reports only the code age")
++  void ageCheckBeforeIpCheck() throws Exception {
++    UUID referrer = UUID.randomUUID();
++    String code = referrals.view(referrer, ip("203.0.113.9")).code();
++    assertRefused(
++        () -> referrals.claim(UUID.randomUUID(), code, safeIp("203.0.113.9")),
++        ErrorCode.REFERRAL_CODE_TOO_NEW);
++  }
++
++  @Test
++  @DisplayName("AC-11: a refusal does not burn the referee's one claim")
++  void refusalKeepsSlotFree() throws Exception {
++    UUID referrer = UUID.randomUUID();
++    UUID referrer2 = UUID.randomUUID();
++    String code = referrals.view(referrer, ip("203.0.113.9")).code();
++    String code2 = referrals.view(referrer2, ip("192.0.2.77")).code();
++    age(referrer2);
++    UUID referee = UUID.randomUUID();
++    assertRefused(
++        () -> referrals.claim(referee, code, safeIp("198.51.100.4")),
++        ErrorCode.REFERRAL_CODE_TOO_NEW);
++    age(referrer);
++    referrals.claim(referee, code, ip("198.51.100.4"));
++    assertThat(claimRows(referee)).isEqualTo(1);
++
++    UUID referee2 = UUID.randomUUID();
++    assertRefused(
++        () -> referrals.claim(referee2, code2, safeIp("192.0.2.77")), ErrorCode.REFERRAL_IP_MATCH);
++    referrals.claim(referee2, code, ip("192.0.2.77"));
++    assertThat(claimRows(referee2)).isEqualTo(1);
++  }
++
++  @Test
++  @DisplayName("a lower-case, padded code hits the same checks")
++  void normalisedCodeChecked() throws Exception {
++    UUID referrer = UUID.randomUUID();
++    String code = referrals.view(referrer, ip("203.0.113.9")).code();
++    assertRefused(
++        () ->
++            referrals.claim(UUID.randomUUID(), "  " + code.toLowerCase() + " ", safeIp("1.2.3.4")),
++        ErrorCode.REFERRAL_CODE_TOO_NEW);
++  }
++
++  @Test
++  @DisplayName("AC-12: a duplicate claim is 409 even while the code is young")
++  void duplicateBeforeAgeCheck() throws Exception {
++    UUID referrer = UUID.randomUUID();
++    UUID referee = UUID.randomUUID();
++    String code = referrals.view(referrer, ip("203.0.113.9")).code();
++    age(referrer);
++    referrals.claim(referee, code, ip("198.51.100.4"));
++    setCodeAge(referrer, "1 minute");
++    assertRefused(
++        () -> referrals.claim(referee, code, safeIp("203.0.113.9")), ErrorCode.RESOURCE_CONFLICT);
++  }
++
++  @Test
++  @DisplayName("two concurrent claims by one referee leave exactly one row")
++  void concurrentClaims() throws Exception {
++    UUID referrer = UUID.randomUUID();
++    String code = referrals.view(referrer, ip("203.0.113.9")).code();
++    age(referrer);
++    UUID referee = UUID.randomUUID();
++    ExecutorService pool = Executors.newFixedThreadPool(2);
++    try {
++      CountDownLatch go = new CountDownLatch(1);
++      List<Future<Boolean>> results = new ArrayList<>();
++      for (int i = 0; i < 2; i++) {
++        results.add(
++            pool.submit(
++                () -> {
++                  go.await();
++                  try {
++                    referrals.claim(referee, code, ip("198.51.100.4"));
++                    return true;
++                  } catch (CodedException e) {
++                    assertThat(e.errorCode()).isEqualTo(ErrorCode.RESOURCE_CONFLICT);
++                    return false;
++                  }
++                }));
++      }
++      go.countDown();
++      long ok = 0;
++      for (Future<Boolean> f : results) {
++        if (f.get(30, TimeUnit.SECONDS)) {
++          ok++;
++        }
++      }
++      assertThat(ok).isEqualTo(1);
++    } finally {
++      pool.shutdownNow();
++    }
++    assertThat(claimRows(referee)).isEqualTo(1);
++  }
++}
+diff --git a/services/user-service/user-service-app/src/test/java/com/acme/ecommerce/user/membership/ReferralAccountDeletionIntegrationTest.java b/services/user-service/user-service-app/src/test/java/com/acme/ecommerce/user/membership/ReferralAccountDeletionIntegrationTest.java
+new file mode 100644
+index 0000000..c172317
+--- /dev/null
++++ b/services/user-service/user-service-app/src/test/java/com/acme/ecommerce/user/membership/ReferralAccountDeletionIntegrationTest.java
+@@ -0,0 +1,88 @@
++package com.acme.ecommerce.user.membership;
++
++import static org.assertj.core.api.Assertions.assertThat;
++import static org.mockito.ArgumentMatchers.any;
++import static org.mockito.ArgumentMatchers.anyString;
++import static org.mockito.Mockito.when;
++
++import com.acme.ecommerce.user.privacy.PrivacyKafkaConfig.PrivacyHttp;
++import com.acme.ecommerce.user.privacy.PrivacyService;
++import com.acme.ecommerce.user.support.AbstractUserIntegrationTest;
++import java.net.InetAddress;
++import java.time.Instant;
++import java.util.UUID;
++import java.util.concurrent.CompletableFuture;
++import org.junit.jupiter.api.DisplayName;
++import org.junit.jupiter.api.Test;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.jdbc.core.simple.JdbcClient;
++import org.springframework.kafka.core.KafkaTemplate;
++import org.springframework.test.context.TestPropertySource;
++import org.springframework.test.context.bean.override.mockito.MockitoBean;
++
++/** TD-P8-13: hashed IPs are part of account deletion. */
++@TestPropertySource(properties = "user.referral.ip-lookback=30d")
++class ReferralAccountDeletionIntegrationTest extends AbstractUserIntegrationTest {
++
++  @MockitoBean private PrivacyHttp privacyHttp;
++
++  @MockitoBean(name = "privacyKafkaTemplate")
++  private KafkaTemplate<String, String> kafka;
++
++  @Autowired private ReferralService referrals;
++  @Autowired private PrivacyService privacy;
++  @Autowired private JdbcClient jdbc;
++
++  @Test
++  @DisplayName("completing a deletion removes the user's activity rows and nulls their claim hash")
++  void deletionClearsIpHashes() throws Exception {
++    when(privacyHttp.get(anyString(), anyString(), any(Object[].class))).thenReturn("{}");
++    when(kafka.send(anyString(), anyString(), anyString()))
++        .thenReturn(CompletableFuture.completedFuture(null));
++
++    UUID user = UUID.randomUUID();
++    UUID other = UUID.randomUUID();
++    String code = referrals.view(user, InetAddress.getByName("203.0.113.9")).code();
++    String otherCode = referrals.view(other, InetAddress.getByName("203.0.113.9")).code();
++    UUID referee = UUID.randomUUID();
++    jdbc.sql(
++            "UPDATE users.referral_codes SET created_at = now() - interval '1 day' WHERE code IN"
++                + " (:a, :b)")
++        .param("a", code)
++        .param("b", otherCode)
++        .update();
++    referrals.claim(user, otherCode, InetAddress.getByName("198.51.100.4"));
++    referrals.claim(referee, code, InetAddress.getByName("198.51.100.5"));
++
++    jdbc.sql(
++            "INSERT INTO users.deletion_requests (user_id, status, scheduled_for) VALUES (:u,"
++                + " 'SCHEDULED', now() - interval '1 minute')")
++        .param("u", user)
++        .update();
++    assertThat(privacy.runDue(Instant.now())).isEqualTo(1);
++
++    assertThat(count("referral_ip_activity", "user_id", user)).isZero();
++    assertThat(count("referral_ip_activity", "user_id", other)).isEqualTo(1);
++    assertThat(
++            jdbc.sql("SELECT claim_ip_hash FROM users.referral_claims WHERE referee_user_id = :u")
++                .param("u", user)
++                .query()
++                .singleRow()
++                .get("claim_ip_hash"))
++        .isNull();
++    assertThat(
++            jdbc.sql("SELECT claim_ip_hash FROM users.referral_claims WHERE referee_user_id = :u")
++                .param("u", referee)
++                .query()
++                .singleRow()
++                .get("claim_ip_hash"))
++        .isNotNull();
++  }
++
++  private int count(String table, String column, UUID id) {
++    return jdbc.sql("SELECT count(*)::int FROM users." + table + " WHERE " + column + " = :u")
++        .param("u", id)
++        .query(Integer.class)
++        .single();
++  }
++}
+diff --git a/services/user-service/user-service-app/src/test/java/com/acme/ecommerce/user/membership/ReferralIpCheckDefaultOffIntegrationTest.java b/services/user-service/user-service-app/src/test/java/com/acme/ecommerce/user/membership/ReferralIpCheckDefaultOffIntegrationTest.java
+new file mode 100644
+index 0000000..4cbcad2
+--- /dev/null
++++ b/services/user-service/user-service-app/src/test/java/com/acme/ecommerce/user/membership/ReferralIpCheckDefaultOffIntegrationTest.java
+@@ -0,0 +1,55 @@
++package com.acme.ecommerce.user.membership;
++
++import static org.assertj.core.api.Assertions.assertThat;
++
++import com.acme.ecommerce.user.config.UserProperties;
++import com.acme.ecommerce.user.support.AbstractUserIntegrationTest;
++import java.net.InetAddress;
++import java.time.Duration;
++import java.util.UUID;
++import org.junit.jupiter.api.DisplayName;
++import org.junit.jupiter.api.Test;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.jdbc.core.simple.JdbcClient;
++
++/** Owner decision (round 4): with default config the IP check is off and nothing is recorded. */
++class ReferralIpCheckDefaultOffIntegrationTest extends AbstractUserIntegrationTest {
++
++  @Autowired private JdbcClient jdbc;
++  @Autowired private ReferralService referrals;
++  @Autowired private UserProperties properties;
++
++  private int rows(String table, String column, UUID user) {
++    return jdbc.sql("SELECT count(*)::int FROM users." + table + " WHERE " + column + " = :u")
++        .param("u", user)
++        .query(Integer.class)
++        .single();
++  }
++
++  @Test
++  @DisplayName("default lookback is 0: same-IP claim succeeds and no ip_activity row is written")
++  void sameIpClaimSucceedsAndNothingRecorded() throws Exception {
++    assertThat(properties.getReferral().getIpLookback()).isEqualTo(Duration.ZERO);
++    InetAddress same = InetAddress.getByName("203.0.113.9");
++    UUID referrer = UUID.randomUUID();
++    UUID referee = UUID.randomUUID();
++    String code = referrals.view(referrer, same).code();
++    jdbc.sql(
++            "UPDATE users.referral_codes SET created_at = now() - interval '1 day' WHERE code = :c")
++        .param("c", code)
++        .update();
++
++    referrals.claim(referee, code, same);
++
++    assertThat(rows("referral_claims", "referee_user_id", referee)).isEqualTo(1);
++    assertThat(rows("referral_ip_activity", "user_id", referrer)).isZero();
++    assertThat(
++            jdbc.sql(
++                    "SELECT count(*) FROM users.referral_claims WHERE referee_user_id = :u AND"
++                        + " claim_ip_hash IS NULL")
++                .param("u", referee)
++                .query(Long.class)
++                .single())
++        .isEqualTo(1L);
++  }
++}
+diff --git a/services/user-service/user-service-app/src/test/java/com/acme/ecommerce/user/web/ClientIpTest.java b/services/user-service/user-service-app/src/test/java/com/acme/ecommerce/user/web/ClientIpTest.java
+new file mode 100644
+index 0000000..ade7531
+--- /dev/null
++++ b/services/user-service/user-service-app/src/test/java/com/acme/ecommerce/user/web/ClientIpTest.java
+@@ -0,0 +1,132 @@
++package com.acme.ecommerce.user.web;
++
++import static org.assertj.core.api.Assertions.assertThat;
++
++import java.net.InetAddress;
++import java.util.Optional;
++import org.junit.jupiter.api.DisplayName;
++import org.junit.jupiter.api.Test;
++import org.springframework.mock.web.MockHttpServletRequest;
++
++class ClientIpTest {
++
++  private static MockHttpServletRequest request(String xff, String remote) {
++    MockHttpServletRequest r = new MockHttpServletRequest();
++    r.setRemoteAddr(remote);
++    if (xff != null) {
++      r.addHeader("X-Forwarded-For", xff);
++    }
++    return r;
++  }
++
++  private static Optional<InetAddress> resolve(MockHttpServletRequest r) {
++    return ClientIp.resolve(r, 1);
++  }
++
++  private static String ip(Optional<InetAddress> a) {
++    return a.map(InetAddress::getHostAddress).orElse(null);
++  }
++
++  @Test
++  @DisplayName("with hops=1 the client is the last entry; ports are stripped")
++  void lastEntryForOneHop() {
++    assertThat(ip(resolve(request("1.1.1.1, 2.2.2.2, 3.3.3.3", "9.9.9.9")))).isEqualTo("3.3.3.3");
++    assertThat(ip(resolve(request("2.2.2.2,  1.1.1.1:8080 ", "9.9.9.9")))).isEqualTo("1.1.1.1");
++  }
++
++  @Test
++  @DisplayName("spoofed, real-client, alb, gateway with hops=3 resolves to real-client")
++  void spoofedLeftEntryIgnored() {
++    String xff = "6.6.6.6, 203.0.113.50, 10.0.1.1, 10.0.2.2";
++    assertThat(ip(ClientIp.resolve(request(xff, "9.9.9.9"), 3))).isEqualTo("203.0.113.50");
++    // a longer forged prefix changes nothing
++    assertThat(ip(ClientIp.resolve(request("7.7.7.7, 8.8.8.8, " + xff, "9.9.9.9"), 3)))
++        .isEqualTo("203.0.113.50");
++  }
++
++  @Test
++  @DisplayName("hops=0 or fewer entries than hops fall back to the socket peer")
++  void zeroHopsOrTooFewEntries() {
++    assertThat(ip(ClientIp.resolve(request("1.1.1.1, 2.2.2.2", "9.9.9.9"), 0)))
++        .isEqualTo("9.9.9.9");
++    assertThat(ip(ClientIp.resolve(request("1.1.1.1, 2.2.2.2", "9.9.9.9"), -1)))
++        .isEqualTo("9.9.9.9");
++    assertThat(ip(ClientIp.resolve(request("1.1.1.1, 2.2.2.2", "9.9.9.9"), 3)))
++        .isEqualTo("9.9.9.9");
++    assertThat(ip(ClientIp.resolve(request(null, "9.9.9.9"), 2))).isEqualTo("9.9.9.9");
++  }
++
++  @Test
++  @DisplayName("a non-literal selected entry falls back to the socket peer, not to its neighbour")
++  void nonLiteralSelectedEntry() {
++    assertThat(ip(ClientIp.resolve(request("1.1.1.1, garbage, 3.3.3.3", "9.9.9.9"), 2)))
++        .isEqualTo("9.9.9.9");
++  }
++
++  @Test
++  @DisplayName(
++      "missing, blank, garbage, hostname, oversized and non-literal headers fall back to remote")
++  void fallsBack() {
++    String big = "a".repeat(5000);
++    for (String xff :
++        new String[] {
++          null,
++          "",
++          "   ",
++          "garbage",
++          "example.com",
++          "deadbeef",
++          big,
++          "1.1.1.1, garbage",
++          "999.1.1.1",
++          "1.1.1.256",
++          "[1.1.1.1",
++          ".:1",
++          "..:",
++          ":.",
++          "a:1",
++          "1:2:3:4:5:6:7:8:9",
++          "1::2::3",
++          ":::",
++          "1:2:3:4:5:6:7:1.2.3.4",
++          "::1.2.3.999",
++          "1.2.3.4::"
++        }) {
++      assertThat(ip(resolve(request(xff, "9.9.9.9")))).as("xff=%s", xff).isEqualTo("9.9.9.9");
++    }
++  }
++
++  @Test
++  @DisplayName("both sources unusable gives empty and never throws")
++  void bothBad() {
++    assertThat(resolve(request("garbage", "also-bad"))).isEmpty();
++    assertThat(resolve(request(null, ""))).isEmpty();
++    assertThat(ClientIp.resolve(null, 1)).isEmpty();
++  }
++
++  @Test
++  @DisplayName("IPv6 written differently resolves to the same address; v4 is not v6")
++  void canonicalForms() {
++    InetAddress a = resolve(request("2001:DB8::1", "9.9.9.9")).orElseThrow();
++    for (String form :
++        new String[] {
++          "2001:0db8:0:0:0:0:0:1", "[2001:db8::1]", "[2001:db8::1]:443", "2001:db8::1%eth0"
++        }) {
++      assertThat(resolve(request(form, "9.9.9.9")).orElseThrow()).as(form).isEqualTo(a);
++    }
++    assertThat(resolve(request(null, "2001:db8::1")).orElseThrow()).isEqualTo(a);
++    InetAddress v4 = resolve(request("1.2.3.4", "9.9.9.9")).orElseThrow();
++    assertThat(v4).isNotEqualTo(resolve(request("::102:304", "9.9.9.9")).orElseThrow());
++  }
++
++  @Test
++  @DisplayName("valid compressed and embedded-IPv4 forms parse; IPv4-mapped IPv6 equals the IPv4")
++  void ipv6Forms() {
++    assertThat(ip(resolve(request("::", "9.9.9.9")))).isEqualTo("0:0:0:0:0:0:0:0");
++    assertThat(ip(resolve(request("::1", "9.9.9.9")))).isEqualTo("0:0:0:0:0:0:0:1");
++    assertThat(ip(resolve(request("1:2:3:4:5:6:7:8", "9.9.9.9")))).isEqualTo("1:2:3:4:5:6:7:8");
++    assertThat(ip(resolve(request("1::", "9.9.9.9")))).isEqualTo("1:0:0:0:0:0:0:0");
++    assertThat(resolve(request("::ffff:1.2.3.4", "9.9.9.9")).orElseThrow())
++        .isEqualTo(resolve(request("1.2.3.4", "9.9.9.9")).orElseThrow());
++  }
++}
+diff --git a/services/user-service/user-service-app/src/test/java/com/acme/ecommerce/user/web/ReferralEndpointsMvcTest.java b/services/user-service/user-service-app/src/test/java/com/acme/ecommerce/user/web/ReferralEndpointsMvcTest.java
+new file mode 100644
+index 0000000..501ac9e
+--- /dev/null
++++ b/services/user-service/user-service-app/src/test/java/com/acme/ecommerce/user/web/ReferralEndpointsMvcTest.java
+@@ -0,0 +1,257 @@
++package com.acme.ecommerce.user.web;
++
++import static org.assertj.core.api.Assertions.assertThat;
++import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
++import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
++import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
++
++import ch.qos.logback.classic.Level;
++import ch.qos.logback.classic.Logger;
++import ch.qos.logback.classic.spi.ILoggingEvent;
++import ch.qos.logback.core.read.ListAppender;
++import com.acme.ecommerce.user.membership.IpFingerprint;
++import com.acme.ecommerce.user.support.AbstractUserIntegrationTest;
++import com.fasterxml.jackson.databind.JsonNode;
++import com.fasterxml.jackson.databind.ObjectMapper;
++import java.net.InetAddress;
++import java.util.ArrayList;
++import java.util.List;
++import java.util.UUID;
++import org.junit.jupiter.api.DisplayName;
++import org.junit.jupiter.api.Test;
++import org.slf4j.LoggerFactory;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
++import org.springframework.http.MediaType;
++import org.springframework.jdbc.core.simple.JdbcClient;
++import org.springframework.mock.web.MockHttpServletResponse;
++import org.springframework.test.context.TestPropertySource;
++import org.springframework.test.web.servlet.MockMvc;
++import org.springframework.test.web.servlet.request.RequestPostProcessor;
++
++@AutoConfigureMockMvc
++@TestPropertySource(properties = "user.referral.ip-lookback=30d")
++class ReferralEndpointsMvcTest extends AbstractUserIntegrationTest {
++
++  private static final String SALT = "test-only-referral-salt";
++
++  @Autowired private MockMvc mockMvc;
++  @Autowired private ObjectMapper objectMapper;
++  @Autowired private JdbcClient jdbc;
++  @Autowired private IpFingerprint fingerprint;
++
++  private static RequestPostProcessor as(UUID user) {
++    return jwt().jwt(j -> j.subject(user.toString()));
++  }
++
++  private JsonNode view(UUID user, String xff) throws Exception {
++    var req = get("/api/referrals").with(as(user));
++    if (xff != null) {
++      req = req.header("X-Forwarded-For", xff);
++    }
++    return objectMapper.readTree(
++        mockMvc.perform(req).andReturn().getResponse().getContentAsString());
++  }
++
++  private MockHttpServletResponse claim(UUID user, String code, String xff) throws Exception {
++    var req =
++        post("/api/referrals/claim")
++            .with(as(user))
++            .contentType(MediaType.APPLICATION_JSON)
++            .content("{\"code\":\"" + code + "\"}");
++    if (xff != null) {
++      req = req.header("X-Forwarded-For", xff);
++    }
++    return mockMvc.perform(req).andReturn().getResponse();
++  }
++
++  private void ageCode(String code) {
++    jdbc.sql(
++            "UPDATE users.referral_codes SET created_at = now() - interval '1 day' WHERE code = :c")
++        .param("c", code)
++        .update();
++  }
++
++  private List<String> hashes(UUID user) {
++    return jdbc.sql("SELECT ip_hash FROM users.referral_ip_activity WHERE user_id = :u")
++        .param("u", user)
++        .query(String.class)
++        .list();
++  }
++
++  @Test
++  @DisplayName("GET /api/referrals keeps exactly its pre-change fields")
++  void responseShapeUnchanged() throws Exception {
++    String body =
++        mockMvc
++            .perform(
++                get("/api/referrals")
++                    .header("X-Forwarded-For", "203.0.113.50, 10.0.0.1")
++                    .with(as(UUID.randomUUID())))
++            .andReturn()
++            .getResponse()
++            .getContentAsString();
++    JsonNode json = objectMapper.readTree(body);
++    List<String> fields = new ArrayList<>();
++    json.fieldNames().forEachRemaining(fields::add);
++    assertThat(fields).containsExactlyInAnyOrder("code", "link", "invited", "rewarded", "rewards");
++    assertThat(body).doesNotContain("203.0.113.50");
++  }
++
++  @Test
++  @DisplayName("AC-12: claiming without a JWT is 401")
++  void claimWithoutJwtIs401() throws Exception {
++    int status =
++        mockMvc
++            .perform(
++                post("/api/referrals/claim")
++                    .contentType(MediaType.APPLICATION_JSON)
++                    .content("{\"code\":\"ABCDEFGH\"}"))
++            .andReturn()
++            .getResponse()
++            .getStatus();
++    assertThat(status).isEqualTo(401);
++    assertThat(mockMvc.perform(get("/api/referrals")).andReturn().getResponse().getStatus())
++        .isEqualTo(401);
++  }
++
++  @Test
++  @DisplayName("AC-6 and AC-13: only the trusted (rightmost, hops=1) entry is recorded, as a hash")
++  void recordsTrustedForwardedEntry() throws Exception {
++    UUID user = UUID.randomUUID();
++    view(user, "10.0.0.1, 10.0.0.2, 203.0.113.50");
++    assertThat(hashes(user))
++        .containsExactly(fingerprint.hash(InetAddress.getByName("203.0.113.50")));
++  }
++
++  @Test
++  @DisplayName("AC-17: refusals are the standard problem body with a generic detail")
++  void refusalBodyIsGeneric() throws Exception {
++    UUID referrer = UUID.randomUUID();
++    String code = view(referrer, "203.0.113.50").get("code").asText();
++
++    MockHttpServletResponse young = claim(UUID.randomUUID(), code, "198.51.100.77");
++    assertThat(young.getStatus()).isEqualTo(422);
++    JsonNode tooNew = objectMapper.readTree(young.getContentAsString());
++    assertThat(tooNew.get("code").asText()).isEqualTo("REFERRAL_CODE_TOO_NEW");
++    assertThat(tooNew.get("detail").asText()).isEqualTo("This referral code cannot be used yet");
++
++    ageCode(code);
++    MockHttpServletResponse same = claim(UUID.randomUUID(), code, "203.0.113.50");
++    assertThat(same.getStatus()).isEqualTo(422);
++    JsonNode ipMatch = objectMapper.readTree(same.getContentAsString());
++    assertThat(ipMatch.get("code").asText()).isEqualTo("REFERRAL_IP_MATCH");
++    assertThat(ipMatch.get("detail").asText())
++        .isEqualTo("This referral code cannot be used from this network");
++
++    for (JsonNode body : List.of(tooNew, ipMatch)) {
++      List<String> fields = new ArrayList<>();
++      body.fieldNames().forEachRemaining(fields::add);
++      assertThat(fields)
++          .doesNotContain("ip", "createdAt", "retryAfter", "minutes", "count", "ageSeconds");
++      assertThat(body.toString()).doesNotContain("203.0.113.50").doesNotContain("198.51.100.77");
++      assertThat(body.get("detail").asText()).doesNotContainPattern("\\d");
++    }
++  }
++
++  @Test
++  @DisplayName("an accepted claim is 204")
++  void acceptedClaimIs204() throws Exception {
++    String code = view(UUID.randomUUID(), "203.0.113.50").get("code").asText();
++    ageCode(code);
++    assertThat(claim(UUID.randomUUID(), code, "198.51.100.77").getStatus()).isEqualTo(204);
++  }
++
++  @Test
++  @DisplayName("AC-14: malformed, blank and oversized X-Forwarded-For never cause a 5xx")
++  void badForwardedHeadersAreNot5xx() throws Exception {
++    String code = view(UUID.randomUUID(), null).get("code").asText();
++    ageCode(code);
++    for (String header :
++        List.of("garbage", "   ", "example.com", ",,,", "x".repeat(5_000), "1.2.3.4:99999:1")) {
++      assertThat(view(UUID.randomUUID(), header).has("code")).as(header.length() + "").isTrue();
++      int status = claim(UUID.randomUUID(), code, header).getStatus();
++      assertThat(status).as("claim with header of length " + header.length()).isLessThan(500);
++    }
++  }
++
++  @Test
++  @DisplayName("AC-13: the trusted entry is the one compared on claim")
++  void claimComparesTrustedForwardedEntry() throws Exception {
++    String code = view(UUID.randomUUID(), "203.0.113.50").get("code").asText();
++    ageCode(code);
++    MockHttpServletResponse hit = claim(UUID.randomUUID(), code, "198.51.100.77, 203.0.113.50");
++    assertThat(hit.getStatus()).isEqualTo(422);
++    assertThat(objectMapper.readTree(hit.getContentAsString()).get("code").asText())
++        .isEqualTo("REFERRAL_IP_MATCH");
++    assertThat(claim(UUID.randomUUID(), code, "203.0.113.50, 198.51.100.77").getStatus())
++        .isEqualTo(204);
++  }
++
++  @Test
++  @DisplayName("a forged left entry can neither cause nor avoid a REFERRAL_IP_MATCH")
++  void forgedLeftEntryHasNoEffect() throws Exception {
++    // the referrer was seen from 203.0.113.50 (the entry the gateway appended)
++    UUID referrer = UUID.randomUUID();
++    String code = view(referrer, "6.6.6.6, 203.0.113.50").get("code").asText();
++    assertThat(hashes(referrer))
++        .containsExactly(fingerprint.hash(InetAddress.getByName("203.0.113.50")));
++    ageCode(code);
++
++    // avoid: the claimant really is on the referrer's network but forges a different left entry
++    MockHttpServletResponse avoid = claim(UUID.randomUUID(), code, "198.51.100.77, 203.0.113.50");
++    assertThat(avoid.getStatus()).isEqualTo(422);
++    assertThat(objectMapper.readTree(avoid.getContentAsString()).get("code").asText())
++        .isEqualTo("REFERRAL_IP_MATCH");
++
++    // cause: the claimant is elsewhere but forges the referrer's IP in the left entry
++    assertThat(claim(UUID.randomUUID(), code, "203.0.113.50, 198.51.100.77").getStatus())
++        .isEqualTo(204);
++  }
++
++  @Test
++  @DisplayName("AC-15: an IPv4 address and an IPv6 address never match each other")
++  void v4AndV6DoNotMatch() throws Exception {
++    String code = view(UUID.randomUUID(), "1.2.3.4").get("code").asText();
++    ageCode(code);
++    assertThat(claim(UUID.randomUUID(), code, "::102:304").getStatus()).isEqualTo(204);
++  }
++
++  @Test
++  @DisplayName("AC-5: no log line holds a raw IP or the salt across a view and claim flow")
++  void noRawIpInLogs() throws Exception {
++    Logger root = (Logger) LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME);
++    Level before = root.getLevel();
++    ListAppender<ILoggingEvent> appender = new ListAppender<>();
++    appender.start();
++    root.addAppender(appender);
++    root.setLevel(Level.DEBUG);
++    try {
++      String referrerIp = "203.0.113.50";
++      String refereeIp = "198.51.100.77";
++      String code = view(UUID.randomUUID(), referrerIp).get("code").asText();
++      claim(UUID.randomUUID(), code, refereeIp); // refused: too new
++      ageCode(code);
++      claim(UUID.randomUUID(), code, referrerIp); // refused: same network
++      claim(UUID.randomUUID(), code, refereeIp); // accepted
++
++      List<String> lines = new ArrayList<>();
++      for (ILoggingEvent e : appender.list) {
++        lines.add(e.getFormattedMessage());
++        lines.add(
++            String.valueOf(e.getArgumentArray() == null ? "" : List.of(e.getArgumentArray())));
++        if (e.getThrowableProxy() != null) {
++          lines.add(e.getThrowableProxy().getMessage());
++        }
++      }
++      assertThat(appender.list).isNotEmpty();
++      assertThat(String.join("\n", lines))
++          .doesNotContain(referrerIp)
++          .doesNotContain(refereeIp)
++          .doesNotContain(SALT);
++    } finally {
++      root.detachAppender(appender);
++      root.setLevel(before);
++    }
++  }
++}
+diff --git a/services/user-service/user-service-app/src/test/java/com/acme/ecommerce/user/web/ReferralForwardedForTomcatTest.java b/services/user-service/user-service-app/src/test/java/com/acme/ecommerce/user/web/ReferralForwardedForTomcatTest.java
+new file mode 100644
+index 0000000..2a6a7fe
+--- /dev/null
++++ b/services/user-service/user-service-app/src/test/java/com/acme/ecommerce/user/web/ReferralForwardedForTomcatTest.java
+@@ -0,0 +1,120 @@
++package com.acme.ecommerce.user.web;
++
++import static org.assertj.core.api.Assertions.assertThat;
++import static org.mockito.ArgumentMatchers.anyString;
++import static org.mockito.Mockito.when;
++
++import com.acme.ecommerce.user.membership.IpFingerprint;
++import com.acme.ecommerce.user.membership.ReferralService;
++import com.acme.ecommerce.user.support.AbstractUserIntegrationTest;
++import java.net.InetAddress;
++import java.net.URI;
++import java.net.http.HttpClient;
++import java.net.http.HttpRequest;
++import java.net.http.HttpResponse;
++import java.time.Instant;
++import java.util.List;
++import java.util.UUID;
++import org.junit.jupiter.api.BeforeEach;
++import org.junit.jupiter.api.DisplayName;
++import org.junit.jupiter.api.Test;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.boot.test.context.SpringBootTest;
++import org.springframework.boot.test.web.server.LocalServerPort;
++import org.springframework.jdbc.core.simple.JdbcClient;
++import org.springframework.security.oauth2.jwt.Jwt;
++import org.springframework.security.oauth2.jwt.JwtDecoder;
++import org.springframework.test.context.TestPropertySource;
++import org.springframework.test.context.bean.override.mockito.MockitoBean;
++
++/**
++ * Runs the real embedded Tomcat as on Kubernetes ({@code spring.main.cloud-platform=kubernetes}),
++ * where Spring Boot would default {@code server.forward-headers-strategy} to NATIVE and Tomcat's
++ * RemoteIpValve would rewrite X-Forwarded-For before {@link ClientIp} reads it. MockMvc never runs
++ * that valve, so only a real server proves the chain arrives raw (review round 3).
++ *
++ * <p>The chain is "spoofed, real-client, edge, alb" with 3 trusted hops (edge, alb, and the
++ * gateway's own append would normally be last; here the loopback peer stands in for it), so
++ * real-client is the selected entry. The edge and alb entries are public addresses, as CloudFront
++ * and ALB-facing addresses are, so the valve stops at them.
++ */
++@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
++@TestPropertySource(
++    properties = {
++      "spring.main.cloud-platform=kubernetes",
++      "user.referral.trusted-proxy-hops=3",
++      "user.referral.min-code-age=0",
++      "user.referral.ip-lookback=30d"
++    })
++class ReferralForwardedForTomcatTest extends AbstractUserIntegrationTest {
++
++  private static final String SPOOFED = "198.51.100.66";
++  private static final String REAL = "203.0.113.7";
++  private static final String CHAIN = SPOOFED + ", " + REAL + ", 192.0.2.10, 192.0.2.20";
++
++  @LocalServerPort private int port;
++  @Autowired private JdbcClient jdbc;
++  @Autowired private IpFingerprint fingerprint;
++  @Autowired private ReferralService referrals;
++  @MockitoBean private JwtDecoder jwtDecoder;
++
++  @BeforeEach
++  void anyTokenIsTheUserId() {
++    when(jwtDecoder.decode(anyString()))
++        .thenAnswer(
++            inv ->
++                Jwt.withTokenValue(inv.getArgument(0))
++                    .header("alg", "none")
++                    .subject(inv.getArgument(0))
++                    .issuedAt(Instant.now())
++                    .expiresAt(Instant.now().plusSeconds(300))
++                    .build());
++  }
++
++  private HttpResponse<String> call(String method, String path, UUID user, String body)
++      throws Exception {
++    HttpRequest.Builder b =
++        HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + path))
++            .header("Authorization", "Bearer " + user)
++            .header("X-Forwarded-For", CHAIN);
++    if (body == null) {
++      b.method(method, HttpRequest.BodyPublishers.noBody());
++    } else {
++      b.header("Content-Type", "application/json")
++          .method(method, HttpRequest.BodyPublishers.ofString(body));
++    }
++    return HttpClient.newHttpClient().send(b.build(), HttpResponse.BodyHandlers.ofString());
++  }
++
++  private List<String> hashes(UUID user) {
++    return jdbc.sql("SELECT ip_hash FROM users.referral_ip_activity WHERE user_id = :u")
++        .param("u", user)
++        .query(String.class)
++        .list();
++  }
++
++  @Test
++  @DisplayName("on Kubernetes the hop-selected entry, not the spoofed one, is recorded")
++  void recordsTheSelectedEntry() throws Exception {
++    UUID user = UUID.randomUUID();
++    assertThat(call("GET", "/api/referrals", user, null).statusCode()).isEqualTo(200);
++
++    assertThat(hashes(user))
++        .containsExactly(fingerprint.hash(InetAddress.getByName(REAL)))
++        .doesNotContain(fingerprint.hash(InetAddress.getByName(SPOOFED)));
++  }
++
++  @Test
++  @DisplayName("a spoofed leftmost entry naming the referrer's network cannot cause a match")
++  void spoofedEntryCannotMatch() throws Exception {
++    UUID referrer = UUID.randomUUID();
++    String code = referrals.view(referrer, InetAddress.getByName(SPOOFED)).code();
++
++    UUID referee = UUID.randomUUID();
++    HttpResponse<String> response =
++        call("POST", "/api/referrals/claim", referee, "{\"code\":\"" + code + "\"}");
++
++    assertThat(response.statusCode()).isEqualTo(204);
++    assertThat(referrals.byReferee(referee)).isPresent();
++  }
++}
+diff --git a/services/user-service/user-service-app/src/test/resources/application-test.yml b/services/user-service/user-service-app/src/test/resources/application-test.yml
+index 0afe03f..b3afc07 100644
+--- a/services/user-service/user-service-app/src/test/resources/application-test.yml
++++ b/services/user-service/user-service-app/src/test/resources/application-test.yml
+@@ -11,6 +11,8 @@ spring:
+       enabled: false
+ 
+ user:
++  referral:
++    ip-hash-salt: test-only-referral-salt
+   jwt:
+     jwks-uri: http://localhost:1/.well-known/jwks.json
+ 

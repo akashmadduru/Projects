@@ -50,7 +50,9 @@ public class PhoneVerificationService {
     String phone =
         PhoneNumbers.normalise(rawPhone)
             .orElseThrow(
-                () -> new AuthException(AuthErrorCode.AUTH_PHONE_INVALID, "Not a valid E.164 number"));
+                () ->
+                    new AuthException(
+                        AuthErrorCode.AUTH_PHONE_INVALID, "Not a valid E.164 number"));
     if (users.existsByPhoneAndPhoneVerifiedTrueAndIdNot(phone, userId)) {
       throw new AuthException(AuthErrorCode.AUTH_PHONE_TAKEN, "Phone already verified elsewhere");
     }

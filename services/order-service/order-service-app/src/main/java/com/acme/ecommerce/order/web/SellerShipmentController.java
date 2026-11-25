@@ -3,7 +3,6 @@ package com.acme.ecommerce.order.web;
 import com.acme.ecommerce.common.core.error.CodedException;
 import com.acme.ecommerce.common.core.error.ErrorCode;
 import com.acme.ecommerce.order.api.dto.AdminRequests.StatusUpdate;
-import com.acme.ecommerce.order.api.dto.OrderResponse;
 import com.acme.ecommerce.order.api.dto.SellerShipmentResponse;
 import com.acme.ecommerce.order.domain.OrderStatus;
 import com.acme.ecommerce.order.service.OrderLifecycleService;
@@ -73,7 +72,7 @@ public class SellerShipmentController {
       @AuthenticationPrincipal Jwt jwt,
       @PathVariable UUID id,
       @Valid @RequestBody StatusUpdate request) {
-    OrderResponse ignored = lifecycle.sellerAdvanceShipment(UUID.fromString(jwt.getSubject()), id, request);
+    lifecycle.sellerAdvanceShipment(UUID.fromString(jwt.getSubject()), id, request);
     return store.sellerShipment(sellerId(jwt), id);
   }
 

@@ -1,0 +1,13 @@
+{
+ "product_id": "6f39317c-b752-4419-b3c0-296fa58cb7e3",
+ "name": "Loarnu Laptop Pro",
+ "prompt": "studio packshot photo of a White Loarnu Laptop Pro, made of aluminium, laptops, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3204558477,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T01:39:39",
+ "file_path": "product-images/images/6f39317c-b752-4419-b3c0-296fa58cb7e3.jpg",
+ "file_size": 59670
+}

@@ -55,7 +55,8 @@ public class EngageController {
   @PostMapping("/api/membership")
   @ResponseStatus(HttpStatus.CREATED)
   public JoinResult join(@AuthenticationPrincipal Jwt jwt, @RequestBody JoinRequest request) {
-    return membership.join(uid(jwt), jwt.getClaimAsString("email"), request.plan(), request.currency());
+    return membership.join(
+        uid(jwt), jwt.getClaimAsString("email"), request.plan(), request.currency());
   }
 
   @PostMapping("/api/membership/cancel")

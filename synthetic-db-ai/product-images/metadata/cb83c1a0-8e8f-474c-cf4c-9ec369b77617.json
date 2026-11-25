@@ -1,0 +1,13 @@
+{
+ "product_id": "cb83c1a0-8e8f-474c-cf4c-9ec369b77617",
+ "name": "Lita Tent Ultra",
+ "prompt": "studio packshot photo of a Navy Blue Lita Tent Ultra, made of cotton, camping, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 4000343459,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:40:00",
+ "file_path": "product-images/images/cb83c1a0-8e8f-474c-cf4c-9ec369b77617.jpg",
+ "file_size": 24475
+}

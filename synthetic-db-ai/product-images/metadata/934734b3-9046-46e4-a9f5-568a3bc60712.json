@@ -1,0 +1,13 @@
+{
+ "product_id": "934734b3-9046-46e4-a9f5-568a3bc60712",
+ "name": "Piexka Protein Powder Essential",
+ "prompt": "studio packshot photo of a Green Piexka Protein Powder Essential, made of aluminium, supplements, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2307317394,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:03:11",
+ "file_path": "product-images/images/934734b3-9046-46e4-a9f5-568a3bc60712.jpg",
+ "file_size": 45771
+}

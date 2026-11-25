@@ -22,8 +22,7 @@ public interface RecoveryCodeRepository extends JpaRepository<RecoveryCode, UUID
   @Query(
       "update RecoveryCode c set c.usedAt = :now"
           + " where c.userId = :userId and c.codeHash = :hash and c.usedAt is null")
-  int spend(
-      @Param("userId") UUID userId, @Param("hash") String hash, @Param("now") Instant now);
+  int spend(@Param("userId") UUID userId, @Param("hash") String hash, @Param("now") Instant now);
 
   @Query("select count(c) from RecoveryCode c where c.userId = :userId and c.usedAt is null")
   long countUnused(@Param("userId") UUID userId);

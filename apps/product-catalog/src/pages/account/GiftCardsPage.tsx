@@ -28,6 +28,21 @@ export function GiftCardsPage() {
   const [busy, setBusy] = useState(false)
   const [formError, setFormError] = useState<string | undefined>()
   const [purchase, setPurchase] = useState<GiftCardPurchase | null>(null)
+  const [resending, setResending] = useState<string | null>(null)
+  const [resendError, setResendError] = useState<string | undefined>()
+
+  const resend = async (id: string) => {
+    setResending(id)
+    setResendError(undefined)
+    try {
+      await engageApi.resendGiftCard(id)
+      notify('A new code was emailed. The previous code no longer works.')
+    } catch (err) {
+      setResendError(errorMessage(err))
+    } finally {
+      setResending(null)
+    }
+  }
   const [min, max] = RANGE[currency] ?? OTHER_RANGE
 
   const submit = async (e: React.FormEvent) => {
@@ -113,6 +128,8 @@ export function GiftCardsPage() {
         ) : !data || data.length === 0 ? (
           <p className="text-sm text-on-surface-muted">Nothing here yet.</p>
         ) : (
+          <>
+          {resendError && <ErrorAlert message={resendError} />}
           <ul className="divide-y divide-outline">
             {data.map((g) => (
               <li key={g.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
@@ -121,6 +138,17 @@ export function GiftCardsPage() {
                     {g.amount != null && g.currency ? formatMoney(g.amount, g.currency) : 'Gift card'}
                   </span>
                   {g.recipientEmail && <span className="block text-xs text-on-surface-muted">To {g.recipientEmail}</span>}
+                  {g.code && <span className="block font-mono text-xs text-on-surface-muted">{g.code}</span>}
+                  {g.status === 'ACTIVE' && (
+                    <button
+                      type="button"
+                      className="mt-1 text-xs font-bold text-primary underline disabled:opacity-50"
+                      disabled={resending === g.id}
+                      onClick={() => void resend(g.id)}
+                    >
+                      {resending === g.id ? 'Sending...' : 'Email a new code'}
+                    </button>
+                  )}
                 </span>
                 <span className="text-right text-xs text-on-surface-muted">
                   <span className="rounded-full border-2 border-ink bg-surface-variant px-2 py-0.5 font-bold text-on-surface">
@@ -131,6 +159,7 @@ export function GiftCardsPage() {
               </li>
             ))}
           </ul>
+          </>
         )}
       </div>
     </PageShell>

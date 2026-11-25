@@ -1,0 +1,15 @@
+{
+ "product_id": "7a25336e-f68b-4dfd-c1b5-ddc9b7a764ff",
+ "name": "Tralum Top Classic",
+ "prompt": "studio packshot photo of a Rose Gold Tralum Top Classic, made of leather, women's clothing, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 4111782349,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:46:17",
+ "file_path": "static/images/7a25336e-f68b-4dfd-c1b5-ddc9b7a764ff.jpg",
+ "file_size": 92655,
+ "uploaded": false,
+ "s3_url": null
+}

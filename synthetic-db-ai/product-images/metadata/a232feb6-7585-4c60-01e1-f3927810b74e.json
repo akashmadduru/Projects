@@ -1,0 +1,13 @@
+{
+ "product_id": "a232feb6-7585-4c60-01e1-f3927810b74e",
+ "name": "Lilo Eau de Toilette Edition",
+ "prompt": "studio packshot photo of a Silver Lilo Eau de Toilette Edition, made of cotton, fragrances, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 373555983,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:13:16",
+ "file_path": "product-images/images/a232feb6-7585-4c60-01e1-f3927810b74e.jpg",
+ "file_size": 41593
+}

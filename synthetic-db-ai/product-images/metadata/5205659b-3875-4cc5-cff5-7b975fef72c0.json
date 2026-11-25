@@ -1,0 +1,13 @@
+{
+ "product_id": "5205659b-3875-4cc5-cff5-7b975fef72c0",
+ "name": "Coar Bluetooth Speaker Prime",
+ "prompt": "studio packshot photo of a Space Grey Coar Bluetooth Speaker Prime, made of stainless steel, speakers, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3353311015,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:18:51",
+ "file_path": "product-images/images/5205659b-3875-4cc5-cff5-7b975fef72c0.jpg",
+ "file_size": 44599
+}

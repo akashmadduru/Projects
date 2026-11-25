@@ -1,0 +1,15 @@
+{
+ "product_id": "69c1667c-9a62-4416-f190-2b0f44d40dce",
+ "name": "Lumar Handbag Prime",
+ "prompt": "studio packshot photo of a Grey Lumar Handbag Prime, made of bamboo, bags & luggage, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1119486440,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:27:30",
+ "file_path": "static/images/69c1667c-9a62-4416-f190-2b0f44d40dce.jpg",
+ "file_size": 64343,
+ "uploaded": false,
+ "s3_url": null
+}

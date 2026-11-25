@@ -9,7 +9,9 @@ import java.util.UUID;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
-/** Wishlist persistence; all writes are idempotent upserts. Lines are keyed by (product, variant). */
+/**
+ * Wishlist persistence; all writes are idempotent upserts. Lines are keyed by (product, variant).
+ */
 @Repository
 public class WishlistRepository {
 

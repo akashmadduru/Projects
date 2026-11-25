@@ -107,9 +107,10 @@ class ProductEndpointsIntegrationTest extends AbstractProductIntegrationTest {
       // The gateway injects these from a validated token, and this service logs
       // them - but it must never authorize on them. If it did, anything that can
       // reach this port could grant itself ADMIN with a header.
+      // GET /api/products is public since Phase 1F, so probe a protected read instead.
       mockMvc
           .perform(
-              get("/api/products")
+              get("/api/products/admin/embeddings/status")
                   .header("X-User-Id", "8f14e45f-ceea-4e78-9c39-4f5d2b1a0001")
                   .header("X-User-Roles", "ADMIN")
                   .header("X-User-Email", "attacker@example.com"))

@@ -1,0 +1,13 @@
+{
+ "product_id": "2af3d256-418c-4f57-f666-f5187a71715a",
+ "name": "Fyvenno Yoga Mat Series 2",
+ "prompt": "studio packshot photo of a Blue Fyvenno Yoga Mat Series 2, made of cotton, fitness, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1866714300,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:48:34",
+ "file_path": "product-images/images/2af3d256-418c-4f57-f666-f5187a71715a.jpg",
+ "file_size": 43606
+}

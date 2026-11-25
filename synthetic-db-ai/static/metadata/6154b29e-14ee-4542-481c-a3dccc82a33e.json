@@ -1,0 +1,15 @@
+{
+ "product_id": "6154b29e-14ee-4542-481c-a3dccc82a33e",
+ "name": "Arsuno Running Shoes Ultra",
+ "prompt": "studio packshot photo of a Navy Blue Arsuno Running Shoes Ultra, made of wood, footwear, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1839414407,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:28:01",
+ "file_path": "static/images/6154b29e-14ee-4542-481c-a3dccc82a33e.jpg",
+ "file_size": 44028,
+ "uploaded": false,
+ "s3_url": null
+}

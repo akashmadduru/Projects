@@ -1,0 +1,13 @@
+{
+ "product_id": "d89186d8-3dc8-44b6-9ff6-955475984eb6",
+ "name": "Vofy Table Lamp Ultra",
+ "prompt": "studio packshot photo of a Silver Vofy Table Lamp Ultra, made of silicone, home decor, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2140762376,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:31:22",
+ "file_path": "product-images/images/d89186d8-3dc8-44b6-9ff6-955475984eb6.jpg",
+ "file_size": 26150
+}

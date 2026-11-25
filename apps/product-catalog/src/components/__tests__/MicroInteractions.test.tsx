@@ -61,7 +61,10 @@ describe('Drawer exit transition', () => {
     )
     expect(screen.getByText('contents')).toBeInTheDocument()
 
-    act(() => vi.advanceTimersByTime(350))
+    // Drawer.EXIT_MS (500 ms, matching the CSS slide-out).
+    act(() => vi.advanceTimersByTime(499))
+    expect(screen.getByText('contents')).toBeInTheDocument()
+    act(() => vi.advanceTimersByTime(1))
     expect(screen.queryByText('contents')).not.toBeInTheDocument()
   })
 

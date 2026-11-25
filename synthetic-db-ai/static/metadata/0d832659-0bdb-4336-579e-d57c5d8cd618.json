@@ -1,0 +1,15 @@
+{
+ "product_id": "0d832659-0bdb-4336-579e-d57c5d8cd618",
+ "name": "Numita Perfume Plus",
+ "prompt": "studio packshot photo of a White Numita Perfume Plus, made of silicone, fragrances, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2161578093,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 768,
+ "created_at": "2026-11-15T22:46:43",
+ "file_path": "static/images/0d832659-0bdb-4336-579e-d57c5d8cd618.jpg",
+ "file_size": 64442,
+ "uploaded": false,
+ "s3_url": null
+}

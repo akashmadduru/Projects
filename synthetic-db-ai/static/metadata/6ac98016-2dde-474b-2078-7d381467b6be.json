@@ -1,0 +1,15 @@
+{
+ "product_id": "6ac98016-2dde-474b-2078-7d381467b6be",
+ "name": "Lipiar Basmati Rice Prime",
+ "prompt": "studio packshot photo of a Grey Lipiar Basmati Rice Prime, made of nylon, pantry, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 856839127,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:35:44",
+ "file_path": "static/images/6ac98016-2dde-474b-2078-7d381467b6be.jpg",
+ "file_size": 56350,
+ "uploaded": false,
+ "s3_url": null
+}

@@ -37,22 +37,20 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
-import java.util.Locale;
-import java.util.Set;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.web.context.request.RequestContextHolder;
-import org.springframework.web.context.request.ServletRequestAttributes;
-import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -74,8 +72,8 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>THE {@code Map<String,Object>} <-> JSON-STRING BOUNDARY FOR {@code specifications} LIVES HERE,
  * NOT ON {@link Product}. {@code Product.java} deliberately stays free of any JSON-library
  * dependency (see its own javadoc); this class already owns the entity<->DTO translation, so it is
- * the natural, and only, place that boundary belongs (docs/architecture/design/LLD-catalog-enrichment-and-saga.md
- * S2.1).
+ * the natural, and only, place that boundary belongs
+ * (docs/architecture/design/LLD-catalog-enrichment-and-saga.md S2.1).
  *
  * <p>{@code list()} DOES NOT LOAD IMAGES, {@code findById()} DOES. Loading a product's images per
  * row on the paged list would be an extra query per row - an N+1 the LLD's S8 Performance
@@ -87,6 +85,10 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 @RequiredArgsConstructor
 public class ProductCatalogService {
+
+  /** Creates stock rows for new variants right after commit (TD-P7-22); absent in unit tests. */
+  @org.springframework.beans.factory.annotation.Autowired(required = false)
+  private com.acme.ecommerce.product.stock.CatalogStockSync stockSync;
 
   private final ProductRepository products;
   private final ProductImageRepository images;
@@ -100,6 +102,10 @@ public class ProductCatalogService {
   /** Optional: absent in plain unit tests; keeps the image server in step with product changes. */
   @org.springframework.beans.factory.annotation.Autowired(required = false)
   private com.acme.ecommerce.product.imagestore.ProductImageService imageFiles;
+
+  /** Optional for the same reason: resolves image keys against the admin-set parentUrl. */
+  @org.springframework.beans.factory.annotation.Autowired(required = false)
+  private com.acme.ecommerce.product.imagestore.ImageUrlResolver imageUrls;
 
   private final ObjectMapper objectMapper;
   private final TimeProvider timeProvider;
@@ -131,10 +137,9 @@ public class ProductCatalogService {
     List<UUID> ranked = hasQuery ? natives.rankedIds(filter.query()) : null;
     Specification<Product> spec = ProductSpecifications.matching(filter, ranked);
     boolean relevance =
-        hasQuery
-            && pageable.getSort().stream().anyMatch(o -> o.getProperty().equals("relevance"));
+        hasQuery && pageable.getSort().stream().anyMatch(o -> o.getProperty().equals("relevance"));
     Page<Product> page;
-    if (relevance) {
+    if (relevance && ranked != null) {
       Map<UUID, Integer> rank = new HashMap<>();
       for (int i = 0; i < ranked.size(); i++) {
         rank.put(ranked.get(i), i);
@@ -175,9 +180,7 @@ public class ProductCatalogService {
   /** A single product by slug, with images and variants. */
   public ProductResponse findBySlug(String slug) {
     Product product =
-        products
-            .findBySlug(slug)
-            .orElseThrow(() -> new ResourceNotFoundException("Product", slug));
+        products.findBySlug(slug).orElseThrow(() -> new ResourceNotFoundException("Product", slug));
     return detail(product);
   }
 
@@ -209,7 +212,7 @@ public class ProductCatalogService {
                     .attributes(readSpecifications(v.getAttributes()))
                     .priceAmount(v.getPriceAmount())
                     .salePrice(v.getSalePrice())
-                    .imageUrl(v.getImageUrl())
+                    .imageUrl(imageUrl(v.getImageUrl()))
                     .active(v.isActive())
                     .sortOrder(v.getSortOrder())
                     .availableQuantity(stock.get(v.getId()))
@@ -287,7 +290,7 @@ public class ProductCatalogService {
       v.setAttributes(r.getAttributes() == null ? "{}" : writeSpecifications(r.getAttributes()));
       v.setPriceAmount(r.getPriceAmount());
       v.setSalePrice(r.getSalePrice());
-      v.setImageUrl(r.getImageUrl());
+      v.setImageUrl(storedImage(r.getImageUrl()));
       v.setActive(r.getActive() == null || r.getActive());
       v.setSortOrder(r.getSortOrder() != null ? r.getSortOrder() : ord);
       v.setUpdatedAt(now);
@@ -301,6 +304,9 @@ public class ProductCatalogService {
       variantRepo.saveAllAndFlush(keep);
     } catch (DataIntegrityViolationException e) {
       throw new ResourceConflictException("Variant sku already exists on another product", e);
+    }
+    if (stockSync != null) {
+      stockSync.ensureProductAfterCommit(productId);
     }
     return variantResponses(productId, false);
   }
@@ -340,6 +346,14 @@ public class ProductCatalogService {
   }
 
   /**
+   * Publishes PRODUCT_UPDATED for a product changed outside {@link #update} (moderation decisions,
+   * seller bulk edits). Must run inside the transaction that made the change.
+   */
+  public void publishUpdated(UUID id) {
+    events.publishAfterCommit(ProductEventType.PRODUCT_UPDATED, findById(id));
+  }
+
+  /**
    * A single product, including its images.
    *
    * @param id the product identifier
@@ -367,7 +381,9 @@ public class ProductCatalogService {
     return createFor(request, Offer.PLATFORM_SELLER_ID, "PLATFORM");
   }
 
-  /** Creates a product owned by {@code sellerId}; a platform product also gets the platform offer. */
+  /**
+   * Creates a product owned by {@code sellerId}; a platform product also gets the platform offer.
+   */
   @Transactional
   public ProductResponse createFor(CreateProductRequest request, UUID sellerId, String listedBy) {
     Instant now = timeProvider.now();
@@ -381,7 +397,7 @@ public class ProductCatalogService {
             .categoryId(request.getCategoryId())
             .sellerName(request.getSellerName())
             .brand(blankToNull(request.getBrand()))
-            .attributes(writeSpecifications(request.getAttributes()))
+            .attributes(writeAttributes(request.getAttributes()))
             .slug(uniqueSlug(request.getName()))
             .sellerId(sellerId)
             .listedBy(listedBy)
@@ -389,6 +405,15 @@ public class ProductCatalogService {
             .createdAt(now)
             .updatedAt(now)
             .build();
+    if (request.getListPrice() != null) {
+      applyListPrice(product, request.getListPrice(), request.getPriceAmount());
+      applySellingPrice(product, request.getPriceAmount());
+    }
+    if ("SELLER".equals(listedBy)) {
+      // A marketplace seller's product is hidden until an admin approves it (TD-P9-03).
+      product.setActive(false);
+      product.setModerationStatus("PENDING_REVIEW");
+    }
     try {
       // saveAndFlush, NOT save. With a client-assigned @GeneratedValue(UUID) id,
       // JpaRepository.save() only enqueues the INSERT in the persistence context
@@ -407,8 +432,17 @@ public class ProductCatalogService {
     // after the product itself has one - hence after the saveAndFlush above.
     List<ProductImage> savedImages =
         images.saveAll(toImageEntities(product.getId(), request.getImages(), now));
+    // Variants in the same transaction (TD-P7-19): a bad variant rolls the whole create back.
+    if (request.getVariants() != null) {
+      replaceVariants(product.getId(), request.getVariants());
+    }
 
-    ProductResponse response = toResponse(product, savedImages);
+    List<ProductVariantResponse> createdVariants =
+        request.getVariants() == null ? List.of() : variantResponses(product.getId(), false);
+    ProductResponse response =
+        createdVariants.isEmpty()
+            ? toResponse(product, savedImages)
+            : toResponse(product, savedImages, createdVariants, true);
     if (Offer.PLATFORM_SELLER_ID.equals(sellerId)) {
       offerService.upsertPlatformOffer(
           product.getId(), request.getPriceAmount(), request.getPriceCurrency());
@@ -459,30 +493,26 @@ public class ProductCatalogService {
     Instant now = timeProvider.now();
 
     product.setName(request.getName());
-    product.setPriceAmount(request.getPriceAmount());
-    if (product.getSalePrice() != null) {
-      // sale_price mirrors the selling price; leaving it stale made the storefront keep showing
-      // the old price after an admin price edit.
-      product.setSalePrice(request.getPriceAmount());
-      if (product.getListPrice() != null && product.getListPrice().signum() > 0) {
-        product.setDiscountPercent(
-            product
-                .getListPrice()
-                .subtract(request.getPriceAmount())
-                .multiply(java.math.BigDecimal.valueOf(100))
-                .divide(product.getListPrice(), 2, RoundingMode.HALF_UP)
-                .max(java.math.BigDecimal.ZERO));
-      }
+    if (request.getListPrice() != null) {
+      applyListPrice(product, request.getListPrice(), request.getPriceAmount());
     }
+    applySellingPrice(product, request.getPriceAmount());
     product.setPriceCurrency(request.getPriceCurrency());
     product.setActive(request.isActive());
+    if (request.isActive() && !"APPROVED".equals(product.getModerationStatus())) {
+      // An admin or catalog manager activating a product is approving it.
+      product.setModerationStatus("APPROVED");
+      product.setModerationNote(null);
+      product.setReviewedAt(now);
+    }
     product.setCategoryId(request.getCategoryId());
     product.setSellerName(request.getSellerName());
     if (request.getBrand() != null) {
       product.setBrand(blankToNull(request.getBrand()));
     }
     if (request.getAttributes() != null) {
-      product.setAttributes(writeSpecifications(request.getAttributes()));
+      // null keeps the attributes; an empty object clears them.
+      product.setAttributes(writeAttributes(request.getAttributes()));
     }
     product.setSpecifications(writeSpecifications(request.getSpecifications()));
     product.setUpdatedAt(now);
@@ -494,15 +524,28 @@ public class ProductCatalogService {
     // stale value) - a client acting on that response would send the next PUT with
     // a version that is already wrong.
     Product saved = products.saveAndFlush(product);
-    List<String> previousImageUrls =
-        images.findByProductIdOrderByDisplayOrderAsc(id).stream().map(ProductImage::getUrl).toList();
-    images.deleteByProductId(id);
-    List<ProductImage> savedImages = images.saveAll(toImageEntities(id, request.getImages(), now));
-    // Images the update dropped must also leave the image server (files are keyed by URL).
-    Set<String> keptImageUrls = new HashSet<>();
-    savedImages.forEach(i -> keptImageUrls.add(i.getUrl()));
-    deleteImageFilesAfterCommit(
-        previousImageUrls.stream().filter(u -> !keptImageUrls.contains(u)).toList());
+    List<ProductImage> savedImages;
+    if (request.getImages() == null) {
+      // Omitted = keep. (It used to delete every image row and file: the admin console omits
+      // images whenever the user did not touch them.)
+      savedImages = images.findByProductIdOrderByDisplayOrderAsc(id);
+    } else {
+      List<String> previousImageUrls =
+          images.findByProductIdOrderByDisplayOrderAsc(id).stream()
+              .map(ProductImage::getUrl)
+              .toList();
+      images.deleteByProductId(id);
+      savedImages = images.saveAll(toImageEntities(id, request.getImages(), now));
+      // Images the update dropped must also leave the image server (files are keyed by URL).
+      Set<String> keptImageUrls = new HashSet<>();
+      savedImages.forEach(i -> keptImageUrls.add(i.getUrl()));
+      deleteImageFilesAfterCommit(
+          previousImageUrls.stream().filter(u -> !keptImageUrls.contains(u)).toList());
+    }
+    // Variants in the same transaction (TD-P7-19); null leaves them as they are.
+    if (request.getVariants() != null) {
+      replaceVariants(id, request.getVariants());
+    }
     if (Offer.PLATFORM_SELLER_ID.equals(saved.getSellerId())) {
       offerService.upsertPlatformOffer(id, request.getPriceAmount(), request.getPriceCurrency());
       offerService.syncPrices(id);
@@ -515,33 +558,15 @@ public class ProductCatalogService {
   }
 
   /**
-   * Deletes a product.
-   *
-   * <p>Any images belonging to it are removed by the database's {@code ON DELETE CASCADE} on {@code
-   * product.product_images.product_id} - no explicit repository call needed here.
-   *
-   * @param id the product identifier
-   * @throws ResourceNotFoundException when no such product exists
+   * Writes the buy-box price into the product row (and publishes PRODUCT_UPDATED when it moved).
    */
-  /** Writes the buy-box price into the product row (and publishes PRODUCT_UPDATED when it moved). */
   @Transactional
   public void applyBuyBoxPrice(UUID id, java.math.BigDecimal effective) {
     Product p = products.findById(id).orElse(null);
     if (p == null || p.getPriceAmount() != null && p.getPriceAmount().compareTo(effective) == 0) {
       return;
     }
-    p.setPriceAmount(effective);
-    if (p.getSalePrice() != null) {
-      p.setSalePrice(effective);
-      if (p.getListPrice() != null && p.getListPrice().signum() > 0) {
-        p.setDiscountPercent(
-            p.getListPrice()
-                .subtract(effective)
-                .multiply(java.math.BigDecimal.valueOf(100))
-                .divide(p.getListPrice(), 2, RoundingMode.HALF_UP)
-                .max(java.math.BigDecimal.ZERO));
-      }
-    }
+    applySellingPrice(p, effective);
     p.setUpdatedAt(timeProvider.now());
     Product saved = products.saveAndFlush(p);
     List<ProductVariantResponse> variantList = variantResponses(id, false);
@@ -554,18 +579,31 @@ public class ProductCatalogService {
             !variantList.isEmpty()));
   }
 
+  /**
+   * Deletes a product.
+   *
+   * <p>Any images belonging to it are removed by the database's {@code ON DELETE CASCADE} on {@code
+   * product.product_images.product_id} - no explicit repository call needed here.
+   *
+   * @param id the product identifier
+   * @throws ResourceNotFoundException when no such product exists
+   */
   @Transactional
   public void delete(UUID id) {
     Product product =
         products.findById(id).orElseThrow(() -> new ResourceNotFoundException("Product", id));
-    List<String> imageUrls =
-        images.findByProductIdOrderByDisplayOrderAsc(id).stream().map(ProductImage::getUrl).toList();
+    List<String> storedImageUrls =
+        images.findByProductIdOrderByDisplayOrderAsc(id).stream()
+            .map(ProductImage::getUrl)
+            .toList();
     products.delete(product);
-    deleteImageFilesAfterCommit(imageUrls);
+    deleteImageFilesAfterCommit(storedImageUrls);
     events.publishAfterCommit(ProductEventType.PRODUCT_DELETED, id, null);
   }
 
-  /** Removes image files from the image server once the DB change has committed (no-op if unset). */
+  /**
+   * Removes image files from the image server once the DB change has committed (no-op if unset).
+   */
   private void deleteImageFilesAfterCommit(List<String> urls) {
     if (imageFiles == null || urls.isEmpty()) {
       return;
@@ -645,7 +683,7 @@ public class ProductCatalogService {
     }
   }
 
-  private static List<ProductImage> toImageEntities(
+  private List<ProductImage> toImageEntities(
       UUID productId, List<ProductImageRequest> requests, Instant now) {
     if (requests == null) {
       return List.of();
@@ -655,7 +693,7 @@ public class ProductCatalogService {
             request ->
                 ProductImage.builder()
                     .productId(productId)
-                    .url(request.getUrl())
+                    .url(storedImage(request.getUrl()))
                     .displayOrder(request.getDisplayOrder())
                     .createdAt(now)
                     .build())
@@ -686,13 +724,13 @@ public class ProductCatalogService {
         product.getCategoryId(),
         product.getSellerName(),
         readSpecifications(product.getSpecifications()),
-        productImages.stream().map(ProductCatalogService::toImageResponse).toList(),
+        productImages.stream().map(this::toImageResponse).toList(),
         product.getLastKnownQuantity(),
         product.getDescription(),
         product.getListPrice(),
         product.getSalePrice(),
         product.getDiscountPercent(),
-        product.getThumbnailUrl(),
+        imageUrl(product.getThumbnailUrl()),
         readVideoUrls(product.getVideoUrls()),
         product.getView360Url(),
         product.getWeightGrams(),
@@ -720,7 +758,9 @@ public class ProductCatalogService {
         product.getSellerId(),
         product.getListedBy(),
         null,
-        null);
+        null,
+        product.getModerationStatus(),
+        product.getModerationNote());
   }
 
   /**
@@ -758,8 +798,19 @@ public class ProductCatalogService {
     }
   }
 
-  private static ProductImageResponse toImageResponse(ProductImage image) {
-    return new ProductImageResponse(image.getId(), image.getUrl(), image.getDisplayOrder());
+  private ProductImageResponse toImageResponse(ProductImage image) {
+    return new ProductImageResponse(
+        image.getId(), imageUrl(image.getUrl()), image.getDisplayOrder());
+  }
+
+  /** Browser URL for a stored image value (relative keys resolve against parentUrl). */
+  private String imageUrl(String stored) {
+    return imageUrls == null ? stored : imageUrls.resolve(stored);
+  }
+
+  /** Stored form of a client-supplied image URL (URLs under parentUrl become relative keys). */
+  private String storedImage(String url) {
+    return imageUrls == null ? url : imageUrls.toStored(url);
   }
 
   /**
@@ -770,6 +821,50 @@ public class ProductCatalogService {
    *     unreachable for a map that arrived via a JSON-deserialized request body, but handled
    *     explicitly rather than left to propagate a raw Jackson exception.
    */
+  /** Facet attributes: an empty object is stored as null ("no attributes"). */
+  private String writeAttributes(Map<String, Object> attributes) {
+    return attributes == null || attributes.isEmpty() ? null : writeSpecifications(attributes);
+  }
+
+  /**
+   * The selling price. {@code sale_price} mirrors it whenever the product shows a discount (a sale
+   * price or a list price is set), and {@code discount_percent} is recomputed against the list
+   * price, so the price customers pay always follows an edit.
+   */
+  static void applySellingPrice(Product product, java.math.BigDecimal price) {
+    product.setPriceAmount(price);
+    boolean hasList = product.getListPrice() != null && product.getListPrice().signum() > 0;
+    if (product.getSalePrice() != null || hasList) {
+      product.setSalePrice(price);
+    }
+    if (hasList) {
+      product.setDiscountPercent(
+          product
+              .getListPrice()
+              .subtract(price)
+              .multiply(java.math.BigDecimal.valueOf(100))
+              .divide(product.getListPrice(), 2, RoundingMode.HALF_UP)
+              .max(java.math.BigDecimal.ZERO));
+    }
+  }
+
+  /**
+   * The list price (MRP) shown struck through. {@code 0} clears it (and the discount); a positive
+   * value must not be below the selling price.
+   */
+  static void applyListPrice(
+      Product product, java.math.BigDecimal listPrice, java.math.BigDecimal sellingPrice) {
+    if (listPrice.signum() == 0) {
+      product.setListPrice(null);
+      product.setDiscountPercent(null);
+      return;
+    }
+    if (sellingPrice != null && listPrice.compareTo(sellingPrice) < 0) {
+      throw ValidationException.forField("listPrice", "must not be below priceAmount");
+    }
+    product.setListPrice(listPrice);
+  }
+
   private String writeSpecifications(Map<String, Object> specifications) {
     if (specifications == null) {
       return null;

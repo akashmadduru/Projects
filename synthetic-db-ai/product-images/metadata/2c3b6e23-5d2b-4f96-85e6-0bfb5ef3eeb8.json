@@ -1,0 +1,13 @@
+{
+ "product_id": "2c3b6e23-5d2b-4f96-85e6-0bfb5ef3eeb8",
+ "name": "Rior Fountain Pen Lite",
+ "prompt": "studio packshot photo of a Rose Gold Rior Fountain Pen Lite, made of cotton, stationery, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1170131592,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:12:16",
+ "file_path": "product-images/images/2c3b6e23-5d2b-4f96-85e6-0bfb5ef3eeb8.jpg",
+ "file_size": 33060
+}

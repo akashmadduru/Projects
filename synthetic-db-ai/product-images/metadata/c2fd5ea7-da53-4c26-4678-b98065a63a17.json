@@ -1,0 +1,13 @@
+{
+ "product_id": "c2fd5ea7-da53-4c26-4678-b98065a63a17",
+ "name": "Cono RC Car Essential",
+ "prompt": "studio packshot photo of a Black Cono RC Car Essential, made of silicone, remote control, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3734440955,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T01:19:51",
+ "file_path": "product-images/images/c2fd5ea7-da53-4c26-4678-b98065a63a17.jpg",
+ "file_size": 36791
+}

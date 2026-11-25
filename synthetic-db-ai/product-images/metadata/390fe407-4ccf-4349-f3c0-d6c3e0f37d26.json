@@ -1,0 +1,13 @@
+{
+ "product_id": "390fe407-4ccf-4349-f3c0-d6c3e0f37d26",
+ "name": "Bavo Analog Watch Pro",
+ "prompt": "studio packshot photo of a Navy Blue Bavo Analog Watch Pro, made of polyester, watches & jewellery, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 14980754,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:28:32",
+ "file_path": "product-images/images/390fe407-4ccf-4349-f3c0-d6c3e0f37d26.jpg",
+ "file_size": 90878
+}

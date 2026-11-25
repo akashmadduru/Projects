@@ -1,0 +1,15 @@
+{
+ "product_id": "86b7def7-fb28-42a5-3d1f-e151759d30c8",
+ "name": "Rikaqua Study Table Essential",
+ "prompt": "studio packshot photo of a Blue Rikaqua Study Table Essential, made of cotton, furniture, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3851692825,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:17:52",
+ "file_path": "static/images/86b7def7-fb28-42a5-3d1f-e151759d30c8.jpg",
+ "file_size": 34094,
+ "uploaded": false,
+ "s3_url": null
+}

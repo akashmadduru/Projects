@@ -1,0 +1,15 @@
+{
+ "product_id": "661d7d40-0eab-4c44-73e1-a6d5de52230d",
+ "name": "Fydexvo Bracelet Max",
+ "prompt": "studio packshot photo of a Black Fydexvo Bracelet Max, made of silicone, watches & jewellery, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1824032454,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:31:43",
+ "file_path": "static/images/661d7d40-0eab-4c44-73e1-a6d5de52230d.jpg",
+ "file_size": 40893,
+ "uploaded": false,
+ "s3_url": null
+}

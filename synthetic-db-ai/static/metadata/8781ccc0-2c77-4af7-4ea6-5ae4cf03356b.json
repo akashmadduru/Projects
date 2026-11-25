@@ -1,0 +1,15 @@
+{
+ "product_id": "8781ccc0-2c77-4af7-4ea6-5ae4cf03356b",
+ "name": "Piliven Granola Series 2",
+ "prompt": "studio packshot photo of a Space Grey Piliven Granola Series 2, made of cotton, snacks, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 718483404,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:55:29",
+ "file_path": "static/images/8781ccc0-2c77-4af7-4ea6-5ae4cf03356b.jpg",
+ "file_size": 51257,
+ "uploaded": false,
+ "s3_url": null
+}

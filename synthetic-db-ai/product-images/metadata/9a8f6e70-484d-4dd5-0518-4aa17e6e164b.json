@@ -1,0 +1,13 @@
+{
+ "product_id": "9a8f6e70-484d-4dd5-0518-4aa17e6e164b",
+ "name": "Fyor Necklace Edition",
+ "prompt": "studio packshot photo of a Rose Gold Fyor Necklace Edition, made of glass, watches & jewellery, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3479699888,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:08:37",
+ "file_path": "product-images/images/9a8f6e70-484d-4dd5-0518-4aa17e6e164b.jpg",
+ "file_size": 41436
+}

@@ -83,7 +83,8 @@ public class OrderItem {
 
   /** Splits quantity off this line (same unit price); returns the new line holding {@code qty}. */
   OrderItem splitOff(int qty) {
-    OrderItem n = of(order, productId, variantId, variantLabel, sku, name, unitPrice, qty, imageUrl);
+    OrderItem n =
+        of(order, productId, variantId, variantLabel, sku, name, unitPrice, qty, imageUrl);
     n.offerId = offerId;
     n.sellerId = sellerId;
     this.quantity -= qty;

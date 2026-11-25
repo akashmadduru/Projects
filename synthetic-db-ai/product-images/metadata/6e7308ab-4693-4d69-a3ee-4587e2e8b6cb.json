@@ -1,0 +1,13 @@
+{
+ "product_id": "6e7308ab-4693-4d69-a3ee-4587e2e8b6cb",
+ "name": "Taco Deodorant Edition",
+ "prompt": "studio packshot photo of a Blue Taco Deodorant Edition, made of polyester, fragrances, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2145223806,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:32:56",
+ "file_path": "product-images/images/6e7308ab-4693-4d69-a3ee-4587e2e8b6cb.jpg",
+ "file_size": 44669
+}

@@ -1,0 +1,13 @@
+{
+ "product_id": "f7d88885-97f5-40ab-5d81-50ed8250f834",
+ "name": "Tramilum Fitness Band Classic",
+ "prompt": "studio packshot photo of a Green Tramilum Fitness Band Classic, made of stainless steel, smart watches, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1071240143,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:20:15",
+ "file_path": "product-images/images/f7d88885-97f5-40ab-5d81-50ed8250f834.jpg",
+ "file_size": 43346
+}

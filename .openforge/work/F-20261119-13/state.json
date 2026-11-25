@@ -1,0 +1,18 @@
+{
+ "id": "F-20261119-13",
+ "slug": "seller-ledger",
+ "step": "pr",
+ "branch": "forge/F-20261119-13-seller-ledger",
+ "worktree": ".openforge/worktrees/F-20261119-13",
+ "base_sha": "820e5a8d13872308017dfafbc81eaa048af59a10",
+ "implementer": "forge-backend-engineer",
+ "head_sha": "1662edc4084dd4bcf9fc26cba9283025c3179624",
+ "portfolio": "O-09",
+ "depends_on": "F-20261119-10",
+ "scope": "part A: seller-service AC-1..8, AC-13; AC-9..12 deferred to a follow-up objective based on F-11",
+ "pr_split": [
+  "820e5a8d13872308017dfafbc81eaa048af59a10..c3162367b02590c0112e4c5ac090f2e60bf04a94",
+  "c3162367b02590c0112e4c5ac090f2e60bf04a94..1662edc4084dd4bcf9fc26cba9283025c3179624"
+ ],
+ "part_a_head": "c3162367b02590c0112e4c5ac090f2e60bf04a94"
+}

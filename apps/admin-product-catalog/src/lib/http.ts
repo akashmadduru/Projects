@@ -70,6 +70,17 @@ export const apiBaseUrl: string = (
   import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080'
 ).replace(/\/+$/, '');
 
+/**
+ * Where the Google flow starts. auth-service builds Google's `redirect_uri` from the host it is
+ * reached on, so locally it must be reached directly (:8081): through the gateway it sees an
+ * internal container address that Google rejects (TD-SEC-02). Deployed builds go through the edge,
+ * which forwards /oauth2/* with the public host, so they default to the API origin and can never
+ * point at localhost.
+ */
+export const authBaseUrl: string = (
+  import.meta.env.VITE_AUTH_BASE_URL ?? (import.meta.env.DEV ? 'http://localhost:8081' : apiBaseUrl)
+).replace(/\/+$/, '');
+
 export const appOrigin: string = (
   import.meta.env.VITE_APP_ORIGIN ?? 'http://localhost:5173'
 ).replace(/\/+$/, '');
@@ -85,11 +96,16 @@ export const appOrigin: string = (
  * locally instead (see `oauthRedirect.ts`).
  */
 export function googleAuthorizationUrl(): string {
-  return `${apiBaseUrl}/oauth2/authorization/google`;
+  return `${authBaseUrl}/oauth2/authorization/google`;
 }
 
 function buildUrl(path: string, query?: Readonly<Record<string, QueryValue>>): string {
   const url = new URL(`${apiBaseUrl}${path}`);
+  // The bearer token is attached to every request, so a path must never move it to another host
+  // (for example "@evil.example/x" turns the base into userinfo). TD-SEC-11.
+  if (!path.startsWith('/') || url.origin !== new URL(apiBaseUrl).origin) {
+    throw new Error(`Refusing request outside the API origin: ${path}`);
+  }
   if (query) {
     for (const [key, value] of Object.entries(query)) {
       if (value !== undefined && value !== null) {

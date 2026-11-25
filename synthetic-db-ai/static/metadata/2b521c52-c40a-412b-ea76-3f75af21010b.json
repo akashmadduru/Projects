@@ -1,0 +1,15 @@
+{
+ "product_id": "2b521c52-c40a-412b-ea76-3f75af21010b",
+ "name": "Riion Jeans Lite",
+ "prompt": "studio packshot photo of a Blue Riion Jeans Lite, made of leather, men's clothing, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3232208090,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-15T23:45:13",
+ "file_path": "static/images/2b521c52-c40a-412b-ea76-3f75af21010b.jpg",
+ "file_size": 68106,
+ "uploaded": false,
+ "s3_url": null
+}

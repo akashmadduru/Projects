@@ -1,0 +1,13 @@
+{
+ "product_id": "316f4da7-60e3-432a-24c1-0e4f9780ed64",
+ "name": "Cotraion Smartwatch Classic",
+ "prompt": "studio packshot photo of a Black Cotraion Smartwatch Classic, made of glass, smart watches, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 911404868,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-15T23:54:03",
+ "file_path": "product-images/images/316f4da7-60e3-432a-24c1-0e4f9780ed64.jpg",
+ "file_size": 63978
+}

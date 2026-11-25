@@ -1,0 +1,15 @@
+{
+ "product_id": "0b5644bf-88b2-460f-2d08-95ec83c80e13",
+ "name": "Tamior Mop Essential",
+ "prompt": "studio packshot photo of a Black Tamior Mop Essential, made of leather, cleaning, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1629809454,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:19:15",
+ "file_path": "static/images/0b5644bf-88b2-460f-2d08-95ec83c80e13.jpg",
+ "file_size": 33183,
+ "uploaded": false,
+ "s3_url": null
+}

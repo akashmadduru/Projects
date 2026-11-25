@@ -8,8 +8,8 @@ import com.acme.ecommerce.order.api.dto.OrderResponse;
 import com.acme.ecommerce.order.api.dto.OrderSummaryResponse;
 import com.acme.ecommerce.order.api.dto.PlaceOrderRequest;
 import com.acme.ecommerce.order.api.dto.PurchaseStatusResponse;
-import com.acme.ecommerce.order.api.dto.ShipmentResponse;
 import com.acme.ecommerce.order.api.dto.ReturnResponse;
+import com.acme.ecommerce.order.api.dto.ShipmentResponse;
 import com.acme.ecommerce.order.service.InvoiceService;
 import com.acme.ecommerce.order.service.OrderLifecycleService;
 import com.acme.ecommerce.order.service.OrderService;
@@ -137,7 +137,9 @@ public class OrderController {
   }
 
   /** Invoice of one shipment (seller as supplier). */
-  @GetMapping(value = "/{id}/shipments/{shipmentId}/invoice.pdf", produces = MediaType.APPLICATION_PDF_VALUE)
+  @GetMapping(
+      value = "/{id}/shipments/{shipmentId}/invoice.pdf",
+      produces = MediaType.APPLICATION_PDF_VALUE)
   public ResponseEntity<byte[]> shipmentInvoice(
       @AuthenticationPrincipal Jwt jwt, @PathVariable UUID id, @PathVariable UUID shipmentId) {
     OrderResponse order = store.get(userId(jwt), id);
@@ -168,7 +170,8 @@ public class OrderController {
       @AuthenticationPrincipal Jwt jwt,
       @PathVariable UUID id,
       @Valid @RequestBody CreateReturnRequest request) {
-    return ResponseEntity.status(HttpStatus.CREATED).body(returns.request(userId(jwt), id, request));
+    return ResponseEntity.status(HttpStatus.CREATED)
+        .body(returns.request(userId(jwt), id, request));
   }
 
   @GetMapping("/{id}/returns")

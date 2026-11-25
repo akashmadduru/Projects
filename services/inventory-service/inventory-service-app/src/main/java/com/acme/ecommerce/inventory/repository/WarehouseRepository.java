@@ -12,7 +12,13 @@ import org.springframework.stereotype.Repository;
 public class WarehouseRepository {
 
   public record Warehouse(
-      UUID id, String code, String name, UUID sellerId, String pincode, String state, boolean active) {}
+      UUID id,
+      String code,
+      String name,
+      UUID sellerId,
+      String pincode,
+      String state,
+      boolean active) {}
 
   private static final String COLS = "id, code, name, seller_id, pincode, state, active";
 
@@ -39,7 +45,8 @@ public class WarehouseRepository {
           .query(WarehouseRepository::map)
           .list();
     }
-    return jdbc.sql("SELECT " + COLS + " FROM inventory.warehouses WHERE seller_id = :s ORDER BY code")
+    return jdbc.sql(
+            "SELECT " + COLS + " FROM inventory.warehouses WHERE seller_id = :s ORDER BY code")
         .param("s", sellerId)
         .query(WarehouseRepository::map)
         .list();

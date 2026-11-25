@@ -42,19 +42,25 @@ public class AuditPublisher implements AutoCloseable {
 
   /** Explicit publish for callers that know before/after (small JSON strings, may be null). */
   public void publish(
-      String action, String resourceType, String resourceId, String beforeJson, String afterJson, String ip) {
+      String action,
+      String resourceType,
+      String resourceId,
+      String beforeJson,
+      String afterJson,
+      String ip) {
     try {
       Actor actor = currentActor();
       String json = toJson(actor, action, resourceType, resourceId, beforeJson, afterJson, ip);
       if (org.springframework.transaction.support.TransactionSynchronizationManager
           .isSynchronizationActive()) {
-        org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
-            new org.springframework.transaction.support.TransactionSynchronization() {
-              @Override
-              public void afterCommit() {
-                send(resourceId, json);
-              }
-            });
+        org.springframework.transaction.support.TransactionSynchronizationManager
+            .registerSynchronization(
+                new org.springframework.transaction.support.TransactionSynchronization() {
+                  @Override
+                  public void afterCommit() {
+                    send(resourceId, json);
+                  }
+                });
       } else {
         send(resourceId, json);
       }
@@ -65,7 +71,12 @@ public class AuditPublisher implements AutoCloseable {
 
   /** Used by the interceptor, which already knows the actor and runs after the commit. */
   void publishNow(
-      Actor actor, String action, String resourceType, String resourceId, String afterJson, String ip) {
+      Actor actor,
+      String action,
+      String resourceType,
+      String resourceId,
+      String afterJson,
+      String ip) {
     try {
       send(resourceId, toJson(actor, action, resourceType, resourceId, null, afterJson, ip));
     } catch (Throwable t) {
@@ -75,7 +86,8 @@ public class AuditPublisher implements AutoCloseable {
 
   private void send(String key, String json) {
     try {
-      producer().send(
+      producer()
+          .send(
               new ProducerRecord<>(TOPIC, key == null ? UUID.randomUUID().toString() : key, json),
               (md, ex) -> {
                 if (ex != null) {

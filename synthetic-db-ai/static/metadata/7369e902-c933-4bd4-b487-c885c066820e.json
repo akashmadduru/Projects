@@ -1,0 +1,15 @@
+{
+ "product_id": "7369e902-c933-4bd4-b487-c885c066820e",
+ "name": "Fyor Wall Clock Ultra",
+ "prompt": "studio packshot photo of a Red Fyor Wall Clock Ultra, made of leather, home decor, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1948626915,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T01:27:00",
+ "file_path": "static/images/7369e902-c933-4bd4-b487-c885c066820e.jpg",
+ "file_size": 69354,
+ "uploaded": false,
+ "s3_url": null
+}

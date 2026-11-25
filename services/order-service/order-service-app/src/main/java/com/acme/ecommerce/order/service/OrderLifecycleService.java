@@ -1,9 +1,8 @@
 package com.acme.ecommerce.order.service;
 
-import com.acme.ecommerce.common.web.job.JobLock;
-import org.springframework.beans.factory.annotation.Autowired;
 import com.acme.ecommerce.common.core.error.CodedException;
 import com.acme.ecommerce.common.core.error.ErrorCode;
+import com.acme.ecommerce.common.web.job.JobLock;
 import com.acme.ecommerce.order.api.dto.AdminRequests.StatusUpdate;
 import com.acme.ecommerce.order.api.dto.OrderResponse;
 import com.acme.ecommerce.order.config.OrderProperties;
@@ -19,8 +18,10 @@ import java.util.List;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Status changes after placement: cancel, admin fulfilment steps, payment results and the expiry
@@ -39,12 +40,23 @@ public class OrderLifecycleService {
   private final OrderEventPublisher events;
   private final OrderProperties props;
 
+  /**
+   * Wraps a state change and its follow-ups (outbox rows: releases, payment cancel, events) in one
+   * transaction, so they commit together or not at all (TD-P6-01).
+   */
+  private final TransactionTemplate tx;
+
   public OrderLifecycleService(
-      OrderStore store, OrderRemote remote, OrderEventPublisher events, OrderProperties props) {
+      OrderStore store,
+      OrderRemote remote,
+      OrderEventPublisher events,
+      OrderProperties props,
+      TransactionTemplate tx) {
     this.store = store;
     this.remote = remote;
     this.events = events;
     this.props = props;
+    this.tx = tx;
   }
 
   public OrderResponse cancelByUser(UUID userId, UUID id) {
@@ -68,14 +80,25 @@ public class OrderLifecycleService {
       }
       refunded = true;
     }
-    Result result = store.cancel(ownerOrNull, id, actor, note, refunded);
-    if (result.changed()) {
-      afterCancel(result.order());
-    }
+    final boolean refundedFinal = refunded;
+    Result result =
+        tx.execute(
+            s -> {
+              Result r = store.cancel(ownerOrNull, id, actor, note, refundedFinal);
+              if (r.changed()) {
+                afterCancel(r.order());
+              }
+              return r;
+            });
     return result.order();
   }
 
   private void afterCancel(OrderResponse order) {
+    // An unpaid card order (cancel, expiry or failed payment): stop its payment from being taken
+    // later. Idempotent on the payment side, so the failed-payment path calling it is harmless.
+    if ("CARD".equals(order.paymentMethod()) && "FAILED".equals(order.paymentStatus())) {
+      remote.cancelPaymentBestEffort(order.id());
+    }
     remote.restoreStockBestEffort(order.id());
     if (order.couponCode() != null) {
       remote.releaseCouponBestEffort(order.id());
@@ -92,23 +115,27 @@ public class OrderLifecycleService {
 
   public OrderResponse adminAdvance(UUID id, StatusUpdate update) {
     OrderStatus target = OrderStatus.valueOf(update.status().name());
-    ShipmentAdvance adv =
-        store.advance(id, target, update.note(), update.trackingNumber(), update.carrier());
-    return afterAdvance(adv);
+    return tx.execute(
+        s ->
+            afterAdvance(
+                store.advance(
+                    id, target, update.note(), update.trackingNumber(), update.carrier())));
   }
 
   /** Admin: move one shipment of an order. */
   public OrderResponse adminAdvanceShipment(UUID orderId, UUID shipmentId, StatusUpdate update) {
-    return afterAdvance(
-        store.advanceShipment(
-            orderId,
-            null,
-            shipmentId,
-            OrderStatus.valueOf(update.status().name()),
-            update.note(),
-            update.trackingNumber(),
-            update.carrier(),
-            HistoryActor.ADMIN));
+    return tx.execute(
+        s ->
+            afterAdvance(
+                store.advanceShipment(
+                    orderId,
+                    null,
+                    shipmentId,
+                    OrderStatus.valueOf(update.status().name()),
+                    update.note(),
+                    update.trackingNumber(),
+                    update.carrier(),
+                    HistoryActor.ADMIN)));
   }
 
   /** Seller: move one of their own shipments (anything else is a 404). */
@@ -119,19 +146,24 @@ public class OrderLifecycleService {
     }
     String note =
         update.note() == null || update.note().isBlank() ? "Updated by seller" : update.note();
-    return afterAdvance(
-        store.advanceShipment(
-            null,
-            sellerId,
-            shipmentId,
-            OrderStatus.valueOf(update.status().name()),
-            note,
-            update.trackingNumber(),
-            update.carrier(),
-            HistoryActor.SELLER));
+    return tx.execute(
+        s ->
+            afterAdvance(
+                store.advanceShipment(
+                    null,
+                    sellerId,
+                    shipmentId,
+                    OrderStatus.valueOf(update.status().name()),
+                    note,
+                    update.trackingNumber(),
+                    update.carrier(),
+                    HistoryActor.SELLER)));
   }
 
-  /** COD collection on order DELIVERED, then SHIPMENT_STATUS_CHANGED (+ ORDER_STATUS_CHANGED if derived status moved). */
+  /**
+   * COD collection on order DELIVERED, then SHIPMENT_STATUS_CHANGED (+ ORDER_STATUS_CHANGED if
+   * derived status moved).
+   */
   private OrderResponse afterAdvance(ShipmentAdvance adv) {
     OrderResponse order = adv.order();
     boolean orderMoved = !order.status().equals(adv.previousOrderStatus());
@@ -150,10 +182,17 @@ public class OrderLifecycleService {
   /** Internal: payment-service reports the outcome. Idempotent. */
   public PaymentResultOutcome paymentResult(UUID orderId, String outcome, String paymentId) {
     if ("SUCCEEDED".equalsIgnoreCase(outcome)) {
-      Result r = store.markPaid(orderId, paymentId);
-      if (r.changed()) {
-        events.publish(OrderEventType.ORDER_PLACED, r.order());
-      } else if ("CANCELLED".equals(r.order().status())
+      Result r =
+          tx.execute(
+              s -> {
+                Result paid = store.markPaid(orderId, paymentId);
+                if (paid.changed()) {
+                  events.publish(OrderEventType.ORDER_PLACED, paid.order());
+                }
+                return paid;
+              });
+      if (!r.changed()
+          && "CANCELLED".equals(r.order().status())
           && !"REFUNDED".equals(r.order().paymentStatus())) {
         // Paid after the order was cancelled/expired: give the money back.
         try {
@@ -164,25 +203,39 @@ public class OrderLifecycleService {
               "late-success-" + orderId);
           store.markLateRefund(orderId);
         } catch (RuntimeException e) {
-          log.error("Order {} was paid after cancellation and the refund failed: {}", orderId, e.toString());
+          log.error(
+              "Order {} was paid after cancellation and the refund failed; payment-service will"
+                  + " retry: {}",
+              orderId,
+              e.toString());
+          // Not 200: payment-service then keeps the outcome unreported and re-sends it every 30 s,
+          // and the refund is retried with the same idempotency key (TD-P6-03).
+          throw new CodedException(
+              ErrorCode.UPSTREAM_UNAVAILABLE, "Late payment refund failed; retry later", e);
         }
       }
       OrderResponse o = store.getAny(orderId);
       return new PaymentResultOutcome(orderId, o.status(), o.paymentStatus());
     }
     if ("FAILED".equalsIgnoreCase(outcome)) {
-      Result r = store.markPaymentFailed(orderId);
-      if (r.changed()) {
-        afterCancel(r.order());
-      }
+      Result r =
+          tx.execute(
+              s -> {
+                Result failed = store.markPaymentFailed(orderId);
+                if (failed.changed()) {
+                  afterCancel(failed.order());
+                }
+                return failed;
+              });
       return new PaymentResultOutcome(orderId, r.order().status(), r.order().paymentStatus());
     }
     throw new CodedException(ErrorCode.VALIDATION_FAILED, "Unknown payment outcome: " + outcome);
   }
 
-  /** Every 60s: PENDING_PAYMENT orders older than the expiry window are cancelled. */
   /** Cluster-wide guard so only one replica runs this job per tick. */
   @Autowired private JobLock jobLock;
+
+  // Every 60s: PENDING_PAYMENT orders older than the expiry window are cancelled.
 
   @Scheduled(fixedDelay = 60_000, initialDelay = 60_000)
   public void expireStalePendingOrders() {
@@ -194,10 +247,13 @@ public class OrderLifecycleService {
     List<UUID> ids = store.expiredPendingIds(cutoff);
     for (UUID id : ids) {
       try {
-        Result r = store.systemCancel(id, "Payment not completed");
-        if (r.changed()) {
-          afterCancel(r.order());
-        }
+        tx.executeWithoutResult(
+            s -> {
+              Result r = store.systemCancel(id, "Payment not completed");
+              if (r.changed()) {
+                afterCancel(r.order());
+              }
+            });
       } catch (RuntimeException e) {
         log.warn("Could not expire order {}: {}", id, e.toString());
       }

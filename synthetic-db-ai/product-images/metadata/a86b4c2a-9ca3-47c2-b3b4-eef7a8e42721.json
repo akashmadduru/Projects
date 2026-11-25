@@ -1,0 +1,13 @@
+{
+ "product_id": "a86b4c2a-9ca3-47c2-b3b4-eef7a8e42721",
+ "name": "Lovo Top Elite",
+ "prompt": "studio packshot photo of a Navy Blue Lovo Top Elite, made of stainless steel, women's clothing, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1854312736,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:16:32",
+ "file_path": "product-images/images/a86b4c2a-9ca3-47c2-b3b4-eef7a8e42721.jpg",
+ "file_size": 51278
+}

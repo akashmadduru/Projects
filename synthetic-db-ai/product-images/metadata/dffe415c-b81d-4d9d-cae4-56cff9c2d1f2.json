@@ -1,0 +1,13 @@
+{
+ "product_id": "dffe415c-b81d-4d9d-cae4-56cff9c2d1f2",
+ "name": "Ionloor Air Purifier Max",
+ "prompt": "studio packshot photo of a Rose Gold Ionloor Air Purifier Max, made of bamboo, personal wellness, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1858097652,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:54:00",
+ "file_path": "product-images/images/dffe415c-b81d-4d9d-cae4-56cff9c2d1f2.jpg",
+ "file_size": 41909
+}

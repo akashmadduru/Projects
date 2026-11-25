@@ -1,0 +1,13 @@
+{
+ "product_id": "00b3db23-087d-4809-0890-95c38ac2dc32",
+ "name": "Dexvoven Hair Dryer Gen 3",
+ "prompt": "studio packshot photo of a Space Grey Dexvoven Hair Dryer Gen 3, made of stainless steel, hair care, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3944278316,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:34:20",
+ "file_path": "product-images/images/00b3db23-087d-4809-0890-95c38ac2dc32.jpg",
+ "file_size": 63895
+}

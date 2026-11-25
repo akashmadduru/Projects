@@ -1,0 +1,177 @@
+diff --git a/docs/guides/runbooks/payment-problems.md b/docs/guides/runbooks/payment-problems.md
+index 63a4654..29f38fd 100644
+--- a/docs/guides/runbooks/payment-problems.md
++++ b/docs/guides/runbooks/payment-problems.md
+@@ -81,7 +81,9 @@ SELECT idempotency_key, amount, created_at FROM payment.wallet_txns
+ WHERE idempotency_key ~ '^(return-wallet-|return-rest-|refund-return-)';
+ SELECT idempotency_key, status, amount FROM payment.refunds WHERE idempotency_key LIKE 'return-%';
+ ```
+-A listed return with a wallet or refund row is partly paid. The new code replays the same keys, so the wallet and card
++A listed return that has a `return-rest-<id>` wallet row has already been paid its COD (or wallet-method) remainder: do
++not retry it on the new build (the legs would be recomputed and sent again). Mark it REFUNDED, or settle it by hand. A listed
++return with only a `return-wallet-<id>` or refund row is partly paid. The new code replays the same keys, so the wallet and card
+ calls return the existing rows and nothing is paid twice, but the amounts are recomputed: check they match the rows
+ found, and if not, settle by hand before retrying.
+ 
+diff --git a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/repository/OrderReturnRepository.java b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/repository/OrderReturnRepository.java
+index 6049fb7..a8bcafb 100644
+--- a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/repository/OrderReturnRepository.java
++++ b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/repository/OrderReturnRepository.java
+@@ -4,6 +4,7 @@ import com.acme.ecommerce.order.domain.OrderReturn;
+ import com.acme.ecommerce.order.domain.ReturnStatus;
+ import java.time.Instant;
+ import java.util.List;
++import java.util.Optional;
+ import java.util.UUID;
+ import org.springframework.data.domain.Page;
+ import org.springframework.data.domain.Pageable;
+@@ -22,16 +23,19 @@ public interface OrderReturnRepository extends JpaRepository<OrderReturn, UUID>
+   @Query("select count(distinct r.order.id) from OrderReturn r where r.userId = :userId")
+   long countDistinctOrders(@Param("userId") UUID userId);
+ 
+-  /** Takes the 2-minute refund lease; 0 rows when the return is not PICKED_UP or leased. */
++  /**
++   * Takes the 2-minute refund lease, stamped by the database clock; the stamp, or empty when the
++   * return is not PICKED_UP or already leased.
++   */
+   @Transactional
+-  @Modifying(clearAutomatically = true, flushAutomatically = true)
+   @Query(
+       value =
+-          "UPDATE orders.order_returns SET refund_lease_until = :until"
++          "UPDATE orders.order_returns SET refund_lease_until = now() + interval '2 minutes'"
+               + " WHERE id = :id AND status = 'PICKED_UP'"
+-              + " AND (refund_lease_until IS NULL OR refund_lease_until < now())",
++              + " AND (refund_lease_until IS NULL OR refund_lease_until < now())"
++              + " RETURNING refund_lease_until",
+       nativeQuery = true)
+-  int claimRefundLease(@Param("id") UUID id, @Param("until") Instant until);
++  Optional<Instant> claimRefundLease(@Param("id") UUID id);
+ 
+   /** Frees the lease only if it is still the one this caller took (it may have expired). */
+   @Transactional
+diff --git a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/OrderStore.java b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/OrderStore.java
+index 66df28a..cc6d24d 100644
+--- a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/OrderStore.java
++++ b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/OrderStore.java
+@@ -598,8 +598,7 @@ public class OrderStore {
+ 
+   /** The 2-minute refund lease stamp (release with it), or null if held or not PICKED_UP. */
+   public Instant claimRefundLease(UUID returnId) {
+-    Instant until = Instant.now().plus(2, ChronoUnit.MINUTES).truncatedTo(ChronoUnit.MICROS);
+-    return returns.claimRefundLease(returnId, until) == 1 ? until : null;
++    return returns.claimRefundLease(returnId).orElse(null);
+   }
+ 
+   /** Holder-scoped: a caller whose lease expired and was taken over frees nothing. */
+diff --git a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/ReturnService.java b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/ReturnService.java
+index 721cff6..2643fd0 100644
+--- a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/ReturnService.java
++++ b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/ReturnService.java
+@@ -167,8 +167,9 @@ public class ReturnService {
+ 
+   /**
+    * Settles a PENDING card leg: replays the same key (payment-service answers from its own table,
+-   * no second refund). SUCCEEDED finalizes; FAILED is recorded and the return stays PICKED_UP for
+-   * an admin retry; PENDING does nothing.
++   * no second refund). The outcome is recorded. SUCCEEDED finalizes; FAILED leaves the return
++   * PICKED_UP for an admin retry; a leg still PENDING is only touched (updated_at), so the oldest-
++   * first window of the watch rotates.
+    */
+   public void resumePending(UUID returnId) {
+     Instant lease = store.claimRefundLease(returnId);
+diff --git a/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/FreezeLegsTest.java b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/FreezeLegsTest.java
+index 3d4fa83..b0cab33 100644
+--- a/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/FreezeLegsTest.java
++++ b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/FreezeLegsTest.java
+@@ -189,7 +189,9 @@ class FreezeLegsTest {
+   @DisplayName(
+       "the shipping-carrying return refunded first does not close the order or the other return")
+   void completingReturnRefundedFirst() {
+-    Order o = order(PaymentMethod.CARD, 3, "100.00", "0", "0", "40.00", "0");
++    // Shipping (40) exceeds the unrefunded items (10): refunded amounts alone reach the items
++    // value.
++    Order o = order(PaymentMethod.CARD, 3, "10.00", "0", "0", "40.00", "0");
+     OrderReturn partial = pickedUp(o, 1, "SOURCE");
+     OrderReturn completing = pickedUp(o, 2, "SOURCE");
+     assertThat(completing.getShippingRefund()).isEqualByComparingTo("40.00");
+@@ -201,13 +203,26 @@ class FreezeLegsTest {
+     assertThat(o.getPaymentStatus()).isEqualTo(PaymentStatus.PARTIALLY_REFUNDED);
+     ReturnRefundPlan plan = freeze(partial);
+     assertThat(plan.route()).isEqualTo("PAYMENT_SOURCE");
+-    assertThat(plan.rest()).isEqualByComparingTo("100.00");
++    assertThat(plan.rest()).isEqualByComparingTo("10.00");
+ 
+     when(returnsRepo.findById(any())).thenReturn(Optional.of(partial));
+     store.completeRefund(UUID.randomUUID());
+     assertThat(o.getPaymentStatus()).isEqualTo(PaymentStatus.REFUNDED);
+   }
+ 
++  @Test
++  @DisplayName("an order already marked REFUNDED still routes the remaining return's card leg")
++  void refundedOrderStillRoutes() {
++    Order o = order(PaymentMethod.CARD, 3, "100.00", "0", "0", "0", "0");
++    o.recordRefund(BigDecimal.TEN, true);
++    assertThat(o.getPaymentStatus()).isEqualTo(PaymentStatus.REFUNDED);
++
++    ReturnRefundPlan plan = freeze(pickedUp(o, 1, "SOURCE"));
++
++    assertThat(plan.route()).isEqualTo("PAYMENT_SOURCE");
++    assertThat(plan.rest()).isEqualByComparingTo("100.00");
++  }
++
+   @Test
+   @DisplayName("freezing twice keeps the first legs")
+   void noOpWhenFrozen() {
+diff --git a/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/ReturnRefundIntegrationTest.java b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/ReturnRefundIntegrationTest.java
+index 66b37b6..c0c6ebc 100644
+--- a/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/ReturnRefundIntegrationTest.java
++++ b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/ReturnRefundIntegrationTest.java
+@@ -412,14 +412,16 @@ class ReturnRefundIntegrationTest extends AbstractOrderIntegrationTest {
+   @Test
+   @DisplayName("two sibling returns refunded at once freeze legs that stay inside the order totals")
+   void concurrentSiblings() throws Exception {
+-    UUID first = pickedUpReturn("100");
++    // 3 x 100, wallet 200: each unlocked share is 66.67, three of them (200.01) break the cap.
++    UUID first = pickedUpReturn("200");
+     UUID second = siblingOf(first);
++    UUID third = siblingOf(first);
+     paymentReplies("SUCCEEDED");
+     CountDownLatch start = new CountDownLatch(1);
+-    ExecutorService pool = Executors.newFixedThreadPool(2);
++    ExecutorService pool = Executors.newFixedThreadPool(3);
+     try {
+       List<Future<ReturnResponse>> done =
+-          List.of(first, second).stream()
++          List.of(first, second, third).stream()
+               .map(
+                   id ->
+                       pool.submit(
+@@ -436,7 +438,7 @@ class ReturnRefundIntegrationTest extends AbstractOrderIntegrationTest {
+       pool.shutdownNow();
+     }
+ 
+-    for (UUID id : List.of(first, second)) {
++    for (UUID id : List.of(first, second, third)) {
+       assertThat(
+               jdbc.queryForObject(
+                   "select wallet_leg_amount + rest_leg_amount - refund_amount from"
+@@ -445,11 +447,18 @@ class ReturnRefundIntegrationTest extends AbstractOrderIntegrationTest {
+                   id))
+           .isEqualByComparingTo("0");
+     }
++    // Wallet W = 200 and card T - W = 100 are never exceeded by the summed legs.
+     assertThat(
+             jdbc.queryForObject(
+                 "select sum(wallet_leg_amount) from orders.order_returns where order_id = ?",
+                 BigDecimal.class,
+                 orderOf(first)))
++        .isLessThanOrEqualTo(new BigDecimal("200.00"));
++    assertThat(
++            jdbc.queryForObject(
++                "select sum(rest_leg_amount) from orders.order_returns where order_id = ?",
++                BigDecimal.class,
++                orderOf(first)))
+         .isLessThanOrEqualTo(new BigDecimal("100.00"));
+   }
+ 

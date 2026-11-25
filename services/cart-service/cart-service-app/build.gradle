@@ -19,6 +19,10 @@ dependencies {
     implementation libs.micrometer.registry.prometheus
     implementation libs.bundles.tracing
 
+    // TD-TEST-01: cart rules are tested against a real Postgres (Testcontainers).
+    testImplementation libs.bundles.testing.unit
+    testImplementation libs.bundles.testing.containers
+
     compileOnly libs.lombok
     annotationProcessor libs.lombok
 

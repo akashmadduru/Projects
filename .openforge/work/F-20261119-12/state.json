@@ -1,0 +1,12 @@
+{
+ "id": "F-20261119-12",
+ "slug": "outbox-publishers",
+ "step": "pr",
+ "branch": "forge/F-20261119-12-outbox-publishers",
+ "worktree": ".openforge/worktrees/F-20261119-12",
+ "base_sha": "820e5a8d13872308017dfafbc81eaa048af59a10",
+ "implementer": "forge-backend-engineer",
+ "head_sha": "7c7226395850d40418d9e9a62188f52e0420dc29",
+ "portfolio": "O-08",
+ "depends_on": "F-20261119-10"
+}

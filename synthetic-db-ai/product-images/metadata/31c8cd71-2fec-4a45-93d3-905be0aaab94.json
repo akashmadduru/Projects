@@ -1,0 +1,13 @@
+{
+ "product_id": "31c8cd71-2fec-4a45-93d3-905be0aaab94",
+ "name": "Coar Cookware Set Prime",
+ "prompt": "studio packshot photo of a Grey Coar Cookware Set Prime, made of cotton, cookware, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2734345552,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:12:29",
+ "file_path": "product-images/images/31c8cd71-2fec-4a45-93d3-905be0aaab94.jpg",
+ "file_size": 34603
+}

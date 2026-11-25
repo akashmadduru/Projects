@@ -12,10 +12,79 @@
  * what it was, so an unconfigured install is unaffected by this feature.
  */
 
+import { FONT_NAMES, fontCategory } from './themeFonts';
+
+export { FONT_CATALOG, FONT_CATEGORY_LABELS, FONT_PAIRS, fontCategory, type FontCategory, type FontPair } from './themeFonts';
+
 export type ThemeTarget = 'admin' | 'storefront';
-export type RadiusKind = 'sharp' | 'soft' | 'round';
-export type BorderWidth = 'thin' | 'standard' | 'bold';
-export type ShadowStyle = 'none' | 'soft' | 'crisp' | 'retro' | 'lifted';
+export type RadiusKind = 'square' | 'micro' | 'sharp' | 'soft' | 'round' | 'pill' | 'mega';
+export type BorderWidth = 'none' | 'thin' | 'standard' | 'bold' | 'heavy';
+export type BorderColor = 'subtle' | 'default' | 'strong' | 'brand' | 'accent' | 'muted';
+export type BorderStyle = 'solid' | 'dashed' | 'dotted' | 'double';
+export type ShadowStyle =
+  | 'none'
+  | 'soft'
+  | 'layered'
+  | 'lifted'
+  | 'dreamy'
+  | 'floating'
+  | 'elevated'
+  | 'paper'
+  | 'glow'
+  | 'neon'
+  | 'ring'
+  | 'inner'
+  | 'crisp'
+  | 'retro'
+  | 'long'
+  | 'stacked'
+  | 'drop'
+  | 'left';
+export type ShadowIntensity = 'whisper' | 'light' | 'medium' | 'strong' | 'dramatic';
+export type ShadowTint = 'ink' | 'brand' | 'accent' | 'danger' | 'duo';
+export type CardHover = 'default' | 'none' | 'lift' | 'float' | 'glow' | 'scale' | 'pop' | 'tilt' | 'press' | 'border' | 'dim';
+export type CardFill = 'default' | 'tinted' | 'accent' | 'muted' | 'gradient' | 'glass' | 'outline' | 'dots' | 'stripes' | 'grid';
+export type CardShape = 'default' | 'leaf' | 'notch' | 'top';
+export type CardAccent = 'none' | 'top' | 'left' | 'bottom';
+export type ButtonShape = 'default' | 'square' | 'rounded' | 'squircle' | 'pill' | 'leaf' | 'tab';
+export type ButtonFill = 'default' | 'solid' | 'brand' | 'soft' | 'outline' | 'ghost' | 'glass' | 'inverse';
+export type ButtonText = 'default' | 'upper' | 'bold' | 'wide' | 'smallcaps';
+export type ButtonHover = 'default' | 'none' | 'lift' | 'grow' | 'glow' | 'darken';
+export type BackgroundPattern =
+  | 'starburst'
+  | 'none'
+  | 'dots'
+  | 'grid'
+  | 'graph'
+  | 'pinstripe'
+  | 'diagonal'
+  | 'crosshatch'
+  | 'plus'
+  | 'isometric'
+  | 'hex'
+  | 'waves'
+  | 'scales'
+  | 'chevron'
+  | 'diamond'
+  | 'checker'
+  | 'rings'
+  | 'triangles'
+  | 'mesh';
+export type PatternTint = 'theme' | 'mono' | 'brand' | 'accent';
+/** Distance between pattern elements; 'auto' = built-in (starburst tile) or 6 mm for other patterns. */
+export type PatternSpacing = 'auto' | '4mm' | '5mm' | '6mm' | '8mm' | '10mm' | '12mm';
+export type PatternStrength = 'default' | 'whisper' | 'faint' | 'soft' | 'bold';export type HeadingWeight = 'default' | 'medium' | 'semibold' | 'bold';
+export type Tracking = 'tight' | 'default' | 'wide';
+export type LineHeight = 'compact' | 'default' | 'relaxed';
+
+/** One selectable value in the editor; the value lists below are also the normalise allow-lists. */
+export interface Choice<T extends string> {
+  readonly value: T;
+  readonly label: string;
+  readonly hint: string;
+}
+
+const values = <T extends string>(list: readonly Choice<T>[]): T[] => list.map((c) => c.value);
 
 /** Design languages. 'default' = the built-in look (nothing injected). Must match ThemeController. */
 export const STYLE_IDS = [
@@ -90,22 +159,198 @@ export const MOTION_LEVELS: readonly { value: MotionLevel; label: string; hint: 
   { value: 'none', label: 'None', hint: 'Everything static' },
 ];
 
-export const RADIUS_KINDS: readonly { value: RadiusKind; label: string; hint: string }[] = [
-  { value: 'sharp', label: 'Sharp', hint: 'Square, 2-4px corners' },
+export const RADIUS_KINDS: readonly Choice<RadiusKind>[] = [
+  { value: 'square', label: 'Square', hint: 'No rounding at all, architectural' },
+  { value: 'micro', label: 'Micro', hint: 'A hint of rounding, 1-2px' },
+  { value: 'sharp', label: 'Sharp', hint: '2-4px corners, precise' },
   { value: 'soft', label: 'Soft', hint: 'Built-in rounded cards' },
   { value: 'round', label: 'Round', hint: 'Extra-round, friendly' },
+  { value: 'pill', label: 'Pillowy', hint: 'Very round, bubbly and playful' },
+  { value: 'mega', label: 'Mega', hint: 'Huge soft curves, toy-like' },
 ];
-export const BORDER_WIDTHS: readonly { value: BorderWidth; label: string; hint: string }[] = [
+export const BORDER_WIDTHS: readonly Choice<BorderWidth>[] = [
+  { value: 'none', label: 'Borderless', hint: 'No card outlines; depth comes from shadows' },
   { value: 'thin', label: 'Thin', hint: '1px outlines, light and airy' },
   { value: 'standard', label: 'Standard', hint: '2px printed-catalog outlines' },
   { value: 'bold', label: 'Bold', hint: '3px outlines, poster style' },
+  { value: 'heavy', label: 'Heavy', hint: '4px outlines, neubrutalist' },
 ];
-export const SHADOW_STYLES: readonly { value: ShadowStyle; label: string; hint: string }[] = [
+export const BORDER_COLORS: readonly Choice<BorderColor>[] = [
+  { value: 'subtle', label: 'Subtle', hint: 'Soft, low-contrast lines' },
+  { value: 'muted', label: 'Muted', hint: 'Mid-grey lines, calm' },
+  { value: 'default', label: 'Default', hint: 'As the palette derives it' },
+  { value: 'strong', label: 'Strong', hint: 'Full text-colour lines' },
+  { value: 'brand', label: 'Brand', hint: 'Lines in your primary colour' },
+  { value: 'accent', label: 'Accent', hint: 'Lines in your accent colour' },
+];
+export const BORDER_STYLES: readonly Choice<BorderStyle>[] = [
+  { value: 'solid', label: 'Solid', hint: 'Continuous line' },
+  { value: 'dashed', label: 'Dashed', hint: 'Coupon / cut-out feel' },
+  { value: 'dotted', label: 'Dotted', hint: 'Playful, stitched' },
+  { value: 'double', label: 'Double', hint: 'Framed, vintage (best with Bold or Heavy)' },
+];
+export const SHADOW_STYLES: readonly Choice<ShadowStyle>[] = [
   { value: 'none', label: 'Flat', hint: 'No shadows at all' },
   { value: 'soft', label: 'Soft', hint: 'Subtle blurred elevation' },
+  { value: 'layered', label: 'Layered', hint: 'Realistic stacked depth, very smooth' },
+  { value: 'lifted', label: 'Lifted', hint: 'Large, diffuse floating cards' },
+  { value: 'dreamy', label: 'Dreamy', hint: 'Huge, feather-soft haze' },
+  { value: 'floating', label: 'Floating', hint: 'Shadow pooled underneath, hovering' },
+  { value: 'elevated', label: 'Elevated', hint: 'Material-style two-layer elevation' },
+  { value: 'paper', label: 'Paper', hint: 'Hairline edge plus a tiny drop' },
+  { value: 'glow', label: 'Glow', hint: 'Coloured halo in your brand colour' },
+  { value: 'neon', label: 'Neon', hint: 'Bright edge with an electric glow' },
+  { value: 'ring', label: 'Ring', hint: 'Soft coloured outline ring, no drop' },
+  { value: 'inner', label: 'Inset', hint: 'Pressed-in, recessed surfaces' },
   { value: 'crisp', label: 'Crisp', hint: 'Small hard offset' },
   { value: 'retro', label: 'Retro', hint: 'Built-in hard offset print shadow' },
-  { value: 'lifted', label: 'Lifted', hint: 'Large, diffuse floating cards' },
+  { value: 'long', label: 'Long', hint: 'Deep hard offset, comic-book' },
+  { value: 'stacked', label: 'Stacked', hint: 'Two offset layers, paper stack' },
+  { value: 'drop', label: 'Drop', hint: 'Hard shadow straight down, keycap' },
+  { value: 'left', label: 'Left', hint: 'Hard offset toward the left' },
+];
+export const SHADOW_INTENSITIES: readonly Choice<ShadowIntensity>[] = [
+  { value: 'whisper', label: 'Whisper', hint: 'Almost invisible' },
+  { value: 'light', label: 'Light', hint: 'Barely-there' },
+  { value: 'medium', label: 'Medium', hint: 'As designed' },
+  { value: 'strong', label: 'Strong', hint: 'Deeper, more dramatic' },
+  { value: 'dramatic', label: 'Dramatic', hint: 'Maximum depth' },
+];
+export const SHADOW_TINTS: readonly Choice<ShadowTint>[] = [
+  { value: 'ink', label: 'Ink', hint: 'Neutral dark shadow' },
+  { value: 'brand', label: 'Brand', hint: 'Tinted with your primary colour' },
+  { value: 'accent', label: 'Accent', hint: 'Tinted with your accent colour' },
+  { value: 'danger', label: 'Deal', hint: 'Tinted with your sale colour' },
+  { value: 'duo', label: 'Duotone', hint: 'Brand at rest, accent on hover' },
+];
+export const CARD_HOVERS: readonly Choice<CardHover>[] = [
+  { value: 'default', label: 'Built-in', hint: 'Small nudge with a deeper shadow' },
+  { value: 'none', label: 'Still', hint: 'Cards do not move on hover' },
+  { value: 'lift', label: 'Lift', hint: 'Rises smoothly toward you' },
+  { value: 'float', label: 'Float', hint: 'Rises high with a big shadow' },
+  { value: 'glow', label: 'Glow', hint: 'Brand-coloured ring and halo' },
+  { value: 'scale', label: 'Zoom', hint: 'Grows slightly' },
+  { value: 'pop', label: 'Pop', hint: 'Lifts and grows, energetic' },
+  { value: 'tilt', label: 'Tilt', hint: 'Playful little twist' },
+  { value: 'press', label: 'Press', hint: 'Sinks in, shadow disappears' },
+  { value: 'border', label: 'Outline', hint: 'Brand outline appears' },
+  { value: 'dim', label: 'Dim', hint: 'Subtle darkening, calm' },
+];
+export const CARD_FILLS: readonly Choice<CardFill>[] = [
+  { value: 'default', label: 'Solid', hint: 'Plain surface colour' },
+  { value: 'tinted', label: 'Tinted', hint: 'A whisper of your brand colour' },
+  { value: 'accent', label: 'Warm tint', hint: 'A whisper of your accent colour' },
+  { value: 'muted', label: 'Muted', hint: 'Slightly grey, recessed' },
+  { value: 'gradient', label: 'Gradient', hint: 'Soft surface-to-brand sheen' },
+  { value: 'glass', label: 'Frosted', hint: 'See-through, blurred glass' },
+  { value: 'outline', label: 'Outline', hint: 'See-through, just a frame' },
+  { value: 'dots', label: 'Dotted', hint: 'Fine dot pattern' },
+  { value: 'stripes', label: 'Striped', hint: 'Faint diagonal stripes' },
+  { value: 'grid', label: 'Grid', hint: 'Blueprint graph paper' },
+];
+export const CARD_SHAPES: readonly Choice<CardShape>[] = [
+  { value: 'default', label: 'Even', hint: 'All corners follow the Corners setting' },
+  { value: 'leaf', label: 'Leaf', hint: 'Two round, two tight corners' },
+  { value: 'notch', label: 'Notch', hint: 'One square corner, rest round' },
+  { value: 'top', label: 'Tab', hint: 'Round top, tight bottom' },
+];
+export const CARD_ACCENTS: readonly Choice<CardAccent>[] = [
+  { value: 'none', label: 'None', hint: 'No accent stripe' },
+  { value: 'top', label: 'Top bar', hint: 'Brand stripe along the top' },
+  { value: 'left', label: 'Side bar', hint: 'Brand stripe down the left' },
+  { value: 'bottom', label: 'Bottom bar', hint: 'Brand stripe along the bottom' },
+];
+export const BUTTON_SHAPES: readonly Choice<ButtonShape>[] = [
+  { value: 'default', label: 'Built-in', hint: 'As each button is designed' },
+  { value: 'square', label: 'Square', hint: 'Crisp 4px corners' },
+  { value: 'rounded', label: 'Rounded', hint: 'Comfortable 12px corners' },
+  { value: 'squircle', label: 'Squircle', hint: 'Soft, app-icon corners' },
+  { value: 'pill', label: 'Pill', hint: 'Fully rounded ends' },
+  { value: 'leaf', label: 'Leaf', hint: 'Two round, two tight corners' },
+  { value: 'tab', label: 'Tab', hint: 'Round top, flat bottom' },
+];
+export const BUTTON_FILLS: readonly Choice<ButtonFill>[] = [
+  { value: 'default', label: 'Gradient', hint: 'Built-in accent gradient' },
+  { value: 'solid', label: 'Solid', hint: 'One flat accent colour' },
+  { value: 'brand', label: 'Brand', hint: 'Solid primary colour' },
+  { value: 'soft', label: 'Soft', hint: 'Pale accent tint, dark text' },
+  { value: 'outline', label: 'Outline', hint: 'Transparent with a brand frame' },
+  { value: 'ghost', label: 'Ghost', hint: 'Text only, brand colour' },
+  { value: 'glass', label: 'Glass', hint: 'Frosted, see-through' },
+  { value: 'inverse', label: 'Inverse', hint: 'Text-colour fill, high contrast' },
+];
+export const BUTTON_TEXTS: readonly Choice<ButtonText>[] = [
+  { value: 'default', label: 'Normal', hint: 'Sentence case' },
+  { value: 'upper', label: 'Uppercase', hint: 'Spaced capitals' },
+  { value: 'bold', label: 'Heavy', hint: 'Extra-bold labels' },
+  { value: 'wide', label: 'Wide', hint: 'Generous letter spacing' },
+  { value: 'smallcaps', label: 'Small caps', hint: 'Refined, editorial' },
+];
+export const BACKGROUND_PATTERNS: readonly Choice<BackgroundPattern>[] = [
+  { value: 'starburst', label: 'Starbursts', hint: 'Built-in atomic-age starbursts and dots' },
+  { value: 'none', label: 'Plain', hint: 'No pattern, just the background colour' },
+  { value: 'dots', label: 'Dot grid', hint: 'Fine evenly spaced dots, calm and modern' },
+  { value: 'grid', label: 'Grid', hint: 'Square grid lines, structured' },
+  { value: 'graph', label: 'Graph paper', hint: 'Minor and major lines, blueprint feel' },
+  { value: 'pinstripe', label: 'Pinstripe', hint: 'Fine vertical lines, tailored' },
+  { value: 'diagonal', label: 'Diagonal', hint: 'Fine 45-degree lines, dynamic' },
+  { value: 'crosshatch', label: 'Linen', hint: 'Crossed fine lines, woven texture' },
+  { value: 'plus', label: 'Plus marks', hint: 'Tiny crosses, Swiss and technical' },
+  { value: 'isometric', label: 'Isometric', hint: 'Triangle lattice, architectural' },
+  { value: 'hex', label: 'Honeycomb', hint: 'Hexagon outlines, natural and techy' },
+  { value: 'waves', label: 'Waves', hint: 'Gentle flowing lines, relaxed' },
+  { value: 'scales', label: 'Seigaiha', hint: 'Japanese wave scales, refined' },
+  { value: 'chevron', label: 'Chevron', hint: 'Zig-zag rows, energetic' },
+  { value: 'diamond', label: 'Lattice', hint: 'Diamond trellis, classic luxury' },
+  { value: 'checker', label: 'Checker', hint: 'Soft checkerboard, playful' },
+  { value: 'rings', label: 'Rings', hint: 'Concentric circles, topographic' },
+  { value: 'triangles', label: 'Triangles', hint: 'Outlined triangles, geometric' },
+  { value: 'mesh', label: 'Colour mesh', hint: 'Soft blurred colour glow, no lines' },
+];
+export const PATTERN_TINTS: readonly Choice<PatternTint>[] = [
+  { value: 'theme', label: 'Two-tone', hint: 'Brand and accent together' },
+  { value: 'mono', label: 'Ink', hint: 'Text colour only, most elegant' },
+  { value: 'brand', label: 'Brand', hint: 'Primary colour only' },
+  { value: 'accent', label: 'Accent', hint: 'Accent colour only' },
+];
+export const PATTERN_SPACINGS: readonly Choice<PatternSpacing>[] = [
+  { value: 'auto', label: 'Built-in', hint: 'Starbursts as shipped; other patterns 6 mm' },
+  { value: '4mm', label: '4 mm', hint: 'Very dense, fine texture' },
+  { value: '5mm', label: '5 mm', hint: 'Dense' },
+  { value: '6mm', label: '6 mm', hint: 'Dense, balanced' },
+  { value: '8mm', label: '8 mm', hint: 'Balanced' },
+  { value: '10mm', label: '10 mm', hint: 'Open' },
+  { value: '12mm', label: '12 mm', hint: 'Airy, spacious' },
+];
+export const PATTERN_STRENGTHS: readonly Choice<PatternStrength>[] = [
+  { value: 'whisper', label: 'Whisper', hint: 'Barely there, most refined' },
+  { value: 'faint', label: 'Faint', hint: 'Light texture' },
+  { value: 'default', label: 'Auto', hint: 'Faint for patterns, built-in for starbursts' },
+  { value: 'soft', label: 'Soft', hint: 'Gentle but clear' },
+  { value: 'bold', label: 'Bold', hint: 'Clearly visible' },
+];
+export const BUTTON_HOVERS: readonly Choice<ButtonHover>[] = [
+  { value: 'default', label: 'Built-in', hint: 'As each button is designed' },
+  { value: 'none', label: 'Still', hint: 'No movement' },
+  { value: 'lift', label: 'Lift', hint: 'Rises a little' },
+  { value: 'grow', label: 'Grow', hint: 'Scales up slightly' },
+  { value: 'glow', label: 'Glow', hint: 'Accent halo appears' },
+  { value: 'darken', label: 'Darken', hint: 'Fill deepens' },
+];export const HEADING_WEIGHTS: readonly Choice<HeadingWeight>[] = [
+  { value: 'default', label: 'Built-in', hint: 'Each heading as designed' },
+  { value: 'medium', label: 'Medium', hint: '500, light and refined' },
+  { value: 'semibold', label: 'Semibold', hint: '600, balanced' },
+  { value: 'bold', label: 'Bold', hint: '700, punchy' },
+];
+export const TRACKINGS: readonly Choice<Tracking>[] = [
+  { value: 'tight', label: 'Tight', hint: 'Compact, modern headlines' },
+  { value: 'default', label: 'Normal', hint: 'As the font is designed' },
+  { value: 'wide', label: 'Wide', hint: 'Airy, luxurious headlines' },
+];
+export const LINE_HEIGHTS: readonly Choice<LineHeight>[] = [
+  { value: 'compact', label: 'Compact', hint: 'Denser paragraphs' },
+  { value: 'default', label: 'Normal', hint: 'As designed' },
+  { value: 'relaxed', label: 'Relaxed', hint: 'Extra breathing room' },
 ];
 
 export interface ThemePalette {
@@ -122,58 +367,25 @@ export interface ThemeConfig {
   brand: { name: string; tagline: string; logoUrl: string };
   light: ThemePalette;
   dark: ThemePalette;
-  /** Corner radius and outline thickness. */
-  border: { radius: RadiusKind; width: BorderWidth };
-  shadow: { style: ShadowStyle };
+  /** Corner radius, outline thickness and outline colour. */
+  border: { radius: RadiusKind; width: BorderWidth; color: BorderColor; style: BorderStyle };
+  shadow: { style: ShadowStyle; intensity: ShadowIntensity; tint: ShadowTint };
+  /** Product/stat cards: hover behaviour and fill. */
+  card: { hover: CardHover; fill: CardFill; shape: CardShape; accent: CardAccent };
+  /** Call-to-action buttons. */
+  button: { shape: ButtonShape; fill: ButtonFill; text: ButtonText; hover: ButtonHover };
+  /** Decorative page background: pattern or grid, its colour, tile scale and visibility. */
+  background: { pattern: BackgroundPattern; tint: PatternTint; spacing: PatternSpacing; strength: PatternStrength };
   /** Design language: surface material, backdrop, heading and button treatment. */
   style: { id: StyleId };
   /** Global comfort options. */
   options: { textScale: TextScale; motion: MotionLevel };
-  fonts: { display: string; body: string };
+  fonts: { display: string; body: string; headingWeight: HeadingWeight; tracking: Tracking; lineHeight: LineHeight };
   customCss: string;
 }
 
-/**
- * Must match the allow-list in ThemeController.java. Every family here ships weights 400-700 on
- * Google Fonts: the stylesheet request asks for 400;500;600;700 and Google rejects the WHOLE request
- * if one weight is missing, so single-weight display faces (Bebas Neue...) are deliberately absent.
- */
-export const FONT_OPTIONS = [
-  'Quicksand', 'Poppins', 'Inter', 'DM Sans', 'Manrope', 'Space Grotesk', 'Playfair Display', 'Lora',
-  'Nunito', 'Montserrat', 'Raleway', 'Work Sans', 'Rubik', 'Outfit', 'Plus Jakarta Sans', 'Sora',
-  'Josefin Sans', 'Cormorant Garamond', 'Fraunces', 'Archivo', 'Karla', 'Source Sans 3',
-  'IBM Plex Sans', 'Oswald', 'system-ui',
-] as const;
-
-const SERIF_FONTS: readonly string[] = ['Playfair Display', 'Lora', 'Cormorant Garamond', 'Fraunces'];
-
-export interface FontPair {
-  readonly id: string;
-  readonly label: string;
-  readonly vibe: string;
-  readonly display: string;
-  readonly body: string;
-}
-
-/** Tested-together heading/body combinations offered as one click in the editor. */
-export const FONT_PAIRS: readonly FontPair[] = [
-  { id: 'atomic', label: 'Quicksand + Poppins', vibe: 'Friendly, rounded, retro (built-in)', display: 'Quicksand', body: 'Poppins' },
-  { id: 'clean-tech', label: 'Inter + Inter', vibe: 'Neutral, dense, product UI', display: 'Inter', body: 'Inter' },
-  { id: 'editorial', label: 'Playfair Display + DM Sans', vibe: 'Magazine-style, premium', display: 'Playfair Display', body: 'DM Sans' },
-  { id: 'modern-geo', label: 'Space Grotesk + Inter', vibe: 'Design-led, techy', display: 'Space Grotesk', body: 'Inter' },
-  { id: 'warm-serif', label: 'Fraunces + Work Sans', vibe: 'Warm, crafted, lifestyle', display: 'Fraunces', body: 'Work Sans' },
-  { id: 'luxe', label: 'Cormorant Garamond + Karla', vibe: 'Elegant, boutique, fashion', display: 'Cormorant Garamond', body: 'Karla' },
-  { id: 'sporty', label: 'Oswald + Source Sans 3', vibe: 'Bold, condensed, athletic', display: 'Oswald', body: 'Source Sans 3' },
-  { id: 'friendly-round', label: 'Nunito + Nunito', vibe: 'Soft, approachable, family', display: 'Nunito', body: 'Nunito' },
-  { id: 'startup', label: 'Sora + Plus Jakarta Sans', vibe: 'Fresh, confident, SaaS-like', display: 'Sora', body: 'Plus Jakarta Sans' },
-  { id: 'playful', label: 'Outfit + Rubik', vibe: 'Fun, energetic, kids', display: 'Outfit', body: 'Rubik' },
-  { id: 'classic-sans', label: 'Montserrat + Source Sans 3', vibe: 'Classic retail, readable', display: 'Montserrat', body: 'Source Sans 3' },
-  { id: 'airy', label: 'Raleway + Lora', vibe: 'Light, graceful, beauty', display: 'Raleway', body: 'Lora' },
-  { id: 'corporate', label: 'IBM Plex Sans + IBM Plex Sans', vibe: 'Precise, technical, B2B', display: 'IBM Plex Sans', body: 'IBM Plex Sans' },
-  { id: 'geometric-soft', label: 'Josefin Sans + Manrope', vibe: 'Vintage-geometric, stylish', display: 'Josefin Sans', body: 'Manrope' },
-  { id: 'bold-grotesk', label: 'Archivo + Archivo', vibe: 'Strong, newsy, no-nonsense', display: 'Archivo', body: 'Archivo' },
-  { id: 'system', label: 'System UI', vibe: 'Fastest; no download', display: 'system-ui', body: 'system-ui' },
-];
+/** Every allowed family (see themeFonts.ts). Must match the allow-list in ThemeController.java. */
+export const FONT_OPTIONS: readonly string[] = FONT_NAMES;
 
 export const PALETTE_KEYS = ['primary', 'accent', 'background', 'surface', 'text', 'danger'] as const;
 export type PaletteKey = (typeof PALETTE_KEYS)[number];
@@ -197,11 +409,14 @@ export const DEFAULT_THEME: ThemeConfig = {
     text: '#f7f1de',
     danger: '#f25f72',
   },
-  border: { radius: 'soft', width: 'standard' },
-  shadow: { style: 'retro' },
+  border: { radius: 'soft', width: 'standard', color: 'default', style: 'solid' },
+  shadow: { style: 'retro', intensity: 'medium', tint: 'ink' },
+  card: { hover: 'default', fill: 'default', shape: 'default', accent: 'none' },
+  button: { shape: 'default', fill: 'default', text: 'default', hover: 'default' },
+  background: { pattern: 'starburst', tint: 'theme', spacing: 'auto', strength: 'default' },
   style: { id: 'default' },
   options: { textScale: 'default', motion: 'full' },
-  fonts: { display: 'Quicksand', body: 'Poppins' },
+  fonts: { display: 'Quicksand', body: 'Poppins', headingWeight: 'default', tracking: 'default', lineHeight: 'default' },
   customCss: '',
 };
 
@@ -361,16 +576,49 @@ export function deriveTokens(p: ThemePalette, mode: 'light' | 'dark'): DerivedTo
 
 const clampL = (l: number) => Math.max(0, Math.min(100, l));
 
-/** A complete, accessible palette built from one brand colour. */
-export function generatePalette(base: string, mode: 'light' | 'dark'): ThemePalette {
+export type Harmony = 'split' | 'complementary' | 'analogous' | 'triadic' | 'tetradic' | 'monochrome';
+
+/** Colour-wheel relationships between the brand (primary) and accent hues. */
+export const HARMONIES: readonly (Choice<Harmony> & { readonly shift: number })[] = [
+  { value: 'split', label: 'Split complementary', hint: 'Lively but balanced (default)', shift: 150 },
+  { value: 'complementary', label: 'Complementary', hint: 'Opposite hues, maximum pop', shift: 180 },
+  { value: 'analogous', label: 'Analogous', hint: 'Neighbouring hues, calm and cohesive', shift: 32 },
+  { value: 'triadic', label: 'Triadic', hint: 'Three-way balance, playful', shift: 120 },
+  { value: 'tetradic', label: 'Square', hint: 'Bold, rich, energetic', shift: 90 },
+  { value: 'monochrome', label: 'Monochrome', hint: 'One hue in many shades, refined', shift: 0 },
+];
+
+/** Accent tuned to read well as a button colour in the given mode. */
+function tuneAccent(accent: string, mode: 'light' | 'dark'): string {
+  const [h, s, l] = rgbToHsl(hexToRgb(accent));
+  const L = mode === 'dark' ? Math.max(58, Math.min(72, l)) : Math.max(38, Math.min(58, l));
+  return rgbToHex(hslToRgb(h, Math.max(45, s), L));
+}
+
+/**
+ * A complete, accessible palette built from one brand colour. `opts.harmony` picks the accent hue;
+ * `opts.accent` uses a specific accent colour instead (tuned for the mode).
+ */
+export function generatePalette(
+  base: string,
+  mode: 'light' | 'dark',
+  opts: { harmony?: Harmony; accent?: string } = {},
+): ThemePalette {
   const [h, s0] = rgbToHsl(hexToRgb(base));
   const s = Math.max(35, Math.min(80, s0));
   const hex = (hue: number, sat: number, l: number) => rgbToHex(hslToRgb((hue + 360) % 360, sat, clampL(l)));
   const dark = mode === 'dark';
+  const shift = HARMONIES.find((x) => x.value === (opts.harmony ?? 'split'))?.shift ?? 150;
+  const accent =
+    opts.accent && isHex(opts.accent)
+      ? tuneAccent(opts.accent, mode)
+      : shift === 0
+        ? hex(h, Math.min(90, s + 15), dark ? 78 : 50)
+        : hex(h + shift, Math.min(85, s + 10), dark ? 66 : 56);
   return autoFixPalette(
     {
       primary: hex(h, s, dark ? 68 : 34),
-      accent: hex(h + 150, Math.min(85, s + 10), dark ? 66 : 56),
+      accent,
       background: hex(h, dark ? 38 : 32, dark ? 8 : 96),
       surface: hex(h, dark ? 32 : 40, dark ? 12 : 99),
       text: hex(h, dark ? 25 : 35, dark ? 94 : 12),
@@ -409,9 +657,25 @@ export function autoFixPalette(p: ThemePalette, mode: 'light' | 'dark'): ThemePa
     return out;
   };
   const text = fixAgainst(p.text, [p.background, p.surface], 4.5, towards);
-  const primary = fixAgainst(p.primary, [p.surface], 3, towards);
   const danger = fixAgainst(p.danger, [p.surface], 3, towards);
-  return { ...p, text, primary, danger };
+  // Button fills: the label colour readableOn() picks must reach 4.5:1.
+  const fixFill = (fill: string, pal: ThemePalette): string => {
+    let out = fill;
+    for (let i = 0; i < 40 && contrast(readableOn(out, pal), out) < 4.5; i++) out = shift(out, towards * 2.5);
+    return out;
+  };
+  const withText = { ...p, text };
+  const primary = fixFill(fixAgainst(p.primary, [p.surface], 3, towards), withText);
+  const accent = fixFill(p.accent, withText);
+  return { ...p, text, primary, accent, danger };
+}
+
+/** Light + dark palettes from a primary/accent pair (curated combinations, harmony picks). */
+export function paletteFromPair(primary: string, accent: string): { light: ThemePalette; dark: ThemePalette } {
+  return {
+    light: generatePalette(primary, 'light', { accent }),
+    dark: generatePalette(primary, 'dark', { accent }),
+  };
 }
 
 /** A pleasant random palette (for exploring). */
@@ -486,23 +750,35 @@ interface RawTheme {
   radius?: unknown; // legacy (pre-border) configs
   border?: unknown;
   shadow?: unknown;
+  card?: unknown;
+  button?: unknown;
+  background?: unknown;
   style?: unknown;
   options?: unknown;
   fonts?: unknown;
   customCss?: unknown;
 }
 
+/** Untrusted object with known keys (explicit keys keep strict index-signature checks happy). */
+type Raw<K extends string> = Partial<Record<K, unknown>>;
+
 /** Defensive merge of whatever the API / localStorage / a pasted JSON gave us. */
 export function normalizeTheme(raw: unknown): ThemeConfig {
   const r = (raw ?? {}) as RawTheme;
   const brand = (r.brand ?? {}) as RawBrand;
-  const fonts = (r.fonts ?? {}) as RawFonts;
-  const border = (r.border ?? {}) as { radius?: unknown; width?: unknown };
-  const shadow = (r.shadow ?? {}) as { style?: unknown };
+  const fonts = (r.fonts ?? {}) as RawFonts & Raw<'headingWeight' | 'tracking' | 'lineHeight'>;
+  const border = (r.border ?? {}) as Raw<'radius' | 'width' | 'color' | 'style'>;
+  const shadow = (r.shadow ?? {}) as Raw<'style' | 'intensity' | 'tint'>;
+  const card = (r.card ?? {}) as Raw<'hover' | 'fill' | 'shape' | 'accent'>;
+  const button = (r.button ?? {}) as Raw<'shape' | 'fill' | 'text' | 'hover'>;
+  const background = (r.background ?? {}) as Raw<'pattern' | 'tint' | 'spacing' | 'scale' | 'strength'>;
+  // Drafts saved with the short-lived fine/normal/large scale map onto spacing.
+  const legacySpacing = { fine: '4mm', normal: 'auto', large: '12mm' }[String(background.scale)] ?? undefined;
+  const D = DEFAULT_THEME;
   const designStyle = (r.style ?? {}) as { id?: unknown };
   const options = (r.options ?? {}) as { textScale?: unknown; motion?: unknown };
   const font = (v: unknown, fb: string) =>
-    typeof v === 'string' && (FONT_OPTIONS as readonly string[]).includes(v) ? v : fb;
+    typeof v === 'string' && FONT_OPTIONS.includes(v) ? v : fb;
   const str = (v: unknown, fb: string, max: number) => (typeof v === 'string' ? v.slice(0, max) : fb);
   const css = str(r.customCss, '', 4000);
   return {
@@ -515,18 +791,45 @@ export function normalizeTheme(raw: unknown): ThemeConfig {
     light: pickPalette(r.light, DEFAULT_THEME.light),
     dark: pickPalette(r.dark, DEFAULT_THEME.dark),
     border: {
-      radius: oneOf(border.radius ?? r.radius, ['sharp', 'soft', 'round'], 'soft'),
-      width: oneOf(border.width, ['thin', 'standard', 'bold'], 'standard'),
+      radius: oneOf(border.radius ?? r.radius, values(RADIUS_KINDS), D.border.radius),
+      width: oneOf(border.width, values(BORDER_WIDTHS), D.border.width),
+      color: oneOf(border.color, values(BORDER_COLORS), D.border.color),
+      style: oneOf(border.style, values(BORDER_STYLES), D.border.style),
+    },
+    shadow: {
+      style: oneOf(shadow.style, values(SHADOW_STYLES), D.shadow.style),
+      intensity: oneOf(shadow.intensity, values(SHADOW_INTENSITIES), D.shadow.intensity),
+      tint: oneOf(shadow.tint, values(SHADOW_TINTS), D.shadow.tint),
+    },
+    card: {
+      hover: oneOf(card.hover, values(CARD_HOVERS), D.card.hover),
+      fill: oneOf(card.fill, values(CARD_FILLS), D.card.fill),
+      shape: oneOf(card.shape, values(CARD_SHAPES), D.card.shape),
+      accent: oneOf(card.accent, values(CARD_ACCENTS), D.card.accent),
+    },
+    button: {
+      shape: oneOf(button.shape, values(BUTTON_SHAPES), D.button.shape),
+      fill: oneOf(button.fill, values(BUTTON_FILLS), D.button.fill),
+      text: oneOf(button.text, values(BUTTON_TEXTS), D.button.text),
+      hover: oneOf(button.hover, values(BUTTON_HOVERS), D.button.hover),
+    },
+    background: {
+      pattern: oneOf(background.pattern, values(BACKGROUND_PATTERNS), D.background.pattern),
+      tint: oneOf(background.tint, values(PATTERN_TINTS), D.background.tint),
+      spacing: oneOf(background.spacing ?? legacySpacing, values(PATTERN_SPACINGS), D.background.spacing),
+      strength: oneOf(background.strength, values(PATTERN_STRENGTHS), D.background.strength),
     },
     style: { id: oneOf(designStyle.id, STYLE_IDS, 'default') },
     options: {
-      textScale: oneOf(options.textScale, ['small', 'default', 'large'], 'default'),
-      motion: oneOf(options.motion, ['full', 'reduced', 'none'], 'full'),
+      textScale: oneOf(options.textScale, values(TEXT_SCALES), 'default'),
+      motion: oneOf(options.motion, values(MOTION_LEVELS), 'full'),
     },
-    shadow: { style: oneOf(shadow.style, ['none', 'soft', 'crisp', 'retro', 'lifted'], DEFAULT_THEME.shadow.style) },
     fonts: {
-      display: font(fonts.display, DEFAULT_THEME.fonts.display),
-      body: font(fonts.body, DEFAULT_THEME.fonts.body),
+      display: font(fonts.display, D.fonts.display),
+      body: font(fonts.body, D.fonts.body),
+      headingWeight: oneOf(fonts.headingWeight, values(HEADING_WEIGHTS), D.fonts.headingWeight),
+      tracking: oneOf(fonts.tracking, values(TRACKINGS), D.fonts.tracking),
+      lineHeight: oneOf(fonts.lineHeight, values(LINE_HEIGHTS), D.fonts.lineHeight),
     },
     customCss: customCssProblem(css) ? '' : css,
   };
@@ -538,8 +841,13 @@ const hsl = (hex: string) => `hsl(${toTriple(hex)})`;
 
 function fontStack(name: string): string {
   if (name === 'system-ui') return "system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif";
-  const serif = SERIF_FONTS.includes(name);
-  const tail = serif ? "Georgia, 'Times New Roman', serif" : "system-ui, -apple-system, 'Segoe UI', sans-serif";
+  const tails: Record<string, string> = {
+    serif: "Georgia, 'Times New Roman', serif",
+    slab: "Rockwell, 'Roboto Slab', Georgia, serif",
+    mono: "ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace",
+    script: "'Segoe Print', 'Comic Sans MS', cursive",
+  };
+  const tail = tails[fontCategory(name)] ?? "system-ui, -apple-system, 'Segoe UI', sans-serif";
   return `'${name}', ${tail}`;
 }
 
@@ -566,7 +874,7 @@ function vividTokens(primary: string, mode: 'light' | 'dark'): string[] {
   return hues.map(([name, h]) => `--color-vivid-${name}: ${Math.round(h)} ${Math.round(sat)}% ${light}%`);
 }
 
-function storefrontBlock(t: DerivedTokens, mode: 'light' | 'dark', harmonise: boolean): string {
+function storefrontBlock(t: DerivedTokens, mode: 'light' | 'dark', harmonise: boolean, pattern: string): string {
   const tr = toTriple;
   const lines = [
     `--color-background: ${tr(t.background)}`,
@@ -594,12 +902,12 @@ function storefrontBlock(t: DerivedTokens, mode: 'light' | 'dark', harmonise: bo
     `--color-vivid-amber: ${tr(t.accent)}`,
     `--color-vivid-teal: ${tr(t.primary)}`,
     ...(harmonise ? vividTokens(t.primary, mode) : []),
-    `--pattern-image: ${patternUri(mode === 'dark' ? t.onSurface : t.primary, mode === 'dark' ? t.primary : t.accent)}`,
+    `--pattern-image: ${pattern}`,
   ];
   return lines.join(';\n  ');
 }
 
-function adminBlock(t: DerivedTokens, mode: 'light' | 'dark'): string {
+function adminBlock(t: DerivedTokens, mode: 'light' | 'dark', pattern: string): string {
   const h = hsl;
   const lines = [
     `--color-base-100: ${h(t.surface)}`,
@@ -626,23 +934,230 @@ function adminBlock(t: DerivedTokens, mode: 'light' | 'dark'): string {
     `--cw-on-accent: ${h(t.onAccent)}`,
     `--cw-amber: ${h(t.accent)}`,
     `--cw-deal: ${h(t.deal)}`,
-    `--cw-pattern: ${patternUri(mode === 'dark' ? t.onSurface : t.primary, mode === 'dark' ? t.primary : t.accent)}`,
+    `--cw-pattern: ${pattern}`,
   ];
   return lines.join(';\n  ');
 }
 
+// ---- page background pattern ------------------------------------------------------------------
+
+/**
+ * Layer opacity per strength, [light, dark]. `default` keeps the stylesheet's built-in starburst
+ * opacity; for every other pattern it means Faint (line patterns read best barely-there).
+ */
+const PATTERN_OPACITY: Record<Exclude<PatternStrength, 'default'>, [number, number]> = {
+  whisper: [0.06, 0.05],
+  faint: [0.1, 0.08],
+  soft: [0.16, 0.13],
+  bold: [0.3, 0.24],
+};
+const BUILT_IN_OPACITY: [number, number] = [0.28, 0.22];
+
+/** CSS px per millimetre (CSS defines 1in = 96px = 25.4mm). */
+const PX_PER_MM = 96 / 25.4;
+
+/** Pattern colours for one mode: the built-in two-tone pair, or a single colour. */
+function patternColours(t: DerivedTokens, mode: 'light' | 'dark', tint: PatternTint): [string, string] {
+  if (tint === 'mono') return [t.onSurface, t.onSurface];
+  if (tint === 'brand') return [t.primary, t.primary];
+  if (tint === 'accent') return [t.accent, t.accent];
+  return mode === 'dark' ? [t.onSurface, t.primary] : [t.primary, t.accent];
+}
+
+/**
+ * The distance between neighbouring pattern elements in the tile's own units. Scaling the tile so
+ * this distance equals the chosen spacing (4-12 mm) is what "spacing" means for every pattern.
+ */
+const PATTERN_UNIT: Record<Exclude<BackgroundPattern, 'none' | 'mesh'>, number> = {
+  starburst: 60,
+  dots: 24,
+  grid: 32,
+  graph: 16,
+  pinstripe: 12,
+  diagonal: 11.3,
+  crosshatch: 11.3,
+  plus: 32,
+  isometric: 28,
+  hex: 32,
+  waves: 16,
+  scales: 16,
+  chevron: 12,
+  diamond: 32,
+  checker: 12,
+  rings: 20,
+  triangles: 28,
+};
+
+/** Tile scale factor for a config: chosen spacing / natural element distance (1 = natural size). */
+function patternScale(bg: ThemeConfig['background']): number {
+  if (bg.pattern === 'none' || bg.pattern === 'mesh') return 1;
+  const unit = PATTERN_UNIT[bg.pattern];
+  // Built-in size: the starburst keeps its original tile; other patterns default to a dense 6 mm.
+  const mm = bg.spacing === 'auto' ? (bg.pattern === 'starburst' ? unit / PX_PER_MM : 6) : parseInt(bg.spacing, 10);
+  return (mm * PX_PER_MM) / unit;
+}
+
+function patternOpacity(bg: ThemeConfig['background'], mode: 'light' | 'dark'): number {
+  const i = mode === 'dark' ? 1 : 0;
+  if (bg.strength !== 'default') return PATTERN_OPACITY[bg.strength][i];
+  if (bg.pattern === 'starburst') return BUILT_IN_OPACITY[i];
+  if (bg.pattern === 'mesh') return [0.35, 0.28][i]!; // a glow needs more presence than lines
+  return PATTERN_OPACITY.faint[i];
+}
+
+const svgUri = (w: number, h: number, body: string) =>
+  `url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='${w}' height='${h}' viewBox='0 0 ${w} ${h}'>${body}</svg>")`;
+
+/**
+ * One tile of a background pattern as a CSS image plus its natural tile size. `k` is the scale the
+ * tile will be drawn at: stroke widths and dot sizes are divided by it, so lines stay a crisp
+ * ~1 screen pixel and dots ~2.4px across at any spacing (dense never means heavy).
+ */
+function patternTile(kind: BackgroundPattern, c1: string, c2: string, k = 1): { image: string; w: number; h: number } | null {
+  const e = (c: string) => c.replace('#', '%23');
+  const a = e(c1);
+  const b = e(c2);
+  const sw = (px: number) => Math.round((px / k) * 100) / 100;
+  const line = (col: string, px = 1) => `fill='none' stroke='${col}' stroke-width='${sw(px)}'`;
+  switch (kind) {
+    case 'none':
+      return null;
+    case 'starburst':
+      return { image: patternUri(c1, c2), w: 180, h: 180 };
+    case 'dots':
+      return { image: svgUri(24, 24, `<circle cx='12' cy='12' r='${sw(1.2)}' fill='${a}'/>`), w: 24, h: 24 };
+    case 'grid':
+      return { image: svgUri(32, 32, `<path d='M32 0H0V32' ${line(a)}/>`), w: 32, h: 32 };
+    case 'graph':
+      return {
+        image: svgUri(
+          80,
+          80,
+          `<path d='M16 0V80M32 0V80M48 0V80M64 0V80M0 16H80M0 32H80M0 48H80M0 64H80' ${line(b, 0.6)} stroke-opacity='0.6'/><path d='M80 0H0V80' ${line(a, 1)}/>`,
+        ),
+        w: 80,
+        h: 80,
+      };
+    case 'pinstripe':
+      return { image: svgUri(12, 12, `<path d='M6 0V12' ${line(a, 0.8)}/>`), w: 12, h: 12 };
+    case 'diagonal':
+      return { image: svgUri(16, 16, `<path d='M-4 4L4 -4M0 16L16 0M12 20L20 12' ${line(a, 0.8)}/>`), w: 16, h: 16 };
+    case 'crosshatch':
+      return {
+        image: svgUri(16, 16, `<path d='M-4 4L4 -4M0 16L16 0M12 20L20 12' ${line(a, 0.6)}/><path d='M-4 12L4 20M0 0L16 16M12 -4L20 4' ${line(b, 0.6)}/>`),
+        w: 16,
+        h: 16,
+      };
+    case 'plus':
+      return { image: svgUri(32, 32, `<path d='M16 11V21M11 16H21' ${line(a, 1)} stroke-linecap='round'/>`), w: 32, h: 32 };
+    case 'isometric':
+      return { image: svgUri(28, 48.5, `<path d='M0 0L28 48.5M28 0L0 48.5M0 0H28M0 24.25H28' ${line(a, 0.7)}/>`), w: 28, h: 48.5 };
+    case 'hex':
+      return {
+        image: svgUri(56, 100, `<path d='M28 66L0 50L0 16L28 0L56 16L56 50L28 66L28 100' ${line(a, 0.8)}/><path d='M28 0L28 34L0 50L0 84L28 100L56 84L56 50L28 34' ${line(b, 0.8)}/>`),
+        w: 56,
+        h: 100,
+      };
+    case 'waves':
+      return { image: svgUri(40, 16, `<path d='M0 8Q10 0 20 8T40 8' ${line(a, 0.8)}/>`), w: 40, h: 16 };
+    case 'scales':
+      return {
+        image: svgUri(32, 16, `<path d='M0 16A16 16 0 0 1 32 16' ${line(a, 0.8)}/><path d='M-16 8A16 16 0 0 1 16 8M16 8A16 16 0 0 1 48 8' ${line(b, 0.8)}/>`),
+        w: 32,
+        h: 16,
+      };
+    case 'chevron':
+      return { image: svgUri(24, 12, `<path d='M0 10L6 4L12 10L18 4L24 10' ${line(a, 0.8)} stroke-linejoin='round'/>`), w: 24, h: 12 };
+    case 'diamond':
+      return { image: svgUri(32, 32, `<path d='M16 0L32 16L16 32L0 16Z' ${line(a, 0.8)}/>`), w: 32, h: 32 };
+    case 'checker':
+      return {
+        image: svgUri(24, 24, `<rect width='12' height='12' fill='${a}' fill-opacity='0.3'/><rect x='12' y='12' width='12' height='12' fill='${b}' fill-opacity='0.3'/>`),
+        w: 24,
+        h: 24,
+      };
+    case 'rings':
+      return {
+        image: svgUri(60, 60, `<circle cx='30' cy='30' r='10' ${line(a, 0.8)}/><circle cx='30' cy='30' r='20' ${line(b, 0.8)}/><circle cx='30' cy='30' r='29' ${line(a, 0.6)}/>`),
+        w: 60,
+        h: 60,
+      };
+    case 'triangles':
+      return { image: svgUri(32, 28, `<path d='M0 28L16 0L32 28Z' ${line(a, 0.8)}/>`), w: 32, h: 28 };
+    case 'mesh':
+      return {
+        image: `radial-gradient(42rem 30rem at 12% 8%,${c1},transparent 65%),radial-gradient(36rem 28rem at 88% 18%,${c2},transparent 65%),radial-gradient(40rem 32rem at 50% 100%,${c1},transparent 70%)`,
+        w: 0,
+        h: 0,
+      };
+  }
+}
+
+/** The `--pattern-image` / `--cw-pattern` value for one mode. */
+function patternImage(bg: ThemeConfig['background'], t: DerivedTokens, mode: 'light' | 'dark'): string {
+  const [c1, c2] = patternColours(t, mode, bg.tint);
+  return patternTile(bg.pattern, c1, c2, patternScale(bg))?.image ?? 'none';
+}
+
+const round1 = (n: number) => Math.round(n * 10) / 10;
+
+/** Tile size and opacity overrides; nothing for the built-in starburst at built-in settings. */
+function backgroundCss(cfg: ThemeConfig, target: ThemeTarget): string {
+  const bg = cfg.background;
+  const out: string[] = [];
+  const tile = patternTile(bg.pattern, '#000000', '#000000');
+  const k = patternScale(bg);
+  const layer = target === 'storefront' ? '.bg-atomic-pattern' : 'body::before';
+  if (tile && (bg.pattern !== 'starburst' || bg.spacing !== 'auto')) {
+    const size = tile.w === 0 ? 'cover' : `${round1(tile.w * k)}px ${round1(tile.h * k)}px`;
+    out.push(`${layer}{background-size:${size}${tile.w === 0 ? ';background-repeat:no-repeat' : ''}}`);
+  }
+  if (bg.strength !== 'default' || bg.pattern !== 'starburst') {
+    const v = target === 'storefront' ? '--pattern-opacity' : '--cw-pattern-opacity';
+    const modes =
+      target === 'storefront'
+        ? [':root:root', ':root:root[data-theme="dark"]']
+        : [":root:root[data-theme='catalogLight']", ":root:root[data-theme='catalogDark']"];
+    out.push(`${modes[0]}{${v}:${patternOpacity(bg, 'light')}}${modes[1]}{${v}:${patternOpacity(bg, 'dark')}}`);
+  }
+  return out.join('');
+}
+
+/** Plain record so it can be bound straight to a style attribute. */
+export type PatternStyle = Record<'backgroundImage' | 'backgroundSize' | 'backgroundRepeat' | 'opacity', string>;
+
+/** Inline style that draws the pattern in the editor preview (one mode), at true spacing unless `zoom` is set. */
+export function previewPattern(cfg: ThemeConfig, mode: 'light' | 'dark', zoom = 1): PatternStyle {
+  const bg = cfg.background;
+  const t = deriveTokens(cfg[mode], mode);
+  const [c1, c2] = patternColours(t, mode, bg.tint);
+  const k = patternScale(bg) * zoom;
+  const tile = patternTile(bg.pattern, c1, c2, k);
+  if (!tile) return { backgroundImage: 'none', backgroundSize: 'auto', backgroundRepeat: 'no-repeat', opacity: '0' };
+  return {
+    backgroundImage: tile.image,
+    backgroundSize: tile.w === 0 ? 'cover' : `${round1(tile.w * k)}px ${round1(tile.h * k)}px`,
+    backgroundRepeat: tile.w === 0 ? 'no-repeat' : 'repeat',
+    opacity: String(patternOpacity(bg, mode)),
+  };
+}
+
 function radiusCss(kind: RadiusKind, target: ThemeTarget): string {
   if (target === 'admin') {
-    const v =
-      kind === 'sharp'
-        ? ['0.25rem', '0.125rem', '0.25rem']
-        : kind === 'round'
-          ? ['1.75rem', '1.25rem', '9999px']
-          : ['1.25rem', '0.75rem', '9999px'];
-    return `:root:root{--radius-box:${v[0]};--radius-field:${v[1]};--radius-selector:${v[2]}}`;
+    const v: Record<RadiusKind, [string, string, string]> = {
+      square: ['0', '0', '0'],
+      micro: ['0.125rem', '0.0625rem', '0.125rem'],
+      sharp: ['0.25rem', '0.125rem', '0.25rem'],
+      soft: ['1.25rem', '0.75rem', '9999px'],
+      round: ['1.75rem', '1.25rem', '9999px'],
+      pill: ['2.25rem', '1.5rem', '9999px'],
+      mega: ['3rem', '2rem', '9999px'],
+    };
+    const [box, field, selector] = v[kind];
+    return `:root:root{--radius-box:${box};--radius-field:${field};--radius-selector:${selector}}`;
   }
   if (kind === 'soft') return '';
-  const f = kind === 'sharp' ? 0.2 : 1.5;
+  const f = { square: 0, micro: 0.1, sharp: 0.2, soft: 1, round: 1.5, pill: 2.1, mega: 3 }[kind];
   const vars = Object.entries(RADIUS_REM)
     .map(([k, rem]) => `--radius-${k}:${(rem * f).toFixed(3)}rem`)
     .join(';');
@@ -667,37 +1182,430 @@ interface ShadowTokens {
   readonly cta: string;
 }
 
-/** `ink(a)` is the theme's ink colour at alpha `a` (1 = solid). */
-function shadowTokens(style: ShadowStyle, ink: (alpha: number) => string): ShadowTokens | null {
-  switch (style) {
+const INTENSITY: Record<ShadowIntensity, number> = { whisper: 0.35, light: 0.55, medium: 1, strong: 1.6, dramatic: 2.3 };
+
+/**
+ * `c(a)` is the resting shadow colour at alpha `a` (1 = solid) and `h(a)` the hover colour (they
+ * differ only for the duotone tint); `k` scales offsets, blur and alpha. Returns null for the
+ * built-in retro shadow at default settings, so nothing is emitted.
+ */
+function shadowTokens(s: ThemeConfig['shadow'], c: (alpha: number) => string, h: (alpha: number) => string = c): ShadowTokens | null {
+  const k = INTENSITY[s.intensity];
+  const px = (n: number) => (n === 0 ? '0' : `${Math.max(1, Math.round(n * k))}px`);
+  const neg = (n: number) => `-${px(n)}`;
+  const al = (col: (a: number) => string, n: number) => col(Math.min(0.9, Math.round(n * k * 100) / 100));
+  const a = (n: number) => al(c, n);
+  const ha = (n: number) => al(h, n);
+  const hard = (x: number, col = c) => `${px(x)} ${px(x)} 0 ${col(1)}`;
+  switch (s.style) {
     case 'none':
       return { card: 'none', hover: 'none', cta: 'none' };
     case 'soft':
+      return { card: `0 ${px(2)} ${px(8)} ${a(0.12)}`, hover: `0 ${px(8)} ${px(22)} ${ha(0.18)}`, cta: `0 ${px(2)} ${px(6)} ${a(0.2)}` };
+    case 'layered':
       return {
-        card: `0 2px 8px ${ink(0.12)}`,
-        hover: `0 8px 22px ${ink(0.18)}`,
-        cta: `0 2px 6px ${ink(0.2)}`,
+        card: [1, 2, 4, 8].map((n) => `0 ${px(n)} ${px(n * 2)} ${a(0.06)}`).join(','),
+        hover: [2, 4, 8, 16, 32].map((n) => `0 ${px(n)} ${px(n * 2)} ${ha(0.07)}`).join(','),
+        cta: [1, 2, 4].map((n) => `0 ${px(n)} ${px(n * 2)} ${a(0.1)}`).join(','),
       };
-    case 'crisp':
-      return { card: `2px 2px 0 ${ink(1)}`, hover: `4px 4px 0 ${ink(1)}`, cta: `1px 1px 0 ${ink(1)}` };
     case 'lifted':
       return {
-        card: `0 10px 30px -8px ${ink(0.28)}`,
-        hover: `0 18px 40px -10px ${ink(0.35)}`,
-        cta: `0 6px 16px -4px ${ink(0.3)}`,
+        card: `0 ${px(10)} ${px(30)} ${neg(8)} ${a(0.28)}`,
+        hover: `0 ${px(18)} ${px(40)} ${neg(10)} ${ha(0.35)}`,
+        cta: `0 ${px(6)} ${px(16)} ${neg(4)} ${a(0.3)}`,
       };
-    default:
-      return null; // 'retro' is the built-in stylesheet's own look: emit nothing
+    case 'dreamy':
+      return {
+        card: `0 ${px(20)} ${px(60)} ${neg(12)} ${a(0.22)}`,
+        hover: `0 ${px(30)} ${px(80)} ${neg(14)} ${ha(0.3)}`,
+        cta: `0 ${px(10)} ${px(28)} ${neg(8)} ${a(0.3)}`,
+      };
+    case 'floating':
+      return {
+        card: `0 ${px(24)} ${px(24)} ${neg(18)} ${a(0.35)}`,
+        hover: `0 ${px(34)} ${px(30)} ${neg(20)} ${ha(0.4)}`,
+        cta: `0 ${px(12)} ${px(14)} ${neg(8)} ${a(0.35)}`,
+      };
+    case 'elevated':
+      return {
+        card: `0 ${px(1)} ${px(3)} ${a(0.12)},0 ${px(1)} ${px(2)} ${a(0.24)}`,
+        hover: `0 ${px(10)} ${px(20)} ${ha(0.19)},0 ${px(6)} ${px(6)} ${ha(0.23)}`,
+        cta: `0 ${px(3)} ${px(6)} ${a(0.16)},0 ${px(3)} ${px(6)} ${a(0.23)}`,
+      };
+    case 'paper':
+      return {
+        card: `0 0 0 1px ${a(0.07)},0 ${px(1)} ${px(2)} ${a(0.09)}`,
+        hover: `0 0 0 1px ${ha(0.09)},0 ${px(4)} ${px(10)} ${ha(0.13)}`,
+        cta: `0 ${px(1)} ${px(2)} ${a(0.14)}`,
+      };
+    case 'glow':
+      return {
+        card: `0 0 0 1px ${a(0.1)},0 ${px(6)} ${px(24)} ${a(0.22)}`,
+        hover: `0 0 0 1px ${ha(0.2)},0 ${px(10)} ${px(36)} ${ha(0.34)}`,
+        cta: `0 ${px(4)} ${px(18)} ${a(0.4)}`,
+      };
+    case 'neon':
+      return {
+        card: `0 0 0 1px ${c(1)},0 0 ${px(12)} ${a(0.5)},0 0 ${px(28)} ${a(0.25)}`,
+        hover: `0 0 0 1px ${h(1)},0 0 ${px(16)} ${ha(0.65)},0 0 ${px(40)} ${ha(0.35)}`,
+        cta: `0 0 ${px(10)} ${a(0.6)},0 0 ${px(2)} ${c(1)}`,
+      };
+    case 'ring':
+      return { card: `0 0 0 ${px(2)} ${a(0.3)}`, hover: `0 0 0 ${px(3)} ${ha(0.55)}`, cta: `0 0 0 ${px(2)} ${a(0.4)}` };
+    case 'inner':
+      return {
+        card: `inset 0 ${px(2)} ${px(6)} ${a(0.16)}`,
+        hover: `inset 0 ${px(3)} ${px(10)} ${ha(0.24)}`,
+        cta: `inset 0 ${neg(2)} 0 ${a(0.25)}`,
+      };
+    case 'crisp':
+      return { card: hard(2), hover: hard(4, h), cta: hard(1) };
+    case 'long':
+      return { card: hard(7), hover: hard(11, h), cta: hard(4) };
+    case 'stacked':
+      return {
+        card: `${hard(3)},${px(6)} ${px(6)} 0 ${a(0.45)}`,
+        hover: `${hard(5, h)},${px(10)} ${px(10)} 0 ${ha(0.45)}`,
+        cta: `${hard(2)},${px(4)} ${px(4)} 0 ${a(0.45)}`,
+      };
+    case 'drop':
+      return { card: `0 ${px(3)} 0 ${c(1)}`, hover: `0 ${px(6)} 0 ${h(1)}`, cta: `0 ${px(3)} 0 ${c(1)}` };
+    case 'left':
+      return { card: `${neg(4)} ${px(4)} 0 ${c(1)}`, hover: `${neg(8)} ${px(8)} 0 ${h(1)}`, cta: `${neg(3)} ${px(3)} 0 ${c(1)}` };
+    default: // retro: the built-in stylesheet's own look
+      return s.intensity === 'medium' && s.tint === 'ink' ? null : { card: hard(4), hover: hard(8, h), cta: hard(3) };
   }
 }
 
-function shadowCss(style: ShadowStyle, target: ThemeTarget): string {
+type TintKey = 'ink' | 'brand' | 'accent' | 'danger';
+
+/** Resting and hover colours. Glow/neon/ring are coloured by definition (ink falls back to brand); duo = brand, then accent. */
+function tintKeys(s: ThemeConfig['shadow']): [TintKey, TintKey] {
+  if (s.tint === 'duo') return ['brand', 'accent'];
+  const coloured = s.style === 'glow' || s.style === 'neon' || s.style === 'ring';
+  const t: TintKey = coloured && s.tint === 'ink' ? 'brand' : s.tint;
+  return [t, t];
+}
+
+const TINT_VAR: Record<ThemeTarget, Record<TintKey, string>> = {
+  admin: { ink: '--cw-ink', brand: '--color-primary', accent: '--cw-accent', danger: '--cw-deal' },
+  storefront: { ink: '--color-ink', brand: '--color-primary', accent: '--color-accent', danger: '--color-deal' },
+};
+
+function shadowCss(s: ThemeConfig['shadow'], target: ThemeTarget): string {
+  const [rest, hover] = tintKeys(s).map((k) => TINT_VAR[target][k]) as [string, string];
   if (target === 'admin') {
-    const t = shadowTokens(style, (a) => (a >= 1 ? 'var(--cw-ink)' : `color-mix(in srgb, var(--cw-ink) ${Math.round(a * 100)}%, transparent)`));
+    const col = (v: string) => (a: number) => (a >= 1 ? `var(${v})` : `color-mix(in srgb, var(${v}) ${Math.round(a * 100)}%, transparent)`);
+    const t = shadowTokens(s, col(rest), col(hover));
     return t ? `:root:root{--cw-shadow-card:${t.card};--cw-shadow-card-hover:${t.hover};--cw-shadow-cta:${t.cta}}` : '';
   }
-  const t = shadowTokens(style, (a) => (a >= 1 ? 'hsl(var(--color-ink))' : `hsl(var(--color-ink) / ${a})`));
+  const col = (v: string) => (a: number) => (a >= 1 ? `hsl(var(${v}))` : `hsl(var(${v}) / ${a})`);
+  const t = shadowTokens(s, col(rest), col(hover));
   return t ? `:root:root{--shadow-card:${t.card};--shadow-card-hover:${t.hover};--shadow-cta:${t.cta}}` : '';
+}
+
+/** Concrete card/hover/button shadows for one mode, for the editor's scoped preview (hex/rgba). */
+export function previewShadows(cfg: ThemeConfig, mode: 'light' | 'dark'): ShadowTokens {
+  const t = deriveTokens(cfg[mode], mode);
+  const hexOf = (k: TintKey) => ({ ink: t.ink, brand: t.primary, accent: t.accent, danger: t.deal })[k];
+  const col = (hex: string) => {
+    const [r, g, b] = hexToRgb(hex);
+    return (a: number) => (a >= 1 ? hex : `rgba(${r},${g},${b},${a})`);
+  };
+  const [rest, hover] = tintKeys(cfg.shadow).map(hexOf) as [string, string];
+  return shadowTokens(cfg.shadow, col(rest), col(hover)) ?? { card: `4px 4px 0 ${rest}`, hover: `8px 8px 0 ${hover}`, cta: `3px 3px 0 ${rest}` };
+}
+
+/** Outline colour one mode resolves to (honours the border colour setting). */
+export function previewOutline(cfg: ThemeConfig, mode: 'light' | 'dark'): string {
+  return cfg.border.color === 'default' ? deriveTokens(cfg[mode], mode).outline : outlineColour(cfg[mode], mode, cfg.border.color);
+}
+
+// ---- preview helpers (editor swatches, look specimens, the scoped preview) -------------------
+// One source of truth for "what does this option look like at small size", so the editor never
+// keeps its own copy of these tables.
+
+export const PREVIEW_RADIUS: Record<RadiusKind, string> = {
+  square: '0px',
+  micro: '2px',
+  sharp: '4px',
+  soft: '12px',
+  round: '22px',
+  pill: '30px',
+  mega: '40px',
+};
+export const PREVIEW_BORDER_WIDTH: Record<BorderWidth, string> = { none: '0px', thin: '1px', standard: '2px', bold: '3px', heavy: '4px' };
+export const PREVIEW_BUTTON_RADIUS: Record<ButtonShape, string> = {
+  default: '9999px',
+  square: '4px',
+  rounded: '12px',
+  squircle: '15px',
+  pill: '9999px',
+  leaf: '16px 4px',
+  tab: '12px 12px 3px 3px',
+};
+export const PREVIEW_CARD_RADIUS: Record<CardShape, string | null> = {
+  default: null,
+  leaf: '28px 6px',
+  notch: '20px 3px 20px 20px',
+  top: '20px 20px 5px 5px',
+};
+
+/** CSS `background` (shorthand) for a card in one mode: fill colour, pattern and accent bar. */
+export function previewCardBackground(cfg: ThemeConfig, mode: 'light' | 'dark'): string {
+  const p = cfg[mode];
+  const line = mix(p.surface, p.text, 0.1);
+  const layers: string[] = [];
+  const bar = { none: '', top: 'top / 100% 4px', bottom: 'bottom / 100% 4px', left: 'left / 4px 100%' }[cfg.card.accent];
+  if (bar) layers.push(`linear-gradient(${p.primary}, ${p.primary}) ${bar} no-repeat`);
+  const pattern: Partial<Record<CardFill, string>> = {
+    gradient: `linear-gradient(160deg, ${p.surface} 35%, ${mix(p.surface, p.primary, 0.16)})`,
+    dots: `radial-gradient(${mix(p.surface, p.text, 0.14)} 1px, transparent 1.3px) 0 0 / 14px 14px`,
+    stripes: `repeating-linear-gradient(135deg, ${mix(p.surface, p.primary, 0.08)} 0 8px, transparent 8px 16px)`,
+    grid: `linear-gradient(${line} 1px, transparent 1px) 0 0 / 18px 18px, linear-gradient(90deg, ${line} 1px, transparent 1px) 0 0 / 18px 18px`,
+  };
+  const pat = pattern[cfg.card.fill];
+  if (pat) layers.push(pat);
+  const colour =
+    {
+      default: p.surface,
+      tinted: mix(p.surface, p.primary, 0.08),
+      accent: mix(p.surface, p.accent, 0.1),
+      muted: mix(p.surface, p.text, 0.06),
+      gradient: p.surface,
+      glass: `${p.surface}9e`,
+      outline: 'transparent',
+      dots: p.surface,
+      stripes: p.surface,
+      grid: p.surface,
+    }[cfg.card.fill] ?? p.surface;
+  return [...layers, colour].join(', ');
+}
+
+/** Inline style for the main call-to-action button in one mode (fill, label colour, frame, label style). */
+export function previewButtonStyle(cfg: ThemeConfig, mode: 'light' | 'dark'): Record<string, string> {
+  const p = cfg[mode];
+  const t = deriveTokens(p, mode);
+  const fills: Record<ButtonFill, Record<string, string>> = {
+    default: { background: `linear-gradient(180deg, ${t.accent}, ${t.accent2})`, color: t.onAccent },
+    solid: { background: t.accent, color: t.onAccent },
+    brand: { background: t.primary, color: t.onPrimary },
+    soft: { background: mix(p.surface, p.accent, 0.24), color: p.text },
+    outline: { background: 'transparent', color: p.text, boxShadow: `inset 0 0 0 2px ${p.primary}` },
+    ghost: { background: 'transparent', color: p.primary, boxShadow: 'none', borderColor: 'transparent' },
+    glass: { background: `${p.surface}8c`, color: p.text, backdropFilter: 'blur(10px)' },
+    inverse: { background: p.text, color: p.surface },
+  };
+  const text: Record<ButtonText, Record<string, string>> = {
+    default: {},
+    upper: { textTransform: 'uppercase', letterSpacing: '0.06em' },
+    bold: { fontWeight: '700' },
+    wide: { letterSpacing: '0.12em' },
+    smallcaps: { fontVariantCaps: 'all-small-caps', letterSpacing: '0.05em' },
+  };
+  return { ...fills[cfg.button.fill], ...text[cfg.button.text], borderRadius: PREVIEW_BUTTON_RADIUS[cfg.button.shape] };
+}
+// ---- border colour, cards, buttons, type tuning ----------------------------------------------
+
+function outlineColour(p: ThemePalette, mode: 'light' | 'dark', kind: BorderColor): string {
+  if (kind === 'subtle') return mix(p.surface, p.text, mode === 'dark' ? 0.24 : 0.16);
+  if (kind === 'strong') return p.text;
+  if (kind === 'muted') return mix(p.text, p.background, 0.45);
+  if (kind === 'accent') return p.accent;
+  return p.primary; // brand
+}
+
+function borderColourCss(cfg: ThemeConfig, target: ThemeTarget): string {
+  const kind = cfg.border.color;
+  if (kind === 'default') return '';
+  const lightC = outlineColour(cfg.light, 'light', kind);
+  const darkC = outlineColour(cfg.dark, 'dark', kind);
+  if (target === 'admin') {
+    return (
+      `:root:root[data-theme='catalogLight']{--cw-outline:${hsl(lightC)}}` +
+      `:root:root[data-theme='catalogDark']{--cw-outline:${hsl(darkC)}}`
+    );
+  }
+  return `:root:root{--color-outline:${toTriple(lightC)}}:root:root[data-theme="dark"]{--color-outline:${toTriple(darkC)}}`;
+}
+
+/** Selectors and colour expressions for the card and button rules, per app. */
+const PART = {
+  storefront: {
+    card: '.shadow-card',
+    // Only cards that are already interactive (they carry the hover-shadow utility).
+    hoverCard: `.hover${String.fromCharCode(92)}:shadow-card-hover`,
+    hoverShadow: 'var(--shadow-card-hover)',
+    restShadow: 'var(--shadow-card)',
+    ctaShadow: 'var(--shadow-cta)',
+    move: (y: number, scale = 1, rot = 0) => `translate:0 ${y}px;scale:${scale};rotate:${rot}deg`,
+    surface: 'hsl(var(--color-surface))',
+    primary: 'hsl(var(--color-primary))',
+    onPrimary: 'hsl(var(--color-on-primary))',
+    accent: 'hsl(var(--color-accent))',
+    text: 'hsl(var(--color-on-surface))',
+    cta: '.bg-cta-gradient',
+    ctaShape: '.bg-cta-gradient,button.shadow-cta,a.shadow-cta',
+  },
+  admin: {
+    card: '.data-card,.stat-card',
+    hoverCard: 'a.stat-card',
+    hoverShadow: 'var(--cw-shadow-card-hover, 6px 6px 0 var(--cw-ink))',
+    restShadow: 'var(--cw-shadow-card, 4px 4px 0 var(--cw-ink))',
+    ctaShadow: 'var(--cw-shadow-cta, 3px 3px 0 var(--cw-ink))',
+    move: (y: number, scale = 1, rot = 0) => `transform:translateY(${y}px) scale(${scale}) rotate(${rot}deg)`,
+    surface: 'var(--color-base-100)',
+    primary: 'var(--color-primary)',
+    onPrimary: 'var(--color-primary-content)',
+    accent: 'var(--cw-accent)',
+    text: 'var(--color-base-content)',
+    cta: '.btn.btn-primary',
+    ctaShape: '.btn:not(.btn-ghost):not(.btn-link):not(.btn-square):not(.btn-circle)',
+  },
+} as const;
+
+const cm = (a: string, pct: number, b: string) => `color-mix(in srgb,${a} ${pct}%,${b})`;
+/** `a,b` selector list with `:hover` on each item. */
+const onHover = (list: string) =>
+  list
+    .split(',')
+    .map((x) => `${x}:hover`)
+    .join(',');
+
+interface BgLayer {
+  readonly images: readonly string[];
+  readonly size: string;
+  readonly pos: string;
+  readonly repeat: string;
+}
+
+function cardCss(c: ThemeConfig['card'], target: ThemeTarget): string {
+  const p = PART[target];
+  const out: string[] = [];
+  // Background: one colour plus image layers (accent bar first so it paints on top, then pattern).
+  const fillColour: Partial<Record<CardFill, string>> = {
+    tinted: cm(p.surface, 92, p.primary),
+    accent: cm(p.surface, 90, p.accent),
+    muted: cm(p.surface, 94, p.text),
+    glass: cm(p.surface, 62, 'transparent'),
+    outline: 'transparent',
+  };
+  const layers: BgLayer[] = [];
+  if (c.accent !== 'none') {
+    const bar = { top: ['100% 4px', 'top'], bottom: ['100% 4px', 'bottom'], left: ['4px 100%', 'left'] } as const;
+    const [size, pos] = bar[c.accent];
+    layers.push({ images: [`linear-gradient(${p.primary},${p.primary})`], size, pos, repeat: 'no-repeat' });
+  }
+  const line = cm(p.text, 8, 'transparent');
+  const patterns: Partial<Record<CardFill, BgLayer>> = {
+    gradient: { images: [`linear-gradient(160deg,${p.surface} 35%,${cm(p.surface, 84, p.primary)})`], size: 'auto', pos: '0 0', repeat: 'no-repeat' },
+    dots: { images: [`radial-gradient(${cm(p.text, 12, 'transparent')} 1px,transparent 1.3px)`], size: '14px 14px', pos: '0 0', repeat: 'repeat' },
+    stripes: { images: [`repeating-linear-gradient(135deg,${cm(p.primary, 7, 'transparent')} 0 8px,transparent 8px 16px)`], size: 'auto', pos: '0 0', repeat: 'repeat' },
+    grid: { images: [`linear-gradient(${line} 1px,transparent 1px)`, `linear-gradient(90deg,${line} 1px,transparent 1px)`], size: '18px 18px', pos: '0 0', repeat: 'repeat' },
+  };
+  const pattern = patterns[c.fill];
+  if (pattern) layers.push(pattern);
+  const bg: string[] = [];
+  const colour = fillColour[c.fill] ?? (layers.length ? p.surface : '');
+  if (colour) bg.push(`background-color:${colour}`);
+  if (layers.length) {
+    const per = (key: 'size' | 'pos' | 'repeat') => layers.flatMap((l) => l.images.map(() => l[key])).join(',');
+    bg.push(
+      `background-image:${layers.flatMap((l) => l.images).join(',')}`,
+      `background-size:${per('size')}`,
+      `background-position:${per('pos')}`,
+      `background-repeat:${per('repeat')}`,
+    );
+  }
+  if (c.fill === 'glass') bg.push('backdrop-filter:blur(14px) saturate(140%)', '-webkit-backdrop-filter:blur(14px) saturate(140%)');
+  if (c.fill === 'outline') bg.push('box-shadow:none');
+  if (bg.length) out.push(`${p.card}{${bg.join(';')}}`);
+
+  const shapes: Partial<Record<CardShape, string>> = {
+    leaf: '1.75rem 0.35rem',
+    notch: '1.25rem 0.2rem 1.25rem 1.25rem',
+    top: '1.25rem 1.25rem 0.3rem 0.3rem',
+  };
+  const shape = shapes[c.shape];
+  if (shape) out.push(`${p.card}{border-radius:${shape}}`);
+
+  const rest = c.fill === 'outline' ? 'none' : p.restShadow;
+  const glowRing = `0 0 0 2px ${p.primary},0 12px 32px -6px ${cm(p.primary, 45, 'transparent')}`;
+  const rules: Partial<Record<CardHover, string>> = {
+    none: `${p.move(0)};box-shadow:${rest}`,
+    lift: `${p.move(-6)};box-shadow:${p.hoverShadow}`,
+    float: `${p.move(-12, 1.01)};box-shadow:${p.hoverShadow},0 24px 40px -18px ${cm(p.text, 35, 'transparent')}`,
+    glow: `${p.move(-2)};box-shadow:${glowRing}`,
+    scale: `${p.move(0, 1.03)};box-shadow:${p.hoverShadow}`,
+    pop: `${p.move(-4, 1.05)};box-shadow:${p.hoverShadow}`,
+    tilt: `${p.move(-3, 1.01, -1.2)};box-shadow:${p.hoverShadow}`,
+    press: `${p.move(2, 0.99)};box-shadow:none`,
+    border: `${p.move(0)};box-shadow:${rest === 'none' ? '' : `${rest},`}0 0 0 2px ${p.primary}`,
+    dim: `${p.move(0)};filter:brightness(.96)`,
+  };
+  const rule = rules[c.hover];
+  if (rule) {
+    out.push(`${p.hoverCard}{transition:translate .25s ease,scale .25s ease,rotate .25s ease,transform .25s ease,box-shadow .25s ease,filter .25s ease}`);
+    out.push(`${p.hoverCard}:hover{${rule}}`);
+  }
+  return out.join('');
+}
+
+function buttonCss(b: ThemeConfig['button'], target: ThemeTarget): string {
+  const p = PART[target];
+  const out: string[] = [];
+  const radius = {
+    default: '',
+    square: '4px',
+    rounded: '0.75rem',
+    squircle: '0.95rem',
+    pill: '9999px',
+    leaf: '1rem 0.25rem',
+    tab: '0.75rem 0.75rem 0.2rem 0.2rem',
+  }[b.shape];
+  if (radius) out.push(`${p.ctaShape}{border-radius:${radius}}`);
+  const fills: Partial<Record<ButtonFill, string>> = {
+    solid: `background-image:none;background-color:${p.accent}`,
+    brand: `background-image:none;background-color:${p.primary};color:${p.onPrimary}`,
+    soft: `background-image:none;background-color:${cm(p.accent, 24, p.surface)};color:${p.text}`,
+    outline: `background-image:none;background-color:transparent;color:${p.text};border:2px solid ${p.primary};box-shadow:none`,
+    ghost: `background-image:none;background-color:transparent;color:${p.primary};border-color:transparent;box-shadow:none`,
+    glass: `background-image:none;background-color:${cm(p.surface, 55, 'transparent')};color:${p.text};border:1px solid ${cm(p.text, 22, 'transparent')};backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)`,
+    inverse: `background-image:none;background-color:${p.text};color:${p.surface}`,
+  };
+  const fill = fills[b.fill];
+  if (fill) out.push(`${p.cta}{${fill}}`);
+  const text = {
+    default: '',
+    upper: 'text-transform:uppercase;letter-spacing:.06em',
+    bold: 'font-weight:700;letter-spacing:.01em',
+    wide: 'letter-spacing:.12em',
+    smallcaps: 'font-variant-caps:all-small-caps;letter-spacing:.05em',
+  }[b.text];
+  if (text) out.push(`${p.ctaShape}{${text}}`);
+  const hoverRules: Partial<Record<ButtonHover, string>> = {
+    none: `${p.move(0)};box-shadow:${p.ctaShadow}`,
+    lift: p.move(-2),
+    grow: p.move(0, 1.04),
+    glow: `box-shadow:0 0 0 3px ${cm(p.accent, 35, 'transparent')},0 6px 18px ${cm(p.accent, 45, 'transparent')}`,
+    darken: 'filter:brightness(.92)',
+  };
+  const h = hoverRules[b.hover];
+  if (h) {
+    out.push(`${p.ctaShape}{transition:translate .2s ease,scale .2s ease,transform .2s ease,box-shadow .2s ease,filter .2s ease}`);
+    out.push(`${onHover(p.ctaShape)}{${h}}`);
+  }
+  return out.join('');
+}
+
+function typeCss(f: ThemeConfig['fonts']): string {
+  const out: string[] = [];
+  const heading = 'h1,h2,h3,.font-display';
+  const weight = { default: '', medium: '500', semibold: '600', bold: '700' }[f.headingWeight];
+  if (weight) out.push(`${heading}{font-weight:${weight}}`);
+  if (f.tracking !== 'default') out.push(`${heading}{letter-spacing:${f.tracking === 'tight' ? '-0.025em' : '0.04em'}}`);
+  if (f.lineHeight !== 'default') out.push(`body{line-height:${f.lineHeight === 'compact' ? 1.4 : 1.75}}`);
+  return out.join('');
 }
 
 /**
@@ -705,13 +1613,18 @@ function shadowCss(style: ShadowStyle, target: ThemeTarget): string {
  * hairlines stay hairlines, and unlayered overrides of plain `.border` would beat combos such as
  * `border border-b-0`.
  */
+/** Line style of card outlines (inputs and dividers keep solid lines). */
+function borderStyleCss(style: BorderStyle, target: ThemeTarget): string {
+  return style === 'solid' ? '' : `${PART[target].card}{border-style:${style}}`;
+}
+
 function borderWidthCss(width: BorderWidth, target: ThemeTarget): string {
   if (width === 'standard') return '';
+  const px = { none: '0px', thin: '1px', standard: '2px', bold: '3px', heavy: '4px' }[width];
   if (target === 'admin') {
-    const px = width === 'thin' ? '1px' : '3px';
-    return `:root:root{--cw-bw:${px};--border:${px}}`;
+    // daisyUI's --border also outlines inputs; never take it to zero or fields vanish.
+    return `:root:root{--cw-bw:${px};--border:${width === 'none' ? '1px' : width === 'heavy' ? '3px' : px}}`;
   }
-  const px = width === 'thin' ? '1px' : '3px';
   const sides: [string, string][] = [
     ['', 'border-width'],
     ['-t', 'border-top-width'],
@@ -853,23 +1766,30 @@ export function buildThemeCss(cfg: ThemeConfig, target: ThemeTarget): string {
   const parts: string[] = [];
 
   if (target === 'storefront') {
-    parts.push(`:root:root{\n  ${storefrontBlock(light, 'light', cfg.preset !== 'atomic')}\n}`);
-    parts.push(`:root:root[data-theme="dark"]{\n  ${storefrontBlock(dark, 'dark', cfg.preset !== 'atomic')}\n}`);
+    parts.push(`:root:root{\n  ${storefrontBlock(light, 'light', cfg.preset !== 'atomic', patternImage(cfg.background, light, 'light'))}\n}`);
+    parts.push(`:root:root[data-theme="dark"]{\n  ${storefrontBlock(dark, 'dark', cfg.preset !== 'atomic', patternImage(cfg.background, dark, 'dark'))}\n}`);
     parts.push(
       `body,.font-body{font-family:${body}}` +
         `h1,h2,h3,.font-display{font-family:${display}}` +
         `h3.font-body{font-family:${body}}`,
     );
   } else {
-    parts.push(`:root:root[data-theme='catalogLight']{\n  ${adminBlock(light, 'light')}\n}`);
-    parts.push(`:root:root[data-theme='catalogDark']{\n  ${adminBlock(dark, 'dark')}\n}`);
+    parts.push(`:root:root[data-theme='catalogLight']{\n  ${adminBlock(light, 'light', patternImage(cfg.background, light, 'light'))}\n}`);
+    parts.push(`:root:root[data-theme='catalogDark']{\n  ${adminBlock(dark, 'dark', patternImage(cfg.background, dark, 'dark'))}\n}`);
     parts.push(`:root:root{--font-sans:${body};--font-display:${display}}`);
   }
   for (const extra of [
     radiusCss(cfg.border.radius, target),
     borderWidthCss(cfg.border.width, target),
-    shadowCss(cfg.shadow.style, target),
+    borderColourCss(cfg, target),
+    borderStyleCss(cfg.border.style, target),
+    shadowCss(cfg.shadow, target),
     styleCss(cfg.style.id, cfg, target),
+    // Explicit card/button/type choices come after the design style so they win over it.
+    cardCss(cfg.card, target),
+    buttonCss(cfg.button, target),
+    backgroundCss(cfg, target),
+    typeCss(cfg.fonts),
     optionsCss(cfg.options, target),
   ]) {
     if (extra) parts.push(extra);

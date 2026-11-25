@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { hasActiveFilters, parseCatalogParams, toSearchString } from '../hooks/useCatalogParams'
 import { toQueryParams } from '../services/productApi'
+import { buildUrl } from './http'
 import { queryLocally } from './localCatalog'
 import { dummyProducts } from './dummyProducts'
 
@@ -16,6 +17,25 @@ describe('catalog URL state', () => {
       query: { q: 'lamp', categoryId: 'HOME', minPrice: 20, maxPrice: 80, minRating: 4, minDiscount: 15, sort: 'price-asc' },
       page: 2,
     })
+  })
+
+  it('repeats multi-value keys and keeps commas inside a value (TD-P7-04)', () => {
+    const search = toSearchString({ brand: ['Smith, Jones & Co', 'Acme'], attrs: { Size: ['10,5', 'XL'] } })
+
+    expect(search).toBe('?brand=Smith%2C+Jones+%26+Co&brand=Acme&attr.Size=10%2C5&attr.Size=XL')
+    expect(parseCatalogParams(new URLSearchParams(search)).query).toMatchObject({
+      brand: ['Smith, Jones & Co', 'Acme'],
+      attrs: { Size: ['10,5', 'XL'] },
+    })
+  })
+
+  it('sends multi-values to the API as repeated parameters', () => {
+    const params = toQueryParams(0, 1, { brand: ['A,B', 'C'], attrs: { Color: ['Red'] } })
+
+    expect(params).toMatchObject({ brand: ['A,B', 'C'], 'attr.Color': ['Red'] })
+    const url = new URL(buildUrl('http://localhost/api/products/facets', params))
+    expect(url.searchParams.getAll('brand')).toEqual(['A,B', 'C'])
+    expect(url.searchParams.getAll('attr.Color')).toEqual(['Red'])
   })
 
   it('leaves defaults out of the URL', () => {

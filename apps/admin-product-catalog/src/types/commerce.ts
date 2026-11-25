@@ -243,13 +243,22 @@ export interface AdminPayment {
   readonly refundedAmount: number;
   readonly createdAt: string;
   readonly updatedAt: string;
+  /** Provider references, for finding the payment in the Stripe or Razorpay dashboard. */
+  readonly stripePaymentIntentId?: string | null;
+  readonly providerOrderId?: string | null;
+  readonly providerPaymentId?: string | null;
+  /** What `orderId` identifies: an order, a membership or a gift card (TD-P8-14). */
+  readonly purpose?: 'ORDER' | 'MEMBERSHIP' | 'GIFT_CARD' | null;
 }
+
+export const PAYMENT_MODES = ['STRIPE', 'RAZORPAY', 'SIMULATED'] as const;
 
 export interface AdminRefund {
   readonly id: string;
   readonly amount: number;
   readonly reason: string | null;
   readonly createdAt: string;
+  readonly providerRefundId?: string | null;
 }
 
 export interface AdminPaymentDetail {
@@ -336,4 +345,23 @@ export interface CampaignRequest {
   readonly subject: string;
   readonly body: string;
   readonly link?: string;
+}
+
+/** TD-P9-03: a seller-listed product awaiting (or after) review. */
+export type ModerationStatus = 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED';
+
+export interface ModerationItem {
+  readonly id: string;
+  readonly sku: string;
+  readonly name: string;
+  readonly sellerName: string | null;
+  readonly sellerId: string;
+  readonly price: number;
+  readonly currency: string;
+  readonly thumbnailUrl: string | null;
+  readonly createdAt: string;
+  readonly status: ModerationStatus;
+  readonly note: string | null;
+  /** Automatic warnings: NO_IMAGE, NO_DESCRIPTION, BANNED_TERM, PRICE_OUTLIER. */
+  readonly flags: readonly string[];
 }

@@ -1,0 +1,13 @@
+{
+ "product_id": "f1a947dd-01fe-4394-6b26-fd15bba25513",
+ "name": "Taquaco Jacket Lite",
+ "prompt": "studio packshot photo of a Silver Taquaco Jacket Lite, made of polyester, men's clothing, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2821320296,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T01:38:58",
+ "file_path": "product-images/images/f1a947dd-01fe-4394-6b26-fd15bba25513.jpg",
+ "file_size": 67535
+}

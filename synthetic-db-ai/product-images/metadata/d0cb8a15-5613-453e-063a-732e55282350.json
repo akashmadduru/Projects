@@ -1,0 +1,13 @@
+{
+ "product_id": "d0cb8a15-5613-453e-063a-732e55282350",
+ "name": "Nofypi Mirrorless Camera Series 2",
+ "prompt": "studio packshot photo of a Space Grey Nofypi Mirrorless Camera Series 2, made of aluminium, cameras, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 4054213369,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:43:31",
+ "file_path": "product-images/images/d0cb8a15-5613-453e-063a-732e55282350.jpg",
+ "file_size": 32250
+}

@@ -1,0 +1,15 @@
+{
+ "product_id": "81fc12ff-fa3f-4bfa-bab2-f805000ec4fc",
+ "name": "Nufy Backpack Pro",
+ "prompt": "studio packshot photo of a Midnight Nufy Backpack Pro, made of leather, bags & luggage, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2827819716,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:52:13",
+ "file_path": "static/images/81fc12ff-fa3f-4bfa-bab2-f805000ec4fc.jpg",
+ "file_size": 26772,
+ "uploaded": false,
+ "s3_url": null
+}

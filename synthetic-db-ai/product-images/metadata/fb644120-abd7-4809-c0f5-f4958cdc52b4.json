@@ -1,0 +1,13 @@
+{
+ "product_id": "fb644120-abd7-4809-c0f5-f4958cdc52b4",
+ "name": "Suvo Granola Pro",
+ "prompt": "studio packshot photo of a Grey Suvo Granola Pro, made of glass, snacks, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3499306920,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T00:27:42",
+ "file_path": "product-images/images/fb644120-abd7-4809-c0f5-f4958cdc52b4.jpg",
+ "file_size": 42099
+}

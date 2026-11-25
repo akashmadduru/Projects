@@ -73,4 +73,10 @@ public class ProductResponse {
   private Boolean sponsored;
 
   private UUID adId;
+
+  /** APPROVED, PENDING_REVIEW or REJECTED; seller-listed products are reviewed first. */
+  private String moderationStatus;
+
+  /** Why a product was rejected (shown to its seller). */
+  private String moderationNote;
 }

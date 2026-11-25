@@ -1,0 +1,13 @@
+{
+ "product_id": "91052a73-61a9-488e-3d3c-098143d5d311",
+ "name": "Noquaze Top Elite",
+ "prompt": "studio packshot photo of a Midnight Noquaze Top Elite, made of aluminium, women's clothing, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 410297108,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:01:48",
+ "file_path": "product-images/images/91052a73-61a9-488e-3d3c-098143d5d311.jpg",
+ "file_size": 64818
+}

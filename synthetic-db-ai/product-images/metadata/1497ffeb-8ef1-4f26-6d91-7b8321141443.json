@@ -1,0 +1,13 @@
+{
+ "product_id": "1497ffeb-8ef1-4f26-6d91-7b8321141443",
+ "name": "Lodex Cricket Bat Prime",
+ "prompt": "studio packshot photo of a Grey Lodex Cricket Bat Prime, made of wood, team sports, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 600681458,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 768,
+ "created_at": "2026-11-15T23:03:45",
+ "file_path": "product-images/images/1497ffeb-8ef1-4f26-6d91-7b8321141443.jpg",
+ "file_size": 64857
+}

@@ -1,0 +1,13 @@
+{
+ "product_id": "ef95c034-f0b4-407d-b8db-95d6d56d6b67",
+ "name": "Exorze Cookware Set Elite",
+ "prompt": "studio packshot photo of a Green Exorze Cookware Set Elite, made of polyester, cookware, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3126119224,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:12:42",
+ "file_path": "product-images/images/ef95c034-f0b4-407d-b8db-95d6d56d6b67.jpg",
+ "file_size": 39936
+}

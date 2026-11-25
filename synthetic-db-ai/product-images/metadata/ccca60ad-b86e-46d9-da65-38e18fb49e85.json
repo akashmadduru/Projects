@@ -1,0 +1,13 @@
+{
+ "product_id": "ccca60ad-b86e-46d9-da65-38e18fb49e85",
+ "name": "Ionvendex Running Shoes Essential",
+ "prompt": "studio packshot photo of a Olive Ionvendex Running Shoes Essential, made of stainless steel, footwear, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 236093766,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:50:35",
+ "file_path": "product-images/images/ccca60ad-b86e-46d9-da65-38e18fb49e85.jpg",
+ "file_size": 59347
+}

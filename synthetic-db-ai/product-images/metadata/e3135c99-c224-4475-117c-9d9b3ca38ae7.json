@@ -1,0 +1,13 @@
+{
+ "product_id": "e3135c99-c224-4475-117c-9d9b3ca38ae7",
+ "name": "Trarili Bookshelf Plus",
+ "prompt": "studio packshot photo of a Silver Trarili Bookshelf Plus, made of abs plastic, furniture, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2402371267,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:23:42",
+ "file_path": "product-images/images/e3135c99-c224-4475-117c-9d9b3ca38ae7.jpg",
+ "file_size": 79400
+}

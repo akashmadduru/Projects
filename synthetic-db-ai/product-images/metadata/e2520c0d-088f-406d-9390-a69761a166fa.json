@@ -1,0 +1,13 @@
+{
+ "product_id": "e2520c0d-088f-406d-9390-a69761a166fa",
+ "name": "Nunuqua Razor Prime",
+ "prompt": "studio packshot photo of a Olive Nunuqua Razor Prime, made of nylon, grooming, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1614119947,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T00:40:06",
+ "file_path": "product-images/images/e2520c0d-088f-406d-9390-a69761a166fa.jpg",
+ "file_size": 51832
+}

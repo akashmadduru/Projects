@@ -1,0 +1,13 @@
+{
+ "product_id": "6781dc40-5e4e-4bbd-49b0-c3a16f6ded64",
+ "name": "Arli Box Set Edition",
+ "prompt": "studio packshot photo of a Navy Blue Arli Box Set Edition, made of abs plastic, books, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 958315096,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:22:44",
+ "file_path": "product-images/images/6781dc40-5e4e-4bbd-49b0-c3a16f6ded64.jpg",
+ "file_size": 48803
+}

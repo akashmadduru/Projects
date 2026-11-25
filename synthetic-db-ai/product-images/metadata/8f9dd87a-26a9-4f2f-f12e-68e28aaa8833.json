@@ -1,0 +1,13 @@
+{
+ "product_id": "8f9dd87a-26a9-4f2f-f12e-68e28aaa8833",
+ "name": "Arnoqua Bracelet Gen 3",
+ "prompt": "studio packshot photo of a Space Grey Arnoqua Bracelet Gen 3, made of bamboo, watches & jewellery, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 353620488,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:00:26",
+ "file_path": "product-images/images/8f9dd87a-26a9-4f2f-f12e-68e28aaa8833.jpg",
+ "file_size": 76877
+}

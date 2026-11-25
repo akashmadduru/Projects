@@ -37,7 +37,8 @@ public class InventoryServiceClientFallback implements InventoryServiceClient {
   }
 
   @Override
-  public InventoryDto getByProductWithAuth(UUID productId, String authorization) {
-    return null;
+  public InventoryDto.EnsureResult ensureStock(
+      InventoryDto.EnsureRequest body, String internalToken) {
+    throw new IllegalStateException("inventory-service unavailable");
   }
 }

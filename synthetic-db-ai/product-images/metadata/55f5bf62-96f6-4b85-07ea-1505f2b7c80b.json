@@ -1,0 +1,13 @@
+{
+ "product_id": "55f5bf62-96f6-4b85-07ea-1505f2b7c80b",
+ "name": "Kaco Handbag Prime",
+ "prompt": "studio packshot photo of a Grey Kaco Handbag Prime, made of ceramic, bags & luggage, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2165087291,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:21:39",
+ "file_path": "product-images/images/55f5bf62-96f6-4b85-07ea-1505f2b7c80b.jpg",
+ "file_size": 34973
+}

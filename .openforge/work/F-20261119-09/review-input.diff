@@ -1,0 +1,2636 @@
+diff --git a/docs/guides/runbooks/payment-problems.md b/docs/guides/runbooks/payment-problems.md
+index 2935237..deb2233 100644
+--- a/docs/guides/runbooks/payment-problems.md
++++ b/docs/guides/runbooks/payment-problems.md
+@@ -53,6 +53,33 @@ builds. Both are quick at current sizes (seconds for tens of thousands of rows);
+ window. V8 adds nullable columns: no table rewrite, only a brief exclusive lock (it sets `lock_timeout = 5s`, so it
+ fails fast rather than queueing behind a long transaction; just redeploy).
+ 
++## Return refunds (shipping, COD, split legs, PENDING card leg)
++
++Admin refund of a PICKED_UP return (`POST /api/admin/returns/{id}/status`) pays two legs: the wallet share first (key
++`return-wallet-<id>`), then the rest to the card (key `return-<id>`, or `return-<id>-r<n>` after payment-service
++reported a FAILED refund) or, for cash on delivery and `refundTo=WALLET`, to the wallet through payment-service. Legs are
++frozen on the first attempt and progress is stored on the return, so every retry is safe.
++
++**Deploy order: payment-service first, then order-service.** order-service reads `refundStatus` in the refund reply. An
++older payment-service does not send it and order-service reads a missing value as SUCCEEDED, which would mark a PENDING
++Razorpay refund as done. Never run the new order-service against an old payment-service.
++
++**A COD refund that returns 404 leaves the return PICKED_UP.** A COD order placed while payment-service was down has no
++payment row (placement is best effort), and there is no fallback credit any more. The refund fails loudly with 404, the
++wallet is not credited and the return stays PICKED_UP. A 409 means the COD payment is still COD_PENDING (the order was
++never marked delivered and collected). Fix the cause, then retry. Backlog B-10 makes sure every COD order gets a payment row.
++
++**PENDING card leg.** Razorpay accepts a refund before it is done. The return stays PICKED_UP with `refundState=PENDING`
++and no stock release or event. `ReturnRefundWatch` re-checks it every `ORDER_RETURNS_REFUND_POLL_INTERVAL_MS` (default
++5 minutes) by replaying the same key, which payment-service answers from its own table without calling Razorpay. On
++SUCCEEDED the return completes once. On FAILED the log line `RETURN REFUND FAILED` (ERROR) names the return; the admin
++retries and a new `-r<n>` key is used. The wallet is not credited again.
++
++**Refund in progress (409).** Another call holds the 2-minute lease. Wait and retry.
++
++**Rollback.** Revert the images (order-service first, then payment-service). The V13 columns are ignored by old code. A
++return left PENDING completes under the old logic, which treats an accepted refund as done.
++
+ ## Double charge
+ 
+ Log line `DOUBLE CHARGE` at ERROR carries both provider payment ids. It means the customer switched provider, paid
+diff --git a/docs/reference/api.md b/docs/reference/api.md
+index b5438f1..8a4df18 100644
+--- a/docs/reference/api.md
++++ b/docs/reference/api.md
+@@ -737,3 +737,5 @@ a captured payment is refunded, then stock is restored and the coupon, coins and
+ released. The release steps are recorded in order-service's transactional outbox with the
+ cancellation and delivered with retries (since 2026-11-17); wallet amounts go through their own
+ durable retry table.
++
++**Return refunds.** `POST /api/admin/returns/{id}/status` with `REFUNDED` (ADMIN or FINANCE) refunds a PICKED_UP return. The return response carries `shippingRefund` (the shipping fee included in `refundAmount`; non-zero only on the one return that completes the whole order, even when earlier returns covered other shipments) and `refundState` (null, `PENDING`, `SUCCEEDED` or `FAILED`: the state of the non-wallet leg). The wallet share is credited first and recorded; the rest goes to the card, or to the wallet for cash on delivery or `refundTo=WALLET`. A card refund payment-service has accepted but not confirmed leaves the return PICKED_UP with `refundState=PENDING`; a background job finishes it when the refund settles (`ORDER_RETURNS_REFUND_POLL_INTERVAL_MS`). The return becomes REFUNDED, stock is released and `RETURN_REFUNDED` is published only after the money has settled. Retrying is safe: an already REFUNDED return makes no payment call, and a second concurrent call gets 409 `RESOURCE_CONFLICT` (refund in progress). A cash-on-delivery refund that payment-service rejects (409 payment not collected, 404 no payment row) is returned as is and leaves the return PICKED_UP; nothing is credited outside payment-service.
+diff --git a/docs/reference/data-model.md b/docs/reference/data-model.md
+index 6a46330..00e7f9b 100644
+--- a/docs/reference/data-model.md
++++ b/docs/reference/data-model.md
+@@ -23,7 +23,7 @@
+ | `cart_db` | `cart` | `cart_service` | cart-service | 5 (V1–V5) | `alerts`, `cart_items`, `carts`, `list_items`, `lists`, `saved_items`, `wishlist_items` |
+ | `inventory_db` | `inventory` | `inventory_service` | inventory-service | 7 (V1–V7) | `reservation_releases`, `reservations`, `stock_levels`, `variant_stock`, `warehouse_stock`, `warehouses` |
+ | `notification_db` | `notification` | `notification_service` | notification-service | 1 (V1–V1) | `campaigns`, `notifications`, `push_subscriptions`, `settings` |
+-| `order_db` | `orders` | `order_service` | order-service | 10 (V1–V10) | `order_items`, `order_return_items`, `order_returns`, `order_shipments`, `order_status_history`, `orders`, `outbox`, `pending_wallet_credits`, `subscriptions` |
++| `order_db` | `orders` | `order_service` | order-service | 13 (V1–V13) | `order_items`, `order_return_items`, `order_returns`, `order_shipments`, `order_status_history`, `orders`, `outbox`, `pending_wallet_credits`, `subscriptions` |
+ | `payment_db` | `payment` | `payment_service` | payment-service | 4 (V1–V4) | `gift_card_redeem_failures`, `gift_cards`, `payments`, `processed_events`, `refunds`, `wallet_txns`, `wallets` |
+ | `product_db` | `product` | `product_service` | product-service | 13 (V1–V13) | `categories`, `embedding_failures`, `fx_rates`, `image_settings`, `offers`, `product_embeddings`, `product_images`, `product_variants`, `product_views`, `products`, `theme_settings` |
+ | `promotion_db` | `promotion` | `promotion_service` | promotion-service | 4 (V1–V4) | `bank_offers`, `coin_ledger`, `coupons`, `deal_claims`, `deals`, `exchange_programs`, `exchange_quotes`, `redemptions` |
+@@ -40,6 +40,8 @@
+ `payments.provider_payment_id` (Razorpay `pay_…`) are new and null for Stripe rows; `refunds.provider_refund_id`
+ holds the Razorpay refund id. `method` stays `CARD`/`COD`: `CARD` means "paid online", whatever the provider.
+ 
++**2026-11-21 return refunds (O-05a).** order V13 adds refund progress to `order_returns`, all nullable or defaulted and not backfilled: `shipping_refund` (the part of `refund_amount` that is the shipping fee; set on the one return that completes the order), `wallet_leg_amount` / `rest_leg_amount` / `rest_route` (NONE, PAYMENT_SOURCE, PAYMENT_WALLET, DIRECT_WALLET; frozen on the first refund attempt), `wallet_leg_done_at`, `rest_leg_state` (null, PENDING, SUCCEEDED, FAILED), `rest_leg_attempt` (0 uses key `return-<id>`, n uses `return-<id>-r<n>`), `refund_lease_until` (2-minute lease against concurrent refunds), and the partial index `ix_order_returns_rest_pending` for the PENDING watch. payment-service has no migration: `RefundResponse.refundStatus` reads the existing `refunds.status`.
++
+ **2026-11-17 tech-debt changes.** payment V4: gift card codes are stored as `code_hash` + `code_last4` (plaintext `code` emptied), plus `gift_card_redeem_failures` for the redeem lockout. order V8: `pending_wallet_credits`, wallet money owed back to a customer, retried until it lands; V9 adds `kind`/`debit_key` so an ambiguously failed wallet debit is reversed only if it happened (payment-service `POST /internal/wallet/reverse`); V10 adds `outbox`, the transactional outbox for order side effects and `order.events`. product V12: `product_embeddings.source_updated_at` (the product version an embedding was checked against); V13: `products.moderation_status` / `moderation_note` / `reviewed_by` / `reviewed_at` for seller-product review.
+ 
+ **Demo seed data (product-service only).** In the `default` profile, Flyway also loads
+diff --git a/docs/reference/env-descriptions.json b/docs/reference/env-descriptions.json
+index 967201f..6bccbac 100644
+--- a/docs/reference/env-descriptions.json
++++ b/docs/reference/env-descriptions.json
+@@ -335,6 +335,11 @@
+       "requiredInProd": true,
+       "text": "Hostname the Eureka server advertises. No default in `prod`."
+     },
++    "ORDER_RETURNS_REFUND_POLL_INTERVAL_MS": {
++      "group": "Business rules",
++      "usedBy": "order",
++      "text": "How often (ms, default 300000) the order service re-checks return refunds whose card leg is still PENDING and finishes the return once payment-service reports it settled."
++    },
+     "ORDER_RISK_VELOCITY_THRESHOLD": {
+       "group": "Business rules",
+       "usedBy": "order (Compose)",
+diff --git a/docs/reference/environment-variables.md b/docs/reference/environment-variables.md
+index b621aaf..8f37a84 100644
+--- a/docs/reference/environment-variables.md
++++ b/docs/reference/environment-variables.md
+@@ -168,6 +168,7 @@ service-level setting (add it under that service's `env:` in `values.yaml`). Rel
+ |---|---|---|---|---|---|
+ | `INVENTORY_DEFAULT_STOCK_QUANTITY` | inventory | `0` |  | compose | Stock given to a product or variant that has no stock row when product-service's catalog sync finds it. Default 0, so nothing is sellable until it is stocked; the local stack uses 100 so the demo catalog can be bought. Existing quantities are never changed. |
+ | `INVENTORY_MISSING_STOCK_ROWS` | inventory | `REJECT` |  | - | `REJECT` (default): an order line with no stock row is out of stock. `UNLIMITED`: the old behaviour, where such a line could be oversold. Escape hatch only. |
++| `ORDER_RETURNS_REFUND_POLL_INTERVAL_MS` | order | `300000` |  | - | How often (ms, default 300000) the order service re-checks return refunds whose card leg is still PENDING and finishes the return once payment-service reports it settled. |
+ | `ORDER_RISK_AVG_MIN_ORDERS` | order (Compose) | _Spring default_ |  | compose | Minimum past orders before the "unusually large order" check applies (Compose default 3). |
+ | `ORDER_RISK_AVG_MULTIPLIER` | order (Compose) | _Spring default_ |  | compose | How many times the customer's average an order may be before it is flagged (Compose default 10). |
+ | `ORDER_RISK_VELOCITY_THRESHOLD` | order (Compose) | _Spring default_ |  | compose | Orders in a short window that trigger a velocity risk flag (Compose default 8). Mapped by Spring onto `order.risk.*`. |
+diff --git a/docs/reference/events.md b/docs/reference/events.md
+index c1952e8..d56ad30 100644
+--- a/docs/reference/events.md
++++ b/docs/reference/events.md
+@@ -21,6 +21,8 @@ compose network at `kafka:9092`; no host port is published. On AWS it is MSK
+ | `user.events` | broker default (1) | userId | user-service | `USER_DELETED` |
+ | `audit.events` | broker default (1) | resourceId | auth-service, and every service using `common-web`'s `AuditPublisher` | audit record: actor (user id, roles), action, resource type and id, before/after JSON, IP |
+ 
++`RETURN_REFUNDED` is published (through the outbox, in the same transaction as the REFUNDED status and the stock release) only after the refund money has settled, so a PENDING card refund publishes nothing until it settles.
++
+ Topics without a `KafkaTopicConfig` bean are auto-created with the broker default of 1 partition.
+ Each topic `X` also has a dead-letter topic `X.DLT` (see [failure handling](#failure-handling)).
+ 
+diff --git a/services/order-service/order-service-api/src/main/java/com/acme/ecommerce/order/api/dto/ReturnResponse.java b/services/order-service/order-service-api/src/main/java/com/acme/ecommerce/order/api/dto/ReturnResponse.java
+index fdfb45f..2cb8888 100644
+--- a/services/order-service/order-service-api/src/main/java/com/acme/ecommerce/order/api/dto/ReturnResponse.java
++++ b/services/order-service/order-service-api/src/main/java/com/acme/ecommerce/order/api/dto/ReturnResponse.java
+@@ -17,7 +17,9 @@ public record ReturnResponse(
+     Instant updatedAt,
+     String adminNote,
+     UUID shipmentId,
+-    boolean abuseFlag) {
++    boolean abuseFlag,
++    BigDecimal shippingRefund,
++    String refundState) {
+ 
+   public record ReturnItemResponse(
+       UUID productId, UUID variantId, String name, int quantity, BigDecimal unitPrice) {}
+diff --git a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/client/PaymentFeignClient.java b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/client/PaymentFeignClient.java
+index b70ba4d..0a46b7c 100644
+--- a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/client/PaymentFeignClient.java
++++ b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/client/PaymentFeignClient.java
+@@ -44,7 +44,10 @@ public interface PaymentFeignClient {
+       String referenceId,
+       String idempotencyKey) {}
+ 
+-  record RefundResult(String status, BigDecimal refundedAmount) {}
++  /**
++   * refundStatus (PENDING | SUCCEEDED | FAILED) is null from a payment-service that predates it.
++   */
++  record RefundResult(String status, BigDecimal refundedAmount, String refundStatus) {}
+ 
+   /** Give back the debit with debitKey only if it happened (TD-P8-23). */
+   record WalletReverse(UUID userId, String debitKey, String creditKey) {}
+diff --git a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/domain/Order.java b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/domain/Order.java
+index e024421..78ee7ed 100644
+--- a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/domain/Order.java
++++ b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/domain/Order.java
+@@ -649,12 +649,17 @@ public class Order {
+               .multiply(subtotalAmount.subtract(totalDiscount))
+               .divide(subtotalAmount, 2, RoundingMode.HALF_UP);
+     }
++    BigDecimal shipping = BigDecimal.ZERO;
++    if (shippingAmount.signum() > 0 && completesOrder(merged) && !shippingAlreadyRefunded()) {
++      shipping = shippingAmount.setScale(2, RoundingMode.HALF_UP);
++    }
+     OrderReturn r =
+         OrderReturn.request(
+             this,
+             reason,
+             comment,
+-            refund.setScale(2, RoundingMode.HALF_UP),
++            refund.add(shipping).setScale(2, RoundingMode.HALF_UP),
++            shipping,
+             refundTo,
+             scope == null ? null : scope.getId(),
+             now);
+@@ -671,6 +676,18 @@ public class Order {
+     return r;
+   }
+ 
++  /** True when these lines, on top of earlier non-rejected returns, cover every order line. */
++  private boolean completesOrder(Map<LineKey, Integer> lines) {
++    return remainingReturnable(null).entrySet().stream()
++        .allMatch(e -> e.getValue() - lines.getOrDefault(e.getKey(), 0) == 0);
++  }
++
++  private boolean shippingAlreadyRefunded() {
++    return returns.stream()
++        .anyMatch(
++            r -> r.getStatus() != ReturnStatus.REJECTED && r.getShippingRefund().signum() > 0);
++  }
++
+   private OrderShipment resolveReturnShipment(List<ReturnLine> lines, UUID hint) {
+     if (hint != null) {
+       return shipments.stream()
+diff --git a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/domain/OrderReturn.java b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/domain/OrderReturn.java
+index c6db6a6..5f9db1b 100644
+--- a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/domain/OrderReturn.java
++++ b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/domain/OrderReturn.java
+@@ -57,6 +57,35 @@ public class OrderReturn {
+   @Column(name = "refund_amount", nullable = false, updatable = false)
+   private BigDecimal refundAmount;
+ 
++  /** Part of refund_amount that is the order shipping fee (completing return only). */
++  @Column(name = "shipping_refund", nullable = false, updatable = false)
++  private BigDecimal shippingRefund = BigDecimal.ZERO;
++
++  // Refund progress (V13). Legs are frozen on the first attempt; null on rows made before V13.
++  @Column(name = "wallet_leg_amount")
++  private BigDecimal walletLegAmount;
++
++  @Column(name = "rest_leg_amount")
++  private BigDecimal restLegAmount;
++
++  /** NONE | PAYMENT_SOURCE | PAYMENT_WALLET | DIRECT_WALLET. */
++  @Column(name = "rest_route", length = 16)
++  private String restRoute;
++
++  @Column(name = "wallet_leg_done_at")
++  private Instant walletLegDoneAt;
++
++  /** null = not started, then PENDING | SUCCEEDED | FAILED. */
++  @Column(name = "rest_leg_state", length = 12)
++  private String restLegState;
++
++  // Lease and attempt are changed only by the conditional updates in OrderReturnRepository.
++  @Column(name = "rest_leg_attempt", nullable = false, insertable = false, updatable = false)
++  private int restLegAttempt;
++
++  @Column(name = "refund_lease_until", insertable = false, updatable = false)
++  private Instant refundLeaseUntil;
++
+   @Column(name = "refund_to", nullable = false, updatable = false, length = 10)
+   private String refundTo = "SOURCE";
+ 
+@@ -87,6 +116,7 @@ public class OrderReturn {
+       ReturnReason reason,
+       String comment,
+       BigDecimal refundAmount,
++      BigDecimal shippingRefund,
+       String refundTo,
+       UUID shipmentId,
+       Instant now) {
+@@ -98,6 +128,7 @@ public class OrderReturn {
+     r.reason = reason;
+     r.comment = comment;
+     r.refundAmount = refundAmount;
++    r.shippingRefund = shippingRefund;
+     r.refundTo = refundTo == null ? "SOURCE" : refundTo;
+     r.createdAt = now;
+     r.updatedAt = now;
+@@ -125,6 +156,32 @@ public class OrderReturn {
+     updatedAt = now;
+   }
+ 
++  public boolean isFrozen() {
++    return walletLegAmount != null;
++  }
++
++  public void freezeLegs(BigDecimal wallet, BigDecimal rest, String route) {
++    walletLegAmount = wallet;
++    restLegAmount = rest;
++    restRoute = route;
++  }
++
++  public void markWalletLegDone(Instant now) {
++    walletLegDoneAt = now;
++  }
++
++  public void setRestLegState(String state, Instant now) {
++    restLegState = state;
++    updatedAt = now;
++  }
++
++  /**
++   * Idempotency key of the card leg: attempt 0 keeps the original key, later ones add -r&lt;n&gt;.
++   */
++  public String refundKey() {
++    return "return-" + id + (restLegAttempt == 0 ? "" : "-r" + restLegAttempt);
++  }
++
+   public void markRefunded(Instant now) {
+     requireStatus(ReturnStatus.PICKED_UP);
+     status = ReturnStatus.REFUNDED;
+diff --git a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/job/ReturnRefundWatch.java b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/job/ReturnRefundWatch.java
+new file mode 100644
+index 0000000..32a83d0
+--- /dev/null
++++ b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/job/ReturnRefundWatch.java
+@@ -0,0 +1,48 @@
++package com.acme.ecommerce.order.job;
++
++import com.acme.ecommerce.common.web.job.JobLock;
++import com.acme.ecommerce.order.service.OrderStore;
++import com.acme.ecommerce.order.service.ReturnService;
++import java.util.UUID;
++import org.slf4j.Logger;
++import org.slf4j.LoggerFactory;
++import org.springframework.scheduling.annotation.Scheduled;
++import org.springframework.stereotype.Component;
++
++/**
++ * Settles return refunds whose card leg was accepted but not yet confirmed (PENDING, F-04). Polls
++ * by replaying the refund key: payment-service answers from its own table without calling the
++ * provider, so a poll never creates a second refund. One replica at a time (JobLock).
++ */
++@Component
++public class ReturnRefundWatch {
++
++  private static final Logger log = LoggerFactory.getLogger(ReturnRefundWatch.class);
++
++  private final OrderStore store;
++  private final ReturnService returns;
++  private final JobLock jobLock;
++
++  public ReturnRefundWatch(OrderStore store, ReturnService returns, JobLock jobLock) {
++    this.store = store;
++    this.returns = returns;
++    this.jobLock = jobLock;
++  }
++
++  @Scheduled(
++      fixedDelayString = "${order.returns.refund-poll-interval-ms:300000}",
++      initialDelay = 60_000)
++  public void poll() {
++    jobLock.runExclusive("order-return-refund-watch", this::pollLocked);
++  }
++
++  void pollLocked() {
++    for (UUID id : store.pendingRestLegIds()) {
++      try {
++        returns.resumePending(id);
++      } catch (RuntimeException e) {
++        log.warn("Return refund {} could not be checked, will retry: {}", id, e.toString());
++      }
++    }
++  }
++}
+diff --git a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/repository/OrderReturnRepository.java b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/repository/OrderReturnRepository.java
+index 290a5c8..bf96890 100644
+--- a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/repository/OrderReturnRepository.java
++++ b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/repository/OrderReturnRepository.java
+@@ -7,7 +7,9 @@ import java.util.UUID;
+ import org.springframework.data.domain.Page;
+ import org.springframework.data.domain.Pageable;
+ import org.springframework.data.jpa.repository.JpaRepository;
++import org.springframework.data.jpa.repository.Modifying;
+ import org.springframework.data.jpa.repository.Query;
++import org.springframework.transaction.annotation.Transactional;
+ 
+ public interface OrderReturnRepository extends JpaRepository<OrderReturn, UUID> {
+ 
+@@ -18,6 +20,44 @@ public interface OrderReturnRepository extends JpaRepository<OrderReturn, UUID>
+   @Query("select count(distinct r.order.id) from OrderReturn r where r.userId = :userId")
+   long countDistinctOrders(@org.springframework.data.repository.query.Param("userId") UUID userId);
+ 
++  /** Takes the 2-minute refund lease; 0 rows when the return is not PICKED_UP or leased. */
++  @Transactional
++  @Modifying(clearAutomatically = true, flushAutomatically = true)
++  @Query(
++      value =
++          "UPDATE orders.order_returns SET refund_lease_until = now() + interval '2 minutes'"
++              + " WHERE id = :id AND status = 'PICKED_UP'"
++              + " AND (refund_lease_until IS NULL OR refund_lease_until < now())",
++      nativeQuery = true)
++  int claimRefundLease(@org.springframework.data.repository.query.Param("id") UUID id);
++
++  @Transactional
++  @Modifying(clearAutomatically = true, flushAutomatically = true)
++  @Query(
++      value = "UPDATE orders.order_returns SET refund_lease_until = NULL WHERE id = :id",
++      nativeQuery = true)
++  int releaseRefundLease(@org.springframework.data.repository.query.Param("id") UUID id);
++
++  /** Starts the next card-leg key; 0 rows when another caller already did (the loser gets 409). */
++  @Transactional
++  @Modifying(clearAutomatically = true, flushAutomatically = true)
++  @Query(
++      value =
++          "UPDATE orders.order_returns SET rest_leg_attempt = rest_leg_attempt + 1"
++              + " WHERE id = :id AND rest_leg_attempt = :n",
++      nativeQuery = true)
++  int bumpRestLegAttempt(
++      @org.springframework.data.repository.query.Param("id") UUID id,
++      @org.springframework.data.repository.query.Param("n") int attempt);
++
++  /** Returns whose card leg is waiting for payment-service to settle it (oldest first). */
++  @Query(
++      value =
++          "SELECT id FROM orders.order_returns WHERE status = 'PICKED_UP'"
++              + " AND rest_leg_state = 'PENDING' ORDER BY updated_at LIMIT 50",
++      nativeQuery = true)
++  List<UUID> findPendingRestLegIds();
++
+   /** Rows of [ReturnStatus, Long] for the admin dashboard. */
+   @Query("select r.status, count(r) from OrderReturn r group by r.status")
+   List<Object[]> countGroupedByStatus();
+diff --git a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/OrderMapper.java b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/OrderMapper.java
+index c156c6e..935a92b 100644
+--- a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/OrderMapper.java
++++ b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/OrderMapper.java
+@@ -223,6 +223,8 @@ public class OrderMapper {
+         r.getUpdatedAt(),
+         r.getAdminNote(),
+         r.getShipmentId(),
+-        r.isAbuseFlag());
++        r.isAbuseFlag(),
++        r.getShippingRefund(),
++        r.getRestLegState());
+   }
+ }
+diff --git a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/OrderRemote.java b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/OrderRemote.java
+index b9a1389..bfa0495 100644
+--- a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/OrderRemote.java
++++ b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/OrderRemote.java
+@@ -294,11 +294,17 @@ public class OrderRemote {
+     refund(orderId, amount, reason, idempotencyKey, null);
+   }
+ 
+-  /** Strict refund; destination SOURCE (default) or WALLET. */
+-  public void refund(
++  /**
++   * Strict refund; destination SOURCE (default) or WALLET. Returns the status of the refund row for
++   * this key: PENDING, SUCCEEDED or FAILED. A null from payment-service is read as SUCCEEDED, which
++   * is only safe once payment-service runs the version that sends it: deploy payment-service first.
++   */
++  public String refund(
+       UUID orderId, BigDecimal amount, String reason, String idempotencyKey, String destination) {
+     try {
+-      payments.refund(orderId, new RefundRequest(amount, reason, idempotencyKey, destination));
++      var result =
++          payments.refund(orderId, new RefundRequest(amount, reason, idempotencyKey, destination));
++      return result == null || result.refundStatus() == null ? "SUCCEEDED" : result.refundStatus();
+     } catch (FeignException e) {
+       throw RemoteCalls.translate("payment-service", e);
+     }
+diff --git a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/OrderStore.java b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/OrderStore.java
+index 6d02d5c..06a7127 100644
+--- a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/OrderStore.java
++++ b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/OrderStore.java
+@@ -29,6 +29,7 @@ import com.acme.ecommerce.order.repository.OrderReturnRepository;
+ import com.acme.ecommerce.order.repository.OrderShipmentRepository;
+ import jakarta.persistence.criteria.Predicate;
+ import java.math.BigDecimal;
++import java.math.RoundingMode;
+ import java.time.Instant;
+ import java.time.LocalDate;
+ import java.time.temporal.ChronoUnit;
+@@ -71,20 +72,27 @@ public class OrderStore {
+   public record CancelPlan(
+       boolean alreadyCancelled, boolean refundNeeded, BigDecimal amount, String currency) {}
+ 
+-  /** What a return refund needs to know up front. */
++  /** What a return refund needs to know up front. Wallet, rest and route are null until frozen. */
+   public record ReturnRefundPlan(
+       UUID returnId,
+       UUID orderId,
+-      BigDecimal refundAmount,
++      UUID userId,
+       String currency,
+-      boolean card,
+-      boolean paid,
++      ReturnStatus status,
+       List<ReturnLine> lines,
+-      UUID userId,
+-      BigDecimal orderTotal,
+-      BigDecimal walletAmount,
+-      String method,
+-      String refundTo) {}
++      BigDecimal wallet,
++      BigDecimal rest,
++      String route,
++      boolean walletDone,
++      String restState,
++      int attempt,
++      String key) {
++
++    /** Destination sent to payment-service for the card leg (null = back to the card). */
++    public String destination() {
++      return "PAYMENT_WALLET".equals(route) ? "WALLET" : null;
++    }
++  }
+ 
+   private final OrderRepository orders;
+   private final OrderReturnRepository returns;
+@@ -550,25 +558,32 @@ public class OrderStore {
+         .orElse(null);
+   }
+ 
+-  /** Validates the return is ready to be refunded and describes the refund. */
++  /** The return as the admin sees it. */
++  @Transactional(readOnly = true)
++  public ReturnResponse view(UUID returnId) {
++    return mapper.toResponse(findReturn(returnId));
++  }
++
++  /** Describes the refund; REFUNDED is allowed (the caller returns early), other states are not. */
+   @Transactional(readOnly = true)
+   public ReturnRefundPlan refundPlan(UUID returnId) {
+     OrderReturn r = findReturn(returnId);
+-    if (r.getStatus() != ReturnStatus.PICKED_UP) {
++    if (r.getStatus() != ReturnStatus.PICKED_UP && r.getStatus() != ReturnStatus.REFUNDED) {
+       throw new CodedException(
+           ErrorCode.INVALID_STATUS_TRANSITION,
+           "Return is " + r.getStatus() + ", expected PICKED_UP");
+     }
++    return plan(r);
++  }
++
++  private ReturnRefundPlan plan(OrderReturn r) {
+     Order o = r.getOrder();
+     return new ReturnRefundPlan(
+         r.getId(),
+         o.getId(),
+-        r.getRefundAmount(),
++        o.getUserId(),
+         o.getCurrency(),
+-        o.getPaymentMethod() == PaymentMethod.CARD && o.getPaymentId() != null,
+-        o.getPaymentStatus() == PaymentStatus.PAID
+-            || o.getPaymentStatus() == PaymentStatus.COD_COLLECTED
+-            || o.getPaymentStatus() == PaymentStatus.PARTIALLY_REFUNDED,
++        r.getStatus(),
+         r.getItems().stream()
+             .map(
+                 (OrderReturnItem i) ->
+@@ -578,13 +593,122 @@ public class OrderStore {
+                         i.getQuantity(),
+                         offerOf(o, r.getShipmentId(), i)))
+             .toList(),
+-        o.getUserId(),
+-        o.getTotalAmount(),
+-        o.getWalletAmount(),
+-        o.getPaymentMethod().name(),
+-        r.getRefundTo());
++        r.getWalletLegAmount(),
++        r.getRestLegAmount(),
++        r.getRestRoute(),
++        r.getWalletLegDoneAt() != null,
++        r.getRestLegState(),
++        r.getRestLegAttempt(),
++        r.refundKey());
+   }
+ 
++  /**
++   * The 2-minute refund lease; false when another caller holds it or the return is not PICKED_UP.
++   */
++  public boolean claimRefundLease(UUID returnId) {
++    return returns.claimRefundLease(returnId) == 1;
++  }
++
++  public void releaseRefundLease(UUID returnId) {
++    returns.releaseRefundLease(returnId);
++  }
++
++  /** Starts the next card-leg key; false when another caller already moved the attempt on. */
++  public boolean bumpRestLegAttempt(UUID returnId, int attempt) {
++    return returns.bumpRestLegAttempt(returnId, attempt) == 1;
++  }
++
++  public List<UUID> pendingRestLegIds() {
++    return returns.findPendingRestLegIds();
++  }
++
++  /**
++   * Freezes the wallet and rest legs on the first attempt (no-op afterwards), so every retry sends
++   * the same amounts under the same keys. w = min(round2(R*W/T), W - w of siblings, R); rest = R -
++   * w; rest beyond the card remainder moves to the wallet. w + rest = R to the cent.
++   */
++  @Transactional
++  public ReturnRefundPlan freezeLegs(UUID returnId) {
++    OrderReturn r = findReturn(returnId);
++    if (r.isFrozen()) {
++      return plan(r);
++    }
++    Order o = r.getOrder();
++    BigDecimal refund = r.getRefundAmount().setScale(2, RoundingMode.HALF_UP);
++    BigDecimal walletPaid = o.getWalletAmount();
++    BigDecimal total = o.getTotalAmount();
++    BigDecimal siblingWallet = BigDecimal.ZERO;
++    BigDecimal siblingRest = BigDecimal.ZERO;
++    for (OrderReturn s : o.getReturns()) {
++      if (s == r || (s.getStatus() != ReturnStatus.REFUNDED && !s.isFrozen())) {
++        continue;
++      }
++      BigDecimal sr = s.getRefundAmount().setScale(2, RoundingMode.HALF_UP);
++      // A REFUNDED row from before V13 has no frozen legs: it was split by the legacy formula.
++      BigDecimal sw = s.isFrozen() ? s.getWalletLegAmount() : walletShare(sr, walletPaid, total);
++      siblingWallet = siblingWallet.add(sw);
++      siblingRest = siblingRest.add(s.isFrozen() ? s.getRestLegAmount() : sr.subtract(sw));
++    }
++    BigDecimal wallet =
++        walletShare(refund, walletPaid, total)
++            .min(walletPaid.subtract(siblingWallet))
++            .min(refund)
++            .max(BigDecimal.ZERO);
++    BigDecimal rest = refund.subtract(wallet);
++    BigDecimal cardRoom = total.subtract(walletPaid).subtract(siblingRest).max(BigDecimal.ZERO);
++    if (rest.compareTo(cardRoom) > 0) {
++      wallet = wallet.add(rest.subtract(cardRoom));
++      rest = cardRoom;
++    }
++    r.freezeLegs(wallet, rest, route(o, r, rest));
++    return plan(r);
++  }
++
++  private static BigDecimal walletShare(
++      BigDecimal refund, BigDecimal walletPaid, BigDecimal total) {
++    if (walletPaid.signum() <= 0 || total.signum() <= 0) {
++      return BigDecimal.ZERO;
++    }
++    return refund.multiply(walletPaid).divide(total, 2, RoundingMode.HALF_UP).min(refund);
++  }
++
++  /** Where the non-wallet remainder goes. COD and refundTo=WALLET go through payment-service. */
++  private static String route(Order o, OrderReturn r, BigDecimal rest) {
++    if (rest.signum() <= 0) {
++      return "NONE";
++    }
++    if (o.getPaymentMethod() == PaymentMethod.WALLET) {
++      return "DIRECT_WALLET";
++    }
++    boolean paid =
++        o.getPaymentStatus() == PaymentStatus.PAID
++            || o.getPaymentStatus() == PaymentStatus.COD_COLLECTED
++            || o.getPaymentStatus() == PaymentStatus.PARTIALLY_REFUNDED;
++    if (!paid) {
++      return "NONE";
++    }
++    boolean card = o.getPaymentMethod() == PaymentMethod.CARD && o.getPaymentId() != null;
++    return card && !"WALLET".equals(r.getRefundTo()) ? "PAYMENT_SOURCE" : "PAYMENT_WALLET";
++  }
++
++  /** The wallet credit is committed before the card leg is attempted (AC-6). */
++  @Transactional
++  public void markWalletLegDone(UUID returnId) {
++    findReturn(returnId).markWalletLegDone(Instant.now());
++  }
++
++  /** PENDING, SUCCEEDED or FAILED (never changes the attempt). */
++  @Transactional
++  public void setRestLegState(UUID returnId, String state) {
++    findReturn(returnId).setRestLegState(state, Instant.now());
++  }
++
++  /**
++   * First half of finalizing, inside the caller's transaction: only a PICKED_UP return can become
++   * REFUNDED and the {@code @Version} check rejects a concurrent finalize. The caller adds the
++   * stock-release and event outbox rows in the same transaction. This is the single hook for the
++   * F-10 coin rows.
++   */
+   @Transactional
+   public ReturnOutcome completeRefund(UUID returnId) {
+     OrderReturn r = findReturn(returnId);
+@@ -593,6 +717,7 @@ public class OrderStore {
+     BigDecimal itemsValue = o.paidItemsValue();
+     boolean full = o.getRefundedAmount().add(r.getRefundAmount()).compareTo(itemsValue) >= 0;
+     o.recordRefund(r.getRefundAmount(), full);
++    orders.flush();
+     return new ReturnOutcome(mapper.toResponse(r), mapper.toResponse(o));
+   }
+ 
+diff --git a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/ReturnService.java b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/ReturnService.java
+index ac76052..e077b9b 100644
+--- a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/ReturnService.java
++++ b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/ReturnService.java
+@@ -11,26 +11,33 @@ import com.acme.ecommerce.order.event.OrderEventPublisher;
+ import com.acme.ecommerce.order.event.OrderEventType;
+ import com.acme.ecommerce.order.service.OrderStore.ReturnOutcome;
+ import com.acme.ecommerce.order.service.OrderStore.ReturnRefundPlan;
+-import java.math.BigDecimal;
+-import java.math.RoundingMode;
+ import java.util.List;
+ import java.util.UUID;
++import java.util.function.Supplier;
++import org.slf4j.Logger;
++import org.slf4j.LoggerFactory;
+ import org.springframework.data.domain.Page;
+ import org.springframework.data.domain.Pageable;
+ import org.springframework.stereotype.Service;
++import org.springframework.transaction.support.TransactionTemplate;
+ 
+ /** Returns: request (customer) and the admin decision / pickup / refund steps. */
+ @Service
+ public class ReturnService {
+ 
++  private static final Logger log = LoggerFactory.getLogger(ReturnService.class);
++
+   private final OrderStore store;
+   private final OrderRemote remote;
+   private final OrderEventPublisher events;
++  private final TransactionTemplate tx;
+ 
+-  public ReturnService(OrderStore store, OrderRemote remote, OrderEventPublisher events) {
++  public ReturnService(
++      OrderStore store, OrderRemote remote, OrderEventPublisher events, TransactionTemplate tx) {
+     this.store = store;
+     this.remote = remote;
+     this.events = events;
++    this.tx = tx;
+   }
+ 
+   public ReturnResponse request(UUID userId, UUID orderId, CreateReturnRequest req) {
+@@ -68,63 +75,130 @@ public class ReturnService {
+   }
+ 
+   /**
+-   * Refund: for card payments the money moves first (503 if payment-service is down, return state
+-   * untouched), then the return is marked refunded, stock is restocked and the event published.
++   * Refund, admin only. Wallet leg first, committed as done before the rest leg; the rest leg goes
++   * to payment-service under a key that stays the same across retries, so a retry never pays twice.
++   * REFUNDED only after the money has settled: a PENDING card leg leaves the return PICKED_UP until
++   * {@link #resumePending} sees it settle. Stock release and the event are written with the status
++   * change in one transaction.
+    */
+   public ReturnResponse refund(UUID returnId) {
+-    ReturnRefundPlan plan = store.refundPlan(returnId);
+-    moveMoney(plan, returnId);
+-    ReturnOutcome outcome = store.completeRefund(returnId);
+-    remote.releaseStock(plan.orderId(), plan.returnId(), plan.lines());
+-    events.publishReturn(OrderEventType.RETURN_REFUNDED, outcome.order(), outcome.ret());
+-    return outcome.ret();
++    if (store.refundPlan(returnId).status() == ReturnStatus.REFUNDED) {
++      return store.view(returnId);
++    }
++    if (!store.claimRefundLease(returnId)) {
++      if (store.refundPlan(returnId).status() == ReturnStatus.REFUNDED) {
++        return store.view(returnId);
++      }
++      throw new CodedException(ErrorCode.RESOURCE_CONFLICT, "Refund in progress");
++    }
++    try {
++      return runLegs(store.freezeLegs(returnId));
++    } finally {
++      store.releaseRefundLease(returnId);
++    }
+   }
+ 
+-  /**
+-   * Pro-rata split: the wallet share of the order goes back to the wallet, the rest to the card
+-   * source (or to the wallet when the customer asked for it, and always for cash on delivery).
+-   */
+-  private void moveMoney(ReturnRefundPlan plan, UUID returnId) {
+-    BigDecimal refund = plan.refundAmount();
+-    BigDecimal walletShare = BigDecimal.ZERO;
+-    if (plan.walletAmount().signum() > 0 && plan.orderTotal().signum() > 0) {
+-      walletShare =
+-          refund
+-              .multiply(plan.walletAmount())
+-              .divide(plan.orderTotal(), 2, RoundingMode.HALF_UP)
+-              .min(refund);
+-    }
+-    BigDecimal rest = refund.subtract(walletShare);
+-    if (walletShare.signum() > 0) {
++  private ReturnResponse runLegs(ReturnRefundPlan plan) {
++    UUID id = plan.returnId();
++    if (plan.wallet().signum() > 0 && !plan.walletDone()) {
+       remote.creditWallet(
+-          plan.userId(), walletShare, plan.currency(), plan.orderId(), "return-wallet-" + returnId);
++          plan.userId(), plan.wallet(), plan.currency(), plan.orderId(), "return-wallet-" + id);
++      store.markWalletLegDone(id);
++    }
++    String state = plan.restState();
++    if (!"NONE".equals(plan.route()) && !"SUCCEEDED".equals(state)) {
++      state = restLeg(plan);
++    }
++    if ("PENDING".equals(state)) {
++      return store.view(id);
+     }
+-    if (rest.signum() <= 0 || !plan.paid() || "WALLET".equals(plan.method())) {
+-      if (rest.signum() > 0 && "WALLET".equals(plan.method())) {
+-        remote.creditWallet(
+-            plan.userId(), rest, plan.currency(), plan.orderId(), "return-rest-" + returnId);
++    return finalizeRefund(plan);
++  }
++
++  /**
++   * Runs the rest leg and records its state; an exception records FAILED and never bumps the key.
++   */
++  private String restLeg(ReturnRefundPlan plan) {
++    UUID id = plan.returnId();
++    String state;
++    if ("DIRECT_WALLET".equals(plan.route())) {
++      state =
++          guarded(
++              id,
++              () -> {
++                remote.creditWallet(
++                    plan.userId(),
++                    plan.rest(),
++                    plan.currency(),
++                    plan.orderId(),
++                    "return-rest-" + id);
++                return "SUCCEEDED";
++              });
++    } else {
++      state = guarded(id, () -> callRefund(plan, plan.key()));
++      if ("FAILED".equals(state)) {
++        // Only a FAILED refund row may start a new key; the loser of a race gets 409.
++        if (!store.bumpRestLegAttempt(id, plan.attempt())) {
++          throw new CodedException(ErrorCode.RESOURCE_CONFLICT, "Refund in progress");
++        }
++        state = guarded(id, () -> callRefund(plan, "return-" + id + "-r" + (plan.attempt() + 1)));
+       }
+-      return;
+     }
+-    String key = "return-" + returnId;
+-    if (plan.card()) {
+-      remote.refund(
+-          plan.orderId(),
+-          rest,
+-          "Return refunded",
+-          key,
+-          "WALLET".equals(plan.refundTo()) ? "WALLET" : null);
++    store.setRestLegState(id, state);
++    return state;
++  }
++
++  private String guarded(UUID id, Supplier<String> call) {
++    try {
++      return call.get();
++    } catch (RuntimeException e) {
++      store.setRestLegState(id, "FAILED");
++      throw e;
++    }
++  }
++
++  private String callRefund(ReturnRefundPlan plan, String key) {
++    return remote.refund(plan.orderId(), plan.rest(), "Return refunded", key, plan.destination());
++  }
++
++  private ReturnResponse finalizeRefund(ReturnRefundPlan plan) {
++    return tx.execute(
++        status -> {
++          ReturnOutcome outcome = store.completeRefund(plan.returnId());
++          remote.releaseStock(plan.orderId(), plan.returnId(), plan.lines());
++          events.publishReturn(OrderEventType.RETURN_REFUNDED, outcome.order(), outcome.ret());
++          return outcome.ret();
++        });
++  }
++
++  /**
++   * Settles a PENDING card leg: replays the same key (payment-service answers from its own table,
++   * no second refund). SUCCEEDED finalizes; FAILED is recorded and the return stays PICKED_UP for
++   * an admin retry; PENDING does nothing.
++   */
++  public void resumePending(UUID returnId) {
++    if (!store.claimRefundLease(returnId)) {
+       return;
+     }
+-    // Cash on delivery: the refund lands in the wallet.
+     try {
+-      remote.refund(plan.orderId(), rest, "Return refunded", key, "WALLET");
+-    } catch (CodedException e) {
+-      if (e.errorCode() == ErrorCode.DEPENDENCY_UNAVAILABLE) {
+-        throw e;
++      ReturnRefundPlan plan = store.refundPlan(returnId);
++      if (plan.status() != ReturnStatus.PICKED_UP || !"PENDING".equals(plan.restState())) {
++        return;
+       }
+-      remote.creditWallet(
+-          plan.userId(), rest, plan.currency(), plan.orderId(), "return-rest-" + returnId);
++      String state = callRefund(plan, plan.key());
++      if ("SUCCEEDED".equals(state)) {
++        store.setRestLegState(returnId, state);
++        finalizeRefund(plan);
++      } else if ("FAILED".equals(state)) {
++        store.setRestLegState(returnId, state);
++        log.error(
++            "RETURN REFUND FAILED: return {} of order {} was rejected by the card network;"
++                + " retry it from the admin",
++            returnId,
++            plan.orderId());
++      }
++    } finally {
++      store.releaseRefundLease(returnId);
+     }
+   }
+ }
+diff --git a/services/order-service/order-service-app/src/main/resources/application.yml b/services/order-service/order-service-app/src/main/resources/application.yml
+index 8bb17f4..5956556 100644
+--- a/services/order-service/order-service-app/src/main/resources/application.yml
++++ b/services/order-service/order-service-app/src/main/resources/application.yml
+@@ -134,6 +134,7 @@ order:
+     zone: Asia/Kolkata
+   returns:
+     window-days: 7
++    refund-poll-interval-ms: ${ORDER_RETURNS_REFUND_POLL_INTERVAL_MS:300000}
+   pending:
+     expiry: 30m
+   jwt:
+diff --git a/services/order-service/order-service-app/src/main/resources/db/migration/V13__return_refund_legs.sql b/services/order-service/order-service-app/src/main/resources/db/migration/V13__return_refund_legs.sql
+new file mode 100644
+index 0000000..bc5c43e
+--- /dev/null
++++ b/services/order-service/order-service-app/src/main/resources/db/migration/V13__return_refund_legs.sql
+@@ -0,0 +1,15 @@
++-- O-05a: per-return refund progress. Additive only: every column is nullable or defaulted and
++-- nothing is backfilled, so rows created before this migration load with null legs and are frozen
++-- on their first retry. Old code ignores these columns.
++ALTER TABLE orders.order_returns
++    ADD COLUMN shipping_refund     numeric(19, 4) NOT NULL DEFAULT 0,
++    ADD COLUMN wallet_leg_amount   numeric(19, 4),
++    ADD COLUMN rest_leg_amount     numeric(19, 4),
++    ADD COLUMN rest_route          varchar(16),   -- NONE|PAYMENT_SOURCE|PAYMENT_WALLET|DIRECT_WALLET
++    ADD COLUMN wallet_leg_done_at  timestamptz,
++    ADD COLUMN rest_leg_state      varchar(12),   -- null=not started|PENDING|SUCCEEDED|FAILED
++    ADD COLUMN rest_leg_attempt    int            NOT NULL DEFAULT 0,
++    ADD COLUMN refund_lease_until  timestamptz;
++
++CREATE INDEX ix_order_returns_rest_pending
++    ON orders.order_returns (updated_at) WHERE rest_leg_state = 'PENDING';
+diff --git a/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/client/DependencyBreakerCapabilityTest.java b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/client/DependencyBreakerCapabilityTest.java
+index 946d42c..5dfe989 100644
+--- a/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/client/DependencyBreakerCapabilityTest.java
++++ b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/client/DependencyBreakerCapabilityTest.java
+@@ -66,9 +66,10 @@ class DependencyBreakerCapabilityTest {
+   void perServiceAndIoErrors() throws IOException {
+     Client failing =
+         capability.enrich(
+-            (req, opts) -> {
+-              throw new IOException("connection refused");
+-            });
++            (Client)
++                (req, opts) -> {
++                  throw new IOException("connection refused");
++                });
+     for (int i = 0; i < 10; i++) {
+       assertThatThrownBy(
+               () -> failing.execute(request("http://payment-service/p"), new Request.Options()))
+@@ -78,10 +79,7 @@ class DependencyBreakerCapabilityTest {
+         .isEqualTo(CircuitBreaker.State.OPEN);
+ 
+     Client healthy = capability.enrich(answering(200));
+-    assertThat(
+-            healthy
+-                .execute(request("http://user-service/u"), new Request.Options())
+-                .status())
++    assertThat(healthy.execute(request("http://user-service/u"), new Request.Options()).status())
+         .isEqualTo(200);
+   }
+ }
+diff --git a/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/domain/ReturnShippingRuleTest.java b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/domain/ReturnShippingRuleTest.java
+new file mode 100644
+index 0000000..5c18b58
+--- /dev/null
++++ b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/domain/ReturnShippingRuleTest.java
+@@ -0,0 +1,204 @@
++package com.acme.ecommerce.order.domain;
++
++import static org.assertj.core.api.Assertions.assertThat;
++
++import com.acme.ecommerce.order.domain.Order.Allocation;
++import com.acme.ecommerce.order.domain.Order.ReturnLine;
++import com.acme.ecommerce.order.domain.Order.ShipTo;
++import java.math.BigDecimal;
++import java.time.Instant;
++import java.util.List;
++import java.util.Map;
++import java.util.UUID;
++import org.junit.jupiter.api.DisplayName;
++import org.junit.jupiter.api.Test;
++import org.springframework.test.util.ReflectionTestUtils;
++
++/**
++ * O-05a AC-1..3: the return that completes the whole order refunds shipping, exactly once among the
++ * live (non-rejected) returns, whichever shipments the returns came from.
++ */
++class ReturnShippingRuleTest {
++
++  private static final Instant NOW = Instant.parse("2026-11-01T10:00:00Z");
++  private static final UUID A = UUID.randomUUID();
++  private static final UUID B = UUID.randomUUID();
++
++  /** Two lines (A and B, 2 x 100 and 2 x 50 = 300) plus the given shipping fee, delivered. */
++  private static Order order(String shipping) {
++    Order o =
++        Order.draft(
++            UUID.randomUUID(),
++            "a@b.c",
++            "k",
++            UUID.randomUUID(),
++            new ShipTo("N", "1", "l1", null, "c", "s", "560001", "IN"),
++            "INR",
++            PaymentMethod.COD,
++            NOW);
++    o.addItem(A, null, null, "sku-a", "A", new BigDecimal("100.00"), 2, null);
++    o.addItem(B, null, null, "sku-b", "B", new BigDecimal("50.00"), 2, null);
++    BigDecimal s = new BigDecimal(shipping);
++    BigDecimal sub = new BigDecimal("300.00");
++    o.begin(
++        new Pricing(
++            sub,
++            BigDecimal.ZERO,
++            s,
++            sub.add(s),
++            BigDecimal.ZERO,
++            null,
++            null,
++            null,
++            null,
++            BigDecimal.ZERO,
++            false),
++        null,
++        null,
++        NOW);
++    o.advance(OrderStatus.DELIVERED, "delivered", null, null, NOW);
++    return o;
++  }
++
++  private static OrderReturn ret(Order o, ReturnLine... lines) {
++    return o.requestReturn(List.of(lines), ReturnReason.DAMAGED, null, "SOURCE", null, 7, NOW);
++  }
++
++  private static ReturnLine a(int q) {
++    return new ReturnLine(A, null, q);
++  }
++
++  private static ReturnLine b(int q) {
++    return new ReturnLine(B, null, q);
++  }
++
++  private static void assertShipping(OrderReturn r, String shipping, String refund) {
++    assertThat(r.getShippingRefund()).isEqualByComparingTo(shipping);
++    assertThat(r.getRefundAmount()).isEqualByComparingTo(refund);
++  }
++
++  @Test
++  @DisplayName("AC-1: a single return of everything refunds items plus shipping")
++  void singleFullReturn() {
++    assertShipping(ret(order("40.00"), a(2), b(2)), "40.00", "340.00");
++  }
++
++  @Test
++  @DisplayName("AC-2: a partial return refunds no shipping")
++  void partialReturn() {
++    assertShipping(ret(order("40.00"), a(1)), "0", "100.00");
++  }
++
++  @Test
++  @DisplayName("a free-shipping order (S = 0) never carries shipping")
++  void freeShipping() {
++    assertShipping(ret(order("0.00"), a(2), b(2)), "0", "300.00");
++  }
++
++  @Test
++  @DisplayName("three partial returns: only the one that completes the order carries shipping")
++  void threePartials() {
++    Order o = order("40.00");
++    OrderReturn r1 = ret(o, a(1));
++    OrderReturn r2 = ret(o, a(1), b(1));
++    OrderReturn r3 = ret(o, b(1));
++
++    assertShipping(r1, "0", "100.00");
++    assertShipping(r2, "0", "150.00");
++    assertShipping(r3, "40.00", "90.00");
++  }
++
++  @Test
++  @DisplayName("a rejected shipping carrier hands shipping to the next completing return, once")
++  void rejectedCarrierMovesShipping() {
++    Order o = order("40.00");
++    OrderReturn first = ret(o, a(2));
++    OrderReturn carrier = ret(o, b(2));
++    assertThat(first.getShippingRefund()).isEqualByComparingTo("0");
++    assertThat(carrier.getShippingRefund()).isEqualByComparingTo("40.00");
++
++    carrier.decide(false, "no", NOW);
++    OrderReturn again = ret(o, b(2));
++
++    assertThat(again.getShippingRefund()).isEqualByComparingTo("40.00");
++    long live =
++        o.getReturns().stream()
++            .filter(r -> r.getStatus() != ReturnStatus.REJECTED)
++            .filter(r -> r.getShippingRefund().signum() > 0)
++            .count();
++    assertThat(live).isEqualTo(1);
++  }
++
++  @Test
++  @DisplayName("AC-3: two shipment returns that sum to the whole order refund shipping once")
++  void twoShipmentReturns() {
++    UUID w1 = UUID.randomUUID();
++    UUID w2 = UUID.randomUUID();
++    Order o =
++        Order.draft(
++            UUID.randomUUID(),
++            "a@b.c",
++            "k2",
++            UUID.randomUUID(),
++            new ShipTo("N", "1", "l1", null, "c", "s", "560001", "IN"),
++            "INR",
++            PaymentMethod.COD,
++            NOW);
++    o.addItem(A, null, null, "sku-a", "A", new BigDecimal("100.00"), 2, null);
++    o.addItem(B, null, null, "sku-b", "B", new BigDecimal("50.00"), 2, null);
++    BigDecimal sub = new BigDecimal("300.00");
++    BigDecimal ship = new BigDecimal("40.00");
++    o.begin(
++        new Pricing(
++            sub,
++            BigDecimal.ZERO,
++            ship,
++            sub.add(ship),
++            BigDecimal.ZERO,
++            null,
++            null,
++            null,
++            null,
++            BigDecimal.ZERO,
++            false),
++        null,
++        null,
++        NOW);
++    o.assignShipments(
++        List.of(
++            new Allocation(A, null, null, w1, "WH1", "560001", 2),
++            new Allocation(B, null, null, w2, "WH2", "560001", 2)),
++        Map.of(),
++        pin -> null,
++        NOW);
++    assertThat(o.getShipments()).hasSize(2);
++    o.getShipments().forEach(s -> ReflectionTestUtils.setField(s, "id", UUID.randomUUID()));
++    o.getShipments()
++        .forEach(
++            s ->
++                o.advanceShipment(
++                    s.getId(), OrderStatus.DELIVERED, "d", null, null, HistoryActor.ADMIN, NOW));
++    UUID shipA =
++        o.getItems().stream()
++            .filter(i -> i.getProductId().equals(A))
++            .findFirst()
++            .orElseThrow()
++            .getShipmentId();
++    UUID shipB =
++        o.getItems().stream()
++            .filter(i -> i.getProductId().equals(B))
++            .findFirst()
++            .orElseThrow()
++            .getShipmentId();
++
++    OrderReturn first =
++        o.requestReturn(List.of(a(2)), ReturnReason.DAMAGED, null, "SOURCE", shipA, 7, NOW);
++    OrderReturn second =
++        o.requestReturn(List.of(b(2)), ReturnReason.DAMAGED, null, "SOURCE", shipB, 7, NOW);
++
++    assertShipping(first, "0", "200.00");
++    assertShipping(second, "40.00", "140.00");
++    assertThat(first.getShippingRefund().add(second.getShippingRefund()))
++        .isEqualByComparingTo("40.00");
++  }
++}
+diff --git a/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/job/ReturnRefundWatchTest.java b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/job/ReturnRefundWatchTest.java
+new file mode 100644
+index 0000000..3d6e484
+--- /dev/null
++++ b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/job/ReturnRefundWatchTest.java
+@@ -0,0 +1,63 @@
++package com.acme.ecommerce.order.job;
++
++import static org.mockito.ArgumentMatchers.any;
++import static org.mockito.ArgumentMatchers.eq;
++import static org.mockito.Mockito.doThrow;
++import static org.mockito.Mockito.mock;
++import static org.mockito.Mockito.never;
++import static org.mockito.Mockito.verify;
++import static org.mockito.Mockito.verifyNoInteractions;
++import static org.mockito.Mockito.when;
++
++import com.acme.ecommerce.common.web.job.JobLock;
++import com.acme.ecommerce.order.service.OrderStore;
++import com.acme.ecommerce.order.service.ReturnService;
++import java.util.List;
++import java.util.UUID;
++import org.junit.jupiter.api.DisplayName;
++import org.junit.jupiter.api.Test;
++import org.mockito.ArgumentCaptor;
++
++class ReturnRefundWatchTest {
++
++  private final OrderStore store = mock(OrderStore.class);
++  private final ReturnService returns = mock(ReturnService.class);
++  private final JobLock lock = mock(JobLock.class);
++  private final ReturnRefundWatch watch = new ReturnRefundWatch(store, returns, lock);
++
++  private void runUnderLock() {
++    ArgumentCaptor<Runnable> job = ArgumentCaptor.forClass(Runnable.class);
++    when(lock.runExclusive(eq("order-return-refund-watch"), job.capture()))
++        .thenAnswer(
++            i -> {
++              job.getValue().run();
++              return true;
++            });
++    watch.poll();
++  }
++
++  @Test
++  @DisplayName("every pending return is resumed; one failing does not stop the rest")
++  void resumesAll() {
++    UUID a = UUID.randomUUID();
++    UUID b = UUID.randomUUID();
++    when(store.pendingRestLegIds()).thenReturn(List.of(a, b));
++    doThrow(new IllegalStateException("boom")).when(returns).resumePending(a);
++
++    runUnderLock();
++
++    verify(returns).resumePending(a);
++    verify(returns).resumePending(b);
++  }
++
++  @Test
++  @DisplayName("when the job lock is held elsewhere nothing is processed")
++  void lockHeld() {
++    when(lock.runExclusive(eq("order-return-refund-watch"), any())).thenReturn(false);
++
++    watch.poll();
++
++    verifyNoInteractions(store, returns);
++    verify(returns, never()).resumePending(any());
++  }
++}
+diff --git a/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/FreezeLegsTest.java b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/FreezeLegsTest.java
+new file mode 100644
+index 0000000..4ae389e
+--- /dev/null
++++ b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/FreezeLegsTest.java
+@@ -0,0 +1,197 @@
++package com.acme.ecommerce.order.service;
++
++import static org.assertj.core.api.Assertions.assertThat;
++import static org.mockito.ArgumentMatchers.any;
++import static org.mockito.Mockito.mock;
++import static org.mockito.Mockito.when;
++
++import com.acme.ecommerce.order.config.OrderProperties;
++import com.acme.ecommerce.order.domain.Order;
++import com.acme.ecommerce.order.domain.Order.ReturnLine;
++import com.acme.ecommerce.order.domain.Order.ShipTo;
++import com.acme.ecommerce.order.domain.OrderReturn;
++import com.acme.ecommerce.order.domain.OrderStatus;
++import com.acme.ecommerce.order.domain.PaymentMethod;
++import com.acme.ecommerce.order.domain.Pricing;
++import com.acme.ecommerce.order.domain.ReturnReason;
++import com.acme.ecommerce.order.repository.OrderRepository;
++import com.acme.ecommerce.order.repository.OrderReturnRepository;
++import com.acme.ecommerce.order.repository.OrderShipmentRepository;
++import com.acme.ecommerce.order.service.OrderStore.ReturnRefundPlan;
++import java.math.BigDecimal;
++import java.time.Instant;
++import java.util.List;
++import java.util.Optional;
++import java.util.UUID;
++import org.junit.jupiter.api.DisplayName;
++import org.junit.jupiter.api.Test;
++import org.junit.jupiter.params.ParameterizedTest;
++import org.junit.jupiter.params.provider.CsvSource;
++
++/** O-05a AC-10: the frozen wallet and rest legs add up to the refund to the cent, and the route. */
++class FreezeLegsTest {
++
++  private static final Instant NOW = Instant.parse("2026-11-01T10:00:00Z");
++  private static final UUID P = UUID.randomUUID();
++
++  private final OrderReturnRepository returnsRepo = mock(OrderReturnRepository.class);
++  private final OrderStore store =
++      new OrderStore(
++          mock(OrderRepository.class),
++          returnsRepo,
++          mock(OrderShipmentRepository.class),
++          mock(OrderMapper.class),
++          new OrderProperties());
++
++  private static Order order(
++      PaymentMethod method,
++      int qty,
++      String price,
++      String discount,
++      String coins,
++      String shipping,
++      String wallet) {
++    Order o =
++        Order.draft(
++            UUID.randomUUID(),
++            "a@b.c",
++            "k",
++            UUID.randomUUID(),
++            new ShipTo("N", "1", "l1", null, "c", "s", "560001", "IN"),
++            "INR",
++            method,
++            NOW);
++    BigDecimal unit = new BigDecimal(price);
++    o.addItem(P, null, null, "sku", "P", unit, qty, null);
++    BigDecimal sub = unit.multiply(BigDecimal.valueOf(qty));
++    BigDecimal disc = new BigDecimal(discount);
++    BigDecimal coinValue = new BigDecimal(coins);
++    BigDecimal ship = new BigDecimal(shipping);
++    o.applyMoney(coinValue.intValue(), coinValue, new BigDecimal(wallet), false, null);
++    o.begin(
++        new Pricing(
++            sub,
++            disc,
++            ship,
++            sub.subtract(disc).subtract(coinValue).add(ship),
++            BigDecimal.ZERO,
++            null,
++            null,
++            null,
++            null,
++            coinValue,
++            false),
++        null,
++        null,
++        NOW);
++    if (method != PaymentMethod.COD) {
++      o.markPaid("pay-1", NOW);
++    }
++    o.advance(OrderStatus.DELIVERED, "delivered", null, null, NOW);
++    return o;
++  }
++
++  private OrderReturn pickedUp(Order o, int qty, String refundTo) {
++    OrderReturn r =
++        o.requestReturn(
++            List.of(new ReturnLine(P, null, qty)),
++            ReturnReason.DAMAGED,
++            null,
++            refundTo,
++            null,
++            7,
++            NOW);
++    r.decide(true, null, NOW);
++    r.markPickedUp(NOW);
++    return r;
++  }
++
++  private ReturnRefundPlan freeze(OrderReturn r) {
++    when(returnsRepo.findById(any())).thenReturn(Optional.of(r));
++    return store.freezeLegs(UUID.randomUUID());
++  }
++
++  @ParameterizedTest(name = "{0}")
++  @CsvSource({
++    // name, method, qty, price, discount, coins, shipping, wallet, returnQty, refundTo, R, w, rest,
++    // route
++    "card only,CARD,3,100.00,0,0,0,0,1,SOURCE,100.00,0.00,100.00,PAYMENT_SOURCE",
++    "wallet only,WALLET,3,100.00,0,0,0,300,1,SOURCE,100.00,100.00,0.00,NONE",
++    "mixed thirds,CARD,3,100.00,0,0,0,100,1,SOURCE,100.00,33.33,66.67,PAYMENT_SOURCE",
++    "coins on card,CARD,3,100.00,0,30,0,0,3,SOURCE,270.00,0.00,270.00,PAYMENT_SOURCE",
++    "coins and wallet,CARD,3,100.00,0,30,0,90,3,SOURCE,270.00,90.00,180.00,PAYMENT_SOURCE",
++    "completing return with shipping,CARD,1,300.00,0,0,40,100,1,SOURCE,340.00,100.00,240.00,PAYMENT_SOURCE",
++    "cod goes to wallet,COD,1,100.00,0,0,0,0,1,SOURCE,100.00,0.00,100.00,PAYMENT_WALLET",
++    "refundTo wallet on card,CARD,1,100.00,0,0,0,0,1,WALLET,100.00,0.00,100.00,PAYMENT_WALLET",
++    "zero refund,COD,1,100.00,100,0,0,0,1,SOURCE,0.00,0.00,0.00,NONE"
++  })
++  @DisplayName("a single return freezes legs that add up to the refund, on the right route")
++  void single(
++      String name,
++      PaymentMethod method,
++      int qty,
++      String price,
++      String discount,
++      String coins,
++      String shipping,
++      String wallet,
++      int returnQty,
++      String refundTo,
++      String refund,
++      String w,
++      String rest,
++      String route) {
++    Order o = order(method, qty, price, discount, coins, shipping, wallet);
++    OrderReturn r = pickedUp(o, returnQty, refundTo);
++
++    ReturnRefundPlan plan = freeze(r);
++
++    assertThat(r.getRefundAmount()).isEqualByComparingTo(refund);
++    assertThat(plan.wallet()).isEqualByComparingTo(w);
++    assertThat(plan.rest()).isEqualByComparingTo(rest);
++    assertThat(plan.route()).isEqualTo(route);
++    assertThat(plan.wallet().add(plan.rest())).isEqualByComparingTo(r.getRefundAmount());
++  }
++
++  @Test
++  @DisplayName("three sequential partial returns end on the last cent: wallet 100.00, card 200.00")
++  void sequentialPartials() {
++    Order o = order(PaymentMethod.CARD, 3, "100.00", "0", "0", "0", "100");
++    BigDecimal wallet = BigDecimal.ZERO;
++    BigDecimal card = BigDecimal.ZERO;
++    for (int i = 0; i < 3; i++) {
++      ReturnRefundPlan plan = freeze(pickedUp(o, 1, "SOURCE"));
++      assertThat(plan.wallet().add(plan.rest())).isEqualByComparingTo("100.00");
++      wallet = wallet.add(plan.wallet());
++      card = card.add(plan.rest());
++    }
++    assertThat(wallet).isEqualByComparingTo("100.00");
++    assertThat(card).isEqualByComparingTo("200.00");
++  }
++
++  @Test
++  @DisplayName("a REFUNDED sibling from before V13 counts with the legacy split")
++  void legacySibling() {
++    Order o = order(PaymentMethod.CARD, 3, "100.00", "0", "0", "0", "100");
++    OrderReturn old = pickedUp(o, 1, "SOURCE");
++    old.markRefunded(NOW);
++
++    ReturnRefundPlan plan = freeze(pickedUp(o, 1, "SOURCE"));
++
++    assertThat(plan.wallet()).isEqualByComparingTo("33.33");
++    assertThat(plan.rest()).isEqualByComparingTo("66.67");
++  }
++
++  @Test
++  @DisplayName("freezing twice keeps the first legs")
++  void noOpWhenFrozen() {
++    Order o = order(PaymentMethod.CARD, 3, "100.00", "0", "0", "0", "100");
++    OrderReturn r = pickedUp(o, 1, "SOURCE");
++    ReturnRefundPlan first = freeze(r);
++
++    ReturnRefundPlan second = freeze(r);
++
++    assertThat(second.wallet()).isEqualByComparingTo(first.wallet());
++    assertThat(second.rest()).isEqualByComparingTo(first.rest());
++  }
++}
+diff --git a/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/OrderRemoteRefundTest.java b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/OrderRemoteRefundTest.java
+new file mode 100644
+index 0000000..6998867
+--- /dev/null
++++ b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/OrderRemoteRefundTest.java
+@@ -0,0 +1,94 @@
++package com.acme.ecommerce.order.service;
++
++import static org.assertj.core.api.Assertions.assertThat;
++import static org.assertj.core.api.Assertions.assertThatThrownBy;
++import static org.mockito.ArgumentMatchers.any;
++import static org.mockito.Mockito.mock;
++import static org.mockito.Mockito.when;
++
++import com.acme.ecommerce.common.core.error.CodedException;
++import com.acme.ecommerce.common.core.error.ErrorCode;
++import com.acme.ecommerce.order.client.PaymentFeignClient;
++import com.acme.ecommerce.order.client.PaymentFeignClient.RefundResult;
++import feign.FeignException;
++import feign.Request;
++import feign.Response;
++import java.math.BigDecimal;
++import java.nio.charset.StandardCharsets;
++import java.util.Map;
++import java.util.UUID;
++import org.junit.jupiter.api.DisplayName;
++import org.junit.jupiter.api.Test;
++import org.junit.jupiter.params.ParameterizedTest;
++import org.junit.jupiter.params.provider.CsvSource;
++
++/** O-05a T4: the refund call returns the refund-row status; errors still translate. */
++class OrderRemoteRefundTest {
++
++  private final PaymentFeignClient payments = mock(PaymentFeignClient.class);
++  private final OrderRemote remote =
++      new OrderRemote(null, payments, null, null, null, mock(WalletCreditBacks.class), null);
++  private final UUID order = UUID.randomUUID();
++
++  private String refund() {
++    return remote.refund(order, new BigDecimal("10.00"), "r", "k", null);
++  }
++
++  @ParameterizedTest
++  @CsvSource({"PENDING,PENDING", "SUCCEEDED,SUCCEEDED", "FAILED,FAILED"})
++  @DisplayName("the refund-row status is passed through")
++  void passesThrough(String sent, String expected) {
++    when(payments.refund(any(), any()))
++        .thenReturn(new RefundResult("PARTIALLY_REFUNDED", BigDecimal.TEN, sent));
++
++    assertThat(refund()).isEqualTo(expected);
++  }
++
++  @Test
++  @DisplayName("a null refundStatus (older payment-service) is read as SUCCEEDED")
++  void nullIsSucceeded() {
++    when(payments.refund(any(), any()))
++        .thenReturn(new RefundResult("REFUNDED", BigDecimal.TEN, null));
++
++    assertThat(refund()).isEqualTo("SUCCEEDED");
++  }
++
++  private static FeignException failure(int status, String body) {
++    Request req =
++        Request.create(
++            Request.HttpMethod.POST, "http://payment-service/x", Map.of(), null, null, null);
++    return FeignException.errorStatus(
++        "refund",
++        Response.builder()
++            .status(status)
++            .reason("r")
++            .request(req)
++            .headers(Map.of())
++            .body(body, StandardCharsets.UTF_8)
++            .build());
++  }
++
++  @Test
++  @DisplayName("a 503 stays a 503")
++  void unavailable() {
++    when(payments.refund(any(), any())).thenThrow(failure(503, ""));
++
++    assertThatThrownBy(this::refund)
++        .isInstanceOfSatisfying(
++            CodedException.class,
++            e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.DEPENDENCY_UNAVAILABLE));
++  }
++
++  @Test
++  @DisplayName("a 404 payment is translated to PAYMENT_NOT_FOUND")
++  void notFound() {
++    when(payments.refund(any(), any()))
++        .thenThrow(
++            failure(404, "{\"code\":\"PAYMENT_NOT_FOUND\",\"detail\":\"Payment not found\"}"));
++
++    assertThatThrownBy(this::refund)
++        .isInstanceOfSatisfying(
++            CodedException.class,
++            e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.PAYMENT_NOT_FOUND));
++  }
++}
+diff --git a/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/ReturnRefundIntegrationTest.java b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/ReturnRefundIntegrationTest.java
+new file mode 100644
+index 0000000..05a1427
+--- /dev/null
++++ b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/ReturnRefundIntegrationTest.java
+@@ -0,0 +1,442 @@
++package com.acme.ecommerce.order.service;
++
++import static org.assertj.core.api.Assertions.assertThat;
++import static org.assertj.core.api.Assertions.assertThatThrownBy;
++import static org.mockito.ArgumentMatchers.any;
++import static org.mockito.ArgumentMatchers.argThat;
++import static org.mockito.Mockito.doThrow;
++import static org.mockito.Mockito.never;
++import static org.mockito.Mockito.reset;
++import static org.mockito.Mockito.times;
++import static org.mockito.Mockito.verify;
++import static org.mockito.Mockito.when;
++
++import com.acme.ecommerce.common.core.error.CodedException;
++import com.acme.ecommerce.common.core.error.ErrorCode;
++import com.acme.ecommerce.order.api.dto.AdminRequests.ReturnStatusUpdate;
++import com.acme.ecommerce.order.api.dto.AdminRequests.ReturnTarget;
++import com.acme.ecommerce.order.api.dto.ReturnResponse;
++import com.acme.ecommerce.order.client.PaymentFeignClient;
++import com.acme.ecommerce.order.client.PaymentFeignClient.RefundResult;
++import com.acme.ecommerce.order.domain.Order;
++import com.acme.ecommerce.order.domain.Order.ReturnLine;
++import com.acme.ecommerce.order.domain.Order.ShipTo;
++import com.acme.ecommerce.order.domain.OrderStatus;
++import com.acme.ecommerce.order.domain.PaymentMethod;
++import com.acme.ecommerce.order.domain.Pricing;
++import com.acme.ecommerce.order.domain.ReturnReason;
++import com.acme.ecommerce.order.event.OrderEventPublisher;
++import com.acme.ecommerce.order.job.ReturnRefundWatch;
++import com.acme.ecommerce.order.repository.OrderRepository;
++import com.acme.ecommerce.order.repository.OrderReturnRepository;
++import com.acme.ecommerce.order.support.AbstractOrderIntegrationTest;
++import com.acme.ecommerce.order.web.AdminOrderController;
++import java.math.BigDecimal;
++import java.time.Instant;
++import java.util.List;
++import java.util.UUID;
++import java.util.concurrent.CountDownLatch;
++import java.util.concurrent.ExecutorService;
++import java.util.concurrent.Executors;
++import java.util.concurrent.Future;
++import java.util.concurrent.TimeUnit;
++import org.junit.jupiter.api.AfterEach;
++import org.junit.jupiter.api.BeforeEach;
++import org.junit.jupiter.api.DisplayName;
++import org.junit.jupiter.api.Test;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.jdbc.core.JdbcTemplate;
++import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
++import org.springframework.security.core.authority.SimpleGrantedAuthority;
++import org.springframework.security.core.context.SecurityContextHolder;
++import org.springframework.test.context.bean.override.mockito.MockitoBean;
++import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
++
++/**
++ * O-05a on the real schema: V13, the lease and attempt updates, the finalize transaction, the watch
++ * and the end-to-end refund flow. payment-service is the only thing mocked (its Feign client).
++ */
++class ReturnRefundIntegrationTest extends AbstractOrderIntegrationTest {
++
++  @MockitoBean private PaymentFeignClient payments;
++  @MockitoSpyBean private OrderEventPublisher events;
++
++  @Autowired private ReturnService returns;
++  @Autowired private OrderStore store;
++  @Autowired private OrderRepository orders;
++  @Autowired private OrderReturnRepository returnRepo;
++  @Autowired private ReturnRefundWatch watch;
++  @Autowired private AdminOrderController admin;
++  @Autowired private JdbcTemplate jdbc;
++
++  private final UUID product = UUID.randomUUID();
++
++  @BeforeEach
++  void clear() {
++    reset(payments);
++  }
++
++  @AfterEach
++  void clearSecurity() {
++    SecurityContextHolder.clearContext();
++  }
++
++  /** A delivered CARD order of 3 x 100 with a wallet part; returns one item, PICKED_UP. */
++  private UUID pickedUpReturn(String wallet) {
++    Instant now = Instant.now();
++    Order o =
++        Order.draft(
++            UUID.randomUUID(),
++            "a@b.c",
++            UUID.randomUUID().toString(),
++            UUID.randomUUID(),
++            new ShipTo("N", "1", "l1", null, "c", "s", "560001", "IN"),
++            "INR",
++            PaymentMethod.CARD,
++            now);
++    o.addItem(product, null, null, "sku", "P", new BigDecimal("100.00"), 3, null);
++    BigDecimal sub = new BigDecimal("300.00");
++    o.applyMoney(0, BigDecimal.ZERO, new BigDecimal(wallet), false, null);
++    o.begin(
++        new Pricing(
++            sub,
++            BigDecimal.ZERO,
++            BigDecimal.ZERO,
++            sub,
++            BigDecimal.ZERO,
++            null,
++            null,
++            null,
++            null,
++            BigDecimal.ZERO,
++            false),
++        null,
++        null,
++        now);
++    o.markPaid("pay-1", now);
++    o.advance(OrderStatus.DELIVERED, "delivered", null, null, now);
++    orders.saveAndFlush(o);
++    UUID id =
++        store
++            .requestReturn(
++                o.getUserId(),
++                o.getId(),
++                List.of(new ReturnLine(product, null, 1)),
++                ReturnReason.DAMAGED,
++                null,
++                "SOURCE",
++                null)
++            .ret()
++            .id();
++    store.decide(id, true, null);
++    store.pickedUp(id);
++    return id;
++  }
++
++  private void paymentReplies(String... statuses) {
++    var stub = when(payments.refund(any(), any()));
++    RefundResult first = new RefundResult("PARTIALLY_REFUNDED", BigDecimal.TEN, statuses[0]);
++    var chain = stub.thenReturn(first);
++    for (int i = 1; i < statuses.length; i++) {
++      chain = chain.thenReturn(new RefundResult("PARTIALLY_REFUNDED", BigDecimal.TEN, statuses[i]));
++    }
++  }
++
++  private String status(UUID id) {
++    return jdbc.queryForObject(
++        "select status from orders.order_returns where id = ?", String.class, id);
++  }
++
++  private long outbox(UUID orderId, String kind) {
++    return jdbc.queryForObject(
++        "select count(*) from orders.outbox where aggregate_id = ? and kind = ?",
++        Long.class,
++        orderId,
++        kind);
++  }
++
++  private UUID orderOf(UUID returnId) {
++    return jdbc.queryForObject(
++        "select order_id from orders.order_returns where id = ?", UUID.class, returnId);
++  }
++
++  private void verifyWalletCredits(int times, UUID id) {
++    verify(payments, times(times))
++        .walletCredit(argThat(c -> c.idempotencyKey().equals("return-wallet-" + id)));
++  }
++
++  // ---- T2: migration, lease, attempt ----------------------------------------------------
++
++  @Test
++  @DisplayName("V13 applies on top of V12 and a row with null legs loads with defaults")
++  void migrationAndNullLegs() {
++    UUID id = pickedUpReturn("0");
++
++    var loaded = returnRepo.findById(id).orElseThrow();
++
++    assertThat(loaded.getWalletLegAmount()).isNull();
++    assertThat(loaded.getRestLegState()).isNull();
++    assertThat(loaded.getRestLegAttempt()).isZero();
++    assertThat(loaded.getShippingRefund()).isEqualByComparingTo("0");
++    assertThat(
++            jdbc.queryForObject(
++                "select count(*) from pg_indexes where indexname = 'ix_order_returns_rest_pending'",
++                Long.class))
++        .isEqualTo(1L);
++  }
++
++  @Test
++  @DisplayName("the lease is won once, is refused to a second caller, and frees on release")
++  void leaseWinsOnce() {
++    UUID id = pickedUpReturn("0");
++
++    assertThat(store.claimRefundLease(id)).isTrue();
++    assertThat(store.claimRefundLease(id)).isFalse();
++    store.releaseRefundLease(id);
++    assertThat(store.claimRefundLease(id)).isTrue();
++  }
++
++  @Test
++  @DisplayName("the lease is refused unless the return is PICKED_UP")
++  void leaseNeedsPickedUp() {
++    UUID id = pickedUpReturn("0");
++    jdbc.update("update orders.order_returns set status = 'REFUNDED' where id = ?", id);
++
++    assertThat(store.claimRefundLease(id)).isFalse();
++  }
++
++  @Test
++  @DisplayName("the attempt bump is conditional on the current attempt")
++  void bumpIsConditional() {
++    UUID id = pickedUpReturn("0");
++
++    assertThat(store.bumpRestLegAttempt(id, 0)).isTrue();
++    assertThat(store.bumpRestLegAttempt(id, 0)).isFalse();
++    assertThat(store.bumpRestLegAttempt(id, 1)).isTrue();
++    assertThat(returnRepo.findById(id).orElseThrow().getRestLegAttempt()).isEqualTo(2);
++  }
++
++  // ---- T6 / T9: flow ----------------------------------------------------------------------
++
++  @Test
++  @DisplayName("a split refund finalizes once: REFUNDED, one RELEASE_STOCK, one event row")
++  void finalizesOnce() {
++    UUID id = pickedUpReturn("30");
++    UUID orderId = orderOf(id);
++    paymentReplies("SUCCEEDED");
++
++    ReturnResponse res = returns.refund(id);
++
++    assertThat(res.status()).isEqualTo("REFUNDED");
++    assertThat(status(id)).isEqualTo("REFUNDED");
++    assertThat(outbox(orderId, "RELEASE_STOCK")).isEqualTo(1);
++    assertThat(outbox(orderId, "ORDER_EVENT")).isEqualTo(1);
++    verifyWalletCredits(1, id);
++    assertThat(
++            jdbc.queryForObject(
++                "select wallet_leg_amount from orders.order_returns where id = ?",
++                BigDecimal.class,
++                id))
++        .isEqualByComparingTo("10.00");
++  }
++
++  @Test
++  @DisplayName("AC-9: calling refund again on a REFUNDED return adds no call, ledger or outbox row")
++  void refundedIsNoOp() {
++    UUID id = pickedUpReturn("30");
++    UUID orderId = orderOf(id);
++    paymentReplies("SUCCEEDED");
++    returns.refund(id);
++    reset(payments);
++
++    ReturnResponse again = returns.refund(id);
++
++    assertThat(again.status()).isEqualTo("REFUNDED");
++    org.mockito.Mockito.verifyNoInteractions(payments);
++    assertThat(outbox(orderId, "RELEASE_STOCK")).isEqualTo(1);
++    assertThat(outbox(orderId, "ORDER_EVENT")).isEqualTo(1);
++  }
++
++  @Test
++  @DisplayName("AC-8: wallet ok, card fails, retry: one wallet credit, same card key, REFUNDED")
++  void walletOkCardFailsThenRetry() {
++    UUID id = pickedUpReturn("30");
++    UUID orderId = orderOf(id);
++    when(payments.refund(any(), any()))
++        .thenThrow(new IllegalStateException("card down"))
++        .thenReturn(new RefundResult("PARTIALLY_REFUNDED", BigDecimal.TEN, "SUCCEEDED"));
++
++    assertThatThrownBy(() -> returns.refund(id)).isInstanceOf(IllegalStateException.class);
++    assertThat(status(id)).isEqualTo("PICKED_UP");
++    assertThat(
++            jdbc.queryForObject(
++                "select rest_leg_state from orders.order_returns where id = ?", String.class, id))
++        .isEqualTo("FAILED");
++    assertThat(
++            jdbc.queryForObject(
++                "select wallet_leg_done_at is not null from orders.order_returns where id = ?",
++                Boolean.class,
++                id))
++        .isTrue();
++    assertThat(outbox(orderId, "RELEASE_STOCK")).isZero();
++
++    returns.refund(id);
++
++    assertThat(status(id)).isEqualTo("REFUNDED");
++    verifyWalletCredits(1, id);
++    verify(payments, times(2))
++        .refund(any(), argThat(r -> r.idempotencyKey().equals("return-" + id)));
++    assertThat(outbox(orderId, "RELEASE_STOCK")).isEqualTo(1);
++  }
++
++  @Test
++  @DisplayName("a pre-V13 row (no leg progress, wallet already credited) retries on the same key")
++  void preMigrationRowRetries() {
++    UUID id = pickedUpReturn("30");
++    paymentReplies("SUCCEEDED");
++
++    // Same state an old build leaves behind: legs not frozen, nothing recorded.
++    returns.refund(id);
++    jdbc.update(
++        "update orders.order_returns set status = 'PICKED_UP', wallet_leg_amount = null,"
++            + " rest_leg_amount = null, rest_route = null, wallet_leg_done_at = null,"
++            + " rest_leg_state = null where id = ?",
++        id);
++    reset(payments);
++    paymentReplies("SUCCEEDED");
++
++    returns.refund(id);
++
++    // The wallet call repeats once under the unchanged key (payment-service replays it).
++    verifyWalletCredits(1, id);
++    assertThat(status(id)).isEqualTo("REFUNDED");
++  }
++
++  @Test
++  @DisplayName("a failing finalize rolls back: no REFUNDED, no stock or event outbox rows")
++  void finalizeRollsBack() {
++    UUID id = pickedUpReturn("0");
++    UUID orderId = orderOf(id);
++    paymentReplies("SUCCEEDED");
++    doThrow(new IllegalStateException("publish failed"))
++        .when(events)
++        .publishReturn(any(), any(), any());
++
++    assertThatThrownBy(() -> returns.refund(id)).isInstanceOf(IllegalStateException.class);
++
++    assertThat(status(id)).isEqualTo("PICKED_UP");
++    assertThat(outbox(orderId, "RELEASE_STOCK")).isZero();
++    assertThat(outbox(orderId, "ORDER_EVENT")).isZero();
++  }
++
++  @Test
++  @DisplayName(
++      "C5: two concurrent refunds give one REFUNDED, one stock row, one event, one card call")
++  void concurrentRefunds() throws Exception {
++    UUID id = pickedUpReturn("0");
++    UUID orderId = orderOf(id);
++    CountDownLatch inCall = new CountDownLatch(1);
++    CountDownLatch go = new CountDownLatch(1);
++    when(payments.refund(any(), any()))
++        .thenAnswer(
++            i -> {
++              inCall.countDown();
++              go.await(10, TimeUnit.SECONDS);
++              return new RefundResult("PARTIALLY_REFUNDED", BigDecimal.TEN, "SUCCEEDED");
++            });
++    ExecutorService pool = Executors.newSingleThreadExecutor();
++    try {
++      Future<ReturnResponse> first = pool.submit(() -> returns.refund(id));
++      assertThat(inCall.await(10, TimeUnit.SECONDS)).isTrue();
++
++      assertThatThrownBy(() -> returns.refund(id))
++          .isInstanceOfSatisfying(
++              CodedException.class,
++              e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.RESOURCE_CONFLICT));
++      go.countDown();
++      assertThat(first.get(10, TimeUnit.SECONDS).status()).isEqualTo("REFUNDED");
++    } finally {
++      pool.shutdownNow();
++    }
++
++    assertThat(status(id)).isEqualTo("REFUNDED");
++    assertThat(outbox(orderId, "RELEASE_STOCK")).isEqualTo(1);
++    assertThat(outbox(orderId, "ORDER_EVENT")).isEqualTo(1);
++    verify(payments, times(1)).refund(any(), any());
++  }
++
++  @Test
++  @DisplayName("a second finalize on a REFUNDED return conflicts and writes nothing")
++  void secondFinalizeConflicts() {
++    UUID id = pickedUpReturn("0");
++    paymentReplies("SUCCEEDED");
++    returns.refund(id);
++
++    assertThatThrownBy(() -> store.completeRefund(id)).isInstanceOf(CodedException.class);
++  }
++
++  // ---- T8: watch ----------------------------------------------------------------------------
++
++  @Test
++  @DisplayName("AC-11/12: PENDING leaves PICKED_UP; the watch finalizes it once when SUCCEEDED")
++  void watchSettlesPending() {
++    UUID id = pickedUpReturn("0");
++    UUID orderId = orderOf(id);
++    paymentReplies("PENDING", "SUCCEEDED");
++
++    ReturnResponse res = returns.refund(id);
++
++    assertThat(res.status()).isEqualTo("PICKED_UP");
++    assertThat(res.refundState()).isEqualTo("PENDING");
++    assertThat(outbox(orderId, "RELEASE_STOCK")).isZero();
++
++    watch.poll();
++    watch.poll();
++
++    assertThat(status(id)).isEqualTo("REFUNDED");
++    assertThat(outbox(orderId, "RELEASE_STOCK")).isEqualTo(1);
++    assertThat(outbox(orderId, "ORDER_EVENT")).isEqualTo(1);
++    verify(payments, times(2)).refund(any(), any());
++  }
++
++  @Test
++  @DisplayName("AC-12: FAILED stays PICKED_UP; the admin retry skips the wallet and uses -r1")
++  void failedThenAdminRetry() {
++    UUID id = pickedUpReturn("30");
++    paymentReplies("PENDING", "FAILED", "FAILED", "SUCCEEDED");
++
++    returns.refund(id);
++    watch.poll();
++
++    assertThat(status(id)).isEqualTo("PICKED_UP");
++    assertThat(
++            jdbc.queryForObject(
++                "select rest_leg_state from orders.order_returns where id = ?", String.class, id))
++        .isEqualTo("FAILED");
++
++    // Admin retry: replay of the old key says FAILED, so the -r1 key is used.
++    returns.refund(id);
++
++    assertThat(status(id)).isEqualTo("REFUNDED");
++    verifyWalletCredits(1, id);
++    verify(payments).refund(any(), argThat(r -> r.idempotencyKey().equals("return-" + id + "-r1")));
++    verify(payments, never())
++        .refund(any(), argThat(r -> r.idempotencyKey().equals("return-" + id + "-r2")));
++  }
++
++  // ---- T9: admin only ---------------------------------------------------------------------
++
++  @Test
++  @DisplayName("a customer cannot trigger a return refund")
++  void customerForbidden() {
++    UUID id = pickedUpReturn("0");
++    SecurityContextHolder.getContext()
++        .setAuthentication(
++            new UsernamePasswordAuthenticationToken(
++                "u", "n/a", List.of(new SimpleGrantedAuthority("ROLE_CUSTOMER"))));
++
++    assertThatThrownBy(() -> admin.returnStatus(id, new ReturnStatusUpdate(ReturnTarget.REFUNDED)))
++        .isInstanceOf(org.springframework.security.access.AccessDeniedException.class);
++    org.mockito.Mockito.verifyNoInteractions(payments);
++  }
++}
+diff --git a/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/ReturnServiceRefundTest.java b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/ReturnServiceRefundTest.java
+new file mode 100644
+index 0000000..1df400a
+--- /dev/null
++++ b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/ReturnServiceRefundTest.java
+@@ -0,0 +1,414 @@
++package com.acme.ecommerce.order.service;
++
++import static org.assertj.core.api.Assertions.assertThat;
++import static org.assertj.core.api.Assertions.assertThatThrownBy;
++import static org.mockito.ArgumentMatchers.any;
++import static org.mockito.ArgumentMatchers.anyInt;
++import static org.mockito.ArgumentMatchers.anyString;
++import static org.mockito.ArgumentMatchers.eq;
++import static org.mockito.ArgumentMatchers.isNull;
++import static org.mockito.Mockito.doThrow;
++import static org.mockito.Mockito.inOrder;
++import static org.mockito.Mockito.mock;
++import static org.mockito.Mockito.never;
++import static org.mockito.Mockito.times;
++import static org.mockito.Mockito.verify;
++import static org.mockito.Mockito.verifyNoInteractions;
++import static org.mockito.Mockito.when;
++
++import com.acme.ecommerce.common.core.error.CodedException;
++import com.acme.ecommerce.common.core.error.ErrorCode;
++import com.acme.ecommerce.order.api.dto.ReturnResponse;
++import com.acme.ecommerce.order.domain.ReturnStatus;
++import com.acme.ecommerce.order.event.OrderEventPublisher;
++import com.acme.ecommerce.order.event.OrderEventType;
++import com.acme.ecommerce.order.service.OrderStore.ReturnOutcome;
++import com.acme.ecommerce.order.service.OrderStore.ReturnRefundPlan;
++import java.math.BigDecimal;
++import java.util.List;
++import java.util.UUID;
++import org.junit.jupiter.api.BeforeEach;
++import org.junit.jupiter.api.DisplayName;
++import org.junit.jupiter.api.Test;
++import org.mockito.InOrder;
++import org.springframework.transaction.support.TransactionCallback;
++import org.springframework.transaction.support.TransactionTemplate;
++
++/**
++ * O-05a: the refund flow across wallet leg, rest leg, retries, PENDING and COD (CTO C1, C3, C5).
++ */
++class ReturnServiceRefundTest {
++
++  private final OrderStore store = mock(OrderStore.class);
++  private final OrderRemote remote = mock(OrderRemote.class);
++  private final OrderEventPublisher events = mock(OrderEventPublisher.class);
++  private final TransactionTemplate tx = mock(TransactionTemplate.class);
++  private final ReturnService service = new ReturnService(store, remote, events, tx);
++
++  private final UUID id = UUID.randomUUID();
++  private final UUID orderId = UUID.randomUUID();
++  private final UUID userId = UUID.randomUUID();
++
++  private static ReturnResponse response() {
++    return new ReturnResponse(
++        null,
++        null,
++        "REFUNDED",
++        null,
++        null,
++        List.of(),
++        null,
++        null,
++        null,
++        null,
++        null,
++        false,
++        null,
++        null);
++  }
++
++  @BeforeEach
++  @SuppressWarnings("unchecked")
++  void setUp() {
++    when(tx.execute(any()))
++        .thenAnswer(i -> ((TransactionCallback<Object>) i.getArgument(0)).doInTransaction(null));
++    when(store.claimRefundLease(id)).thenReturn(true);
++    when(store.completeRefund(id)).thenReturn(new ReturnOutcome(response(), null));
++  }
++
++  private ReturnRefundPlan plan(
++      ReturnStatus status,
++      String wallet,
++      String rest,
++      String route,
++      boolean walletDone,
++      String restState,
++      int attempt) {
++    return new ReturnRefundPlan(
++        id,
++        orderId,
++        userId,
++        "INR",
++        status,
++        List.of(),
++        new BigDecimal(wallet),
++        new BigDecimal(rest),
++        route,
++        walletDone,
++        restState,
++        attempt,
++        "return-" + id + (attempt == 0 ? "" : "-r" + attempt));
++  }
++
++  private void given(ReturnRefundPlan p) {
++    when(store.refundPlan(id)).thenReturn(p);
++    when(store.freezeLegs(id)).thenReturn(p);
++  }
++
++  private ReturnRefundPlan split() {
++    return plan(ReturnStatus.PICKED_UP, "30.00", "70.00", "PAYMENT_SOURCE", false, null, 0);
++  }
++
++  private void verifyFinalizedOnce() {
++    verify(store, times(1)).completeRefund(id);
++    verify(remote, times(1)).releaseStock(eq(orderId), eq(id), any());
++    verify(events, times(1)).publishReturn(eq(OrderEventType.RETURN_REFUNDED), any(), any());
++  }
++
++  private void verifyNotFinalized() {
++    verify(store, never()).completeRefund(any());
++    verify(remote, never()).releaseStock(any(), any(), any());
++    verify(events, never()).publishReturn(any(), any(), any());
++  }
++
++  @Test
++  @DisplayName("AC-6: the wallet-done write precedes the card refund call")
++  void walletDoneBeforeRefund() {
++    given(split());
++    when(remote.refund(any(), any(), anyString(), anyString(), any())).thenReturn("SUCCEEDED");
++
++    service.refund(id);
++
++    InOrder order = inOrder(remote, store);
++    order
++        .verify(remote)
++        .creditWallet(userId, new BigDecimal("30.00"), "INR", orderId, "return-wallet-" + id);
++    order.verify(store).markWalletLegDone(id);
++    order
++        .verify(remote)
++        .refund(orderId, new BigDecimal("70.00"), "Return refunded", "return-" + id, null);
++    order.verify(store).setRestLegState(id, "SUCCEEDED");
++    verifyFinalizedOnce();
++    verify(store).releaseRefundLease(id);
++  }
++
++  @Test
++  @DisplayName(
++      "AC-7 and C3: a card exception records FAILED, never bumps the attempt, stays PICKED_UP")
++  void cardThrows() {
++    given(split());
++    when(remote.refund(any(), any(), anyString(), anyString(), any()))
++        .thenThrow(new CodedException(ErrorCode.DEPENDENCY_UNAVAILABLE, "down"));
++
++    assertThatThrownBy(() -> service.refund(id)).isInstanceOf(CodedException.class);
++
++    verify(store).markWalletLegDone(id);
++    verify(store).setRestLegState(id, "FAILED");
++    verify(store, never()).bumpRestLegAttempt(any(), anyInt());
++    verify(remote, never()).refund(any(), any(), any(), eq("return-" + id + "-r1"), any());
++    verifyNotFinalized();
++    verify(store).releaseRefundLease(id);
++  }
++
++  @Test
++  @DisplayName(
++      "AC-8: a retry after wallet-ok card-failed skips the wallet, keeps the key, finalizes")
++  void retryAfterCardFailure() {
++    given(plan(ReturnStatus.PICKED_UP, "30.00", "70.00", "PAYMENT_SOURCE", true, "FAILED", 0));
++    when(remote.refund(any(), any(), anyString(), anyString(), any())).thenReturn("SUCCEEDED");
++
++    service.refund(id);
++
++    verify(remote, never()).creditWallet(any(), any(), any(), any(), anyString());
++    verify(remote)
++        .refund(orderId, new BigDecimal("70.00"), "Return refunded", "return-" + id, null);
++    verify(store, never()).bumpRestLegAttempt(any(), anyInt());
++    verifyFinalizedOnce();
++  }
++
++  @Test
++  @DisplayName("AC-9: a REFUNDED return makes no remote call and no write")
++  void alreadyRefunded() {
++    when(store.refundPlan(id))
++        .thenReturn(
++            plan(ReturnStatus.REFUNDED, "30.00", "70.00", "PAYMENT_SOURCE", true, "SUCCEEDED", 0));
++    when(store.view(id)).thenReturn(response());
++
++    assertThat(service.refund(id)).isEqualTo(response());
++
++    verifyNoInteractions(remote, events);
++    verify(store, never()).claimRefundLease(any());
++    verify(store, never()).completeRefund(any());
++  }
++
++  @Test
++  @DisplayName("AC-11: a PENDING card leg is recorded; no finalize, stock release or event")
++  void pendingLeg() {
++    given(split());
++    when(remote.refund(any(), any(), anyString(), anyString(), any())).thenReturn("PENDING");
++
++    service.refund(id);
++
++    verify(store).setRestLegState(id, "PENDING");
++    verifyNotFinalized();
++  }
++
++  @Test
++  @DisplayName("AC-13: a retry while PENDING reuses the same key")
++  void retryWhilePending() {
++    given(plan(ReturnStatus.PICKED_UP, "0.00", "70.00", "PAYMENT_SOURCE", false, "PENDING", 0));
++    when(remote.refund(any(), any(), anyString(), anyString(), any())).thenReturn("PENDING");
++
++    service.refund(id);
++
++    verify(remote)
++        .refund(orderId, new BigDecimal("70.00"), "Return refunded", "return-" + id, null);
++    verify(store, never()).bumpRestLegAttempt(any(), anyInt());
++    verifyNotFinalized();
++  }
++
++  @Test
++  @DisplayName("C3: only a FAILED refund row starts the -r1 key, once, then finalizes")
++  void failedRowStartsNewKey() {
++    given(plan(ReturnStatus.PICKED_UP, "0.00", "70.00", "PAYMENT_SOURCE", true, "PENDING", 0));
++    when(remote.refund(any(), any(), anyString(), eq("return-" + id), any())).thenReturn("FAILED");
++    when(remote.refund(any(), any(), anyString(), eq("return-" + id + "-r1"), any()))
++        .thenReturn("SUCCEEDED");
++    when(store.bumpRestLegAttempt(id, 0)).thenReturn(true);
++
++    service.refund(id);
++
++    InOrder order = inOrder(remote, store);
++    order.verify(remote).refund(any(), any(), anyString(), eq("return-" + id), any());
++    order.verify(store).bumpRestLegAttempt(id, 0);
++    order.verify(remote).refund(any(), any(), anyString(), eq("return-" + id + "-r1"), any());
++    verifyFinalizedOnce();
++  }
++
++  @Test
++  @DisplayName("a lost attempt-bump race is a 409 and records nothing")
++  void bumpRace() {
++    given(plan(ReturnStatus.PICKED_UP, "0.00", "70.00", "PAYMENT_SOURCE", true, "FAILED", 0));
++    when(remote.refund(any(), any(), anyString(), anyString(), any())).thenReturn("FAILED");
++    when(store.bumpRestLegAttempt(id, 0)).thenReturn(false);
++
++    assertThatThrownBy(() -> service.refund(id))
++        .isInstanceOfSatisfying(
++            CodedException.class,
++            e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.RESOURCE_CONFLICT));
++
++    verify(store, never()).setRestLegState(any(), anyString());
++    verifyNotFinalized();
++  }
++
++  @Test
++  @DisplayName("AC-4: COD sends destination WALLET once and credits no wallet itself")
++  void codDestinationWallet() {
++    given(plan(ReturnStatus.PICKED_UP, "0.00", "100.00", "PAYMENT_WALLET", false, null, 0));
++    when(remote.refund(any(), any(), anyString(), anyString(), any())).thenReturn("SUCCEEDED");
++
++    service.refund(id);
++
++    verify(remote, times(1))
++        .refund(orderId, new BigDecimal("100.00"), "Return refunded", "return-" + id, "WALLET");
++    verify(remote, never()).creditWallet(any(), any(), any(), any(), anyString());
++    verifyFinalizedOnce();
++  }
++
++  @Test
++  @DisplayName("C1 and AC-5: a 409 or 404 on a COD refund credits nothing and leaves PICKED_UP")
++  void codRejected() {
++    given(plan(ReturnStatus.PICKED_UP, "0.00", "100.00", "PAYMENT_WALLET", false, null, 0));
++    for (ErrorCode code : List.of(ErrorCode.RESOURCE_CONFLICT, ErrorCode.PAYMENT_NOT_FOUND)) {
++      doThrow(new CodedException(code, "rejected"))
++          .when(remote)
++          .refund(any(), any(), anyString(), anyString(), any());
++
++      assertThatThrownBy(() -> service.refund(id))
++          .isInstanceOfSatisfying(
++              CodedException.class, e -> assertThat(e.errorCode()).isEqualTo(code));
++    }
++
++    verify(remote, never()).creditWallet(any(), any(), any(), any(), anyString());
++    verifyNotFinalized();
++    verify(store, times(2)).setRestLegState(id, "FAILED");
++  }
++
++  @Test
++  @DisplayName("AC-5: payment-service down is 503 and nothing is finalized")
++  void codUnavailable() {
++    given(plan(ReturnStatus.PICKED_UP, "0.00", "100.00", "PAYMENT_WALLET", false, null, 0));
++    when(remote.refund(any(), any(), anyString(), anyString(), any()))
++        .thenThrow(new CodedException(ErrorCode.DEPENDENCY_UNAVAILABLE, "down"));
++
++    assertThatThrownBy(() -> service.refund(id))
++        .isInstanceOfSatisfying(
++            CodedException.class,
++            e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.DEPENDENCY_UNAVAILABLE));
++
++    verifyNotFinalized();
++  }
++
++  @Test
++  @DisplayName("a zero refund makes no payment or wallet call and still completes")
++  void zeroRefund() {
++    given(plan(ReturnStatus.PICKED_UP, "0.00", "0.00", "NONE", false, null, 0));
++
++    service.refund(id);
++
++    verify(remote, never()).refund(any(), any(), any(), any(), any());
++    verify(remote, never()).creditWallet(any(), any(), any(), any(), anyString());
++    verifyFinalizedOnce();
++  }
++
++  @Test
++  @DisplayName("a wallet-method remainder is credited under return-rest-<id>")
++  void directWallet() {
++    given(plan(ReturnStatus.PICKED_UP, "0.00", "50.00", "DIRECT_WALLET", false, null, 0));
++
++    service.refund(id);
++
++    verify(remote)
++        .creditWallet(userId, new BigDecimal("50.00"), "INR", orderId, "return-rest-" + id);
++    verify(store).setRestLegState(id, "SUCCEEDED");
++    verifyFinalizedOnce();
++  }
++
++  @Test
++  @DisplayName("a second caller while the lease is held gets 409 and touches nothing")
++  void refundInProgress() {
++    when(store.refundPlan(id)).thenReturn(split());
++    when(store.claimRefundLease(id)).thenReturn(false);
++
++    assertThatThrownBy(() -> service.refund(id))
++        .isInstanceOfSatisfying(
++            CodedException.class,
++            e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.RESOURCE_CONFLICT));
++
++    verifyNoInteractions(remote, events);
++    verify(store, never()).releaseRefundLease(any());
++  }
++
++  // ---- resumePending (watch) ------------------------------------------------------------
++
++  private ReturnRefundPlan pending() {
++    return plan(ReturnStatus.PICKED_UP, "0.00", "70.00", "PAYMENT_SOURCE", true, "PENDING", 0);
++  }
++
++  @Test
++  @DisplayName("AC-12: a PENDING leg that settled SUCCEEDED finalizes once")
++  void resumeSucceeded() {
++    when(store.refundPlan(id)).thenReturn(pending());
++    when(remote.refund(any(), any(), anyString(), anyString(), any())).thenReturn("SUCCEEDED");
++
++    service.resumePending(id);
++
++    verify(remote)
++        .refund(orderId, new BigDecimal("70.00"), "Return refunded", "return-" + id, null);
++    verify(store).setRestLegState(id, "SUCCEEDED");
++    verifyFinalizedOnce();
++    verify(store).releaseRefundLease(id);
++  }
++
++  @Test
++  @DisplayName("AC-12: a leg that settled FAILED is recorded and the return stays PICKED_UP")
++  void resumeFailed() {
++    when(store.refundPlan(id)).thenReturn(pending());
++    when(remote.refund(any(), any(), anyString(), anyString(), any())).thenReturn("FAILED");
++
++    service.resumePending(id);
++
++    verify(store).setRestLegState(id, "FAILED");
++    verify(store, never()).bumpRestLegAttempt(any(), anyInt());
++    verifyNotFinalized();
++  }
++
++  @Test
++  @DisplayName("a leg still PENDING is left alone")
++  void resumeStillPending() {
++    when(store.refundPlan(id)).thenReturn(pending());
++    when(remote.refund(any(), any(), anyString(), anyString(), any())).thenReturn("PENDING");
++
++    service.resumePending(id);
++
++    verify(store, never()).setRestLegState(any(), anyString());
++    verifyNotFinalized();
++  }
++
++  @Test
++  @DisplayName("resumePending does nothing without the lease")
++  void resumeWithoutLease() {
++    when(store.claimRefundLease(id)).thenReturn(false);
++
++    service.resumePending(id);
++
++    verifyNoInteractions(remote, events);
++    verify(store, never()).releaseRefundLease(any());
++  }
++
++  @Test
++  @DisplayName("COD destination is sent as WALLET on a resume as well")
++  void resumeKeepsDestination() {
++    when(store.refundPlan(id))
++        .thenReturn(
++            plan(ReturnStatus.PICKED_UP, "0.00", "100.00", "PAYMENT_WALLET", false, "PENDING", 2));
++    when(remote.refund(any(), any(), anyString(), anyString(), any())).thenReturn("PENDING");
++
++    service.resumePending(id);
++
++    verify(remote)
++        .refund(
++            orderId, new BigDecimal("100.00"), "Return refunded", "return-" + id + "-r2", "WALLET");
++    verify(remote, never()).refund(any(), any(), any(), any(), isNull());
++  }
++}
+diff --git a/services/payment-service/payment-service-api/src/main/java/com/acme/ecommerce/payment/api/dto/RefundResponse.java b/services/payment-service/payment-service-api/src/main/java/com/acme/ecommerce/payment/api/dto/RefundResponse.java
+index 92a17aa..30a98ec 100644
+--- a/services/payment-service/payment-service-api/src/main/java/com/acme/ecommerce/payment/api/dto/RefundResponse.java
++++ b/services/payment-service/payment-service-api/src/main/java/com/acme/ecommerce/payment/api/dto/RefundResponse.java
+@@ -2,5 +2,9 @@ package com.acme.ecommerce.payment.api.dto;
+ 
+ import java.math.BigDecimal;
+ 
+-/** Payment status after the refund (REFUNDED / PARTIALLY_REFUNDED) and total refunded so far. */
+-public record RefundResponse(String status, BigDecimal refundedAmount) {}
++/**
++ * Payment status after the refund (REFUNDED / PARTIALLY_REFUNDED), total refunded so far, and the
++ * status (PENDING, SUCCEEDED, FAILED) of the refund row stored under the request's idempotency key.
++ * refundStatus is null from a payment-service that predates it.
++ */
++public record RefundResponse(String status, BigDecimal refundedAmount, String refundStatus) {}
+diff --git a/services/payment-service/payment-service-app/src/main/java/com/acme/ecommerce/payment/repository/PaymentRepository.java b/services/payment-service/payment-service-app/src/main/java/com/acme/ecommerce/payment/repository/PaymentRepository.java
+index 6922fd7..a162092 100644
+--- a/services/payment-service/payment-service-app/src/main/java/com/acme/ecommerce/payment/repository/PaymentRepository.java
++++ b/services/payment-service/payment-service-app/src/main/java/com/acme/ecommerce/payment/repository/PaymentRepository.java
+@@ -323,6 +323,15 @@ public class PaymentRepository {
+         .update();
+   }
+ 
++  /** Status of the refund row stored under this idempotency key (null if none). */
++  public String refundStatusByKey(String idempotencyKey) {
++    return jdbc.sql("SELECT status FROM payment.refunds WHERE idempotency_key = :k")
++        .param("k", idempotencyKey)
++        .query(String.class)
++        .optional()
++        .orElse(null);
++  }
++
+   public String refundStatus(UUID id) {
+     return jdbc.sql("SELECT status FROM payment.refunds WHERE id = :i")
+         .param("i", id)
+diff --git a/services/payment-service/payment-service-app/src/main/java/com/acme/ecommerce/payment/service/PaymentService.java b/services/payment-service/payment-service-app/src/main/java/com/acme/ecommerce/payment/service/PaymentService.java
+index 37700cf..344726b 100644
+--- a/services/payment-service/payment-service-app/src/main/java/com/acme/ecommerce/payment/service/PaymentService.java
++++ b/services/payment-service/payment-service-app/src/main/java/com/acme/ecommerce/payment/service/PaymentService.java
+@@ -691,7 +691,7 @@ public class PaymentService {
+   public RefundResponse refund(UUID orderId, RefundRequest req) {
+     Payment p = find(orderId);
+     if (payments.refundExists(req.idempotencyKey())) {
+-      return refundView(payments.findById(p.id()).orElse(p));
++      return refundView(payments.findById(p.id()).orElse(p), req.idempotencyKey());
+     }
+     if ("COD_PENDING".equals(p.status())
+         || "REQUIRES_PAYMENT".equals(p.status())
+@@ -722,7 +722,7 @@ public class PaymentService {
+         status -> {
+           Payment locked = payments.lockById(p.id()).orElseThrow();
+           if (payments.refundExists(req.idempotencyKey())) {
+-            return refundView(locked);
++            return refundView(locked, req.idempotencyKey());
+           }
+           BigDecimal total = locked.refundedAmount().add(amount);
+           if (total.compareTo(locked.amount()) > 0) {
+@@ -730,6 +730,7 @@ public class PaymentService {
+                 ErrorCode.DOMAIN_RULE_VIOLATION, "Refund amount exceeds the refundable balance");
+           }
+           // A Razorpay refund is only accepted, not done: PENDING until a webhook confirms it.
++          String insertedStatus = providerRefund != null ? "PENDING" : "SUCCEEDED";
+           UUID refundRowId =
+               payments.insertRefund(
+                   locked.id(),
+@@ -738,7 +739,7 @@ public class PaymentService {
+                   stripeRefund,
+                   providerRefund,
+                   req.idempotencyKey(),
+-                  providerRefund != null ? "PENDING" : "SUCCEEDED");
++                  insertedStatus);
+           if (toWallet) {
+             wallet.credit(
+                 locked.userId(),
+@@ -753,9 +754,9 @@ public class PaymentService {
+           payments.applyRefund(locked.id(), total, newStatus);
+           if (providerRefund != null
+               && applyParkedRefundEvents(locked.id(), refundRowId, providerRefund)) {
+-            return refundView(payments.findById(locked.id()).orElseThrow());
++            return refundView(payments.findById(locked.id()).orElseThrow(), req.idempotencyKey());
+           }
+-          return new RefundResponse(newStatus, total);
++          return new RefundResponse(newStatus, total, insertedStatus);
+         });
+   }
+ 
+@@ -957,8 +958,10 @@ public class PaymentService {
+     return amount.setScale(2, RoundingMode.HALF_UP).movePointRight(2).longValueExact();
+   }
+ 
+-  private static RefundResponse refundView(Payment p) {
+-    return new RefundResponse(p.status(), p.refundedAmount());
++  /** The payment's state plus the status of the refund row stored under this key. */
++  private RefundResponse refundView(Payment p, String idempotencyKey) {
++    return new RefundResponse(
++        p.status(), p.refundedAmount(), payments.refundStatusByKey(idempotencyKey));
+   }
+ 
+   private PaymentResponse view(Payment p) {
+diff --git a/services/payment-service/payment-service-app/src/test/java/com/acme/ecommerce/payment/service/RefundStatusReportIntegrationTest.java b/services/payment-service/payment-service-app/src/test/java/com/acme/ecommerce/payment/service/RefundStatusReportIntegrationTest.java
+new file mode 100644
+index 0000000..b4afabe
+--- /dev/null
++++ b/services/payment-service/payment-service-app/src/test/java/com/acme/ecommerce/payment/service/RefundStatusReportIntegrationTest.java
+@@ -0,0 +1,150 @@
++package com.acme.ecommerce.payment.service;
++
++import static org.assertj.core.api.Assertions.assertThat;
++import static org.assertj.core.api.Assertions.assertThatThrownBy;
++import static org.mockito.ArgumentMatchers.any;
++import static org.mockito.ArgumentMatchers.anyLong;
++import static org.mockito.ArgumentMatchers.anyString;
++import static org.mockito.ArgumentMatchers.eq;
++import static org.mockito.Mockito.doReturn;
++import static org.mockito.Mockito.times;
++import static org.mockito.Mockito.verify;
++import static org.mockito.Mockito.verifyNoMoreInteractions;
++
++import com.acme.ecommerce.common.core.error.CodedException;
++import com.acme.ecommerce.common.core.error.ErrorCode;
++import com.acme.ecommerce.payment.api.dto.RefundRequest;
++import com.acme.ecommerce.payment.support.AbstractPaymentIntegrationTest;
++import java.math.BigDecimal;
++import java.util.UUID;
++import org.junit.jupiter.api.DisplayName;
++import org.junit.jupiter.api.Test;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.jdbc.core.simple.JdbcClient;
++import org.springframework.test.context.TestPropertySource;
++import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
++
++/**
++ * O-05a T1: the refund reply carries the status of the refund row for the request key, and a replay
++ * is a DB lookup that never reaches the gateway (CTO condition 3).
++ */
++@TestPropertySource(
++    properties = {
++      "payment.razorpay.key-id=rzp_test_id",
++      "payment.razorpay.key-secret=rzp_secret",
++      "payment.razorpay.webhook-secret=whsec_test"
++    })
++class RefundStatusReportIntegrationTest extends AbstractPaymentIntegrationTest {
++
++  @Autowired private PaymentService service;
++  @Autowired private JdbcClient jdbc;
++  @MockitoSpyBean private RazorpayGateway razorpay;
++
++  private record Pay(UUID order, UUID user, String rzp) {}
++
++  private Pay payment(String method, String mode, String status) {
++    UUID order = UUID.randomUUID();
++    UUID user = UUID.randomUUID();
++    String rzp = "pay_" + UUID.randomUUID().toString().substring(0, 12);
++    jdbc.sql(
++            "INSERT INTO payment.payments (order_id, user_id, method, mode, amount, currency, "
++                + "status, provider_order_id, provider_payment_id, purpose, reference_id) "
++                + "VALUES (:o, :u, :m, :mode, 500.00, 'INR', :s, :po, :pp, 'ORDER', :o)")
++        .param("o", order)
++        .param("u", user)
++        .param("m", method)
++        .param("mode", mode)
++        .param("s", status)
++        .param("po", "order_" + order)
++        .param("pp", rzp)
++        .update();
++    return new Pay(order, user, rzp);
++  }
++
++  private static RefundRequest req(String amount, String key, String dest) {
++    return new RefundRequest(new BigDecimal(amount), "test", key, dest);
++  }
++
++  @Test
++  @DisplayName("a Razorpay refund replies refundStatus PENDING")
++  void pending() {
++    Pay p = payment("CARD", "RAZORPAY", "SUCCEEDED");
++    doReturn("rfnd_1").when(razorpay).refund(eq(p.rzp()), anyLong(), anyString(), any());
++
++    var res = service.refund(p.order(), req("500.00", "k-1", "SOURCE"));
++
++    assertThat(res.refundStatus()).isEqualTo("PENDING");
++  }
++
++  @Test
++  @DisplayName("a replay reports the stored status and never calls RazorpayGateway")
++  void replayNeverCallsGateway() {
++    Pay p = payment("CARD", "RAZORPAY", "SUCCEEDED");
++    doReturn("rfnd_2").when(razorpay).refund(eq(p.rzp()), anyLong(), anyString(), any());
++    service.refund(p.order(), req("500.00", "k-2", "SOURCE"));
++    verify(razorpay, times(1)).refund(eq(p.rzp()), anyLong(), anyString(), any());
++
++    var replay = service.refund(p.order(), req("500.00", "k-2", "SOURCE"));
++
++    assertThat(replay.refundStatus()).isEqualTo("PENDING");
++    verify(razorpay, times(1)).refund(eq(p.rzp()), anyLong(), anyString(), any());
++    verifyNoMoreInteractions(razorpay);
++  }
++
++  @Test
++  @DisplayName("after the refund row is FAILED the replay reports FAILED, with no gateway call")
++  void replayAfterFailed() {
++    Pay p = payment("CARD", "RAZORPAY", "SUCCEEDED");
++    doReturn("rfnd_3").when(razorpay).refund(eq(p.rzp()), anyLong(), anyString(), any());
++    service.refund(p.order(), req("500.00", "k-3", "SOURCE"));
++    jdbc.sql("UPDATE payment.refunds SET status = 'FAILED' WHERE idempotency_key = 'k-3'").update();
++
++    var replay = service.refund(p.order(), req("500.00", "k-3", "SOURCE"));
++
++    assertThat(replay.refundStatus()).isEqualTo("FAILED");
++    verify(razorpay, times(1)).refund(eq(p.rzp()), anyLong(), anyString(), any());
++  }
++
++  @Test
++  @DisplayName("a paid COD refund to WALLET raises refunded_amount and writes one wallet row")
++  void codToWallet() {
++    Pay p = payment("COD", "SIMULATED", "SUCCEEDED");
++
++    var res = service.refund(p.order(), req("200.00", "return-cod-1", "WALLET"));
++    service.refund(p.order(), req("200.00", "return-cod-1", "WALLET"));
++
++    assertThat(res.refundStatus()).isEqualTo("SUCCEEDED");
++    assertThat(
++            jdbc.sql("SELECT refunded_amount FROM payment.payments WHERE order_id = :o")
++                .param("o", p.order())
++                .query(BigDecimal.class)
++                .single())
++        .isEqualByComparingTo("200.00");
++    assertThat(
++            jdbc.sql("SELECT count(*) FROM payment.wallet_txns WHERE user_id = :u")
++                .param("u", p.user())
++                .query(Long.class)
++                .single())
++        .isEqualTo(1L);
++  }
++
++  @Test
++  @DisplayName("a COD payment still COD_PENDING is rejected with 409")
++  void codPending() {
++    Pay p = payment("COD", "SIMULATED", "COD_PENDING");
++
++    assertThatThrownBy(() -> service.refund(p.order(), req("200.00", "k-cp", "WALLET")))
++        .isInstanceOfSatisfying(
++            CodedException.class,
++            e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.RESOURCE_CONFLICT));
++  }
++
++  @Test
++  @DisplayName("a missing payment is a 404")
++  void missing() {
++    assertThatThrownBy(() -> service.refund(UUID.randomUUID(), req("1.00", "k-m", "WALLET")))
++        .isInstanceOfSatisfying(
++            CodedException.class,
++            e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.PAYMENT_NOT_FOUND));
++  }
++}

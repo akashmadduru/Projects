@@ -1,0 +1,13 @@
+{
+ "product_id": "a5671af9-4af3-4302-8d74-04254ea63968",
+ "name": "Rimi Strategy Game Plus",
+ "prompt": "studio packshot photo of a Navy Blue Rimi Strategy Game Plus, made of bamboo, board games, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 4126449729,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:14:32",
+ "file_path": "product-images/images/a5671af9-4af3-4302-8d74-04254ea63968.jpg",
+ "file_size": 89397
+}

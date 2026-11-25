@@ -1,0 +1,13 @@
+{
+ "product_id": "0cc5fb91-ec32-4be7-aecd-6f77078409cb",
+ "name": "Lino Mop Elite",
+ "prompt": "studio packshot photo of a Blue Lino Mop Elite, made of ceramic, cleaning, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3699342037,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 768,
+ "created_at": "2026-11-15T22:45:34",
+ "file_path": "product-images/images/0cc5fb91-ec32-4be7-aecd-6f77078409cb.jpg",
+ "file_size": 57766
+}

@@ -1,0 +1,15 @@
+{
+ "product_id": "658913cd-0edc-4e9b-4541-73264bb826a1",
+ "name": "Liar Colour Pencil Set Ultra",
+ "prompt": "studio packshot photo of a Olive Liar Colour Pencil Set Ultra, made of glass, art supplies, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 4115883716,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:31:21",
+ "file_path": "static/images/658913cd-0edc-4e9b-4541-73264bb826a1.jpg",
+ "file_size": 45844,
+ "uploaded": false,
+ "s3_url": null
+}

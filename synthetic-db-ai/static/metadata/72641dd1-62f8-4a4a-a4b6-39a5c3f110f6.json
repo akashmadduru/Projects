@@ -1,0 +1,15 @@
+{
+ "product_id": "72641dd1-62f8-4a4a-a4b6-39a5c3f110f6",
+ "name": "Suvo Resistance Bands Essential",
+ "prompt": "studio packshot photo of a Space Grey Suvo Resistance Bands Essential, made of abs plastic, fitness, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 216491647,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:32:08",
+ "file_path": "static/images/72641dd1-62f8-4a4a-a4b6-39a5c3f110f6.jpg",
+ "file_size": 75576,
+ "uploaded": false,
+ "s3_url": null
+}

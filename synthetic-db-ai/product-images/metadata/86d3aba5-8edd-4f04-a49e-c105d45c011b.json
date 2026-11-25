@@ -1,0 +1,13 @@
+{
+ "product_id": "86d3aba5-8edd-4f04-a49e-c105d45c011b",
+ "name": "Baar Air Fryer Edition",
+ "prompt": "studio packshot photo of a Midnight Baar Air Fryer Edition, made of wood, small appliances, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 810194477,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:55:06",
+ "file_path": "product-images/images/86d3aba5-8edd-4f04-a49e-c105d45c011b.jpg",
+ "file_size": 48532
+}

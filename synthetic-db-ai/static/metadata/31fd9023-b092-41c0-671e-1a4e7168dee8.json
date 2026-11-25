@@ -1,0 +1,15 @@
+{
+ "product_id": "31fd9023-b092-41c0-671e-1a4e7168dee8",
+ "name": "Quazesu Vacuum Cleaner Essential",
+ "prompt": "studio packshot photo of a Navy Blue Quazesu Vacuum Cleaner Essential, made of wood, cleaning, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 314699409,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:33:24",
+ "file_path": "static/images/31fd9023-b092-41c0-671e-1a4e7168dee8.jpg",
+ "file_size": 55241,
+ "uploaded": false,
+ "s3_url": null
+}

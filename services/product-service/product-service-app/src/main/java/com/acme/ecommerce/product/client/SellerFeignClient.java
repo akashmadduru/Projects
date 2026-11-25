@@ -19,7 +19,12 @@ public interface SellerFeignClient {
 
   @JsonIgnoreProperties(ignoreUnknown = true)
   record SellerInfo(
-      UUID sellerId, String slug, String displayName, BigDecimal ratingAvg, Integer ratingCount, String status) {}
+      UUID sellerId,
+      String slug,
+      String displayName,
+      BigDecimal ratingAvg,
+      Integer ratingCount,
+      String status) {}
 
   @JsonIgnoreProperties(ignoreUnknown = true)
   record AdRef(UUID adId, UUID productId, BigDecimal bid) {}

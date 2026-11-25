@@ -1,0 +1,13 @@
+{
+ "product_id": "b37813fa-3171-48e4-3023-a75d2928dfe2",
+ "name": "Exnulo Yoga Mat Pro",
+ "prompt": "studio packshot photo of a Silver Exnulo Yoga Mat Pro, made of abs plastic, fitness, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 559283964,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:24:31",
+ "file_path": "product-images/images/b37813fa-3171-48e4-3023-a75d2928dfe2.jpg",
+ "file_size": 68497
+}

@@ -1,0 +1,13 @@
+{
+ "product_id": "a9024b26-cfaf-4b7c-2792-36aa27acd8e0",
+ "name": "Orvenmi Vacuum Cleaner Series 2",
+ "prompt": "studio packshot photo of a Navy Blue Orvenmi Vacuum Cleaner Series 2, made of ceramic, cleaning, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 4292583347,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:16:39",
+ "file_path": "product-images/images/a9024b26-cfaf-4b7c-2792-36aa27acd8e0.jpg",
+ "file_size": 53613
+}

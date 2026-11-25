@@ -1,0 +1,13 @@
+{
+ "product_id": "4c55e1c1-4925-4671-adf8-41f565ad3834",
+ "name": "Ioncotra 4K TV Series 2",
+ "prompt": "studio packshot photo of a Space Grey Ioncotra 4K TV Series 2, made of polyester, televisions, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2015402589,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:14:51",
+ "file_path": "product-images/images/4c55e1c1-4925-4671-adf8-41f565ad3834.jpg",
+ "file_size": 55269
+}

@@ -1,0 +1,13 @@
+{
+ "product_id": "a95bfa1c-ec98-44f5-b242-f0b987e9da6f",
+ "name": "Noion Ultrabook Series 2",
+ "prompt": "studio packshot photo of a Space Grey Noion Ultrabook Series 2, made of aluminium, laptops, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2818482803,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:17:32",
+ "file_path": "product-images/images/a95bfa1c-ec98-44f5-b242-f0b987e9da6f.jpg",
+ "file_size": 46394
+}

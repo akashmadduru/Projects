@@ -1,0 +1,18 @@
+- 2026-11-25T08:52:19Z step 1 discover: worktree on version_v1 e89649c (not stacked); TD-TEST-02 minus Playwright e2e.
+- 2026-11-25T08:52:44Z step 3 complexity: class S score 1 (CTO), limit 300, expected 0 prod lines; approach msw/api mock, no snapshots, fake timers. No design/ADR for S.
+- 2026-11-25T08:53:21Z step 2 requirements: 26 ACs (CPO). Note: CheckoutPage has no own auth gate; auth covered as 4xx place failure (AC-12). Step 5 plan: EM started.
+- 2026-11-25T08:54:09Z step 5 plan: 9 tasks (EM), AC-1..26 covered. step 6 implement: forge-frontend-engineer started.
+- 2026-11-25T09:07:18Z step 6 done: head b048adc, 129 tests in 7 files, no bug; engineer verify PASS. Engineer write to evidence.md blocked by role hook; CEO recorded the report. CEO: 0 prod lines. CEO verify + QA started.
+- 2026-11-25T09:08:43Z step 7 test: QA all ACs evidenced (weak: AC-10 unmount, AC-12 success-clears-key). CEO verify PASS at b048adc. step 8 review started (reviewer + security).
+- 2026-11-25T09:09:54Z step 8 round 1: security REQUEST_CHANGES at b048adc (2 major: open-redirect tests vacuous via substring match + mis-escaped backslash; 2 minor incl. PRODUCTION idempotency 4xx rotation -> backlog). Waiting on code reviewer.
+- 2026-11-25T09:10:31Z step 8 round 1: reviewer REQUEST_CHANGES at b048adc (2 major: same open-redirect substring/escape + stale-async settled outside act; 2 minor, 2 nit). Round 2 sent to engineer with a guard-removal proof requirement.
+- 2026-11-25T09:18:15Z step 6 round 2: head 1dce9c6, all 7 findings fixed; stale tests proven by guard removal. Engineer found PRODUCTION bug: safeNext accepts '/\t/evil.example' (URL parser strips TAB -> //evil.example). CEO assessed: consumers use react-router (crash, not redirect today); latent open redirect. CEO ruling: fold a minimal control-char rejection into F-18 (objective clause, CEO sign-off). /fix.cjs checked: does not exist.
+- 2026-11-25T09:23:36Z step 6/7 round 2: head 305d540 (+2 prod lines safeNext). CEO fail-before (6 fail) / pass-after (41 pass) proof; CEO verify PASS. Re-review sent.
+- 2026-11-25T09:24:36Z step 8 round 2 at 305d540: reviewer APPROVE (2 disclosed nits), security APPROVE (backlog idempotency minor, Unicode-doc nit).
+- 2026-11-25T09:24:45Z step 9: gate FAIL design.md missing (class S); CEO wrote a design.md stub pointing to the CTO decision + production ruling.
+- 2026-11-25T09:25:07Z step 9 pr: forge-gate PASS at 305d540; pr.md written. Awaiting Owner push approval (not pre-approved).
+- 2026-11-25T14:49:23Z REOPENED: F-19 lint run found F-18's safeNext regex fails eslint no-control-regex (CI ci.yml:152 runs npm run lint). Gate PASS at 305d540 withdrawn; fix round 3.
+- 2026-11-25T14:51:33Z round 3: engineer 49f94cf replaces regex with charCode loop (+4/-1); CEO: lint 0 errors, forge-verify PASS; r3 delta to reviewers; 305d540 verdicts archived
+- 2026-11-25T14:51:48Z round 3 security: approve 49f94cf (stored verbatim)
+- 2026-11-25T14:51:57Z round 3 review: approve 49f94cf (stored verbatim)
+- 2026-11-25T14:52:08Z step 9 pr: forge-gate PASS at 49f94cf; pr.md updated

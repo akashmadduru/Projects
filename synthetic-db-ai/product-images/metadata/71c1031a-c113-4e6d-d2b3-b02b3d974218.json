@@ -1,0 +1,13 @@
+{
+ "product_id": "71c1031a-c113-4e6d-d2b3-b02b3d974218",
+ "name": "Ionex Analog Watch Plus",
+ "prompt": "studio packshot photo of a Navy Blue Ionex Analog Watch Plus, made of aluminium, watches & jewellery, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1762364938,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:39:51",
+ "file_path": "product-images/images/71c1031a-c113-4e6d-d2b3-b02b3d974218.jpg",
+ "file_size": 49484
+}

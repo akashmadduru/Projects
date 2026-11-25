@@ -119,7 +119,7 @@ The gateway exposes `POST /api/payments/webhook` without a JWT on purpose; it is
 2. Pay with `4000 0000 0000 9995` (declined). Order stays unpaid and payment is FAILED.
 3. Cancel a paid order, or approve a return and mark it REFUNDED, then confirm in the Stripe dashboard that the refund exists.
 4. Stop `payment-service` for a minute after paying; confirm the order still becomes PLACED once it is back (the reporter retries).
-5. Known gaps to read first: [TD-P6-02](../techdebt/phase6.md#td-p6-02) (live mode unverified, webhook parsing), [TD-P6-03](../techdebt/phase6.md#td-p6-03) (cancelling an unpaid order does not cancel the PaymentIntent, so a late payment is refunded inline).
+5. Known gaps to read first: [TD-P6-02](../techdebt/phase6.md#td-p6-02) (live mode unverified, webhook parsing). Cancelling or expiring an unpaid order cancels its PaymentIntent; a payment that still lands is refunded, and a failed refund is retried every 30 s.
 
 ### Going live (Stripe)
 - Create live keys (`sk_live_...`, `pk_live_...`) and a **real webhook endpoint** in Stripe (Developers → Webhooks) pointing at `https://<your-api-domain>/api/payments/webhook`, subscribed to `payment_intent.succeeded` and `payment_intent.payment_failed`. Use that endpoint's `whsec_...`, not the CLI's.
@@ -253,7 +253,7 @@ Browsers only allow push on **HTTPS** (and `localhost`). If you replace the data
 4. Make sure the SPA callback URLs are in `AUTH_ALLOWED_REDIRECT_URIS` (for example `https://shop.yourdomain.com/auth/callback`).
 5. Recreate auth-service. Without these two variables the Google leg simply is not installed and password login works as normal.
 
-Known issue: the **admin** SPA's Google button can start through the gateway and be rejected ([TD-SEC-02](../techdebt/infra-security.md#td-sec-02)). Use password login for the admin console until it is fixed.
+The **admin** SPA starts Google sign-in at `VITE_AUTH_BASE_URL` (default `http://localhost:8081` in dev, the admin origin in deployed builds), the same way as the storefront.
 
 > **Security note:** an earlier `deploy/local/.env` on a dev machine held a real `GOOGLE_CLIENT_SECRET` ([TD-SEC-01](../techdebt/infra-security.md#td-sec-01)). If that file was ever shared, **rotate the secret** in Google Cloud.
 
@@ -270,7 +270,7 @@ Known issue: the **admin** SPA's Google button can start through the gateway and
 - [ ] Real SMTP with SPF and DKIM (section 4), and a real SMS provider if you use phone OTP (section 5).
 - [ ] Do not expose Postgres, Redis, Kafka, Eureka, Mailpit or the `/internal/**` ports publicly. Compose binds the service ports to `127.0.0.1` for this reason.
 - [ ] Rebuild both SPAs with production `VITE_*` values.
-- [ ] Review the open High items in [techdebt/README.md](../techdebt/README.md), notably TD-P6-01 (no outbox), TD-P6-03 and TD-ADM-01.
+- [ ] Review the open High items in [techdebt/README.md](../techdebt/README.md), notably the test-coverage items and anything marked as needing the owner.
 
 ## 9. Troubleshooting
 

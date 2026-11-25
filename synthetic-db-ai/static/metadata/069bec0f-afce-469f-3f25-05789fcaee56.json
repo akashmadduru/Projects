@@ -1,0 +1,15 @@
+{
+ "product_id": "069bec0f-afce-469f-3f25-05789fcaee56",
+ "name": "Dexion Keyboard Max",
+ "prompt": "studio packshot photo of a Rose Gold Dexion Keyboard Max, made of ceramic, keyboards & mice, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 212311218,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:25:43",
+ "file_path": "static/images/069bec0f-afce-469f-3f25-05789fcaee56.jpg",
+ "file_size": 46502,
+ "uploaded": false,
+ "s3_url": null
+}

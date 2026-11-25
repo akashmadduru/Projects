@@ -1,0 +1,13 @@
+{
+ "product_id": "6970b6d9-6833-4b35-27b3-ed2bff33950d",
+ "name": "Kalumsu Mixed Nuts Pro",
+ "prompt": "studio packshot photo of a Midnight Kalumsu Mixed Nuts Pro, made of silicone, snacks, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3429018174,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:34:35",
+ "file_path": "product-images/images/6970b6d9-6833-4b35-27b3-ed2bff33950d.jpg",
+ "file_size": 95596
+}

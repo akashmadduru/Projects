@@ -8,7 +8,8 @@ public record Paged<T>(List<T> content, PageInfo page) {
   public record PageInfo(int size, int number, long totalElements, int totalPages) {}
 
   public static <T> Paged<T> of(List<T> content, int page, int size, long total) {
-    return new Paged<>(content, new PageInfo(size, page, total, (int) Math.ceil(total / (double) size)));
+    return new Paged<>(
+        content, new PageInfo(size, page, total, (int) Math.ceil(total / (double) size)));
   }
 
   public static int clampSize(int size) {

@@ -80,6 +80,33 @@ class CorrelationAndAuthForwardingInterceptorTest {
     assertThat(template.headers().get(CorrelationIdHolder.HEADER_NAME)).containsExactly("explicit");
   }
 
+  @Test
+  @DisplayName("relays the token only to in-cluster targets (TD-SEC-10)")
+  void relaysOnlyToInternalTargets() {
+    bindRequestWithAuthorization("Bearer user-token");
+    for (String url :
+        new String[] {
+          "http://order-service",
+          "http://cart-service:8083",
+          "http://user-service.ecommerce.svc.cluster.local:8085",
+          "http://localhost:8082",
+          "http://10.0.3.7:8080"
+        }) {
+      RequestTemplate template = new RequestTemplate();
+      template.feignTarget(new feign.Target.HardCodedTarget<>(Object.class, url));
+      interceptor.apply(template);
+      assertThat(template.headers().get("Authorization"))
+          .as(url)
+          .containsExactly("Bearer user-token");
+    }
+    for (String url : new String[] {"https://api.example.com", "http://8.8.8.8"}) {
+      RequestTemplate template = new RequestTemplate();
+      template.feignTarget(new feign.Target.HardCodedTarget<>(Object.class, url));
+      interceptor.apply(template);
+      assertThat(template.headers()).as(url).doesNotContainKey("Authorization");
+    }
+  }
+
   private static void bindRequestWithAuthorization(String authorization) {
     MockHttpServletRequest request = new MockHttpServletRequest();
     request.addHeader("Authorization", authorization);

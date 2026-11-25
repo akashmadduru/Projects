@@ -1,0 +1,15 @@
+{
+ "product_id": "87c709b3-e6af-4a72-d3f6-52c1c9ec7971",
+ "name": "Exco Mesh System Classic",
+ "prompt": "studio packshot photo of a Red Exco Mesh System Classic, made of stainless steel, networking, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3471439006,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T00:37:12",
+ "file_path": "static/images/87c709b3-e6af-4a72-d3f6-52c1c9ec7971.jpg",
+ "file_size": 66578,
+ "uploaded": false,
+ "s3_url": null
+}

@@ -15,7 +15,7 @@ import { ErrorAlert } from './ErrorAlert'
 import { cardClass, primaryButtonClass, secondaryButtonClass } from './Form'
 import { formatMoney } from '../lib/format'
 import { errorMessage } from '../lib/errors'
-import { openRazorpayCheckout } from '../lib/razorpay'
+import { loadRazorpay, openRazorpayCheckout } from '../lib/razorpay'
 import { paymentApi } from '../services/paymentApi'
 import type { PaymentConfig, PaymentInfo, PaymentProvider } from '../types'
 
@@ -137,6 +137,12 @@ function RazorpayForm({ payment, onSubmitted }: { payment: PaymentInfo; onSubmit
   const [busy, setBusy] = useState(false)
   const [unconfirmed, setUnconfirmed] = useState(false)
   const [error, setError] = useState<string | undefined>()
+
+  // Start fetching checkout.js as soon as Razorpay is the chosen provider, so "Pay" opens the window
+  // without waiting on the network. A failure here is silent; pay() loads again and reports it.
+  useEffect(() => {
+    void loadRazorpay().catch(() => undefined)
+  }, [])
 
   const pay = async () => {
     if (!payment.publishableKey || !payment.providerOrderId) return

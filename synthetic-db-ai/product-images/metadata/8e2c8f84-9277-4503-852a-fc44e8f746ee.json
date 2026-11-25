@@ -1,0 +1,13 @@
+{
+ "product_id": "8e2c8f84-9277-4503-852a-fc44e8f746ee",
+ "name": "Quaven Analog Watch Pro",
+ "prompt": "studio packshot photo of a Silver Quaven Analog Watch Pro, made of abs plastic, watches & jewellery, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1893679659,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:30:57",
+ "file_path": "product-images/images/8e2c8f84-9277-4503-852a-fc44e8f746ee.jpg",
+ "file_size": 59446
+}

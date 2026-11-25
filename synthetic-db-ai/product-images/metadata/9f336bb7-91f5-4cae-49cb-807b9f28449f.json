@@ -1,0 +1,13 @@
+{
+ "product_id": "9f336bb7-91f5-4cae-49cb-807b9f28449f",
+ "name": "Mika Switch Classic",
+ "prompt": "studio packshot photo of a Blue Mika Switch Classic, made of stainless steel, networking, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 510945811,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:28:23",
+ "file_path": "product-images/images/9f336bb7-91f5-4cae-49cb-807b9f28449f.jpg",
+ "file_size": 85249
+}

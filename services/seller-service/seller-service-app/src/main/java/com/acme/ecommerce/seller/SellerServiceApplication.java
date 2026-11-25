@@ -8,7 +8,10 @@ import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 import org.springframework.cloud.openfeign.EnableFeignClients;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
-/** seller-service entry point (Eureka id {@code seller-service}, gateway {@code lb://SELLER-SERVICE}). */
+/**
+ * seller-service entry point (Eureka id {@code seller-service}, gateway {@code
+ * lb://SELLER-SERVICE}).
+ */
 @SpringBootApplication
 @EnableDiscoveryClient
 @EnableConfigurationProperties(SellerProperties.class)

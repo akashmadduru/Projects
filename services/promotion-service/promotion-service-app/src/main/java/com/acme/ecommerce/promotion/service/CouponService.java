@@ -9,6 +9,7 @@ import com.acme.ecommerce.promotion.api.dto.CouponValidationResponse;
 import com.acme.ecommerce.promotion.api.dto.RedeemRequest;
 import com.acme.ecommerce.promotion.api.dto.RedeemResponse;
 import com.acme.ecommerce.promotion.api.dto.ValidateCouponRequest;
+import com.acme.ecommerce.promotion.client.OrderFeignClient;
 import com.acme.ecommerce.promotion.repository.CouponRepository;
 import com.acme.ecommerce.promotion.repository.CouponRepository.Coupon;
 import com.acme.ecommerce.promotion.repository.CouponRepository.Redemption;
@@ -18,6 +19,8 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,10 +29,28 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class CouponService {
 
-  private final CouponRepository coupons;
+  private static final Logger log = LoggerFactory.getLogger(CouponService.class);
 
-  public CouponService(CouponRepository coupons) {
+  private final CouponRepository coupons;
+  private final OrderFeignClient orders;
+
+  public CouponService(CouponRepository coupons, OrderFeignClient orders) {
     this.coupons = coupons;
+    this.orders = orders;
+  }
+
+  /**
+   * Whether this is the user's first order, asked of order-service when the caller did not say
+   * (TD-P6-16). Fails open (null = unknown): order-service re-checks at placement with its own
+   * data, so an outage only means a returning customer may see the coupon until they try to use it.
+   */
+  private Boolean firstOrderOf(UUID userId) {
+    try {
+      return orders.firstOrder(userId).firstOrder();
+    } catch (RuntimeException e) {
+      log.warn("Could not check order history for {}: {}", userId, e.getMessage());
+      return null;
+    }
   }
 
   private static String norm(String code) {
@@ -42,7 +63,11 @@ public class CouponService {
   public CouponValidationResponse validate(UUID userId, ValidateCouponRequest req) {
     Coupon c = coupons.findByCode(norm(req.code())).orElseThrow(CouponService::invalid);
     String currency = req.currency().toUpperCase(Locale.ROOT);
-    BigDecimal discount = evaluate(c, userId, req.subtotal(), currency, req.firstOrder());
+    Boolean firstOrder = req.firstOrder();
+    if (firstOrder == null && c.firstOrderOnly() && userId != null) {
+      firstOrder = firstOrderOf(userId);
+    }
+    BigDecimal discount = evaluate(c, userId, req.subtotal(), currency, firstOrder);
     return new CouponValidationResponse(c.code(), c.description(), discount, currency);
   }
 
@@ -50,7 +75,13 @@ public class CouponService {
   public List<AvailableCouponResponse> available(
       UUID userId, BigDecimal subtotal, String currency) {
     String cur = currency == null ? null : currency.toUpperCase(Locale.ROOT);
-    return coupons.findActive().stream()
+    List<Coupon> active = coupons.findActive();
+    // One lookup per call, and only when a first-order coupon would otherwise be listed.
+    boolean hideFirstOrder =
+        active.stream().anyMatch(Coupon::firstOrderOnly)
+            && Boolean.FALSE.equals(firstOrderOf(userId));
+    return active.stream()
+        .filter(c -> !(hideFirstOrder && c.firstOrderOnly()))
         .filter(c -> c.currency() == null || cur == null || c.currency().equals(cur))
         .filter(c -> !(c.startsAt() != null && Instant.now().isBefore(c.startsAt())))
         .filter(c -> !(c.endsAt() != null && Instant.now().isAfter(c.endsAt())))

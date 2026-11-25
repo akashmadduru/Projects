@@ -1,0 +1,15 @@
+{
+ "product_id": "5f066ef8-3698-4ab8-a5bb-64fb25a9b5de",
+ "name": "Tapi Dumbbell Set Elite",
+ "prompt": "studio packshot photo of a Grey Tapi Dumbbell Set Elite, made of nylon, fitness, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1595068576,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:12:38",
+ "file_path": "static/images/5f066ef8-3698-4ab8-a5bb-64fb25a9b5de.jpg",
+ "file_size": 37755,
+ "uploaded": false,
+ "s3_url": null
+}

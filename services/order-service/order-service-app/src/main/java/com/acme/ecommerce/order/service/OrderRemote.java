@@ -13,8 +13,10 @@ import com.acme.ecommerce.order.client.PromotionFeignClient.Validation;
 import com.acme.ecommerce.order.client.RemoteCalls;
 import com.acme.ecommerce.order.client.SellerInternalFeignClient;
 import com.acme.ecommerce.order.client.UserInternalFeignClient;
-import com.acme.ecommerce.user.api.dto.AddressResponse;
 import com.acme.ecommerce.order.domain.Order.ReturnLine;
+import com.acme.ecommerce.order.outbox.Outbox;
+import com.acme.ecommerce.order.outbox.Outbox.Kind;
+import com.acme.ecommerce.user.api.dto.AddressResponse;
 import feign.FeignException;
 import java.math.BigDecimal;
 import java.util.List;
@@ -25,8 +27,11 @@ import org.springframework.stereotype.Component;
 
 /**
  * Calls to inventory, payment and promotion. "Strict" methods translate failures into errors the
- * caller must handle; "best-effort" methods only log (used for compensation, where the order state
- * has already been decided).
+ * caller must handle. The "best-effort" compensations (stock restore, releases, payment cancel, COD
+ * collected, return restock) are durable since TD-P6-01: they write an outbox row, in the caller's
+ * transaction when there is one, and {@link com.acme.ecommerce.order.outbox.OutboxRelay} delivers
+ * it through the matching "...Now" method with retries. The names are kept so callers did not
+ * change.
  */
 @Component
 public class OrderRemote {
@@ -38,13 +43,19 @@ public class OrderRemote {
   private final PromotionFeignClient promotions;
   private final UserInternalFeignClient usersInternal;
   private final SellerInternalFeignClient sellers;
+  private final WalletCreditBacks walletCreditBacks;
+  private final Outbox outbox;
 
   public OrderRemote(
       InventoryFeignClient inventory,
       PaymentFeignClient payments,
       PromotionFeignClient promotions,
       UserInternalFeignClient usersInternal,
-      SellerInternalFeignClient sellers) {
+      SellerInternalFeignClient sellers,
+      WalletCreditBacks walletCreditBacks,
+      Outbox outbox) {
+    this.outbox = outbox;
+    this.walletCreditBacks = walletCreditBacks;
     this.inventory = inventory;
     this.payments = payments;
     this.promotions = promotions;
@@ -54,17 +65,48 @@ public class OrderRemote {
 
   // ---- sellers -----------------------------------------------------------------------------
 
-  /** The APPROVED seller account of a user, or null (not a seller / suspended). 503 if unreachable. */
+  /**
+   * The APPROVED seller account of a user, or null (not a seller / suspended). 503 if unreachable.
+   */
   public java.util.UUID approvedSellerId(UUID userId) {
+    java.time.Instant now = java.time.Instant.now();
+    SellerLookup cached = sellerCache.get(userId);
+    if (cached != null && cached.at().plus(SELLER_TTL).isAfter(now)) {
+      return cached.sellerId();
+    }
+    UUID sellerId;
     try {
       SellerInternalFeignClient.SellerRef ref = sellers.byUser(userId);
-      return ref != null && "APPROVED".equalsIgnoreCase(ref.status()) ? ref.sellerId() : null;
+      sellerId = ref != null && "APPROVED".equalsIgnoreCase(ref.status()) ? ref.sellerId() : null;
     } catch (FeignException.NotFound e) {
-      return null;
+      sellerId = null;
     } catch (FeignException e) {
+      // Stale-while-error: a recent answer beats a 503 for every seller shipment call.
+      if (cached != null && cached.at().plus(SELLER_STALE_MAX).isAfter(now)) {
+        return cached.sellerId();
+      }
       throw RemoteCalls.unavailable("seller-service", e);
     }
+    if (sellerCache.size() > SELLER_CACHE_MAX) {
+      sellerCache.clear();
+    }
+    sellerCache.put(userId, new SellerLookup(sellerId, now));
+    return sellerId;
   }
+
+  /**
+   * Seller lookups per user (TD-P9-11): every seller shipment call resolved the seller through
+   * seller-service, twice on the PATCH path. Fresh for 60 s (a suspension takes effect within a
+   * minute; the role is also revoked in auth-service), served stale for up to 10 min while
+   * seller-service is down.
+   */
+  private record SellerLookup(UUID sellerId, java.time.Instant at) {}
+
+  private static final java.time.Duration SELLER_TTL = java.time.Duration.ofSeconds(60);
+  private static final java.time.Duration SELLER_STALE_MAX = java.time.Duration.ofMinutes(10);
+  private static final int SELLER_CACHE_MAX = 10_000;
+  private final java.util.concurrent.ConcurrentHashMap<UUID, SellerLookup> sellerCache =
+      new java.util.concurrent.ConcurrentHashMap<>();
 
   // ---- inventory ---------------------------------------------------------------------------
 
@@ -92,29 +134,62 @@ public class OrderRemote {
     }
   }
 
+  /** Durable: puts the order's stock back and releases its deal claims and exchange quote. */
   public void restoreStockBestEffort(UUID orderId) {
-    try {
-      inventory.restore(orderId);
-    } catch (RuntimeException e) {
-      log.error("Could not restore stock for order {}: {}", orderId, e.toString());
-    }
-    try {
-      promotions.releaseDeals(orderId);
-    } catch (RuntimeException e) {
-      log.error("Could not release deal claims for order {}: {}", orderId, e.toString());
-    }
-    releaseExchangeBestEffort(orderId);
+    outbox.enqueue(Kind.RESTORE_STOCK, orderId);
+    outbox.enqueue(Kind.RELEASE_DEALS, orderId);
+    outbox.enqueue(Kind.RELEASE_EXCHANGE, orderId);
   }
 
+  /** One return's lines, as stored in the outbox payload. */
+  public record ReleasePayload(UUID returnId, List<Item> items) {}
+
+  /** Durable: restocks the lines of an approved return (once per return). */
   public void releaseStock(UUID orderId, UUID returnId, List<ReturnLine> lines) {
-    try {
-      inventory.release(
-          orderId,
-          new InventoryFeignClient.ReleaseRequest(
-              returnId, lines.stream().map(l -> new Item(l.productId(), l.variantId(), l.quantity(), l.offerId())).toList()));
-    } catch (RuntimeException e) {
-      log.error("Could not restock return {} of order {}: {}", returnId, orderId, e.toString());
-    }
+    outbox.enqueue(
+        Kind.RELEASE_STOCK,
+        orderId,
+        new ReleasePayload(
+            returnId,
+            lines.stream()
+                .map(l -> new Item(l.productId(), l.variantId(), l.quantity(), l.offerId()))
+                .toList()),
+        "RELEASE_STOCK:" + orderId + ":" + returnId);
+  }
+
+  // ---- strict calls the outbox relay delivers (throw on failure so the relay retries) ----------
+
+  public void restoreStockNow(UUID orderId) {
+    inventory.restore(orderId);
+  }
+
+  public void releaseDealsNow(UUID orderId) {
+    promotions.releaseDeals(orderId);
+  }
+
+  public void releaseExchangeNow(UUID orderId) {
+    promotions.releaseExchange(orderId);
+  }
+
+  public void releaseStockNow(UUID orderId, ReleasePayload payload) {
+    inventory.release(
+        orderId, new InventoryFeignClient.ReleaseRequest(payload.returnId(), payload.items()));
+  }
+
+  public void releaseCouponNow(UUID orderId) {
+    promotions.release(orderId);
+  }
+
+  public void releaseCoinsNow(UUID orderId) {
+    promotions.releaseCoins(orderId);
+  }
+
+  public void cancelPaymentNow(UUID orderId) {
+    payments.cancelUnpaid(orderId);
+  }
+
+  public void codCollectedNow(UUID orderId) {
+    payments.codCollected(orderId);
   }
 
   // ---- promotion ---------------------------------------------------------------------------
@@ -142,18 +217,14 @@ public class OrderRemote {
     }
   }
 
+  /** Durable: releases the order's coupon redemption (a no-op if there was none). */
   public void releaseCouponBestEffort(UUID orderId) {
-    try {
-      promotions.release(orderId);
-    } catch (RuntimeException e) {
-      log.error("Could not release coupon for order {}: {}", orderId, e.toString());
-    }
+    outbox.enqueue(Kind.RELEASE_COUPON, orderId);
   }
 
   /** Active deal prices for the lines; empty on any failure (deals are best-effort at pricing). */
   public List<PromotionFeignClient.DealPrice> dealPrices(
-      UUID userId,
-      List<PromotionFeignClient.DealKey> keys) {
+      UUID userId, List<PromotionFeignClient.DealKey> keys) {
     try {
       PromotionFeignClient.DealPricesResponse r =
           promotions.dealPrices(new PromotionFeignClient.DealPricesRequest(keys, userId));
@@ -174,24 +245,24 @@ public class OrderRemote {
 
   public void applyExchange(UUID quoteId, UUID userId, UUID orderId) {
     try {
-      promotions.applyExchange(new PromotionFeignClient.ExchangeApplyRequest(quoteId, userId, orderId));
+      promotions.applyExchange(
+          new PromotionFeignClient.ExchangeApplyRequest(quoteId, userId, orderId));
     } catch (FeignException e) {
       throw RemoteCalls.translate("promotion-service", e);
     }
   }
 
+  /** Durable: releases the order's exchange quote (a no-op if there was none). */
   public void releaseExchangeBestEffort(UUID orderId) {
-    try {
-      promotions.releaseExchange(orderId);
-    } catch (RuntimeException e) {
-      log.error("Could not release exchange quote for order {}: {}", orderId, e.toString());
-    }
+    outbox.enqueue(Kind.RELEASE_EXCHANGE, orderId);
   }
 
   /** Strict wallet debit with a caller-chosen idempotency key (exchange shortfall). */
-  public void debitWalletKeyed(UUID userId, BigDecimal amount, String currency, UUID orderId, String key) {
+  public void debitWalletKeyed(
+      UUID userId, BigDecimal amount, String currency, UUID orderId, String key) {
     try {
-      payments.walletDebit(new PaymentFeignClient.WalletDebit(userId, amount, currency, orderId, key));
+      payments.walletDebit(
+          new PaymentFeignClient.WalletDebit(userId, amount, currency, orderId, key));
     } catch (FeignException e) {
       throw RemoteCalls.translate("payment-service", e);
     }
@@ -233,12 +304,24 @@ public class OrderRemote {
     }
   }
 
+  /**
+   * Durable: cancels the open payment of an order cancelled before it was paid. Until the relay
+   * delivers it, a customer who still pays is refunded by the late-payment path in {@code
+   * OrderLifecycleService#paymentResult}.
+   */
+  public void cancelPaymentBestEffort(UUID orderId) {
+    outbox.enqueue(Kind.CANCEL_PAYMENT, orderId);
+  }
+
+  /** A wallet debit failed ambiguously: give it back if it happened (durable, TD-P8-23). */
+  public void reverseWalletDebitDurable(
+      UUID userId, BigDecimal amount, String currency, UUID orderId) {
+    walletCreditBacks.reverseDebit(userId, amount, currency, orderId);
+  }
+
+  /** Durable: tells payment-service the cash was collected on delivery. */
   public void codCollectedBestEffort(UUID orderId) {
-    try {
-      payments.codCollected(orderId);
-    } catch (RuntimeException e) {
-      log.warn("Could not mark COD collected for order {}: {}", orderId, e.toString());
-    }
+    outbox.enqueue(Kind.COD_COLLECTED, orderId);
   }
 
   // ---- wallet, coins, membership -------------------------------------------------------------
@@ -277,22 +360,20 @@ public class OrderRemote {
   public void debitWallet(UUID userId, BigDecimal amount, String currency, UUID orderId) {
     try {
       payments.walletDebit(
-          new PaymentFeignClient.WalletDebit(userId, amount, currency, orderId, "order-debit-" + orderId));
+          new PaymentFeignClient.WalletDebit(
+              userId, amount, currency, orderId, "order-debit-" + orderId));
     } catch (FeignException e) {
       throw RemoteCalls.translate("payment-service", e);
     }
   }
 
-  /** Gives the wallet part of a cancelled order back. Idempotent, best effort (logged). */
+  /**
+   * Gives back the wallet amount an order took. Durable (TD-P8-07): recorded before the call and
+   * retried by {@link WalletCreditBacks} until it lands, so an outage no longer loses the money.
+   */
   public void creditWalletBackBestEffort(
       UUID userId, BigDecimal amount, String currency, UUID orderId) {
-    try {
-      payments.walletCredit(
-          new PaymentFeignClient.WalletCredit(
-              userId, amount, currency, "REFUND", orderId.toString(), "order-wallet-back-" + orderId));
-    } catch (RuntimeException e) {
-      log.error("Could not return wallet amount {} for order {}: {}", amount, orderId, e.toString());
-    }
+    walletCreditBacks.creditBack(userId, amount, currency, orderId);
   }
 
   /** Strict credit used by return refunds (idempotent by key). */
@@ -316,11 +397,8 @@ public class OrderRemote {
     }
   }
 
+  /** Durable: gives back coins the order redeemed (a no-op if there were none). */
   public void releaseCoinsBestEffort(UUID orderId) {
-    try {
-      promotions.releaseCoins(orderId);
-    } catch (RuntimeException e) {
-      log.error("Could not release coins for order {}: {}", orderId, e.toString());
-    }
+    outbox.enqueue(Kind.RELEASE_COINS, orderId);
   }
 }

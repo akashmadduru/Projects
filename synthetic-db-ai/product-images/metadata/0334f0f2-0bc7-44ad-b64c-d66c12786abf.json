@@ -1,0 +1,13 @@
+{
+ "product_id": "0334f0f2-0bc7-44ad-b64c-d66c12786abf",
+ "name": "Venka Electric Shaver Ultra",
+ "prompt": "studio packshot photo of a Rose Gold Venka Electric Shaver Ultra, made of glass, grooming, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3909231659,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 1024,
+ "created_at": "2026-11-15T22:11:45",
+ "file_path": "product-images/images/0334f0f2-0bc7-44ad-b64c-d66c12786abf.jpg",
+ "file_size": 104477
+}

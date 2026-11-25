@@ -1,0 +1,15 @@
+{
+ "product_id": "3cfe9b8b-2f4a-4ead-7b1e-4ebcc77f4998",
+ "name": "Voorco Mirrorless Camera Classic",
+ "prompt": "studio packshot photo of a Black Voorco Mirrorless Camera Classic, made of wood, cameras, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 872992007,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:06:05",
+ "file_path": "static/images/3cfe9b8b-2f4a-4ead-7b1e-4ebcc77f4998.jpg",
+ "file_size": 36518,
+ "uploaded": false,
+ "s3_url": null
+}

@@ -1,0 +1,15 @@
+{
+ "product_id": "26e792af-4687-4f28-1f1a-54cc194d8257",
+ "name": "Tramilum LED TV Lite",
+ "prompt": "studio packshot photo of a Grey Tramilum LED TV Lite, made of silicone, televisions, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2847742162,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:21:51",
+ "file_path": "static/images/26e792af-4687-4f28-1f1a-54cc194d8257.jpg",
+ "file_size": 39381,
+ "uploaded": false,
+ "s3_url": null
+}

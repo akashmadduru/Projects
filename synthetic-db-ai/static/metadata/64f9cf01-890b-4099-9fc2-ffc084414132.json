@@ -1,0 +1,15 @@
+{
+ "product_id": "64f9cf01-890b-4099-9fc2-ffc084414132",
+ "name": "Ioncotra RC Car Gen 3",
+ "prompt": "studio packshot photo of a Blue Ioncotra RC Car Gen 3, made of bamboo, remote control, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3858879991,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:30:59",
+ "file_path": "static/images/64f9cf01-890b-4099-9fc2-ffc084414132.jpg",
+ "file_size": 56962,
+ "uploaded": false,
+ "s3_url": null
+}

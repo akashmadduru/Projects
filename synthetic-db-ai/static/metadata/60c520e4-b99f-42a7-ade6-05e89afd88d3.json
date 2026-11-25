@@ -1,0 +1,15 @@
+{
+ "product_id": "60c520e4-b99f-42a7-ade6-05e89afd88d3",
+ "name": "Nolumfy Cold Brew Series 2",
+ "prompt": "studio packshot photo of a White Nolumfy Cold Brew Series 2, made of wood, beverages, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3253737220,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:27:31",
+ "file_path": "static/images/60c520e4-b99f-42a7-ade6-05e89afd88d3.jpg",
+ "file_size": 64769,
+ "uploaded": false,
+ "s3_url": null
+}

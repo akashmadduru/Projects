@@ -17,10 +17,18 @@ dependencies {
     implementation project(':services:user-service:user-service-api')
     implementation project(':services:product-service:product-service-api')
     implementation libs.spring.cloud.starter.openfeign
+    // TD-BE-07: resilience4j's circuit breaker core, used by DependencyBreakerCapability (one
+    // breaker per downstream service around Feign's HTTP client). The blocking starter, as in
+    // product-service; no reactor variant.
+    implementation libs.spring.cloud.starter.circuitbreaker.resilience4j
     implementation libs.spring.kafka
     implementation libs.spring.boot.kafka
     implementation libs.micrometer.registry.prometheus
     implementation libs.bundles.tracing
+
+    // TD-TEST-01: order placement is tested against a real Postgres (Testcontainers).
+    testImplementation libs.bundles.testing.unit
+    testImplementation libs.bundles.testing.containers
 
     compileOnly libs.lombok
     annotationProcessor libs.lombok

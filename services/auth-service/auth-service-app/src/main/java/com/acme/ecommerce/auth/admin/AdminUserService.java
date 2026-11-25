@@ -41,8 +41,8 @@ import org.springframework.transaction.annotation.Transactional;
  * <ul>
  *   <li>An admin cannot change their own status or roles - prevents accidental self-lockout and
  *       makes privilege changes always a two-person action.
- *   <li>The last ACTIVE admin can be neither disabled nor demoted. ROLE_ADMIN is row-locked for
- *       the transaction so two concurrent changes cannot both pass this check.
+ *   <li>The last ACTIVE admin can be neither disabled nor demoted. ROLE_ADMIN is row-locked for the
+ *       transaction so two concurrent changes cannot both pass this check.
  *   <li>Disabling a user or removing any role revokes every refresh token, so the change takes
  *       effect no later than the access-token TTL.
  * </ul>
@@ -142,7 +142,8 @@ public class AdminUserService {
   public AdminUserResponse changeRoles(UUID actorId, UUID id, Set<String> requested) {
     forbidSelf(actorId, id);
     RoleEntity adminRole = lockAdminRole();
-    Set<String> wanted = requested.stream().map(this::prefixedAssignable).collect(Collectors.toSet());
+    Set<String> wanted =
+        requested.stream().map(this::prefixedAssignable).collect(Collectors.toSet());
     UserAccount user = load(id);
 
     boolean losesAdmin = hasRole(user, Roles.ROLE_ADMIN) && !wanted.contains(Roles.ROLE_ADMIN);

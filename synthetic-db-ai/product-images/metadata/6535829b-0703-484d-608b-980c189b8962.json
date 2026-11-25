@@ -1,0 +1,13 @@
+{
+ "product_id": "6535829b-0703-484d-608b-980c189b8962",
+ "name": "Badex Toaster Ultra",
+ "prompt": "studio packshot photo of a Black Badex Toaster Ultra, made of leather, small appliances, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1690346060,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:34:10",
+ "file_path": "product-images/images/6535829b-0703-484d-608b-980c189b8962.jpg",
+ "file_size": 41334
+}

@@ -71,7 +71,15 @@ describe('AccountMenu', () => {
     fireEvent.click(screen.getByRole('button', { name: /Account menu/ }))
 
     const hrefs = screen.getAllByRole('menuitem').map((item) => item.getAttribute('href'))
-    expect(hrefs).toEqual(['/account', '/account/orders', '/account/addresses', '/wishlist', '/account/settings', null])
+    expect(hrefs).toEqual([
+      '/account',
+      '/account/orders',
+      '/account/addresses',
+      '/account/recent',
+      '/wishlist',
+      '/account/settings',
+      null,
+    ])
   })
 
   it('closes on Escape and reflects aria-expanded', () => {

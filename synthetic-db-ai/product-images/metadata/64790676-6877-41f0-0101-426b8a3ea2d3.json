@@ -1,0 +1,13 @@
+{
+ "product_id": "64790676-6877-41f0-0101-426b8a3ea2d3",
+ "name": "Micoex Glucometer Edition",
+ "prompt": "studio packshot photo of a Rose Gold Micoex Glucometer Edition, made of stainless steel, medical devices, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3580531881,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T00:41:19",
+ "file_path": "product-images/images/64790676-6877-41f0-0101-426b8a3ea2d3.jpg",
+ "file_size": 79957
+}

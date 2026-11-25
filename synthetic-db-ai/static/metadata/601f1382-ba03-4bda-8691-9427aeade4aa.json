@@ -1,0 +1,15 @@
+{
+ "product_id": "601f1382-ba03-4bda-8691-9427aeade4aa",
+ "name": "Orbari Construction Set Edition",
+ "prompt": "studio packshot photo of a White Orbari Construction Set Edition, made of wood, building toys, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 436184982,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T01:26:27",
+ "file_path": "static/images/601f1382-ba03-4bda-8691-9427aeade4aa.jpg",
+ "file_size": 46439,
+ "uploaded": false,
+ "s3_url": null
+}

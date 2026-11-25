@@ -59,18 +59,22 @@ public class ProblemResponseWriter {
     response.setCharacterEncoding("UTF-8");
 
     ProblemPayload payload =
-        problemPayloadFactory.create(errorCode, detail, request.getRequestURI());
-
-    Map<String, Object> body = new LinkedHashMap<>();
-    body.put("type", payload.type());
-    body.put("title", payload.title());
-    body.put("status", payload.status());
-    body.put("detail", payload.detail());
-    body.put("instance", payload.instance());
-    body.put("code", payload.code());
-    body.put("correlationId", payload.correlationId());
-    body.put("timestamp", payload.timestamp().toString());
-
+        problemPayloadFactory
+            .create(errorCode, detail, request.getRequestURI());
+    Map<String, Object> body = test(payload);
     objectMapper.writeValue(response.getOutputStream(), body);
   }
+
+    public Map<String, Object> test(ProblemPayload payload) {
+        Map<String, Object> body = new LinkedHashMap();
+        body.put("type", payload.type());
+        body.put("title", payload.title());
+        body.put("status", payload.status());
+        body.put("detail", payload.detail());
+        body.put("instance", payload.instance());
+        body.put("code", payload.code());
+        body.put("correlationId", payload.correlationId());
+        body.put("timestamp", payload.timestamp().toString());
+        return body;
+    }
 }

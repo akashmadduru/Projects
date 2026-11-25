@@ -1,0 +1,15 @@
+{
+ "product_id": "13493dfc-0e52-4fc0-c6d5-3663e405ef1d",
+ "name": "Nunuri Soundbar Series 2",
+ "prompt": "studio packshot photo of a Black Nunuri Soundbar Series 2, made of bamboo, speakers, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 303110956,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 768,
+ "created_at": "2026-11-15T23:02:16",
+ "file_path": "static/images/13493dfc-0e52-4fc0-c6d5-3663e405ef1d.jpg",
+ "file_size": 44527,
+ "uploaded": false,
+ "s3_url": null
+}

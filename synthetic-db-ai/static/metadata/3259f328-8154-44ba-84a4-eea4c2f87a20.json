@@ -1,0 +1,15 @@
+{
+ "product_id": "3259f328-8154-44ba-84a4-eea4c2f87a20",
+ "name": "Quaexco Blender Pro",
+ "prompt": "studio packshot photo of a Green Quaexco Blender Pro, made of wood, small appliances, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2963997484,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T01:24:05",
+ "file_path": "static/images/3259f328-8154-44ba-84a4-eea4c2f87a20.jpg",
+ "file_size": 34519,
+ "uploaded": false,
+ "s3_url": null
+}

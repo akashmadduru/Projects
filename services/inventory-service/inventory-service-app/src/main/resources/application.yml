@@ -141,6 +141,11 @@ server:
 inventory:
   internal:
     token: ${INTERNAL_API_TOKEN:}
+  stock:
+    # REJECT: an order line with no stock rows is out of stock. UNLIMITED: escape hatch only.
+    missing-rows: ${INVENTORY_MISSING_STOCK_ROWS:REJECT}
+    # Quantity for rows created by the catalog sync for products/variants that had none.
+    default-quantity: ${INVENTORY_DEFAULT_STOCK_QUANTITY:0}
   jwt:
     # SAME ENV VARS AND SAME DEFAULTS AS auth-service's `auth.jwt.*`, the
     # gateway's `gateway.jwt.*` and product-service's `product.jwt.*`. Any of

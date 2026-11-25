@@ -112,8 +112,7 @@ public class AlertRepository {
   }
 
   public List<Alert> activeFor(UUID productId, String type) {
-    return jdbc.sql(
-            "SELECT * FROM cart.alerts WHERE product_id = :p AND type = :t AND active")
+    return jdbc.sql("SELECT * FROM cart.alerts WHERE product_id = :p AND type = :t AND active")
         .param("p", productId)
         .param("t", type)
         .query(AlertRepository::map)

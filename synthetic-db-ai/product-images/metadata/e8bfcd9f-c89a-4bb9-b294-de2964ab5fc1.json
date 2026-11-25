@@ -1,0 +1,13 @@
+{
+ "product_id": "e8bfcd9f-c89a-4bb9-b294-de2964ab5fc1",
+ "name": "Miionri Smart TV Lite",
+ "prompt": "studio packshot photo of a Olive Miionri Smart TV Lite, made of silicone, televisions, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 687761305,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:59:19",
+ "file_path": "product-images/images/e8bfcd9f-c89a-4bb9-b294-de2964ab5fc1.jpg",
+ "file_size": 26089
+}

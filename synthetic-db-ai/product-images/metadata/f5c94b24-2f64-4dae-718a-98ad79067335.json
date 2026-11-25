@@ -1,0 +1,13 @@
+{
+ "product_id": "f5c94b24-2f64-4dae-718a-98ad79067335",
+ "name": "Fyqua Phone Gen 3",
+ "prompt": "studio packshot photo of a Olive Fyqua Phone Gen 3, made of silicone, mobiles & smartphones, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 536040820,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:25:53",
+ "file_path": "product-images/images/f5c94b24-2f64-4dae-718a-98ad79067335.jpg",
+ "file_size": 65225
+}

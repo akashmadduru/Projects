@@ -1,0 +1,15 @@
+{
+ "product_id": "7c249421-5112-4f89-7700-72d9b057f6f9",
+ "name": "Venfylum 5G Phone Lite",
+ "prompt": "studio packshot photo of a Rose Gold Venfylum 5G Phone Lite, made of cotton, mobiles & smartphones, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3746319119,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:47:34",
+ "file_path": "static/images/7c249421-5112-4f89-7700-72d9b057f6f9.jpg",
+ "file_size": 52634,
+ "uploaded": false,
+ "s3_url": null
+}

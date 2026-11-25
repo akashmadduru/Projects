@@ -1,0 +1,15 @@
+{
+ "product_id": "2d6d80bc-658c-4ada-6af8-1a2443feb4ce",
+ "name": "Fyco Smartphone Edition",
+ "prompt": "studio packshot photo of a Silver Fyco Smartphone Edition, made of silicone, mobiles & smartphones, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 429134586,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:22:00",
+ "file_path": "static/images/2d6d80bc-658c-4ada-6af8-1a2443feb4ce.jpg",
+ "file_size": 58219,
+ "uploaded": false,
+ "s3_url": null
+}

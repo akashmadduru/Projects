@@ -34,6 +34,9 @@ spring:
         max.block.ms: 2000
 
 product:
+  # Tests call CatalogStockSync.sync() directly; no scheduled run against a missing inventory-service.
+  stock-sync:
+    enabled: false
   jwt:
     # MUST equal TestKeys.ISSUER / TestKeys.AUDIENCE. The wrong-issuer and
     # wrong-audience rejection tests are only meaningful because the happy path

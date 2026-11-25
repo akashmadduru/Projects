@@ -1,0 +1,15 @@
+{
+ "product_id": "77f798b2-0139-4b96-e54d-82e7b7f5e9d1",
+ "name": "Nufy Perfume Plus",
+ "prompt": "studio packshot photo of a Space Grey Nufy Perfume Plus, made of abs plastic, fragrances, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 58421103,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:51:57",
+ "file_path": "static/images/77f798b2-0139-4b96-e54d-82e7b7f5e9d1.jpg",
+ "file_size": 35316,
+ "uploaded": false,
+ "s3_url": null
+}

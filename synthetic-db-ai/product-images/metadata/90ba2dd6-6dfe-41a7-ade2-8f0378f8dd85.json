@@ -1,0 +1,13 @@
+{
+ "product_id": "90ba2dd6-6dfe-41a7-ade2-8f0378f8dd85",
+ "name": "Nocoven Tent Series 2",
+ "prompt": "studio packshot photo of a Midnight Nocoven Tent Series 2, made of aluminium, camping, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2488006699,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T01:22:53",
+ "file_path": "product-images/images/90ba2dd6-6dfe-41a7-ade2-8f0378f8dd85.jpg",
+ "file_size": 50816
+}

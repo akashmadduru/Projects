@@ -1,0 +1,13 @@
+{
+ "product_id": "a579b8b6-124d-43bf-adca-58844f5472e3",
+ "name": "Arsuno Camera Edition",
+ "prompt": "studio packshot photo of a White Arsuno Camera Edition, made of cotton, cameras, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 4248006274,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:14:39",
+ "file_path": "product-images/images/a579b8b6-124d-43bf-adca-58844f5472e3.jpg",
+ "file_size": 42615
+}

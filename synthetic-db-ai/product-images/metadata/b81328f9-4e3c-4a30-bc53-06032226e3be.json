@@ -1,0 +1,13 @@
+{
+ "product_id": "b81328f9-4e3c-4a30-bc53-06032226e3be",
+ "name": "Kaor Cushion Cover Classic",
+ "prompt": "studio packshot photo of a Midnight Kaor Cushion Cover Classic, made of aluminium, home decor, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1068943644,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:27:17",
+ "file_path": "product-images/images/b81328f9-4e3c-4a30-bc53-06032226e3be.jpg",
+ "file_size": 78530
+}

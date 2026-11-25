@@ -1,0 +1,13 @@
+{
+ "product_id": "8a7e477f-38d9-4ffd-b5da-09cf565fce4d",
+ "name": "Arlipi Flash Drive Gen 3",
+ "prompt": "studio packshot photo of a Olive Arlipi Flash Drive Gen 3, made of glass, storage, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2991029246,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:34:31",
+ "file_path": "product-images/images/8a7e477f-38d9-4ffd-b5da-09cf565fce4d.jpg",
+ "file_size": 22416
+}

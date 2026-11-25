@@ -1,0 +1,15 @@
+{
+ "product_id": "551b60bc-9e3f-4094-eda4-db9fd00e8807",
+ "name": "Comi Monitor Series 2",
+ "prompt": "studio packshot photo of a Grey Comi Monitor Series 2, made of ceramic, monitors, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 4218298390,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:01:08",
+ "file_path": "static/images/551b60bc-9e3f-4094-eda4-db9fd00e8807.jpg",
+ "file_size": 32661,
+ "uploaded": false,
+ "s3_url": null
+}

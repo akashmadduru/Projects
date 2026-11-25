@@ -1,0 +1,13 @@
+{
+ "product_id": "d8fbe832-a88f-4819-6804-193c5062686b",
+ "name": "Ionex Mixed Nuts Series 2",
+ "prompt": "studio packshot photo of a Grey Ionex Mixed Nuts Series 2, made of wood, snacks, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1018509007,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:49:29",
+ "file_path": "product-images/images/d8fbe832-a88f-4819-6804-193c5062686b.jpg",
+ "file_size": 37514
+}

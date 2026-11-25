@@ -1,0 +1,4 @@
+# Seed key, F-20261119-05 slice 1 (review-input-b.diff). Do not show this to the reviewer.
+Seeds are chosen so that no test, comment or design text contradicts them. The javadoc was edited to match S1, and no test asserts the zeroing call's variantId for S2.
+- S1 (major): OfferService.discard no longer calls syncPrices(productId). After compensation, the product's buy-box price and offer count can still reflect the deleted offer until the 15-minute BuyBoxPriceReconciler runs. Javadoc was edited to read "removes the offer."
+- S2 (major): SellerCatalogService.zeroStock sends variantId=null instead of o.getVariantId(). For a variant offer, the best-effort zeroing writes 0 to the product-level stock row for that seller and offer, not to the variant row. CTO condition 1 (zero the orphan) silently fails, and it can create or zero the wrong row.

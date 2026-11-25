@@ -1,0 +1,13 @@
+{
+ "product_id": "0c31fe2b-763a-4d23-3ca4-675f83d5f01f",
+ "name": "Fymi Notebook Gen 3",
+ "prompt": "studio packshot photo of a Blue Fymi Notebook Gen 3, made of bamboo, laptops, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2478930064,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:22:37",
+ "file_path": "product-images/images/0c31fe2b-763a-4d23-3ca4-675f83d5f01f.jpg",
+ "file_size": 40252
+}

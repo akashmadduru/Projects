@@ -1,0 +1,13 @@
+{
+ "product_id": "7b550c65-832f-4d6e-69ff-f79305f5cad7",
+ "name": "Liexri Yoga Mat Classic",
+ "prompt": "studio packshot photo of a Midnight Liexri Yoga Mat Classic, made of polyester, fitness, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3012247437,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:47:04",
+ "file_path": "product-images/images/7b550c65-832f-4d6e-69ff-f79305f5cad7.jpg",
+ "file_size": 55222
+}

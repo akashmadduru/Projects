@@ -1,0 +1,196 @@
+diff --git a/services/inventory-service/inventory-service-app/src/test/java/com/acme/ecommerce/inventory/service/SellerStockIntegrationTest.java b/services/inventory-service/inventory-service-app/src/test/java/com/acme/ecommerce/inventory/service/SellerStockIntegrationTest.java
+index 97a2405..f0b945a 100644
+--- a/services/inventory-service/inventory-service-app/src/test/java/com/acme/ecommerce/inventory/service/SellerStockIntegrationTest.java
++++ b/services/inventory-service/inventory-service-app/src/test/java/com/acme/ecommerce/inventory/service/SellerStockIntegrationTest.java
+@@ -119,13 +119,11 @@ class SellerStockIntegrationTest extends AbstractInventoryIntegrationTest {
+     }
+     pool.shutdown();
+ 
+-    assertThat(stock.byProduct(p))
+-        .allSatisfy(r -> assertThat(r.quantity()).isGreaterThanOrEqualTo(0));
++    assertThat(stock.byProduct(p)).allSatisfy(r -> assertThat(r.quantity()).isBetween(0, 5));
+     int reserved = 0;
+     for (UUID o : orders) {
+       reserved += reservations.allocations(o).stream().mapToInt(a -> a.quantity()).sum();
+     }
+     assertThat(reserved).isEqualTo(ok.get());
+-    assertThat(orders).hasSize(ok.get());
+   }
+ }
+diff --git a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/OrderService.java b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/OrderService.java
+index 97b6aaa..5aee433 100644
+--- a/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/OrderService.java
++++ b/services/order-service/order-service-app/src/main/java/com/acme/ecommerce/order/service/OrderService.java
+@@ -44,6 +44,7 @@ import java.util.Locale;
+ import java.util.Map;
+ import java.util.Objects;
+ import java.util.Optional;
++import java.util.Set;
+ import java.util.UUID;
+ import org.slf4j.Logger;
+ import org.slf4j.LoggerFactory;
+@@ -138,6 +139,7 @@ public class OrderService {
+         addressOverride != null ? addressOverride : fetchAddress(req.addressId());
+     List<DealClaimItem> dealClaims = new ArrayList<>();
+     Map<UUID, String> sellerNames = new LinkedHashMap<>();
++    Set<UUID> ownerlessOffers = new java.util.HashSet<>();
+     Order order =
+         draft(
+             userId,
+@@ -148,6 +150,7 @@ public class OrderService {
+             method,
+             dealClaims,
+             sellerNames,
++            ownerlessOffers,
+             lineDiscountPercent);
+     String currency = order.getCurrency();
+ 
+@@ -290,7 +293,11 @@ public class OrderService {
+             .map(
+                 i ->
+                     new OrderRemote.StockLine(
+-                        i.productId(), i.variantId(), i.offerId(), i.quantity(), i.sellerId()))
++                        i.productId(),
++                        i.variantId(),
++                        i.offerId(),
++                        i.quantity(),
++                        ownerlessOffers.contains(i.offerId()) ? null : i.sellerId()))
+             .toList();
+ 
+     List<Allocation> allocations;
+@@ -560,6 +567,7 @@ public class OrderService {
+       PaymentMethod method,
+       List<DealClaimItem> dealClaims,
+       Map<UUID, String> sellerNames,
++      Set<UUID> ownerlessOffers,
+       int lineDiscountPercent) {
+     List<ProductView> views = new ArrayList<>();
+     for (Line line : lines) {
+@@ -604,11 +612,12 @@ public class OrderService {
+         if (offer.sellerId() != null) {
+           sellerId = offer.sellerId();
+         } else if (offerId != null) {
+-          // Unknown owner: send no sellerId so inventory resolves the owner itself (and rejects
+-          // the line if it cannot); the order item takes the owner from the allocation.
+-          sellerId = null;
++          // Unknown owner: the stored item stays PLATFORM (the column is never null and cannot be
++          // updated later), but the reserve line carries no sellerId, so inventory resolves the
++          // owner itself and rejects the line if it cannot.
++          ownerlessOffers.add(offerId);
+         }
+-        if (offer.sellerName() != null && sellerId != null) {
++        if (offer.sellerName() != null) {
+           sellerNames.putIfAbsent(sellerId, offer.sellerName());
+         }
+         if (line.offerId() != null) {
+diff --git a/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/OrderPlacementIntegrationTest.java b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/OrderPlacementIntegrationTest.java
+index 3f1cfe5..4cf44af 100644
+--- a/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/OrderPlacementIntegrationTest.java
++++ b/services/order-service/order-service-app/src/test/java/com/acme/ecommerce/order/service/OrderPlacementIntegrationTest.java
+@@ -58,6 +58,7 @@ class OrderPlacementIntegrationTest extends AbstractOrderIntegrationTest {
+   @Autowired private OrderService orders;
+   @Autowired private JdbcTemplate jdbc;
+   @Autowired private OrderStore store;
++  @Autowired private com.fasterxml.jackson.databind.ObjectMapper mapper;
+ 
+   @Autowired private com.acme.ecommerce.order.web.InternalOrderLookupController lookup;
+ 
+@@ -163,11 +164,7 @@ class OrderPlacementIntegrationTest extends AbstractOrderIntegrationTest {
+                 null));
+ 
+     UUID owner = UUID.randomUUID();
+-    when(remote.reserveStock(any(), any(), anyString()))
+-        .thenReturn(
+-            List.of(
+-                new InventoryFeignClient.Allocation(
+-                    shirt, null, offerId, UUID.randomUUID(), "WH-X", "560001", 1, owner)));
++    stubOfferAllocation(offerId, owner);
+ 
+     OrderService.Placement placed =
+         orders.place(
+@@ -193,6 +190,85 @@ class OrderPlacementIntegrationTest extends AbstractOrderIntegrationTest {
+               assertThat(l.offerId()).isEqualTo(offerId);
+               assertThat(l.sellerId()).isNull();
+             });
++    // The reserve line carried no owner, but the stored item and its shipment are never NULL:
++    // both stay PLATFORM (item and shipment agree).
++    assertThat(sellerIds("order_items", placed.order().id()))
++        .containsExactly(Order.PLATFORM_SELLER);
++    assertThat(sellerIds("order_shipments", placed.order().id()))
++        .containsExactly(Order.PLATFORM_SELLER);
++  }
++
++  @Test
++  @DisplayName(
++      "an offer line with no owner and an allocation with no sellerId falls back to PLATFORM")
++  void offerWithUnknownSellerAndNullAllocationSellerIsPlatform() {
++    UUID offerId = UUID.randomUUID();
++    ProductView base = product(shirt, "Shirt", "499.00", "INR", true);
++    ProductViewFeignClient.Offer offer =
++        new ProductViewFeignClient.Offer(
++            offerId, null, null, null, new BigDecimal("499.00"), null, "INR", 1, 5);
++    when(products.findById(shirt))
++        .thenReturn(
++            new ProductView(
++                base.id(),
++                base.sku(),
++                base.name(),
++                base.priceAmount(),
++                base.priceCurrency(),
++                base.active(),
++                null,
++                null,
++                List.of(),
++                List.of(offer),
++                null));
++    stubOfferAllocation(offerId, null);
++
++    OrderService.Placement placed =
++        orders.place(
++            user,
++            "c@example.com",
++            "key-" + UUID.randomUUID(),
++            new PlaceOrderRequest(
++                addressId,
++                PaymentMethodRequest.CARD,
++                null,
++                List.of(new OrderLineRequest(shirt, 1, null, offerId)),
++                null,
++                null,
++                null));
++
++    assertThat(sellerIds("order_items", placed.order().id()))
++        .containsExactly(Order.PLATFORM_SELLER);
++    assertThat(sellerIds("order_shipments", placed.order().id()))
++        .containsExactly(Order.PLATFORM_SELLER);
++  }
++
++  @Test
++  @DisplayName("an old-shape allocation payload without sellerId deserialises with a null sellerId")
++  void oldAllocationShapeHasNullSellerId() throws Exception {
++    String json =
++        "{\"allocations\":[{\"productId\":\""
++            + shirt
++            + "\",\"warehouseId\":\""
++            + UUID.randomUUID()
++            + "\",\"warehouseCode\":\"WH-X\",\"warehousePincode\":\"560001\",\"quantity\":1,"
++            + "\"someFutureField\":true}]}";
++    InventoryFeignClient.ReserveResult r =
++        mapper.readValue(json, InventoryFeignClient.ReserveResult.class);
++    assertThat(r.allocations()).singleElement().satisfies(a -> assertThat(a.sellerId()).isNull());
++  }
++
++  private void stubOfferAllocation(UUID offerId, UUID allocSeller) {
++    when(remote.reserveStock(any(), any(), anyString()))
++        .thenReturn(
++            List.of(
++                new InventoryFeignClient.Allocation(
++                    shirt, null, offerId, UUID.randomUUID(), "WH-X", "560001", 1, allocSeller)));
++  }
++
++  private List<UUID> sellerIds(String table, UUID orderId) {
++    return jdbc.queryForList(
++        "select seller_id from orders." + table + " where order_id = ?", UUID.class, orderId);
+   }
+ 
+   @Test

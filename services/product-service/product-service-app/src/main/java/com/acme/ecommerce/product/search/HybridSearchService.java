@@ -99,9 +99,31 @@ public class HybridSearchService {
         matchedBy);
   }
 
-  /** Facets over exactly the candidate set {@link #search} pages through. */
+  /**
+   * Facets over exactly the candidate set {@link #search} pages through, except the brand facet:
+   * like the catalog facets it drops its own filter, so it counts the candidates retrieved without
+   * the chosen brands (one more retrieval; the query vector is cached).
+   */
   public FacetsResponse facets(SearchQuery query) {
-    return discovery.facetsForIds(retrieve(query).fused().stream().map(Fused::id).toList());
+    FacetsResponse full = discovery.facetsForIds(ids(retrieve(query)));
+    SearchFilters f = query.filters();
+    if (f.brands() == null || f.brands().isEmpty()) {
+      return full;
+    }
+    SearchQuery unbranded =
+        new SearchQuery(
+            query.text(),
+            query.mode(),
+            query.sort(),
+            new SearchFilters(f.categoryId(), f.minPrice(), f.maxPrice(), f.minRating(), List.of()),
+            query.page(),
+            query.size());
+    FacetsResponse others = discovery.facetsForIds(ids(retrieve(unbranded)));
+    return new FacetsResponse(others.brands(), full.attributes(), full.price());
+  }
+
+  private static List<UUID> ids(Retrieval retrieval) {
+    return retrieval.fused().stream().map(Fused::id).toList();
   }
 
   private Retrieval retrieve(SearchQuery query) {

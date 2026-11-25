@@ -1,0 +1,13 @@
+{
+ "product_id": "73c66d24-1843-45fd-521b-7674f0cf3ed2",
+ "name": "Ririze Omega-3 Plus",
+ "prompt": "studio packshot photo of a Red Ririze Omega-3 Plus, made of leather, supplements, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3729138425,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:41:44",
+ "file_path": "product-images/images/73c66d24-1843-45fd-521b-7674f0cf3ed2.jpg",
+ "file_size": 47783
+}

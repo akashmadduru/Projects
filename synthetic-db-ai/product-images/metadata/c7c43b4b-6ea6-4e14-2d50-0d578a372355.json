@@ -1,0 +1,13 @@
+{
+ "product_id": "c7c43b4b-6ea6-4e14-2d50-0d578a372355",
+ "name": "Trano Mop Lite",
+ "prompt": "studio packshot photo of a Green Trano Mop Lite, made of silicone, cleaning, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 454656385,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:37:37",
+ "file_path": "product-images/images/c7c43b4b-6ea6-4e14-2d50-0d578a372355.jpg",
+ "file_size": 42506
+}

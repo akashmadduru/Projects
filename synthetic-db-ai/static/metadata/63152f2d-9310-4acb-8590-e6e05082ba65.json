@@ -1,0 +1,15 @@
+{
+ "product_id": "63152f2d-9310-4acb-8590-e6e05082ba65",
+ "name": "Ioncoba Box Set Edition",
+ "prompt": "studio packshot photo of a Rose Gold Ioncoba Box Set Edition, made of bamboo, books, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1264179494,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:05:05",
+ "file_path": "static/images/63152f2d-9310-4acb-8590-e6e05082ba65.jpg",
+ "file_size": 53692,
+ "uploaded": false,
+ "s3_url": null
+}

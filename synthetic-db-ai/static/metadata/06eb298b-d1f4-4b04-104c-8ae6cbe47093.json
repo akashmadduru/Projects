@@ -1,0 +1,15 @@
+{
+ "product_id": "06eb298b-d1f4-4b04-104c-8ae6cbe47093",
+ "name": "Venlum Cricket Bat Lite",
+ "prompt": "studio packshot photo of a Olive Venlum Cricket Bat Lite, made of stainless steel, team sports, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1288394596,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 768,
+ "created_at": "2026-11-15T22:39:10",
+ "file_path": "static/images/06eb298b-d1f4-4b04-104c-8ae6cbe47093.jpg",
+ "file_size": 61796,
+ "uploaded": false,
+ "s3_url": null
+}

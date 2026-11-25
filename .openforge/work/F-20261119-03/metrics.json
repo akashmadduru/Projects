@@ -1,0 +1,260 @@
+{
+ "runs": [
+  {
+   "at": "2026-11-19T06:50:48.145Z",
+   "role": "forge-cpo",
+   "tokens": 20328,
+   "tools": 9,
+   "ms": 37294,
+   "round": 0,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-19T06:50:48.226Z",
+   "role": "forge-cto",
+   "tokens": 13996,
+   "tools": 5,
+   "ms": 10239,
+   "round": 0,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-19T06:50:48.292Z",
+   "role": "forge-architect",
+   "tokens": 85931,
+   "tools": 33,
+   "ms": 231590,
+   "round": 0,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-19T06:50:48.374Z",
+   "role": "forge-cto",
+   "tokens": 28462,
+   "tools": 7,
+   "ms": 45394,
+   "round": 0,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-19T06:52:54.741Z",
+   "role": "forge-em",
+   "tokens": 24881,
+   "tools": 4,
+   "ms": 43170,
+   "round": 0,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-19T06:59:11.763Z",
+   "role": "forge-backend-engineer",
+   "tokens": 90139,
+   "tools": 23,
+   "ms": 354881,
+   "round": 1,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-19T07:02:19.211Z",
+   "role": "forge-security",
+   "tokens": 50463,
+   "tools": 7,
+   "ms": 57803,
+   "round": 1,
+   "outcome": "request_changes"
+  },
+  {
+   "at": "2026-11-19T07:03:17.462Z",
+   "role": "forge-reviewer",
+   "tokens": 70257,
+   "tools": 16,
+   "ms": 97215,
+   "round": 1,
+   "outcome": "request_changes"
+  },
+  {
+   "at": "2026-11-19T07:04:22.619Z",
+   "role": "forge-architect",
+   "tokens": 39501,
+   "tools": 13,
+   "ms": 48848,
+   "round": 1,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-19T07:10:40.383Z",
+   "role": "forge-backend-engineer",
+   "tokens": 32026,
+   "tools": 12,
+   "ms": 268013,
+   "round": 2,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-19T07:12:02.145Z",
+   "role": "forge-security",
+   "tokens": 19912,
+   "tools": 4,
+   "ms": 26425,
+   "round": 2,
+   "outcome": "approve"
+  },
+  {
+   "at": "2026-11-19T07:12:29.602Z",
+   "role": "forge-reviewer",
+   "tokens": 28811,
+   "tools": 8,
+   "ms": 35440,
+   "round": 2,
+   "outcome": "approve"
+  },
+  {
+   "at": "2026-11-19T15:44:14.912Z",
+   "role": "forge-backend-engineer",
+   "tokens": 98212,
+   "tools": 21,
+   "ms": 574873,
+   "round": 2,
+   "outcome": "interim"
+  },
+  {
+   "at": "2026-11-19T16:02:32.313Z",
+   "role": "forge-backend-engineer",
+   "tokens": 12165,
+   "tools": 19,
+   "ms": 1100033,
+   "round": 2,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-19T16:24:19.010Z",
+   "role": "forge-security",
+   "tokens": 62705,
+   "tools": 11,
+   "ms": 70142,
+   "round": 3,
+   "outcome": "approve"
+  },
+  {
+   "at": "2026-11-19T16:25:09.988Z",
+   "role": "forge-reviewer",
+   "tokens": 76581,
+   "tools": 20,
+   "ms": 97630,
+   "round": 3,
+   "outcome": "approve"
+  },
+  {
+   "at": "2026-11-19T16:25:45.018Z",
+   "role": "forge-architect",
+   "tokens": 6774,
+   "tools": 2,
+   "ms": 28966,
+   "round": 3,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-19T16:37:10.078Z",
+   "role": "forge-backend-engineer",
+   "tokens": 14890,
+   "tools": 10,
+   "ms": 701424,
+   "round": 4,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-19T16:49:16.711Z",
+   "role": "forge-security",
+   "tokens": 32067,
+   "tools": 12,
+   "ms": 96657,
+   "round": 4,
+   "outcome": "approve"
+  },
+  {
+   "at": "2026-11-19T16:49:16.844Z",
+   "role": "forge-reviewer",
+   "tokens": 39600,
+   "tools": 13,
+   "ms": 102959,
+   "round": 4,
+   "outcome": "approve"
+  },
+  {
+   "at": "2026-11-19T17:04:55.156Z",
+   "role": "forge-backend-engineer",
+   "tokens": 19061,
+   "tools": 19,
+   "ms": 916852,
+   "round": 5,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-19T17:05:34.614Z",
+   "role": "forge-architect",
+   "tokens": 3950,
+   "tools": 1,
+   "ms": 28013,
+   "round": 5,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-19T17:27:43.875Z",
+   "role": "forge-security",
+   "tokens": 39553,
+   "tools": 12,
+   "ms": 75222,
+   "round": 5,
+   "outcome": "approve"
+  },
+  {
+   "at": "2026-11-19T17:27:43.949Z",
+   "role": "forge-reviewer",
+   "tokens": 37290,
+   "tools": 14,
+   "ms": 79575,
+   "round": 5,
+   "outcome": "approve"
+  },
+  {
+   "at": "2026-11-19T17:28:47.563Z",
+   "role": "forge-qa",
+   "tokens": 35448,
+   "tools": 10,
+   "ms": 41293,
+   "round": 0,
+   "outcome": "pass"
+  },
+  {
+   "at": "2026-11-19T17:30:47.579Z",
+   "role": "forge-qa",
+   "tokens": 11933,
+   "tools": 8,
+   "ms": 121685,
+   "round": 1,
+   "outcome": "pass"
+  }
+ ],
+ "events": [
+  {
+   "at": "2026-11-19T06:59:11.826Z",
+   "type": "recovery",
+   "note": "implementer wrote outside its worktree via Bash (ADR 0002 note + work/verify-slice1.md); protect hook covers Edit/Write only. Kept ADR note (CTO-requested content), flagged to reviewers."
+  },
+  {
+   "at": "2026-11-19T07:02:19.269Z",
+   "type": "seeded_test",
+   "note": "slice 1 seeded review (forge-security, 48,599 tokens): 3/3 caught; tests in diff acted as oracle"
+  },
+  {
+   "at": "2026-11-19T07:46:21.023Z",
+   "type": "recovery",
+   "note": "session restart killed slice-2 engineer mid-build; CEO restored EOL-only files, resumed agent from transcript"
+  },
+  {
+   "at": "2026-11-19T17:28:47.698Z",
+   "type": "gate_fail",
+   "note": "gate: 12 ACs lack a 'pass' evidence line. QA wrote 'covered' (mapping by reading) without checking the mapped tests ran and passed. Sent back to QA to confirm each test passed in the JUnit XML."
+  }
+ ]
+}

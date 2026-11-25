@@ -1,0 +1,13 @@
+{
+ "product_id": "fe5d49d4-8a04-4efe-8442-14ed3514299b",
+ "name": "Votratra Sketch Pad Edition",
+ "prompt": "studio packshot photo of a White Votratra Sketch Pad Edition, made of aluminium, art supplies, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3686740747,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T00:29:58",
+ "file_path": "product-images/images/fe5d49d4-8a04-4efe-8442-14ed3514299b.jpg",
+ "file_size": 23208
+}

@@ -1,0 +1,13 @@
+{
+ "product_id": "a0e2c0db-9ab1-445d-4c8e-92d2715aa858",
+ "name": "Lumnopi Trekking Backpack Lite",
+ "prompt": "studio packshot photo of a Rose Gold Lumnopi Trekking Backpack Lite, made of leather, camping, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2405640234,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:05:18",
+ "file_path": "product-images/images/a0e2c0db-9ab1-445d-4c8e-92d2715aa858.jpg",
+ "file_size": 31539
+}

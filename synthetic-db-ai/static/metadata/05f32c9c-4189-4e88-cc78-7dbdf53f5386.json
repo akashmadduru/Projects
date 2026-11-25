@@ -1,0 +1,15 @@
+{
+ "product_id": "05f32c9c-4189-4e88-cc78-7dbdf53f5386",
+ "name": "Venqua Analog Watch Ultra",
+ "prompt": "studio packshot photo of a Grey Venqua Analog Watch Ultra, made of nylon, watches & jewellery, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 350841845,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 768,
+ "created_at": "2026-11-15T22:35:42",
+ "file_path": "static/images/05f32c9c-4189-4e88-cc78-7dbdf53f5386.jpg",
+ "file_size": 85662,
+ "uploaded": false,
+ "s3_url": null
+}

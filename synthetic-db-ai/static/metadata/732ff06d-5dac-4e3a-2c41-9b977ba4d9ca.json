@@ -1,0 +1,15 @@
+{
+ "product_id": "732ff06d-5dac-4e3a-2c41-9b977ba4d9ca",
+ "name": "Extrata Sketch Pad Prime",
+ "prompt": "studio packshot photo of a Rose Gold Extrata Sketch Pad Prime, made of silicone, art supplies, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 4198033462,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:11:51",
+ "file_path": "static/images/732ff06d-5dac-4e3a-2c41-9b977ba4d9ca.jpg",
+ "file_size": 40137,
+ "uploaded": false,
+ "s3_url": null
+}

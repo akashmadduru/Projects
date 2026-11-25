@@ -36,7 +36,8 @@ public class SellerService {
 
   private static final Logger log = LoggerFactory.getLogger(SellerService.class);
   private static final ObjectMapper JSON = new ObjectMapper();
-  private static final Pattern GSTIN = Pattern.compile("^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$");
+  private static final Pattern GSTIN =
+      Pattern.compile("^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$");
   private static final Pattern PAN = Pattern.compile("^[A-Z]{5}[0-9]{4}[A-Z]$");
   private static final Pattern IFSC = Pattern.compile("^[A-Z]{4}0[A-Z0-9]{6}$");
   private static final Pattern ACCOUNT = Pattern.compile("^[0-9]{9,18}$");
@@ -74,7 +75,42 @@ public class SellerService {
       BigDecimal ratingAvg,
       int ratingCount,
       OffsetDateTime createdAt,
-      OffsetDateTime approvedAt) {}
+      OffsetDateTime approvedAt) {
+
+    /**
+     * GSTIN and PAN masked to their first and last two characters (TD-P9-09). Lists and non-ADMIN
+     * reviewers see this form; only an ADMIN opening one seller sees the full numbers.
+     */
+    public Seller masked() {
+      return new Seller(
+          id,
+          userId,
+          legalName,
+          displayName,
+          slug,
+          email,
+          phone,
+          mask(gstin),
+          mask(pan),
+          bankAccountLast4,
+          ifsc,
+          pickupAddress,
+          status,
+          rejectionReason,
+          commissionPercent,
+          ratingAvg,
+          ratingCount,
+          createdAt,
+          approvedAt);
+    }
+
+    static String mask(String v) {
+      if (v == null || v.length() <= 4) {
+        return v == null ? null : "*".repeat(v.length());
+      }
+      return v.substring(0, 2) + "*".repeat(v.length() - 4) + v.substring(v.length() - 2);
+    }
+  }
 
   public record PublicProfile(
       UUID id,
@@ -153,19 +189,26 @@ public class SellerService {
 
   @Transactional(readOnly = true)
   public Optional<Seller> findByUser(UUID userId) {
-    return jdbc.sql("SELECT * FROM sellers WHERE user_id = :u").param("u", userId).query(SellerService::map).optional();
+    return jdbc.sql("SELECT * FROM sellers WHERE user_id = :u")
+        .param("u", userId)
+        .query(SellerService::map)
+        .optional();
   }
 
   @Transactional(readOnly = true)
   public Optional<Seller> findById(UUID id) {
-    return jdbc.sql("SELECT * FROM sellers WHERE id = :i").param("i", id).query(SellerService::map).optional();
+    return jdbc.sql("SELECT * FROM sellers WHERE id = :i")
+        .param("i", id)
+        .query(SellerService::map)
+        .optional();
   }
 
   /** The caller's seller record or 403 (used by every /api/seller/** endpoint). */
   @Transactional(readOnly = true)
   public Seller requireByUser(UUID userId) {
     return findByUser(userId)
-        .orElseThrow(() -> new CodedException(ErrorCode.FORBIDDEN, "You do not have a seller account"));
+        .orElseThrow(
+            () -> new CodedException(ErrorCode.FORBIDDEN, "You do not have a seller account"));
   }
 
   // ---- onboarding ------------------------------------------------------------------------
@@ -173,8 +216,7 @@ public class SellerService {
   @Transactional
   public Seller apply(UUID userId, String jwtEmail, ApplyRequest r) {
     Optional<Seller> existing = findByUser(userId);
-    if (existing.isPresent()
-        && !List.of("DRAFT", "REJECTED").contains(existing.get().status())) {
+    if (existing.isPresent() && !List.of("DRAFT", "REJECTED").contains(existing.get().status())) {
       throw new CodedException(
           ErrorCode.RESOURCE_CONFLICT,
           "Application cannot be changed while it is " + existing.get().status());
@@ -189,7 +231,8 @@ public class SellerService {
     String gstin = upper(r.gstin());
     String pan = upper(r.pan());
     String ifsc = upper(r.ifsc());
-    String account = r.bankAccountNumber() == null ? null : r.bankAccountNumber().replaceAll("\\s", "");
+    String account =
+        r.bankAccountNumber() == null ? null : r.bankAccountNumber().replaceAll("\\s", "");
     if (account != null && account.isEmpty()) {
       account = null;
     }
@@ -200,7 +243,10 @@ public class SellerService {
     if (pan != null && !PAN.matcher(pan).matches()) {
       errors.put("pan", "Invalid PAN format");
     }
-    if (gstin != null && pan != null && !errors.containsKey("gstin") && !errors.containsKey("pan")
+    if (gstin != null
+        && pan != null
+        && !errors.containsKey("gstin")
+        && !errors.containsKey("pan")
         && !gstin.substring(2, 12).equals(pan)) {
       errors.put("pan", "PAN must match characters 3-12 of the GSTIN");
     }
@@ -226,8 +272,13 @@ public class SellerService {
       require(errors, "gstin", gstin != null || (prev != null && prev.gstin() != null));
       require(errors, "pan", pan != null || (prev != null && prev.pan() != null));
       require(errors, "ifsc", ifsc != null || (prev != null && prev.ifsc() != null));
-      require(errors, "bankAccountNumber", account != null || (prev != null && prev.bankAccountLast4() != null));
-      require(errors, "pickupAddress",
+      require(
+          errors,
+          "bankAccountNumber",
+          account != null || (prev != null && prev.bankAccountLast4() != null));
+      require(
+          errors,
+          "pickupAddress",
           (r.pickupAddress() != null && !r.pickupAddress().isEmpty())
               || (prev != null && prev.pickupAddress() != null));
       require(errors, "email", email != null);
@@ -326,7 +377,11 @@ public class SellerService {
       base = base.substring(0, 120);
     }
     String slug = base;
-    while (jdbc.sql("SELECT count(*) FROM sellers WHERE slug = :s").param("s", slug).query(Long.class).single() > 0) {
+    while (jdbc.sql("SELECT count(*) FROM sellers WHERE slug = :s")
+            .param("s", slug)
+            .query(Long.class)
+            .single()
+        > 0) {
       slug = base + "-" + UUID.randomUUID().toString().substring(0, 4);
     }
     return slug;
@@ -337,15 +392,21 @@ public class SellerService {
   @Transactional(readOnly = true)
   public Paged<Seller> adminList(String status, int page, int size) {
     int s = Paged.clampSize(size);
-    String where = status == null || status.isBlank() ? "" : " WHERE status = :st";
+    String st = status == null || status.isBlank() ? null : status.toUpperCase(Locale.ROOT);
+    String where = st == null ? "" : " WHERE status = :st";
     var count = jdbc.sql("SELECT count(*) FROM sellers" + where);
-    var list = jdbc.sql("SELECT * FROM sellers" + where + " ORDER BY created_at DESC LIMIT :l OFFSET :o");
-    if (!where.isEmpty()) {
-      count = count.param("st", status.toUpperCase(Locale.ROOT));
-      list = list.param("st", status.toUpperCase(Locale.ROOT));
+    var list =
+        jdbc.sql("SELECT * FROM sellers" + where + " ORDER BY created_at DESC LIMIT :l OFFSET :o");
+    if (st != null) {
+      count = count.param("st", st);
+      list = list.param("st", st);
     }
     long total = count.query(Long.class).single();
-    List<Seller> rows = list.param("l", s).param("o", (long) Math.max(page, 0) * s).query(SellerService::map).list();
+    List<Seller> rows =
+        list.param("l", s)
+            .param("o", (long) Math.max(page, 0) * s)
+            .query(SellerService::map)
+            .list();
     return Paged.of(rows, Math.max(page, 0), s, total);
   }
 
@@ -359,25 +420,30 @@ public class SellerService {
     Seller s = adminGet(id);
     if (approve) {
       if (!List.of("SUBMITTED", "SUSPENDED").contains(s.status())) {
-        throw new CodedException(ErrorCode.INVALID_STATUS_TRANSITION, "Cannot approve a " + s.status() + " seller");
+        throw new CodedException(
+            ErrorCode.INVALID_STATUS_TRANSITION, "Cannot approve a " + s.status() + " seller");
       }
-      jdbc.sql("UPDATE sellers SET status = 'APPROVED', rejection_reason = NULL, approved_at = COALESCE(approved_at, now()), updated_at = now() WHERE id = :id")
+      jdbc.sql(
+              "UPDATE sellers SET status = 'APPROVED', rejection_reason = NULL, approved_at = COALESCE(approved_at, now()), updated_at = now() WHERE id = :id")
           .param("id", id)
           .update();
       try {
         auth.grantRole(s.userId(), new AuthFeignClient.GrantRole("SELLER"));
       } catch (RuntimeException e) {
         // Throwing rolls the status change back: an APPROVED seller without the role is worse.
-        throw new CodedException(ErrorCode.DEPENDENCY_UNAVAILABLE, "Could not grant the seller role; try again", e);
+        throw new CodedException(
+            ErrorCode.DEPENDENCY_UNAVAILABLE, "Could not grant the seller role; try again", e);
       }
     } else {
       if (!"SUBMITTED".equals(s.status())) {
-        throw new CodedException(ErrorCode.INVALID_STATUS_TRANSITION, "Cannot reject a " + s.status() + " seller");
+        throw new CodedException(
+            ErrorCode.INVALID_STATUS_TRANSITION, "Cannot reject a " + s.status() + " seller");
       }
       if (reason == null || reason.isBlank()) {
         throw ValidationException.forField("reason", "A reason is required when rejecting");
       }
-      jdbc.sql("UPDATE sellers SET status = 'REJECTED', rejection_reason = :r, updated_at = now() WHERE id = :id")
+      jdbc.sql(
+              "UPDATE sellers SET status = 'REJECTED', rejection_reason = :r, updated_at = now() WHERE id = :id")
           .param("r", reason.length() > 500 ? reason.substring(0, 500) : reason)
           .param("id", id)
           .update();
@@ -391,15 +457,29 @@ public class SellerService {
   public Seller suspend(UUID id, String reason) {
     Seller s = adminGet(id);
     if ("00000000-0000-0000-0000-00000000a11e".equals(id.toString())) {
-      throw new CodedException(ErrorCode.DOMAIN_RULE_VIOLATION, "The platform seller cannot be suspended");
+      throw new CodedException(
+          ErrorCode.DOMAIN_RULE_VIOLATION, "The platform seller cannot be suspended");
     }
     if (!"APPROVED".equals(s.status())) {
-      throw new CodedException(ErrorCode.INVALID_STATUS_TRANSITION, "Only an APPROVED seller can be suspended");
+      throw new CodedException(
+          ErrorCode.INVALID_STATUS_TRANSITION, "Only an APPROVED seller can be suspended");
     }
-    jdbc.sql("UPDATE sellers SET status = 'SUSPENDED', rejection_reason = :r, updated_at = now() WHERE id = :id")
-        .param("r", reason == null ? null : (reason.length() > 500 ? reason.substring(0, 500) : reason))
+    jdbc.sql(
+            "UPDATE sellers SET status = 'SUSPENDED', rejection_reason = :r, updated_at = now() WHERE id = :id")
+        .param(
+            "r",
+            reason == null ? null : (reason.length() > 500 ? reason.substring(0, 500) : reason))
         .param("id", id)
         .update();
+    try {
+      // TD-P9-09: a suspended seller loses the role, not just the status. Re-approving grants it
+      // back. Throwing rolls the suspension back, mirroring approval: a SUSPENDED seller who keeps
+      // ROLE_SELLER is the case this exists to prevent.
+      auth.revokeRole(s.userId(), "SELLER");
+    } catch (RuntimeException e) {
+      throw new CodedException(
+          ErrorCode.DEPENDENCY_UNAVAILABLE, "Could not revoke the seller role; try again", e);
+    }
     return adminGet(id);
   }
 
@@ -434,7 +514,13 @@ public class SellerService {
             .optional()
             .orElseThrow(() -> new ResourceNotFoundException("Seller", slug));
     return new PublicProfile(
-        s.id(), s.slug(), s.displayName(), s.ratingAvg(), s.ratingCount(), s.approvedAt() != null ? s.approvedAt() : s.createdAt(), productCount(s.id()));
+        s.id(),
+        s.slug(),
+        s.displayName(),
+        s.ratingAvg(),
+        s.ratingCount(),
+        s.approvedAt() != null ? s.approvedAt() : s.createdAt(),
+        productCount(s.id()));
   }
 
   private long productCount(UUID sellerId) {
@@ -456,12 +542,15 @@ public class SellerService {
   /** Rating used by the buy box: neutral 4.0 until the seller has at least one rating. */
   private static InternalSeller internal(Seller s) {
     BigDecimal rating = s.ratingCount() == 0 ? new BigDecimal("4.00") : s.ratingAvg();
-    return new InternalSeller(s.id(), s.slug(), s.displayName(), rating, s.ratingCount(), s.status());
+    return new InternalSeller(
+        s.id(), s.slug(), s.displayName(), rating, s.ratingCount(), s.status());
   }
 
   @Transactional(readOnly = true)
   public ByUser byUser(UUID userId) {
-    Seller s = findByUser(userId).orElseThrow(() -> new ResourceNotFoundException("Seller for user", userId));
+    Seller s =
+        findByUser(userId)
+            .orElseThrow(() -> new ResourceNotFoundException("Seller for user", userId));
     return new ByUser(s.id(), s.status());
   }
 
@@ -475,7 +564,8 @@ public class SellerService {
     if (ids.isEmpty()) {
       return List.of();
     }
-    return jdbc.sql("SELECT * FROM sellers WHERE id IN (:ids)")
+    return jdbc
+        .sql("SELECT * FROM sellers WHERE id IN (:ids)")
         .param("ids", ids)
         .query(SellerService::map)
         .list()

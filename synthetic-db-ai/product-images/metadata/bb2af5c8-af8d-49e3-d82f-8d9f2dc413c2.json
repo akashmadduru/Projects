@@ -1,0 +1,13 @@
+{
+ "product_id": "bb2af5c8-af8d-49e3-d82f-8d9f2dc413c2",
+ "name": "Miionfy Sketch Pad Prime",
+ "prompt": "studio packshot photo of a White Miionfy Sketch Pad Prime, made of wood, art supplies, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3447277577,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:43:02",
+ "file_path": "product-images/images/bb2af5c8-af8d-49e3-d82f-8d9f2dc413c2.jpg",
+ "file_size": 33433
+}

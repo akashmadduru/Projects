@@ -1,0 +1,15 @@
+{
+ "product_id": "31b7cc31-4132-4b9f-1589-375d024aa393",
+ "name": "Kaor Blender Gen 3",
+ "prompt": "studio packshot photo of a Black Kaor Blender Gen 3, made of ceramic, small appliances, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2680043608,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-15T23:54:56",
+ "file_path": "static/images/31b7cc31-4132-4b9f-1589-375d024aa393.jpg",
+ "file_size": 57985,
+ "uploaded": false,
+ "s3_url": null
+}

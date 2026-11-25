@@ -1,0 +1,21 @@
+- 2026-11-19T07:16:31Z CEO: discover — objective.md; worktree from fcf6f2a2.
+- 2026-11-19T07:17:26Z CEO: requirements PASS (CPO, 11 ACs; all 4 register claims proved with file:line; async bulk/portal matrix/FBP non-goals).
+- 2026-11-19T07:17:45Z CEO: complexity — CTO 4, class M. Architect next.
+- 2026-11-19T15:37:05Z step4 architect: design.md + ADR 0004 written (est 230-280 prod lines; adds order-service as 3rd service). Next: CTO accept + re-score.
+- 2026-11-19T15:38:30Z step4 CTO: ACCEPT, class M (4), 7 conditions. ADR status handed to architect (CTO role cannot write ADRs). Step5 EM started.
+- 2026-11-19T15:38:49Z ADR 0004 Accepted by architect (+CTO cond 1 in Consequences).
+- 2026-11-19T15:39:08Z step5 EM: tasks.md T1-T9, 2 slices (s1=T1-T4, s2=T5-T9); CEO checked coverage table (AC-1..11, CTO 1-7 all mapped) and cart-service module names exist. Step6 s1 started.
+- 2026-11-19T16:33:09Z s1 committed 4ca6991 (127 prod lines). Engineer found order-service tests did not compile at base (DependencyBreakerCapabilityTest:68, from 778d102): fixed with a cast. Pre-existing defect: order-service test suite was not runnable on base. CEO verify started.
+- 2026-11-19T16:54:45Z s1 reviews launched @ 4ca6991b (reviewer, security) + seeded reviewer on review-input-b.diff (2 seeds, key in scratchpad; neither seed is contradicted by tests or comments in the diff).
+- 2026-11-19T16:56:53Z s1 reviewer APPROVE @ 4ca6991b (0B/0M/5 minor/4 nit), saved verbatim. Seeded reviewer: 2/2 seeds caught (S2 escalated to blocker); result in runs/R-20261119-01/seeded/result-F05-s1.md.
+- 2026-11-19T16:57:21Z s1 security APPROVE @ 4ca6991b (4 minor; 2 pre-existing filed as B-6/B-7). Fix round s1r2 started.
+- 2026-11-19T19:40:55Z fix round 8336ddf + slice 2 committed 7582e43. Register docs deliberately not edited (deferred to the register-sync objective, per run rule). CEO verify started.
+- 2026-11-19T19:46:22Z s2 security APPROVE @ 7582e43a (2 minor). Waiting on reviewer.
+- 2026-11-19T19:48:12Z s2 reviewer REQUEST_CHANGES @ 7582e43a: 2 majors = vacuous CTO-2/CTO-5 tests (code correct; proof missing). Fix round s2r2 sent to engineer with reviewer minors + security minor 1.
+- 2026-11-19T20:22:04Z s2 fix round committed 4ea8ca9 (prod 300). CEO verify queued.
+- 2026-11-19T20:32:01Z s2r2 security APPROVE @ 4ea8ca92 (0 findings). Waiting on reviewer.
+- 2026-11-19T20:32:34Z s2r2 both APPROVE @ 4ea8ca92. QA step 7 next, with tests for the attach owner and the old-shape allocation (test-only; needs a quick re-review of the delta).
+- 2026-11-20T17:42:51Z QA @ afbb4270 (test-only): 11/11 AC PASS, but QA found a DEFECT: an item's seller_id stays NULL in the DB (updatable=false) for owner-less lines; regression from 4ea8ca9. Back to engineer.
+- 2026-11-20T18:04:04Z regression fix 64fdb21 (item stays PLATFORM; null only on the reserve line). The engineer's verify ran without --changed, so its frontend failures were environmental. CEO verify running.
+- 2026-11-20T18:07:50Z s2r3 security APPROVE @ 64fdb21d (1 display minor). Waiting on reviewer.
+- 2026-11-20T18:09:35Z s2r3 reviewer APPROVE @ 64fdb21d. forge-gate PASS. pr.md written.

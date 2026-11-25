@@ -15,10 +15,15 @@ import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.Profiles;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 
-/** Web Push subscriptions + delivery. VAPID keys: env, else notification.settings, else generated. */
+/**
+ * Web Push subscriptions + delivery. VAPID keys: env; outside {@code prod} also
+ * notification.settings, else generated and stored there (local convenience only).
+ */
 @Service
 public class PushService {
 
@@ -41,19 +46,33 @@ public class PushService {
       ObjectMapper mapper,
       @Value("${notification.vapid.public-key:}") String configuredPublic,
       @Value("${notification.vapid.private-key:}") String configuredPrivate,
-      @Value("${notification.vapid.subject:mailto:admin@acme.local}") String subject) {
+      @Value("${notification.vapid.subject:mailto:admin@acme.local}") String subject,
+      Environment environment) {
     this.jdbc = jdbc;
     this.mapper = mapper;
     this.configuredPublic = configuredPublic;
     this.configuredPrivate = configuredPrivate;
     this.subject = subject;
+    this.production = environment.acceptsProfiles(Profiles.of("prod"));
   }
+
+  /** Under {@code prod} the keys must come from the environment (TD-P8-05). */
+  private final boolean production;
 
   @PostConstruct
   void initKeys() {
     try {
       if (!configuredPublic.isBlank() && !configuredPrivate.isBlank()) {
         keys = new KeyMaterial(configuredPublic, configuredPrivate);
+        return;
+      }
+      if (production) {
+        // Never generate or store a private key in the database in production: a DB leak would
+        // let anyone send push as the site, and a fresh volume would silently orphan every
+        // browser subscription. Push stays off until the keys are provided.
+        log.error(
+            "Web push disabled: set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY (secret store) for"
+                + " the prod profile");
         return;
       }
       String pub = setting("vapid.public");

@@ -2,7 +2,8 @@
  * Catalog search state, kept in the URL so results are shareable and Back/Forward work.
  *
  * URL keys: q, category, minPrice, maxPrice, rating, discount, seller, inStock, onSale, featured,
- * verifiedSeller, sort, page (1-based for humans).
+ * verifiedSeller, sort, page (1-based for humans), and the repeated multi-value keys `brand` and
+ * `attr.<key>` (`brand=A&brand=B`; a value may contain a comma).
  */
 
 import { useCallback, useMemo } from 'react'
@@ -29,8 +30,9 @@ const KEYS = {
 const KEYS_BRAND = 'brand'
 const ATTR_PREFIX = 'attr.'
 
-function readList(raw: string | null): string[] {
-  return raw ? raw.split(',').map((v) => v.trim()).filter(Boolean) : []
+/** A repeated key (`brand=A&brand=B`), each value literal: values may contain commas. */
+function readList(raw: string[]): string[] {
+  return [...new Set(raw.map((v) => v.trim()).filter(Boolean))]
 }
 
 function readNumber(params: URLSearchParams, key: string): number | undefined {
@@ -62,15 +64,15 @@ export function parseCatalogParams(params: URLSearchParams): { query: ProductQue
     verifiedSeller: readFlag(params, KEYS.verifiedSeller),
     sort: sort && SORTS.includes(sort) ? sort : undefined,
   }
-  const brand = readList(params.get(KEYS_BRAND))
+  const brand = readList(params.getAll(KEYS_BRAND))
   if (brand.length) query.brand = brand
   const attrs: Record<string, string[]> = {}
-  params.forEach((value, key) => {
-    if (key.startsWith(ATTR_PREFIX)) {
-      const values = readList(value)
+  for (const key of new Set(params.keys())) {
+    if (key.startsWith(ATTR_PREFIX) && key.length > ATTR_PREFIX.length) {
+      const values = readList(params.getAll(key))
       if (values.length) attrs[key.slice(ATTR_PREFIX.length)] = values
     }
-  })
+  }
   if (Object.keys(attrs).length) query.attrs = attrs
   const page = Math.max((readNumber(params, 'page') ?? 1) - 1, 0)
   return { query, page }
@@ -84,9 +86,9 @@ export function toSearchString(query: ProductQuery, page = 0): string {
       params.set(key, String(value))
     }
   }
-  if (query.brand?.length) params.set(KEYS_BRAND, query.brand.join(','))
+  for (const brand of query.brand ?? []) params.append(KEYS_BRAND, brand)
   for (const [attr, values] of Object.entries(query.attrs ?? {})) {
-    if (values.length) params.set(ATTR_PREFIX + attr, values.join(','))
+    for (const value of values) params.append(ATTR_PREFIX + attr, value)
   }
   if (page > 0) params.set('page', String(page + 1))
   const search = params.toString()

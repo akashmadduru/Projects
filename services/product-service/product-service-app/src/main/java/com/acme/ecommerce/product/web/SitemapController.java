@@ -29,7 +29,9 @@ public class SitemapController {
     xml.append("<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n");
     xml.append("  <url><loc>").append(escape(base + "/")).append("</loc></url>\n");
     for (UUID id : discovery.activeCategoryIds()) {
-      xml.append("  <url><loc>").append(escape(base + "/?categoryId=" + id)).append("</loc></url>\n");
+      xml.append("  <url><loc>")
+          .append(escape(base + "/?categoryId=" + id))
+          .append("</loc></url>\n");
     }
     for (String slug : discovery.activeSlugs()) {
       xml.append("  <url><loc>").append(escape(base + "/p/" + slug)).append("</loc></url>\n");

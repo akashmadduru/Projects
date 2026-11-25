@@ -1,0 +1,13 @@
+{
+ "product_id": "a7c8c999-5549-4191-5d9d-c453eac9536f",
+ "name": "Quaex Dress Lite",
+ "prompt": "studio packshot photo of a Red Quaex Dress Lite, made of glass, women's clothing, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1340430924,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:11:10",
+ "file_path": "product-images/images/a7c8c999-5549-4191-5d9d-c453eac9536f.jpg",
+ "file_size": 84641
+}

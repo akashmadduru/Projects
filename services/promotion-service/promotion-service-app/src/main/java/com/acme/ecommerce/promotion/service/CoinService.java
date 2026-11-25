@@ -28,7 +28,13 @@ public class CoinService {
 
   private static final Logger log = LoggerFactory.getLogger(CoinService.class);
 
-  public record Entry(UUID id, int delta, String reason, String referenceId, Instant createdAt, Instant expiresAt) {}
+  public record Entry(
+      UUID id,
+      int delta,
+      String reason,
+      String referenceId,
+      Instant createdAt,
+      Instant expiresAt) {}
 
   public record CoinsView(
       int balance, BigDecimal value, String currency, List<Entry> history, int expiringSoon) {}
@@ -118,7 +124,8 @@ public class CoinService {
                 "SELECT user_id, delta FROM promotion.coin_ledger "
                     + "WHERE reason = 'REDEEM_ORDER' AND reference_id = :r")
             .param("r", orderId.toString())
-            .query((rs, n) -> new Object[] {rs.getObject("user_id", UUID.class), rs.getInt("delta")})
+            .query(
+                (rs, n) -> new Object[] {rs.getObject("user_id", UUID.class), rs.getInt("delta")})
             .optional()
             .orElse(null);
     if (row == null) {
@@ -233,7 +240,8 @@ public class CoinService {
             .param("d", delta)
             .param("r", reason)
             .param("ref", ref)
-            .param("e", expiresAt == null ? null : OffsetDateTime.ofInstant(expiresAt, ZoneOffset.UTC))
+            .param(
+                "e", expiresAt == null ? null : OffsetDateTime.ofInstant(expiresAt, ZoneOffset.UTC))
             .update()
         > 0;
   }

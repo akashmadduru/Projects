@@ -1,0 +1,15 @@
+{
+ "product_id": "0e8017e7-3390-40d0-4f9f-cf58b88400b3",
+ "name": "Batra Heating Pad Lite",
+ "prompt": "studio packshot photo of a Navy Blue Batra Heating Pad Lite, made of ceramic, personal wellness, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 334029035,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 768,
+ "created_at": "2026-11-15T22:49:10",
+ "file_path": "static/images/0e8017e7-3390-40d0-4f9f-cf58b88400b3.jpg",
+ "file_size": 84476,
+ "uploaded": false,
+ "s3_url": null
+}

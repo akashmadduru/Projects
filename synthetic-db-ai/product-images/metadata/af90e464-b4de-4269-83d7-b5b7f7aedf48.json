@@ -1,0 +1,13 @@
+{
+ "product_id": "af90e464-b4de-4269-83d7-b5b7f7aedf48",
+ "name": "Coion Smartphone Essential",
+ "prompt": "studio packshot photo of a Space Grey Coion Smartphone Essential, made of wood, mobiles & smartphones, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2799868831,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:36:35",
+ "file_path": "product-images/images/af90e464-b4de-4269-83d7-b5b7f7aedf48.jpg",
+ "file_size": 34864
+}

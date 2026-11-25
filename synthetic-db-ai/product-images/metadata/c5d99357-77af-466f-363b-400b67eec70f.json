@@ -1,0 +1,13 @@
+{
+ "product_id": "c5d99357-77af-466f-363b-400b67eec70f",
+ "name": "Orrize Massager Series 2",
+ "prompt": "studio packshot photo of a Navy Blue Orrize Massager Series 2, made of nylon, personal wellness, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 699575238,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:36:35",
+ "file_path": "product-images/images/c5d99357-77af-466f-363b-400b67eec70f.jpg",
+ "file_size": 48241
+}

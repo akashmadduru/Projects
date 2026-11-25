@@ -1,0 +1,13 @@
+{
+ "product_id": "cae9c4a7-820c-4563-b3ef-218a67921c60",
+ "name": "Tradex Razor Max",
+ "prompt": "studio packshot photo of a Olive Tradex Razor Max, made of abs plastic, grooming, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3421289354,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:06:14",
+ "file_path": "product-images/images/cae9c4a7-820c-4563-b3ef-218a67921c60.jpg",
+ "file_size": 47173
+}

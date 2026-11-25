@@ -1,0 +1,15 @@
+{
+ "product_id": "5386ae48-e445-46bc-975a-11c2011e01fe",
+ "name": "Zefyex SSD Edition",
+ "prompt": "studio packshot photo of a Space Grey Zefyex SSD Edition, made of nylon, storage, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1295414266,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T00:37:04",
+ "file_path": "static/images/5386ae48-e445-46bc-975a-11c2011e01fe.jpg",
+ "file_size": 55574,
+ "uploaded": false,
+ "s3_url": null
+}

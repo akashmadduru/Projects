@@ -1,12 +1,13 @@
 /**
  * Referral capture: a `?ref=CODE` on any URL (the share link lands on /register) is remembered, then
- * claimed once the user is signed in. A rejected claim (own code, already claimed, unknown) is dropped.
+ * claimed once the user is signed in. The outcome is shown as a toast; a rejected claim (own code,
+ * already claimed, unknown) is then dropped.
  */
 
 import { useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
 import { engageApi } from '../services/engageApi'
-import { useAuthStore } from '../stores'
+import { useAuthStore, useUiStore } from '../stores'
 
 const KEY = 'referral-code'
 
@@ -36,9 +37,15 @@ export function useReferral(): void {
     if (!authenticated) return
     const code = read()
     if (!code) return
+    // Tell the customer what happened (TD-P8-13); the code is dropped either way.
+    const notify = useUiStore.getState().notify
     void engageApi
       .claimReferral(code)
-      .catch(() => undefined)
+      .then(() => notify('Referral code applied: you both get coins after your first delivered order'))
+      .catch((e: unknown) => {
+        const detail = e instanceof Error && e.message ? ` (${e.message})` : ''
+        notify(`Referral code ${code} could not be applied${detail}`)
+      })
       .finally(() => {
         try {
           localStorage.removeItem(KEY)

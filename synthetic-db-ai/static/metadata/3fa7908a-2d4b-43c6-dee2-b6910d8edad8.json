@@ -1,0 +1,15 @@
+{
+ "product_id": "3fa7908a-2d4b-43c6-dee2-b6910d8edad8",
+ "name": "Arri Cricket Bat Ultra",
+ "prompt": "studio packshot photo of a Silver Arri Cricket Bat Ultra, made of nylon, team sports, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3066152471,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:07:25",
+ "file_path": "static/images/3fa7908a-2d4b-43c6-dee2-b6910d8edad8.jpg",
+ "file_size": 37743,
+ "uploaded": false,
+ "s3_url": null
+}

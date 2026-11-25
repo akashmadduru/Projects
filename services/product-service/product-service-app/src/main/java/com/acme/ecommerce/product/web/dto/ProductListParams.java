@@ -22,7 +22,8 @@ import java.util.UUID;
  * @param onSale {@code true} keeps only discounted products
  * @param featured {@code true} keeps only featured ("top pick") products
  * @param verifiedSeller {@code true} keeps only products from verified sellers
- * @param brand comma-separated brand names (OR)
+ * @param brand brand names (OR). Bound here only for the record's shape: the controller reads the
+ *     raw repeated values with {@link #literalValues}, because Spring would join them with commas
  */
 public record ProductListParams(
     UUID categoryId,
@@ -49,6 +50,21 @@ public record ProductListParams(
         .toList();
   }
 
+  /**
+   * Repeated query-parameter values, trimmed, blanks dropped, commas kept ({@code brand=A&brand=B}
+   * is two brands; {@code brand=A,B} is ONE brand named "A,B").
+   */
+  public static java.util.List<String> literalValues(String[] values) {
+    if (values == null) {
+      return java.util.List.of();
+    }
+    return java.util.Arrays.stream(values)
+        .map(String::trim)
+        .filter(s -> !s.isEmpty())
+        .distinct()
+        .toList();
+  }
+
   public ProductFilter toFilter() {
     return new ProductFilter(
         categoryId,
@@ -62,7 +78,7 @@ public record ProductListParams(
         Boolean.TRUE.equals(onSale),
         Boolean.TRUE.equals(featured),
         Boolean.TRUE.equals(verifiedSeller),
-        splitCsv(brand),
+        literalValues(brand == null ? null : new String[] {brand}),
         java.util.Map.of(),
         sellerId);
   }

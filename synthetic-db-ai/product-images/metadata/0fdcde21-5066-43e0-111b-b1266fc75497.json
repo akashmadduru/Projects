@@ -1,0 +1,13 @@
+{
+ "product_id": "0fdcde21-5066-43e0-111b-b1266fc75497",
+ "name": "Arlo Spice Box Series 2",
+ "prompt": "studio packshot photo of a Rose Gold Arlo Spice Box Series 2, made of glass, pantry, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 909951895,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 768,
+ "created_at": "2026-11-15T22:57:27",
+ "file_path": "product-images/images/0fdcde21-5066-43e0-111b-b1266fc75497.jpg",
+ "file_size": 59045
+}

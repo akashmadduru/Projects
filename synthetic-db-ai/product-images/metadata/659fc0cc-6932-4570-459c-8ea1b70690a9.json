@@ -1,0 +1,13 @@
+{
+ "product_id": "659fc0cc-6932-4570-459c-8ea1b70690a9",
+ "name": "Ritalum Strategy Game Prime",
+ "prompt": "studio packshot photo of a Rose Gold Ritalum Strategy Game Prime, made of nylon, board games, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1038759564,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:56:28",
+ "file_path": "product-images/images/659fc0cc-6932-4570-459c-8ea1b70690a9.jpg",
+ "file_size": 40029
+}

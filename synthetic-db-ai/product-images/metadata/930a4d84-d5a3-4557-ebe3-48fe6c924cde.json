@@ -1,0 +1,13 @@
+{
+ "product_id": "930a4d84-d5a3-4557-ebe3-48fe6c924cde",
+ "name": "Venexdex Dumbbell Set Series 2",
+ "prompt": "studio packshot photo of a Rose Gold Venexdex Dumbbell Set Series 2, made of silicone, fitness, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2195677200,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:30:47",
+ "file_path": "product-images/images/930a4d84-d5a3-4557-ebe3-48fe6c924cde.jpg",
+ "file_size": 55735
+}

@@ -1,0 +1,13 @@
+{
+ "product_id": "ac7b18e0-9992-4ec9-6198-17e0c0865899",
+ "name": "Zefyex Blender Lite",
+ "prompt": "studio packshot photo of a Blue Zefyex Blender Lite, made of cotton, small appliances, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1903130547,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:18:57",
+ "file_path": "product-images/images/ac7b18e0-9992-4ec9-6198-17e0c0865899.jpg",
+ "file_size": 36737
+}

@@ -1,0 +1,15 @@
+{
+ "product_id": "5e256827-29ec-4b17-479c-b89b4918e511",
+ "name": "Nuvoion Colour Pencil Set Elite",
+ "prompt": "studio packshot photo of a Navy Blue Nuvoion Colour Pencil Set Elite, made of aluminium, art supplies, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1983981838,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:26:02",
+ "file_path": "static/images/5e256827-29ec-4b17-479c-b89b4918e511.jpg",
+ "file_size": 65317,
+ "uploaded": false,
+ "s3_url": null
+}

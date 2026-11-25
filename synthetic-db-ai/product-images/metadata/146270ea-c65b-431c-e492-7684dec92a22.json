@@ -1,0 +1,13 @@
+{
+ "product_id": "146270ea-c65b-431c-e492-7684dec92a22",
+ "name": "Rior RC Helicopter Classic",
+ "prompt": "studio packshot photo of a Green Rior RC Helicopter Classic, made of leather, remote control, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3425238682,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:01:16",
+ "file_path": "product-images/images/146270ea-c65b-431c-e492-7684dec92a22.jpg",
+ "file_size": 54049
+}

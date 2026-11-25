@@ -1,0 +1,15 @@
+{
+ "product_id": "34f52bc7-229f-425e-8c49-15f59ee65da8",
+ "name": "Fynulo Study Table Max",
+ "prompt": "studio packshot photo of a Olive Fynulo Study Table Max, made of cotton, furniture, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 962704077,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:12:47",
+ "file_path": "static/images/34f52bc7-229f-425e-8c49-15f59ee65da8.jpg",
+ "file_size": 21369,
+ "uploaded": false,
+ "s3_url": null
+}

@@ -1,0 +1,15 @@
+{
+ "product_id": "23948290-38d4-4b61-8f7b-7bcfbee3ac90",
+ "name": "Noorex Protein Bars Gen 3",
+ "prompt": "studio packshot photo of a Green Noorex Protein Bars Gen 3, made of abs plastic, snacks, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2044195022,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-15T23:39:16",
+ "file_path": "static/images/23948290-38d4-4b61-8f7b-7bcfbee3ac90.jpg",
+ "file_size": 52559,
+ "uploaded": false,
+ "s3_url": null
+}

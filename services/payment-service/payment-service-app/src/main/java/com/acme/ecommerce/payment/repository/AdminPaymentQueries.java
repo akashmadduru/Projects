@@ -32,6 +32,7 @@ public class AdminPaymentQueries {
           "PARTIALLY_REFUNDED",
           "COD_PENDING");
   public static final Set<String> METHODS = Set.of("CARD", "COD");
+  public static final Set<String> MODES = Set.of("STRIPE", "RAZORPAY", "SIMULATED");
 
   public record AdminPaymentRow(
       UUID id,
@@ -44,13 +45,21 @@ public class AdminPaymentQueries {
       String status,
       BigDecimal refundedAmount,
       Instant createdAt,
-      Instant updatedAt) {}
+      Instant updatedAt,
+      /* Provider references for looking the payment up in the Stripe or Razorpay dashboard. */
+      String stripePaymentIntentId,
+      String providerOrderId,
+      String providerPaymentId,
+      /* ORDER, MEMBERSHIP or GIFT_CARD: what orderId identifies (TD-P8-14). */
+      String purpose) {}
 
-  public record RefundRow(UUID id, BigDecimal amount, String reason, Instant createdAt) {}
+  public record RefundRow(
+      UUID id, BigDecimal amount, String reason, Instant createdAt, String providerRefundId) {}
 
   private static final String COLS =
       "id, order_id, user_id, method, mode, amount, currency, status, refunded_amount,"
-          + " created_at, updated_at";
+          + " created_at, updated_at, stripe_payment_intent_id, provider_order_id,"
+          + " provider_payment_id, purpose";
 
   private final JdbcClient jdbc;
 
@@ -59,8 +68,8 @@ public class AdminPaymentQueries {
   }
 
   public List<AdminPaymentRow> search(
-      String status, String method, UUID orderId, int limit, long offset) {
-    Filter f = filter(status, method, orderId);
+      String status, String method, String mode, UUID orderId, int limit, long offset) {
+    Filter f = filter(status, method, mode, orderId);
     JdbcClient.StatementSpec spec =
         jdbc.sql(
             "SELECT "
@@ -75,8 +84,8 @@ public class AdminPaymentQueries {
         .list();
   }
 
-  public long count(String status, String method, UUID orderId) {
-    Filter f = filter(status, method, orderId);
+  public long count(String status, String method, String mode, UUID orderId) {
+    Filter f = filter(status, method, mode, orderId);
     JdbcClient.StatementSpec spec = jdbc.sql("SELECT count(*) FROM payment.payments" + f.where);
     f.params.forEach(spec::param);
     return spec.query(Long.class).single();
@@ -91,7 +100,7 @@ public class AdminPaymentQueries {
 
   public List<RefundRow> refunds(UUID paymentId) {
     return jdbc.sql(
-            "SELECT id, amount, reason, created_at FROM payment.refunds"
+            "SELECT id, amount, reason, created_at, provider_refund_id FROM payment.refunds"
                 + " WHERE payment_id = :p ORDER BY created_at")
         .param("p", paymentId)
         .query(
@@ -100,7 +109,8 @@ public class AdminPaymentQueries {
                     rs.getObject("id", UUID.class),
                     rs.getBigDecimal("amount"),
                     rs.getString("reason"),
-                    instant(rs, "created_at")))
+                    instant(rs, "created_at"),
+                    rs.getString("provider_refund_id")))
         .list();
   }
 
@@ -117,7 +127,7 @@ public class AdminPaymentQueries {
 
   private record Filter(String where, Map<String, Object> params) {}
 
-  private static Filter filter(String status, String method, UUID orderId) {
+  private static Filter filter(String status, String method, String mode, UUID orderId) {
     List<String> clauses = new ArrayList<>();
     Map<String, Object> params = new LinkedHashMap<>();
     if (status != null && STATUSES.contains(status)) {
@@ -127,6 +137,10 @@ public class AdminPaymentQueries {
     if (method != null && METHODS.contains(method)) {
       clauses.add("method = :method");
       params.put("method", method);
+    }
+    if (mode != null && MODES.contains(mode)) {
+      clauses.add("mode = :mode");
+      params.put("mode", mode);
     }
     if (orderId != null) {
       clauses.add("order_id = :orderId");
@@ -148,7 +162,11 @@ public class AdminPaymentQueries {
         rs.getString("status"),
         rs.getBigDecimal("refunded_amount"),
         instant(rs, "created_at"),
-        instant(rs, "updated_at"));
+        instant(rs, "updated_at"),
+        rs.getString("stripe_payment_intent_id"),
+        rs.getString("provider_order_id"),
+        rs.getString("provider_payment_id"),
+        rs.getString("purpose"));
   }
 
   private static Instant instant(ResultSet rs, String col) throws SQLException {

@@ -1,0 +1,13 @@
+{
+ "product_id": "a52c6095-7d9e-4a39-45a4-30572c3344bc",
+ "name": "Venzeta Coffee Beans Edition",
+ "prompt": "studio packshot photo of a Navy Blue Venzeta Coffee Beans Edition, made of leather, beverages, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3645219980,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:14:24",
+ "file_path": "product-images/images/a52c6095-7d9e-4a39-45a4-30572c3344bc.jpg",
+ "file_size": 54595
+}

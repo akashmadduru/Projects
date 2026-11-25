@@ -1,0 +1,13 @@
+{
+ "product_id": "285e5d26-3e46-49b3-23cf-9eab2fcd5943",
+ "name": "Lolumex Mechanical Keyboard Essential",
+ "prompt": "studio packshot photo of a Black Lolumex Mechanical Keyboard Essential, made of aluminium, keyboards & mice, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3142057784,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-15T23:41:58",
+ "file_path": "product-images/images/285e5d26-3e46-49b3-23cf-9eab2fcd5943.jpg",
+ "file_size": 75643
+}

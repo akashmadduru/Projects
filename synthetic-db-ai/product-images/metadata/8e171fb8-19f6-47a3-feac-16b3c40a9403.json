@@ -1,0 +1,13 @@
+{
+ "product_id": "8e171fb8-19f6-47a3-feac-16b3c40a9403",
+ "name": "Travoex Smartwatch Plus",
+ "prompt": "studio packshot photo of a Space Grey Travoex Smartwatch Plus, made of silicone, smart watches, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2505009879,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T01:38:13",
+ "file_path": "product-images/images/8e171fb8-19f6-47a3-feac-16b3c40a9403.jpg",
+ "file_size": 46829
+}

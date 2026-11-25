@@ -1,104 +1,163 @@
 /**
- * Unit tests for HTTP client (apiFetch, dedup, JWT, etc.)
+ * Unit tests for the HTTP client: bearer token, single-flight refresh on 401 with one replay,
+ * Idempotency-Key preserved on replay, auth paths never refresh, in-flight GET dedupe, and
+ * RFC 9457 errors. `fetch` is stubbed per test, so nothing depends on MSW handlers.
+ *
+ * Rewritten 2026-11-17 for the in-memory token client (TD-TEST-03); the old file tested a
+ * localStorage token API that no longer exists.
  */
 
-import { describe, it, expect, beforeEach } from 'vitest'
-import { apiFetch, setAuthToken, getAuthToken, clearRequestCache } from './http'
-import type { BackendPagedModel, BackendProductResponse } from '../types'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { apiFetch, clearRequestCache, getAccessToken, onSessionExpired, setAccessToken } from './http'
+
+type Call = { url: string; method: string; headers: Headers; body: unknown }
+
+function json(status: number, body: unknown): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'content-type': status >= 400 ? 'application/problem+json' : 'application/json' },
+  })
+}
+
+let calls: Call[]
+
+function stubFetch(handler: (call: Call) => Response | Promise<Response>) {
+  calls = []
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const call: Call = {
+        url: String(input),
+        method: init?.method ?? 'GET',
+        headers: new Headers(init?.headers),
+        body: typeof init?.body === 'string' ? JSON.parse(init.body) : init?.body,
+      }
+      calls.push(call)
+      return handler(call)
+    }),
+  )
+}
+
+const path = (c: Call) => new URL(c.url).pathname
+
+beforeEach(() => {
+  clearRequestCache()
+  setAccessToken(null)
+  onSessionExpired(null)
+})
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
 
 describe('apiFetch', () => {
-  beforeEach(() => {
-    clearRequestCache()
-    setAuthToken(null)
-    localStorage.clear()
+  it('returns parsed JSON and sends the bearer token when one is set', async () => {
+    setAccessToken('token-1')
+    stubFetch(() => json(200, { ok: true }))
+
+    await expect(apiFetch('/api/products')).resolves.toEqual({ ok: true })
+    expect(calls[0]?.headers.get('Authorization')).toBe('Bearer token-1')
   })
 
-  it('should fetch and return JSON data on success', async () => {
-    const data = await apiFetch<BackendPagedModel<BackendProductResponse>>('/api/products', {
-      method: 'GET',
-      params: { page: 0, size: 20 },
-    })
+  it('never sends the bearer token to another origin (TD-SEC-11)', async () => {
+    setAccessToken('token-1')
+    stubFetch(() => json(200, { ok: true }))
 
-    expect(data).toBeDefined()
-    expect(data.content).toBeDefined()
-    expect(Array.isArray(data.content)).toBe(true)
-    expect(data.page.totalElements).toBe(100)
+    await apiFetch('https://elsewhere.example/api/products')
+    expect(calls[0]?.headers.get('Authorization')).toBeNull()
   })
 
-  it('should handle GET request deduplication', async () => {
-    const promise1 = apiFetch('/api/products', { method: 'GET' })
-    const promise2 = apiFetch('/api/products', { method: 'GET' })
+  it('adds query parameters to the URL', async () => {
+    stubFetch(() => json(200, {}))
 
-    const [result1, result2] = await Promise.all([promise1, promise2])
+    await apiFetch('/api/products', { params: { page: 1, size: 50, q: 'shoes' } })
 
-    expect(result1).toEqual(result2)
+    const url = new URL(calls[0]?.url ?? 'http://x')
+    expect(url.searchParams.get('page')).toBe('1')
+    expect(url.searchParams.get('size')).toBe('50')
+    expect(url.searchParams.get('q')).toBe('shoes')
   })
 
-  it('should throw ApiError on 404 response', async () => {
-    try {
-      await apiFetch('/api/products/nonexistent', { method: 'GET' })
-      expect.fail('Should have thrown an error')
-    } catch (error) {
-      expect(error).toBeDefined()
-      expect((error as any).status).toBe(404)
-      expect((error as any).problem.title).toBe('Not Found')
-    }
+  it('throws an ApiError carrying the problem document', async () => {
+    stubFetch(() => json(404, { title: 'Not Found', status: 404, code: 'PRODUCT_NOT_FOUND' }))
+
+    await expect(apiFetch('/api/products/nope')).rejects.toMatchObject({ status: 404 })
   })
 
-  it('should include JWT token in Authorization header when set', async () => {
-    const testToken = 'test-jwt-token-123'
-    setAuthToken(testToken)
+  it('shares one in-flight GET between callers and forgets it once settled', async () => {
+    let release: (r: Response) => void = () => undefined
+    stubFetch(() => new Promise<Response>((resolve) => (release = resolve)))
 
-    expect(getAuthToken()).toBe(testToken)
+    const a = apiFetch('/api/products')
+    const b = apiFetch('/api/products')
+    release(json(200, { n: 1 }))
+    await expect(Promise.all([a, b])).resolves.toEqual([{ n: 1 }, { n: 1 }])
+    expect(calls).toHaveLength(1)
 
-    const data = await apiFetch<BackendPagedModel<BackendProductResponse>>('/api/products', {
-      method: 'GET',
-    })
-
-    expect(data).toBeDefined()
-  })
-
-  it('should persist auth token to localStorage', () => {
-    const testToken = 'test-token-456'
-    setAuthToken(testToken)
-
-    expect(localStorage.getItem('auth_token')).toBe(testToken)
-
-    setAuthToken(null)
-    expect(localStorage.getItem('auth_token')).toBeNull()
-  })
-
-  it('should retrieve auth token from localStorage on getAuthToken', () => {
-    const testToken = 'test-token-789'
-    localStorage.setItem('auth_token', testToken)
-
-    expect(getAuthToken()).toBe(testToken)
-  })
-
-  it('should add query parameters to request URL', async () => {
-    const data = await apiFetch<BackendPagedModel<BackendProductResponse>>('/api/products', {
-      method: 'GET',
-      params: {
-        page: 1,
-        size: 50,
-      },
-    })
-
-    expect(data).toBeDefined()
+    stubFetch(() => json(200, { n: 2 }))
+    await expect(apiFetch('/api/products')).resolves.toEqual({ n: 2 })
+    expect(calls).toHaveLength(1)
   })
 })
 
-describe('ApiError', () => {
-  it('should have correct error structure', async () => {
-    try {
-      await apiFetch('/api/products/invalid-id', { method: 'GET' })
-      expect.fail('Should have thrown')
-    } catch (error) {
-      const apiError = error as any
-      expect(apiError.status).toBe(404)
-      expect(apiError.problem).toBeDefined()
-      expect(apiError.problem.title).toBe('Not Found')
-      expect(apiError.message).toBeDefined()
-    }
+describe('401 handling', () => {
+  it('refreshes once, then replays the request with the new token', async () => {
+    setAccessToken('expired')
+    stubFetch((c) => {
+      if (path(c) === '/api/auth/refresh') return json(200, { accessToken: 'fresh' })
+      return c.headers.get('Authorization') === 'Bearer fresh' ? json(200, { ok: 1 }) : json(401, {})
+    })
+
+    await expect(apiFetch('/api/orders')).resolves.toEqual({ ok: 1 })
+    expect(calls.map(path)).toEqual(['/api/orders', '/api/auth/refresh', '/api/orders'])
+    expect(getAccessToken()).toBe('fresh')
+  })
+
+  it('keeps the Idempotency-Key and body on the replayed request', async () => {
+    setAccessToken('expired')
+    stubFetch((c) => {
+      if (path(c) === '/api/auth/refresh') return json(200, { accessToken: 'fresh' })
+      return c.headers.get('Authorization') === 'Bearer fresh' ? json(201, { id: 'o1' }) : json(401, {})
+    })
+
+    await apiFetch('/api/orders', {
+      method: 'POST',
+      headers: { 'Idempotency-Key': 'key-123' },
+      body: { cart: 'c1' },
+    })
+
+    const orders = calls.filter((c) => path(c) === '/api/orders')
+    expect(orders).toHaveLength(2)
+    expect(orders.map((c) => c.headers.get('Idempotency-Key'))).toEqual(['key-123', 'key-123'])
+    expect(orders[1]?.body).toEqual({ cart: 'c1' })
+  })
+
+  it('runs a single refresh for concurrent 401s', async () => {
+    setAccessToken('expired')
+    stubFetch((c) => {
+      if (path(c) === '/api/auth/refresh') return json(200, { accessToken: 'fresh' })
+      return c.headers.get('Authorization') === 'Bearer fresh' ? json(200, {}) : json(401, {})
+    })
+
+    await Promise.all([apiFetch('/api/a'), apiFetch('/api/b'), apiFetch('/api/c', { method: 'POST' })])
+
+    expect(calls.filter((c) => path(c) === '/api/auth/refresh')).toHaveLength(1)
+  })
+
+  it('reports an expired session when the refresh fails, without replaying', async () => {
+    const expired = vi.fn()
+    onSessionExpired(expired)
+    stubFetch(() => json(401, { title: 'Unauthorized', status: 401 }))
+
+    await expect(apiFetch('/api/orders')).rejects.toMatchObject({ status: 401 })
+    expect(expired).toHaveBeenCalledTimes(1)
+    expect(calls.map(path)).toEqual(['/api/orders', '/api/auth/refresh'])
+  })
+
+  it('never refreshes for the auth endpoints themselves', async () => {
+    stubFetch(() => json(401, { title: 'Unauthorized', status: 401 }))
+
+    await expect(apiFetch('/api/auth/login', { method: 'POST', body: {} })).rejects.toMatchObject({ status: 401 })
+    expect(calls.map(path)).toEqual(['/api/auth/login'])
   })
 })

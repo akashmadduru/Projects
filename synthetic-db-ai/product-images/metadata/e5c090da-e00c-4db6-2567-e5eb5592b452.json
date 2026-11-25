@@ -1,0 +1,13 @@
+{
+ "product_id": "e5c090da-e00c-4db6-2567-e5eb5592b452",
+ "name": "Loionqua Protein Powder Lite",
+ "prompt": "studio packshot photo of a Black Loionqua Protein Powder Lite, made of leather, supplements, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2862605837,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:13:57",
+ "file_path": "product-images/images/e5c090da-e00c-4db6-2567-e5eb5592b452.jpg",
+ "file_size": 49276
+}

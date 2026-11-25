@@ -48,7 +48,7 @@ public class UserService {
   }
 
   private UserProfile ensureProfile(UUID userId, String email) {
-    profiles.insertIfAbsent(userId, email);
+    profiles.upsertEmail(userId, email);
     return profiles.findById(userId).orElseThrow();
   }
 

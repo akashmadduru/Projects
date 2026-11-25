@@ -1,0 +1,15 @@
+{
+ "product_id": "4e45189e-a23c-4dba-3e4e-98bdf4cc5b28",
+ "name": "Minunu Fountain Pen Prime",
+ "prompt": "studio packshot photo of a Blue Minunu Fountain Pen Prime, made of abs plastic, stationery, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2861753197,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:11:51",
+ "file_path": "static/images/4e45189e-a23c-4dba-3e4e-98bdf4cc5b28.jpg",
+ "file_size": 23664,
+ "uploaded": false,
+ "s3_url": null
+}

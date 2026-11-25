@@ -1,0 +1,13 @@
+{
+ "product_id": "092200c7-a80f-49b3-20d8-ae22b038f936",
+ "name": "Suar WiFi Router Prime",
+ "prompt": "studio packshot photo of a Olive Suar WiFi Router Prime, made of glass, networking, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 4231654112,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 768,
+ "created_at": "2026-11-15T22:42:08",
+ "file_path": "product-images/images/092200c7-a80f-49b3-20d8-ae22b038f936.jpg",
+ "file_size": 49589
+}

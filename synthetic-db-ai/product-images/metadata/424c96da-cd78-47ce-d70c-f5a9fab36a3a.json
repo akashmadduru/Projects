@@ -1,0 +1,13 @@
+{
+ "product_id": "424c96da-cd78-47ce-d70c-f5a9fab36a3a",
+ "name": "Noexmi Running Shoes Lite",
+ "prompt": "studio packshot photo of a Black Noexmi Running Shoes Lite, made of aluminium, footwear, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2596760485,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T00:39:53",
+ "file_path": "product-images/images/424c96da-cd78-47ce-d70c-f5a9fab36a3a.jpg",
+ "file_size": 30337
+}

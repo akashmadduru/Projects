@@ -1,0 +1,13 @@
+{
+ "product_id": "b322e9ee-e301-47be-71f5-076a7dfb1cf8",
+ "name": "Fyar Bike Lock Series 2",
+ "prompt": "studio packshot photo of a Olive Fyar Bike Lock Series 2, made of ceramic, cycling, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3391633210,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:24:08",
+ "file_path": "product-images/images/b322e9ee-e301-47be-71f5-076a7dfb1cf8.jpg",
+ "file_size": 49877
+}

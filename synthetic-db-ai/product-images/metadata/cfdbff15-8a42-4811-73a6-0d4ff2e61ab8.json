@@ -1,0 +1,13 @@
+{
+ "product_id": "cfdbff15-8a42-4811-73a6-0d4ff2e61ab8",
+ "name": "Quabaka Pressure Cooker Ultra",
+ "prompt": "studio packshot photo of a Rose Gold Quabaka Pressure Cooker Ultra, made of polyester, cookware, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2224791122,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:12:12",
+ "file_path": "product-images/images/cfdbff15-8a42-4811-73a6-0d4ff2e61ab8.jpg",
+ "file_size": 46345
+}

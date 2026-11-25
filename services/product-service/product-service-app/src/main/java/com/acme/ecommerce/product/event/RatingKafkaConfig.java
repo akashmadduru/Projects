@@ -1,5 +1,6 @@
 package com.acme.ecommerce.product.event;
 
+import com.acme.ecommerce.common.web.kafka.KafkaJson;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -10,19 +11,15 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
-import org.springframework.kafka.listener.DefaultErrorHandler;
-import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
-import org.springframework.kafka.support.serializer.JsonDeserializer;
-import org.springframework.util.backoff.FixedBackOff;
 
 /**
  * Consumer wiring for {@code rating.events}, separate from the default factory (which is pinned to
  * {@link InventoryEvent} via {@code spring.json.value.default.type}).
  *
- * <p>The JSON deserializer is wrapped in {@link ErrorHandlingDeserializer} so a malformed or
- * unknown-shaped record becomes a logged, skipped record instead of an endless poll-failure loop at
- * the same offset. Type headers are ignored: the producer's {@code __TypeId__} names a class this
- * service does not have.
+ * <p>The JSON deserializer ({@link KafkaJson#eventDeserializer}) is wrapped in an {@code
+ * ErrorHandlingDeserializer} so a malformed or unknown-shaped record becomes a logged, skipped
+ * record instead of an endless poll-failure loop at the same offset. Type headers are ignored: the
+ * producer's {@code __TypeId__} names a class this service does not have.
  */
 @Configuration(proxyBeanMethods = false)
 public class RatingKafkaConfig {
@@ -36,11 +33,7 @@ public class RatingKafkaConfig {
     return new DefaultKafkaConsumerFactory<>(
         props,
         StringDeserializer::new,
-        () -> {
-          JsonDeserializer<RatingEvent> json = new JsonDeserializer<>(RatingEvent.class, false);
-          json.addTrustedPackages("com.acme.ecommerce.product.event");
-          return new ErrorHandlingDeserializer<>(json);
-        });
+        () -> KafkaJson.eventDeserializer(RatingEvent.class, "com.acme.ecommerce.product.event"));
   }
 
   @Bean
@@ -51,7 +44,8 @@ public class RatingKafkaConfig {
         new ConcurrentKafkaListenerContainerFactory<>();
     factory.setConsumerFactory(ratingConsumerFactory);
     // 3 retries with exponential backoff, then <topic>.DLT.
-    factory.setCommonErrorHandler(com.acme.ecommerce.common.web.kafka.DlqErrorHandlers.create(bootstrapServers));
+    factory.setCommonErrorHandler(
+        com.acme.ecommerce.common.web.kafka.DlqErrorHandlers.create(bootstrapServers));
     return factory;
   }
 }

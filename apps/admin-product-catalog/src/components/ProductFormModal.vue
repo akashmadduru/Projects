@@ -1,10 +1,10 @@
 <script setup lang="ts">
+import { rowsToAttrs, type AttrRow } from '@/lib/attributeRows';
 import { computed, reactive, ref, watch } from 'vue';
 
 import ProblemAlert from '@/components/ProblemAlert.vue';
 import { useProductMutations } from '@/composables/useProductMutations';
-import { getProduct, isCategoryActive, listCategories, replaceVariants } from '@/lib/adminApi';
-import { ApiError } from '@/lib/problem';
+import { getProduct, isCategoryActive, listCategories } from '@/lib/adminApi';
 import type { Product, ProductImageRequest, ProductVariantRequest } from '@/types/api';
 import type { Category } from '@/types/commerce';
 
@@ -37,17 +37,12 @@ function blankImageRow(nextOrder: number): ImageRow {
   return { url: '', displayOrder: String(nextOrder) };
 }
 
-/** Phase 7 attribute row (filterable facet key/value). */
-interface AttrRow {
-  key: string;
-  value: string;
-}
 
-/** Phase 7 variant row. `attrs` is edited as "key=value, key=value". */
+/** Phase 7 variant row. `attrs` is one key/value input pair per attribute (values may hold `,` or `=`). */
 interface VariantRow {
   id?: string;
   sku: string;
-  attrs: string;
+  attrs: AttrRow[];
   priceAmount: string;
   salePrice: string;
   imageUrl: string;
@@ -56,30 +51,13 @@ interface VariantRow {
 }
 
 function blankVariantRow(nextOrder: number): VariantRow {
-  return { sku: '', attrs: '', priceAmount: '', salePrice: '', imageUrl: '', active: true, sortOrder: String(nextOrder) };
+  return { sku: '', attrs: [{ key: '', value: '' }], priceAmount: '', salePrice: '', imageUrl: '', active: true, sortOrder: String(nextOrder) };
 }
 
-function attrsToText(attrs: Readonly<Record<string, string>>): string {
-  return Object.entries(attrs)
-    .map(([k, v]) => `${k}=${v}`)
-    .join(', ');
+function attrsToRows(attrs: Readonly<Record<string, string>>): AttrRow[] {
+  return Object.entries(attrs).map(([key, value]) => ({ key, value: String(value) }));
 }
 
-/** Returns null when the text is malformed. Empty text is a valid empty map. */
-function parseAttrs(text: string): Record<string, string> | null {
-  const out: Record<string, string> = {};
-  const raw = text.trim();
-  if (raw.length === 0) return out;
-  for (const part of raw.split(',')) {
-    const idx = part.indexOf('=');
-    if (idx <= 0) return null;
-    const k = part.slice(0, idx).trim();
-    const v = part.slice(idx + 1).trim();
-    if (k.length === 0 || v.length === 0) return null;
-    out[k] = v;
-  }
-  return out;
-}
 
 interface FormState {
   brand: string;
@@ -88,6 +66,8 @@ interface FormState {
   sku: string;
   name: string;
   priceAmount: string;
+  /** '' = no list price. */
+  listPrice: string;
   priceCurrency: string;
   active: boolean;
   sellerName: string;
@@ -105,6 +85,7 @@ function blankForm(): FormState {
     sku: '',
     name: '',
     priceAmount: '',
+    listPrice: '',
     priceCurrency: 'USD',
     active: true,
     sellerName: '',
@@ -121,7 +102,7 @@ function formFromProduct(product: Product): FormState {
     variants: (product.variants ?? []).map((v) => ({
       id: v.id,
       sku: v.sku,
-      attrs: attrsToText(v.attributes ?? {}),
+      attrs: attrsToRows(v.attributes ?? {}),
       priceAmount: v.priceAmount === null || v.priceAmount === undefined ? '' : String(v.priceAmount),
       salePrice: v.salePrice === null || v.salePrice === undefined ? '' : String(v.salePrice),
       imageUrl: v.imageUrl ?? '',
@@ -131,6 +112,7 @@ function formFromProduct(product: Product): FormState {
     sku: product.sku,
     name: product.name,
     priceAmount: String(product.priceAmount),
+    listPrice: product.listPrice == null ? '' : String(product.listPrice),
     priceCurrency: product.priceCurrency,
     active: product.active,
     sellerName: product.sellerName ?? '',
@@ -184,6 +166,7 @@ const touched = reactive({
   sku: false,
   name: false,
   priceAmount: false,
+  listPrice: false,
   priceCurrency: false,
   specifications: false,
   images: false,
@@ -198,9 +181,6 @@ const touched = reactive({
  */
 const detailLoaded = ref(false);
 const detailLoading = ref(false);
-const variantsError = ref<string | null>(null);
-/** Create succeeded but the follow-up variants save failed; retry only re-saves variants. */
-const createdProduct = ref<Product | null>(null);
 
 async function loadDetail(id: string): Promise<void> {
   detailLoaded.value = false;
@@ -235,13 +215,12 @@ watch(
     touched.sku = false;
     touched.name = false;
     touched.priceAmount = false;
+    touched.listPrice = false;
     touched.priceCurrency = false;
     touched.specifications = false;
     touched.images = false;
     touched.attributes = false;
     touched.variants = false;
-    variantsError.value = null;
-    createdProduct.value = null;
     detailLoaded.value = false;
     if (product) void loadDetail(product.id);
     mutations.resetCreateState();
@@ -267,6 +246,18 @@ const priceAmountError = computed<string | null>(() => {
   if (String(form.priceAmount).trim().length === 0) return 'Price is required.';
   const amount = Number(form.priceAmount);
   if (!Number.isFinite(amount) || amount <= 0) return 'Price must be a positive number.';
+  return null;
+});
+/** Optional list price (MRP): blank = none; otherwise at least the selling price. */
+const listPriceError = computed<string | null>(() => {
+  const raw = String(form.listPrice).trim();
+  if (raw.length === 0) return null;
+  const amount = Number(raw);
+  if (!Number.isFinite(amount) || amount < 0) return 'List price must be a positive number.';
+  const price = Number(form.priceAmount);
+  if (amount > 0 && Number.isFinite(price) && amount < price) {
+    return 'List price must not be below the price.';
+  }
   return null;
 });
 const priceCurrencyError = computed<string | null>(() => {
@@ -322,7 +313,8 @@ const variantsValidation = computed<string | null>(() => {
     if (sku.length === 0) return `Variant ${n}: SKU is required.`;
     if (skus.has(sku.toLowerCase())) return `Variant ${n}: duplicate SKU "${sku}".`;
     skus.add(sku.toLowerCase());
-    if (parseAttrs(row.attrs) === null) return `Variant ${n}: attributes must look like size=M, color=Red.`;
+    const attrs = rowsToAttrs(row.attrs);
+    if (typeof attrs === 'string') return `Variant ${n}: ${attrs}.`;
     for (const [label, v] of [['Price', row.priceAmount], ['Sale price', row.salePrice]] as const) {
       const t = String(v).trim();
       if (t.length > 0 && (!Number.isFinite(Number(t)) || Number(t) < 0)) {
@@ -341,6 +333,7 @@ const formValid = computed<boolean>(
     skuError.value === null &&
     nameError.value === null &&
     priceAmountError.value === null &&
+    listPriceError.value === null &&
     priceCurrencyError.value === null &&
     specificationsError.value === null &&
     imagesError.value === null,
@@ -361,6 +354,16 @@ function addVariantRow(): void {
   form.variants.push(blankVariantRow(form.variants.length));
 }
 
+function addVariantAttr(row: VariantRow): void {
+  touched.variants = true;
+  row.attrs.push({ key: '', value: '' });
+}
+
+function removeVariantAttr(row: VariantRow, index: number): void {
+  touched.variants = true;
+  row.attrs.splice(index, 1);
+}
+
 function removeVariantRow(index: number): void {
   touched.variants = true;
   form.variants.splice(index, 1);
@@ -371,7 +374,10 @@ function buildVariants(): ProductVariantRequest[] {
   return form.variants.map((row) => ({
     ...(row.id ? { id: row.id } : {}),
     sku: row.sku.trim(),
-    attributes: parseAttrs(row.attrs) ?? {},
+    attributes: (() => {
+      const attrs = rowsToAttrs(row.attrs);
+      return typeof attrs === 'string' ? {} : attrs;
+    })(),
     priceAmount: optNum(row.priceAmount),
     salePrice: optNum(row.salePrice),
     imageUrl: row.imageUrl.trim() || null,
@@ -380,18 +386,6 @@ function buildVariants(): ProductVariantRequest[] {
   }));
 }
 
-/** Saves variants for a persisted product; returns false (and sets variantsError) on failure. */
-async function saveVariants(productId: string): Promise<boolean> {
-  variantsError.value = null;
-  try {
-    await replaceVariants(productId, buildVariants());
-    return true;
-  } catch (e: unknown) {
-    const msg = e instanceof ApiError ? e.message : 'The variants could not be saved.';
-    variantsError.value = `Product saved, but variants failed: ${msg}`;
-    return false;
-  }
-}
 
 function addImageRow(): void {
   touched.images = true;
@@ -432,13 +426,7 @@ async function submit(): Promise<void> {
   touched.priceAmount = true;
   touched.priceCurrency = true;
   touched.specifications = true;
-  if (createdProduct.value) {
-    // Retry path: the product exists already, only the variants save failed.
-    if (variantsValidation.value === null && (await saveVariants(createdProduct.value.id))) {
-      emit('saved', createdProduct.value);
-    }
-    return;
-  }
+  const listPriceRaw = String(form.listPrice).trim();
   if (!formValid.value || submitting.value) {
     return;
   }
@@ -447,8 +435,12 @@ async function submit(): Promise<void> {
   const attributes: Record<string, string> | undefined = sendExtras
     ? Object.fromEntries(form.attributes.map((r) => [r.key.trim(), r.value.trim()]))
     : undefined;
-  const brandField = sendExtras ? (brand.length === 0 ? null : brand) : undefined;
+  // The backend keeps the brand on null and clears it on '' (TD-P7-05), so a blanked brand is ''.
+  const brandField = sendExtras ? brand : undefined;
   const saveVariantsToo = form.variants.length > 0 || (isEditing.value && (detailLoaded.value || touched.variants));
+  // Variants travel in the product request and save in the same transaction (TD-P7-19), so a
+  // bad variant can no longer leave a created product without its variants.
+  const variants = saveVariantsToo ? buildVariants() : undefined;
 
   const priceAmount = Number(form.priceAmount);
   const priceCurrency = form.priceCurrency.trim().toUpperCase();
@@ -480,12 +472,11 @@ async function submit(): Promise<void> {
       images,
       brand: brandField,
       attributes,
+      // Sent only when edited: blank clears (0), so an untouched field never wipes the list price.
+      listPrice: touched.listPrice ? (listPriceRaw.length === 0 ? 0 : Number(listPriceRaw)) : undefined,
+      variants,
     });
     if (result) {
-      if (saveVariantsToo && !(await saveVariants(result.id))) {
-        createdProduct.value = result;
-        return;
-      }
       emit('saved', result);
     }
     return;
@@ -501,14 +492,12 @@ async function submit(): Promise<void> {
     categoryId: form.categoryId || null,
     specifications,
     images,
-    brand: brandField ?? undefined,
+    brand: brandField || undefined,
     attributes: attributes && Object.keys(attributes).length > 0 ? attributes : undefined,
+    listPrice: listPriceRaw.length === 0 ? undefined : Number(listPriceRaw),
+    variants,
   });
   if (result) {
-    if (saveVariantsToo && !(await saveVariants(result.id))) {
-      createdProduct.value = result;
-      return;
-    }
     emit('saved', result);
   }
 }
@@ -539,7 +528,6 @@ function close(): void {
           :correlation-id="serverErrorCorrelationId"
         />
       </div>
-      <ProblemAlert v-if="variantsError" class="mt-3" :message="variantsError" :correlation-id="null" />
       <button
         v-if="serverErrorIsConflict"
         class="btn btn-outline btn-sm mt-2"
@@ -638,6 +626,33 @@ function close(): void {
               data-test="product-price-amount-error"
             >
               {{ priceAmountError }}
+            </p>
+          </div>
+
+          <div class="form-control flex-1">
+            <label class="label" for="product-list-price">
+              <span class="label-text">List price (MRP)</span>
+            </label>
+            <input
+              id="product-list-price"
+              v-model="form.listPrice"
+              class="input input-bordered w-full"
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="Optional"
+              data-test="product-list-price"
+              :aria-invalid="touched.listPrice && listPriceError !== null"
+              :aria-describedby="touched.listPrice && listPriceError ? 'product-list-price-error' : undefined"
+              @input="touched.listPrice = true"
+            />
+            <p
+              v-if="touched.listPrice && listPriceError"
+              id="product-list-price-error"
+              class="mt-1 text-sm text-error"
+              data-test="product-list-price-error"
+            >
+              {{ listPriceError }}
             </p>
           </div>
 
@@ -859,8 +874,8 @@ function close(): void {
             Could not load current brand, attributes and variants; they will not be changed unless you edit them.
           </p>
           <p class="mt-1 text-xs opacity-60">
-            Saving replaces the whole variant list. Attributes as key=value, comma separated;
-            blank price = product price.
+            Saving replaces the whole variant list. One name and value per attribute; blank price =
+            product price.
           </p>
           <div
             v-for="(row, index) in form.variants"
@@ -869,7 +884,14 @@ function close(): void {
             data-test="product-variant-row"
           >
             <input v-model="row.sku" class="input input-bordered input-sm col-span-2" placeholder="SKU" :aria-label="`Variant ${index + 1} SKU`" @input="touched.variants = true" />
-            <input v-model="row.attrs" class="input input-bordered input-sm col-span-4" placeholder="size=M, color=Red" :aria-label="`Variant ${index + 1} attributes`" @input="touched.variants = true" />
+            <div class="col-span-4 space-y-1" data-test="variant-attrs">
+              <div v-for="(attr, ai) in row.attrs" :key="ai" class="flex gap-1">
+                <input v-model="attr.key" class="input input-bordered input-sm w-1/3" placeholder="Name, e.g. Size" :aria-label="`Variant ${index + 1} attribute ${ai + 1} name`" @input="touched.variants = true" />
+                <input v-model="attr.value" class="input input-bordered input-sm flex-1" placeholder="Value, e.g. M" :aria-label="`Variant ${index + 1} attribute ${ai + 1} value`" @input="touched.variants = true" />
+                <button class="btn btn-ghost btn-sm" type="button" :aria-label="`Remove variant ${index + 1} attribute ${ai + 1}`" @click="removeVariantAttr(row, ai)">×</button>
+              </div>
+              <button class="btn btn-ghost btn-xs" type="button" data-test="variant-add-attr" @click="addVariantAttr(row)">Add attribute</button>
+            </div>
             <input v-model="row.priceAmount" class="input input-bordered input-sm col-span-2" type="number" min="0" step="0.01" placeholder="Price" :aria-label="`Variant ${index + 1} price`" @input="touched.variants = true" />
             <input v-model="row.salePrice" class="input input-bordered input-sm col-span-2" type="number" min="0" step="0.01" placeholder="Sale price" :aria-label="`Variant ${index + 1} sale price`" @input="touched.variants = true" />
             <input v-model="row.sortOrder" class="input input-bordered input-sm col-span-2" type="number" min="0" step="1" placeholder="Order" :aria-label="`Variant ${index + 1} order`" @input="touched.variants = true" />

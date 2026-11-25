@@ -1,0 +1,1069 @@
+diff --git a/docs/reference/environment-variables.md b/docs/reference/environment-variables.md
+index 8f37a84..ae612c0 100644
+--- a/docs/reference/environment-variables.md
++++ b/docs/reference/environment-variables.md
+@@ -157,6 +157,10 @@ service-level setting (add it under that service's `env:` in `values.yaml`). Rel
+ | `RATING_JWKS_URI` | rating | `""` |  | helm | Fixed URL of auth-service's public keys, used by rating to verify tokens. Set it on AWS (`http://auth-service:8081/.well-known/jwks.json`); blank resolves auth-service through discovery. |
+ | `SELLER_JWKS_SERVICE_ID` | seller | `AUTH-SERVICE` |  | - | Service id used to find auth-service when no fixed JWKS URL is set (default `AUTH-SERVICE`). |
+ | `SELLER_JWKS_URI` | seller | `""` |  | helm | Fixed URL of auth-service's public keys, used by seller to verify tokens. Set it on AWS (`http://auth-service:8081/.well-known/jwks.json`); blank resolves auth-service through discovery. |
++| `SELLER_LEDGER_RECONCILE_CRON` | seller | `0 30 2 * * *` |  | - | Spring cron (UTC) of the daily ledger reconcile job (`seller.ledger.reconcile.cron`). It only reports to `ledger_discrepancies`; it never posts to the ledger. |
++| `SELLER_LEDGER_RECONCILE_GRACE` | seller | `PT1H` |  | - | How long a DELIVERED shipment may be without a SALE before reconcile reports MISSING_SALE (`seller.ledger.reconcile.grace`, ISO-8601 duration). |
++| `SELLER_LEDGER_RECONCILE_LOOKBACK_DAYS` | seller | `35` |  | - | Reconcile asks order-service about SALEs newer than this many days (STATE_MISMATCH; `seller.ledger.reconcile.lookback-days`). |
++| `SELLER_LEDGER_RECONCILE_PAGE_SIZE` | seller | `200` |  | - | Shipments read per page by the reconcile job (`seller.ledger.reconcile.page-size`). |
+ | `SUPPORT_JWKS_SERVICE_ID` | support | `AUTH-SERVICE` |  | - | Service id used to find auth-service when no fixed JWKS URL is set (default `AUTH-SERVICE`). |
+ | `SUPPORT_JWKS_URI` | support | `""` |  | helm | Fixed URL of auth-service's public keys, used by support to verify tokens. Set it on AWS (`http://auth-service:8081/.well-known/jwks.json`); blank resolves auth-service through discovery. |
+ | `USER_JWKS_SERVICE_ID` | user | `AUTH-SERVICE` |  | - | Service id used to find auth-service when no fixed JWKS URL is set (default `AUTH-SERVICE`). |
+diff --git a/libs/common-web/build.gradle b/libs/common-web/build.gradle
+index 82e13ad..c8cd80c 100644
+--- a/libs/common-web/build.gradle
++++ b/libs/common-web/build.gradle
+@@ -26,6 +26,8 @@ dependencies {
+     // DlqErrorHandlers serialises dead-lettered payload objects with spring-kafka JsonSerializer (Jackson 2).
+     compileOnly "com.fasterxml.jackson.core:jackson-databind"
+ 
++    testImplementation libs.spring.kafka
++    testImplementation "com.fasterxml.jackson.core:jackson-databind"
+     testImplementation libs.spring.web
+     testImplementation libs.spring.webmvc
+     testImplementation libs.jakarta.servlet.api
+diff --git a/libs/common-web/src/test/java/com/acme/ecommerce/common/web/kafka/DlqErrorHandlersTest.java b/libs/common-web/src/test/java/com/acme/ecommerce/common/web/kafka/DlqErrorHandlersTest.java
+new file mode 100644
+index 0000000..68afe0a
+--- /dev/null
++++ b/libs/common-web/src/test/java/com/acme/ecommerce/common/web/kafka/DlqErrorHandlersTest.java
+@@ -0,0 +1,29 @@
++package com.acme.ecommerce.common.web.kafka;
++
++import static org.assertj.core.api.Assertions.assertThat;
++
++import java.lang.reflect.Method;
++import org.junit.jupiter.api.DisplayName;
++import org.junit.jupiter.api.Test;
++import org.springframework.kafka.listener.DefaultErrorHandler;
++import org.springframework.kafka.listener.ExceptionClassifier;
++import org.springframework.kafka.support.ExceptionMatcher;
++
++/**
++ * Malformed events (IllegalArgumentException) go to the DLT at once; other failures are retried.
++ */
++class DlqErrorHandlersTest {
++
++  @Test
++  @DisplayName("an IllegalArgumentException is not retried, an ordinary failure is")
++  void dlqHandlerDoesNotRetryIllegalArgument() throws Exception {
++    DefaultErrorHandler handler = DlqErrorHandlers.create("localhost:9092");
++    Method getter = ExceptionClassifier.class.getDeclaredMethod("getExceptionMatcher");
++    getter.setAccessible(true);
++    ExceptionMatcher matcher = (ExceptionMatcher) getter.invoke(handler);
++
++    // match(...) is true when the exception is retryable
++    assertThat(matcher.match(new IllegalArgumentException("malformed"))).isFalse();
++    assertThat(matcher.match(new IllegalStateException("db down"))).isTrue();
++  }
++}
+diff --git a/services/seller-service/seller-service-app/src/main/java/com/acme/ecommerce/seller/ledger/LedgerService.java b/services/seller-service/seller-service-app/src/main/java/com/acme/ecommerce/seller/ledger/LedgerService.java
+index 3c74133..db6cb09 100644
+--- a/services/seller-service/seller-service-app/src/main/java/com/acme/ecommerce/seller/ledger/LedgerService.java
++++ b/services/seller-service/seller-service-app/src/main/java/com/acme/ecommerce/seller/ledger/LedgerService.java
+@@ -15,6 +15,7 @@ import org.slf4j.LoggerFactory;
+ import org.springframework.beans.factory.annotation.Value;
+ import org.springframework.jdbc.core.simple.JdbcClient;
+ import org.springframework.stereotype.Service;
++import org.springframework.transaction.annotation.Propagation;
+ import org.springframework.transaction.annotation.Transactional;
+ 
+ /** Settlement ledger (from order.events) and payout runs. */
+@@ -66,6 +67,42 @@ public class LedgerService {
+ 
+   // ---- event-driven postings --------------------------------------------------------------
+ 
++  /** Fulfilment order of order-service statuses; the register never moves to a lower rank. */
++  private static final String STATUS_RANK =
++      "ARRAY['PENDING_PAYMENT','PLACED','CONFIRMED','PACKED','SHIPPED','OUT_FOR_DELIVERY','DELIVERED','CANCELLED']";
++
++  /**
++   * Records what order-service announced for each shipment in {@code ledger_shipments}, the source
++   * the reconcile job compares the ledger against. It commits in its own transaction so a failing
++   * posting (or an outer rollback) never removes it, and it is monotonic: an older event (lower
++   * status rank) is ignored, so an out-of-order SHIPPED never overwrites DELIVERED.
++   */
++  @Transactional(propagation = Propagation.REQUIRES_NEW)
++  public void track(UUID orderId, List<Part> parts, String currency) {
++    for (Part p : parts) {
++      if (p.shipmentId() == null || p.status() == null) {
++        continue;
++      }
++      jdbc.sql(
++              "INSERT INTO ledger_shipments (shipment_id, order_id, seller_id, status, amount, currency)"
++                  + " VALUES (:sh, :o, :s, :st, COALESCE(CAST(:a AS numeric), 0), :c)"
++                  + " ON CONFLICT (shipment_id) DO UPDATE SET status = EXCLUDED.status,"
++                  + " amount = COALESCE(CAST(:a AS numeric), ledger_shipments.amount), updated_at = now()"
++                  + " WHERE COALESCE(array_position("
++                  + STATUS_RANK
++                  + ", EXCLUDED.status), 0) >= COALESCE(array_position("
++                  + STATUS_RANK
++                  + ", ledger_shipments.status), 0)")
++          .param("sh", UUID.fromString(p.shipmentId()))
++          .param("o", orderId)
++          .param("s", p.sellerId() == null ? platformSeller : UUID.fromString(p.sellerId()))
++          .param("st", p.status())
++          .param("a", p.amount() == null ? null : p.amount().setScale(2, RoundingMode.HALF_UP))
++          .param("c", currency.toUpperCase())
++          .update();
++    }
++  }
++
+   /** SALE + COMMISSION + FEE for a delivered shipment. Idempotent on (shipment, type). */
+   @Transactional
+   public void recordDelivered(UUID orderId, Part p, String currency) {
+@@ -111,83 +148,146 @@ public class LedgerService {
+     }
+   }
+ 
+-  /** Reverses SALE (+ its commission) of the given shipments, or of the whole order when null. */
++  /**
++   * Whole-shipment reversal of the given shipments (or of the whole order when null): books the
++   * remainder of each SALE on the shared cap. No event caller until part B; part B must use it or
++   * delete it (F-20261119-13 CTO ruling d).
++   */
+   @Transactional
+   public void reverseRefund(UUID orderId, List<UUID> shipmentIds) {
+-    var rows =
++    List<UUID> sales =
+         jdbc.sql(
+-                "SELECT seller_id, shipment_id, amount, currency FROM ledger_entries WHERE order_id = :o AND type = 'SALE'")
++                "SELECT shipment_id FROM ledger_entries WHERE order_id = :o AND type = 'SALE'"
++                    + " AND return_id IS NULL ORDER BY shipment_id")
+             .param("o", orderId)
+-            .query(
+-                (rs, n) ->
+-                    new Object[] {
+-                      rs.getObject(1, UUID.class),
+-                      rs.getObject(2, UUID.class),
+-                      rs.getBigDecimal(3),
+-                      rs.getString(4)
+-                    })
++            .query(UUID.class)
+             .list();
+-    for (Object[] r : rows) {
+-      UUID sellerId = (UUID) r[0];
+-      UUID shipmentId = (UUID) r[1];
+-      if (shipmentIds != null && !shipmentIds.contains(shipmentId)) {
+-        continue;
+-      }
+-      BigDecimal sale = (BigDecimal) r[2];
+-      String cur = (String) r[3];
+-      if (post(sellerId, "REFUND_REVERSAL", sale.negate(), cur, orderId, shipmentId) == 0) {
+-        continue;
+-      }
+-      BigDecimal commission =
+-          jdbc.sql(
+-                  "SELECT amount FROM ledger_entries WHERE shipment_id = :s AND type = 'COMMISSION' AND return_id IS NULL")
+-              .param("s", shipmentId)
+-              .query(BigDecimal.class)
+-              .optional()
+-              .orElse(BigDecimal.ZERO);
+-      if (commission.signum() != 0) {
+-        post(sellerId, "COMMISSION_REVERSAL", commission.negate(), cur, orderId, shipmentId);
++    for (UUID shipmentId : sales) {
++      if (shipmentIds == null || shipmentIds.contains(shipmentId)) {
++        reverse(orderId, shipmentId, null, Optional.empty(), null);
+       }
+     }
+   }
+ 
+   /**
+-   * Partial/full refund of one return (RETURN_REFUNDED with returnShipmentId + refundAmount):
+-   * REFUND_REVERSAL = -refundAmount and COMMISSION_REVERSAL = +refundAmount * commission%.
++   * One return of a shipment (RETURN_REFUNDED): REFUND_REVERSAL = -returnItemsValue (never the
++   * customer refund, which includes shipping and discounts), capped at what is left of the SALE.
+    * Idempotent per return.
+    */
+   @Transactional
+   public void reverseReturn(
+-      UUID orderId, UUID shipmentId, UUID returnId, BigDecimal refundAmount, String currency) {
++      UUID orderId, UUID shipmentId, UUID returnId, BigDecimal returnItemsValue, String currency) {
++    reverse(orderId, shipmentId, returnId, Optional.of(returnItemsValue), currency);
++  }
++
++  /**
++   * The one reversal core. The SALE row lock serialises every reversal of a shipment, so the
++   * remainder read below stays valid until commit. It holds one row and only inserts, so it cannot
++   * deadlock with a payout run (which locks rows in one statement and updates them).
++   */
++  private void reverse(
++      UUID orderId, UUID shipmentId, UUID returnId, Optional<BigDecimal> basis, String currency) {
+     var sale =
+         jdbc.sql(
+-                "SELECT seller_id, currency FROM ledger_entries WHERE shipment_id = :s AND type = 'SALE'")
++                "SELECT seller_id, amount, currency FROM ledger_entries WHERE shipment_id = :s"
++                    + " AND type = 'SALE' AND return_id IS NULL FOR UPDATE")
+             .param("s", shipmentId)
+-            .query((rs, n) -> new Object[] {rs.getObject(1, UUID.class), rs.getString(2)})
++            .query(
++                (rs, n) ->
++                    new Object[] {
++                      rs.getObject(1, UUID.class), rs.getBigDecimal(2), rs.getString(3)
++                    })
+             .optional();
+     if (sale.isEmpty()) {
+-      log.warn("Refund for shipment {} without a booked SALE - skipped", shipmentId);
++      log.warn(
++          "Reversal for shipment {} without a booked SALE - reported, nothing posted", shipmentId);
++      jdbc.sql(
++              "INSERT INTO ledger_discrepancies (shipment_id, order_id, kind, ref, expected, detail)"
++                  + " VALUES (:sh, :o, 'UNMATCHED_REVERSAL', :r, :e, 'reversal arrived without a SALE')"
++                  + " ON CONFLICT (shipment_id, kind, ref) DO UPDATE SET expected = EXCLUDED.expected,"
++                  + " last_seen_at = now()")
++          .param("sh", shipmentId)
++          .param("o", orderId)
++          .param("r", returnId)
++          .param("e", basis.orElse(null))
++          .update();
+       return;
+     }
++    if (returnId != null
++        && jdbc.sql(
++                    "SELECT count(*) FROM ledger_entries WHERE return_id = :r AND type = 'REFUND_REVERSAL'")
++                .param("r", returnId)
++                .query(Long.class)
++                .single()
++            > 0) {
++      return; // replay of this return
++    }
+     UUID sellerId = (UUID) sale.get()[0];
+-    String cur = sale.get()[1] == null ? currency : (String) sale.get()[1];
+-    BigDecimal pct =
+-        jdbc.sql("SELECT commission_percent FROM sellers WHERE id = :i")
+-            .param("i", sellerId)
+-            .query(BigDecimal.class)
+-            .optional()
+-            .orElse(BigDecimal.ZERO);
+-    BigDecimal amt = refundAmount.setScale(2, RoundingMode.HALF_UP);
++    BigDecimal saleAmount = (BigDecimal) sale.get()[1];
++    String cur = sale.get()[2] == null ? currency : (String) sale.get()[2];
++    var sums =
++        jdbc.sql(
++                "SELECT COALESCE(-SUM(amount) FILTER (WHERE type = 'REFUND_REVERSAL'), 0),"
++                    + " COALESCE(-SUM(amount) FILTER (WHERE type = 'COMMISSION'), 0),"
++                    + " COALESCE(SUM(amount) FILTER (WHERE type = 'COMMISSION_REVERSAL'), 0)"
++                    + " FROM ledger_entries WHERE shipment_id = :s")
++            .param("s", shipmentId)
++            .query(
++                (rs, n) ->
++                    new BigDecimal[] {
++                      rs.getBigDecimal(1), rs.getBigDecimal(2), rs.getBigDecimal(3)
++                    })
++            .single();
++    BigDecimal commission = sums[1];
++    BigDecimal commissionLeft = commission.subtract(sums[2]).max(BigDecimal.ZERO);
++    BigDecimal remaining = saleAmount.subtract(sums[0]);
++    BigDecimal wanted = basis.map(b -> b.setScale(2, RoundingMode.HALF_UP)).orElse(remaining);
++    if (wanted.compareTo(remaining) > 0) {
++      log.warn(
++          "Reversal of {} on shipment {} capped to the remaining {} (return {})",
++          wanted,
++          shipmentId,
++          remaining,
++          returnId);
++    }
++    BigDecimal amt = wanted.min(remaining);
++    if (amt.signum() <= 0) {
++      return;
++    }
+     if (postReturn(sellerId, "REFUND_REVERSAL", amt.negate(), cur, orderId, shipmentId, returnId)
+         == 0) {
+       return;
+     }
+-    BigDecimal commission = amt.multiply(pct).divide(HUNDRED, 2, RoundingMode.HALF_UP);
+-    if (commission.signum() != 0) {
+-      postReturn(sellerId, "COMMISSION_REVERSAL", commission, cur, orderId, shipmentId, returnId);
++    boolean completing = amt.compareTo(remaining) == 0;
++    BigDecimal back =
++        completing
++            ? commissionLeft
++            : amt.multiply(commission)
++                .divide(saleAmount, 2, RoundingMode.HALF_UP)
++                .min(commissionLeft);
++    if (back.signum() > 0) {
++      postReturn(sellerId, "COMMISSION_REVERSAL", back, cur, orderId, shipmentId, returnId);
++    }
++    if (feeReversible(completing)) {
++      jdbc.sql(
++              "INSERT INTO ledger_entries (seller_id, type, amount, currency, order_id, shipment_id)"
++                  + " SELECT seller_id, 'FEE_REVERSAL', -amount, currency, order_id, shipment_id"
++                  + " FROM ledger_entries WHERE shipment_id = :s AND type = 'FEE' AND return_id IS NULL"
++                  + " ON CONFLICT DO NOTHING")
++          .param("s", shipmentId)
++          .update();
+     }
+   }
+ 
++  /**
++   * Fee policy, the single decision point. PROVISIONAL (Q1 = B, awaiting Owner confirmation): the
++   * booked per-shipment fee is given back once, when the shipment becomes fully reversed. Policy A
++   * (never) or C (pro rata) change only this method.
++   */
++  private boolean feeReversible(boolean completing) {
++    return completing;
++  }
++
+   private int post(
+       UUID sellerId,
+       String type,
+diff --git a/services/seller-service/seller-service-app/src/main/java/com/acme/ecommerce/seller/ledger/OrderEventConsumer.java b/services/seller-service/seller-service-app/src/main/java/com/acme/ecommerce/seller/ledger/OrderEventConsumer.java
+index 3820c73..980c145 100644
+--- a/services/seller-service/seller-service-app/src/main/java/com/acme/ecommerce/seller/ledger/OrderEventConsumer.java
++++ b/services/seller-service/seller-service-app/src/main/java/com/acme/ecommerce/seller/ledger/OrderEventConsumer.java
+@@ -8,10 +8,11 @@ import java.math.BigDecimal;
+ import java.util.HashMap;
+ import java.util.List;
+ import java.util.Map;
+-import java.util.Set;
+ import java.util.UUID;
+ import org.apache.kafka.clients.consumer.ConsumerConfig;
+ import org.apache.kafka.common.serialization.StringDeserializer;
++import org.slf4j.Logger;
++import org.slf4j.LoggerFactory;
+ import org.springframework.beans.factory.annotation.Value;
+ import org.springframework.context.annotation.Bean;
+ import org.springframework.context.annotation.Configuration;
+@@ -41,7 +42,8 @@ public class OrderEventConsumer {
+       String shipmentId,
+       String returnId,
+       String returnShipmentId,
+-      BigDecimal refundAmount) {}
++      BigDecimal refundAmount,
++      BigDecimal returnItemsValue) {}
+ 
+   @Bean
+   public ConcurrentKafkaListenerContainerFactory<String, OrderEvt> sellerOrderFactory(
+@@ -65,7 +67,7 @@ public class OrderEventConsumer {
+ 
+   @Component
+   public static class Listener {
+-    private static final Set<String> REFUNDED = Set.of("RETURNED", "REFUNDED", "RETURN_REFUNDED");
++    private static final Logger log = LoggerFactory.getLogger(Listener.class);
+     private final LedgerService ledger;
+     private final String platformSeller;
+ 
+@@ -88,26 +90,29 @@ public class OrderEventConsumer {
+       UUID orderId = UUID.fromString(e.orderId());
+       String currency = e.currency() == null ? "USD" : e.currency();
+       List<Part> parts = e.shipments() == null ? List.of() : e.shipments();
++      if (!parts.isEmpty()) {
++        // the register commits first and on its own, so a failing posting below cannot lose it
++        ledger.track(orderId, parts, currency);
++      }
+       if ("RETURN_REFUNDED".equals(e.type())) {
+-        if (e.returnShipmentId() != null && e.returnId() != null && e.refundAmount() != null) {
+-          ledger.reverseReturn(
+-              orderId,
+-              UUID.fromString(e.returnShipmentId()),
+-              UUID.fromString(e.returnId()),
+-              e.refundAmount(),
+-              currency);
+-          return;
+-        }
+-        List<UUID> targets =
+-            parts.stream()
+-                .filter(p -> REFUNDED.contains(p.status()))
+-                .map(p -> UUID.fromString(p.shipmentId()))
+-                .toList();
+-        if (!targets.isEmpty()) {
+-          ledger.reverseRefund(orderId, targets);
+-        } else if ("REFUNDED".equals(e.paymentStatus())) {
+-          ledger.reverseRefund(orderId, null);
++        if (e.returnId() == null || e.returnShipmentId() == null || e.returnItemsValue() == null) {
++          // No fallback to refundAmount: it includes shipping and discounts, which are never the
++          // seller's. IllegalArgumentException is not retryable: straight to order.events.DLT.
++          log.error(
++              "LEDGER ALERT malformed RETURN_REFUNDED order={} returnId={} returnShipmentId={}"
++                  + " returnItemsValue={} - dead-lettered, nothing posted",
++              e.orderId(),
++              e.returnId(),
++              e.returnShipmentId(),
++              e.returnItemsValue());
++          throw new IllegalArgumentException("malformed RETURN_REFUNDED for order " + e.orderId());
+         }
++        ledger.reverseReturn(
++            orderId,
++            UUID.fromString(e.returnShipmentId()),
++            UUID.fromString(e.returnId()),
++            e.returnItemsValue(),
++            currency);
+         return;
+       }
+       if (parts.isEmpty()) {
+diff --git a/services/seller-service/seller-service-app/src/main/resources/application.yml b/services/seller-service/seller-service-app/src/main/resources/application.yml
+index 3fede83..f74a73b 100644
+--- a/services/seller-service/seller-service-app/src/main/resources/application.yml
++++ b/services/seller-service/seller-service-app/src/main/resources/application.yml
+@@ -136,6 +136,15 @@ seller:
+   # Settlement: ledger entries younger than this are not paid out (admin may pass minAgeDays=0).
+   payout-min-age-days: 7
+   platform-seller-id: 00000000-0000-0000-0000-00000000a11e
++  ledger:
++    reconcile:
++      # Daily read-only check of the ledger against the shipment register (reports, never posts).
++      cron: ${SELLER_LEDGER_RECONCILE_CRON:0 30 2 * * *}
++      # A DELIVERED shipment without a SALE is reported only after this long.
++      grace: ${SELLER_LEDGER_RECONCILE_GRACE:PT1H}
++      # STATE_MISMATCH asks order-service about SALEs newer than this many days.
++      lookback-days: ${SELLER_LEDGER_RECONCILE_LOOKBACK_DAYS:35}
++      page-size: ${SELLER_LEDGER_RECONCILE_PAGE_SIZE:200}
+   jwt:
+     # SAME ENV VARS AND SAME DEFAULTS AS auth-service's `auth.jwt.*`, the
+     # gateway's `gateway.jwt.*` and product-service's `product.jwt.*`. Any of
+diff --git a/services/seller-service/seller-service-app/src/main/resources/db/migration/V3__ledger_reversals_reconcile.sql b/services/seller-service/seller-service-app/src/main/resources/db/migration/V3__ledger_reversals_reconcile.sql
+new file mode 100644
+index 0000000..65e8f88
+--- /dev/null
++++ b/services/seller-service/seller-service-app/src/main/resources/db/migration/V3__ledger_reversals_reconcile.sql
+@@ -0,0 +1,44 @@
++-- Ledger integrity part A: FEE_REVERSAL entry type, shipment register, discrepancy report.
++-- Plain DROP (no IF EXISTS): a wrong constraint name must fail the migration loudly.
++ALTER TABLE ledger_entries DROP CONSTRAINT ledger_entries_type_check;
++ALTER TABLE ledger_entries ADD CONSTRAINT ledger_entries_type_check
++    CHECK (type IN ('SALE', 'COMMISSION', 'FEE', 'REFUND_REVERSAL', 'COMMISSION_REVERSAL', 'FEE_REVERSAL'));
++
++-- What order-service announced per shipment (fed from every order.events message with shipments).
++CREATE TABLE ledger_shipments
++(
++    shipment_id uuid PRIMARY KEY,
++    order_id    uuid           NOT NULL,
++    seller_id   uuid           NOT NULL,
++    status      varchar(30)    NOT NULL,
++    amount      numeric(14, 2) NOT NULL,
++    currency    varchar(3)     NOT NULL,
++    updated_at  timestamptz    NOT NULL DEFAULT now()
++);
++
++-- Existing deliveries are seeded from their SALE rows.
++INSERT INTO ledger_shipments (shipment_id, order_id, seller_id, status, amount, currency, updated_at)
++SELECT shipment_id, order_id, seller_id, 'DELIVERED', amount, currency, created_at
++FROM ledger_entries
++WHERE type = 'SALE' AND return_id IS NULL;
++
++-- Report-only findings of the reconcile job; never posts to the ledger.
++CREATE TABLE ledger_discrepancies
++(
++    id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
++    shipment_id   uuid        NOT NULL,
++    order_id      uuid,
++    seller_id     uuid,
++    kind          varchar(30) NOT NULL
++        CHECK (kind IN ('MISSING_SALE', 'AMOUNT_MISMATCH', 'OVER_REVERSED', 'STATE_MISMATCH', 'UNMATCHED_REVERSAL')),
++    ref           uuid,
++    expected      numeric(14, 2),
++    actual        numeric(14, 2),
++    detail        text,
++    first_seen_at timestamptz NOT NULL DEFAULT now(),
++    last_seen_at  timestamptz NOT NULL DEFAULT now(),
++    resolved_at   timestamptz,
++    resolved_by   varchar(100),
++    CONSTRAINT ux_ledger_discrepancy UNIQUE NULLS NOT DISTINCT (shipment_id, kind, ref)
++);
++CREATE INDEX ix_ledger_discrepancy_open ON ledger_discrepancies (first_seen_at) WHERE resolved_at IS NULL;
+diff --git a/services/seller-service/seller-service-app/src/test/java/com/acme/ecommerce/seller/ledger/LedgerIntegrationTest.java b/services/seller-service/seller-service-app/src/test/java/com/acme/ecommerce/seller/ledger/LedgerIntegrationTest.java
+index fe0f0fb..997967c 100644
+--- a/services/seller-service/seller-service-app/src/test/java/com/acme/ecommerce/seller/ledger/LedgerIntegrationTest.java
++++ b/services/seller-service/seller-service-app/src/test/java/com/acme/ecommerce/seller/ledger/LedgerIntegrationTest.java
+@@ -132,7 +132,8 @@ class LedgerIntegrationTest extends AbstractSellerIntegrationTest {
+ 
+     ledger.run(7);
+ 
+-    assertThat(balance(s)).isLessThanOrEqualTo(BigDecimal.ZERO);
++    // sale 100 - commission 10 - fee 10 + commission back 10 + fee back 10 (fully reversed)
++    assertThat(balance(s)).isEqualByComparingTo("0.00");
+     assertThat(paidTo(s)).isEmpty();
+   }
+ 
+diff --git a/services/seller-service/seller-service-app/src/test/java/com/acme/ecommerce/seller/ledger/LedgerMigrationTest.java b/services/seller-service/seller-service-app/src/test/java/com/acme/ecommerce/seller/ledger/LedgerMigrationTest.java
+new file mode 100644
+index 0000000..bd40139
+--- /dev/null
++++ b/services/seller-service/seller-service-app/src/test/java/com/acme/ecommerce/seller/ledger/LedgerMigrationTest.java
+@@ -0,0 +1,60 @@
++package com.acme.ecommerce.seller.ledger;
++
++import static org.assertj.core.api.Assertions.assertThat;
++import static org.assertj.core.api.Assertions.assertThatThrownBy;
++
++import com.acme.ecommerce.seller.support.AbstractSellerIntegrationTest;
++import java.math.BigDecimal;
++import java.util.UUID;
++import org.junit.jupiter.api.DisplayName;
++import org.junit.jupiter.api.Test;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.dao.DuplicateKeyException;
++import org.springframework.jdbc.core.simple.JdbcClient;
++
++/** V3: FEE_REVERSAL is a valid entry type and a discrepancy is unique per (shipment, kind, ref). */
++class LedgerMigrationTest extends AbstractSellerIntegrationTest {
++
++  @Autowired private JdbcClient jdbc;
++
++  private UUID seller() {
++    UUID id = UUID.randomUUID();
++    jdbc.sql(
++            "INSERT INTO sellers (id, user_id, display_name, slug, status, commission_percent)"
++                + " VALUES (:i, :u, 'M', :s, 'APPROVED', 10)")
++        .param("i", id)
++        .param("u", UUID.randomUUID())
++        .param("s", "m-" + id)
++        .update();
++    return id;
++  }
++
++  @Test
++  @DisplayName("a FEE_REVERSAL ledger row is accepted")
++  void feeReversalTypeAccepted() {
++    UUID s = seller();
++    int n =
++        jdbc.sql(
++                "INSERT INTO ledger_entries (seller_id, type, amount, currency, order_id, shipment_id)"
++                    + " VALUES (:s, 'FEE_REVERSAL', :a, 'INR', :o, :sh)")
++            .param("s", s)
++            .param("a", new BigDecimal("10.00"))
++            .param("o", UUID.randomUUID())
++            .param("sh", UUID.randomUUID())
++            .update();
++    assertThat(n).isEqualTo(1);
++  }
++
++  @Test
++  @DisplayName("a second discrepancy with the same shipment, kind and ref (even null) is rejected")
++  void duplicateDiscrepancyRejected() {
++    UUID shipment = UUID.randomUUID();
++    String sql =
++        "INSERT INTO ledger_discrepancies (shipment_id, kind, ref) VALUES (:sh, 'MISSING_SALE', :r)";
++    jdbc.sql(sql).param("sh", shipment).param("r", null, java.sql.Types.OTHER).update();
++    assertThatThrownBy(
++            () ->
++                jdbc.sql(sql).param("sh", shipment).param("r", null, java.sql.Types.OTHER).update())
++        .isInstanceOf(DuplicateKeyException.class);
++  }
++}
+diff --git a/services/seller-service/seller-service-app/src/test/java/com/acme/ecommerce/seller/ledger/LedgerReversalIntegrationTest.java b/services/seller-service/seller-service-app/src/test/java/com/acme/ecommerce/seller/ledger/LedgerReversalIntegrationTest.java
+new file mode 100644
+index 0000000..c347bea
+--- /dev/null
++++ b/services/seller-service/seller-service-app/src/test/java/com/acme/ecommerce/seller/ledger/LedgerReversalIntegrationTest.java
+@@ -0,0 +1,374 @@
++package com.acme.ecommerce.seller.ledger;
++
++import static org.assertj.core.api.Assertions.assertThat;
++import static org.assertj.core.api.Assertions.assertThatThrownBy;
++
++import com.acme.ecommerce.seller.support.AbstractSellerIntegrationTest;
++import java.math.BigDecimal;
++import java.util.List;
++import java.util.UUID;
++import java.util.concurrent.CountDownLatch;
++import java.util.concurrent.ExecutorService;
++import java.util.concurrent.Executors;
++import java.util.concurrent.Future;
++import org.junit.jupiter.api.DisplayName;
++import org.junit.jupiter.api.Test;
++import org.junit.jupiter.api.extension.ExtendWith;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.boot.test.system.CapturedOutput;
++import org.springframework.boot.test.system.OutputCaptureExtension;
++import org.springframework.jdbc.core.simple.JdbcClient;
++
++/** Capped, fee-aware reversals on a real database (F-20261119-13, AC-1..AC-5). */
++@ExtendWith(OutputCaptureExtension.class)
++class LedgerReversalIntegrationTest extends AbstractSellerIntegrationTest {
++
++  @Autowired private LedgerService ledger;
++  @Autowired private JdbcClient jdbc;
++
++  private UUID seller(String commissionPercent) {
++    UUID id = UUID.randomUUID();
++    jdbc.sql(
++            "INSERT INTO sellers (id, user_id, display_name, slug, status, commission_percent)"
++                + " VALUES (:i, :u, 'Test Seller', :s, 'APPROVED', :c)")
++        .param("i", id)
++        .param("u", UUID.randomUUID())
++        .param("s", "rev-" + id)
++        .param("c", new BigDecimal(commissionPercent))
++        .update();
++    return id;
++  }
++
++  private void deliver(UUID order, UUID shipment, UUID seller, String amount, String currency) {
++    ledger.recordDelivered(
++        order,
++        new LedgerService.Part(
++            shipment.toString(), seller.toString(), "DELIVERED", new BigDecimal(amount), List.of()),
++        currency);
++  }
++
++  private BigDecimal sum(UUID shipment, String type) {
++    return jdbc.sql(
++            "SELECT COALESCE(SUM(amount), 0) FROM ledger_entries WHERE shipment_id = :s AND type = :t")
++        .param("s", shipment)
++        .param("t", type)
++        .query(BigDecimal.class)
++        .single();
++  }
++
++  private long count(UUID shipment, String type) {
++    return jdbc.sql("SELECT count(*) FROM ledger_entries WHERE shipment_id = :s AND type = :t")
++        .param("s", shipment)
++        .param("t", type)
++        .query(Long.class)
++        .single();
++  }
++
++  private BigDecimal net(UUID shipment) {
++    return jdbc.sql("SELECT COALESCE(SUM(amount), 0) FROM ledger_entries WHERE shipment_id = :s")
++        .param("s", shipment)
++        .query(BigDecimal.class)
++        .single();
++  }
++
++  @Test
++  @DisplayName("a whole return reverses the booked fee once, in the fee's currency")
++  void wholeReturnReversesBookedFeeOnce() {
++    UUID s = seller("10");
++    UUID order = UUID.randomUUID();
++    UUID inr = UUID.randomUUID();
++    UUID usd = UUID.randomUUID();
++    UUID free = UUID.randomUUID();
++    UUID platformLike = seller("0");
++    deliver(order, inr, s, "1000.00", "INR");
++    deliver(order, usd, s, "100.00", "USD");
++    deliver(order, free, platformLike, "100.00", "USD");
++    UUID r1 = UUID.randomUUID();
++    UUID r2 = UUID.randomUUID();
++    UUID r3 = UUID.randomUUID();
++
++    for (int i = 0; i < 2; i++) { // replay
++      ledger.reverseReturn(order, inr, r1, new BigDecimal("1000.00"), "INR");
++      ledger.reverseReturn(order, usd, r2, new BigDecimal("100.00"), "USD");
++      ledger.reverseReturn(order, free, r3, new BigDecimal("100.00"), "USD");
++    }
++
++    assertThat(count(inr, "FEE_REVERSAL")).isEqualTo(1);
++    assertThat(sum(inr, "FEE_REVERSAL")).isEqualByComparingTo("10.00");
++    assertThat(sum(usd, "FEE_REVERSAL")).isEqualByComparingTo("0.25");
++    assertThat(count(free, "FEE_REVERSAL")).isZero();
++    assertThat(net(inr)).isEqualByComparingTo("0.00");
++    assertThat(net(usd)).isEqualByComparingTo("0.00");
++    assertThat(net(free)).isEqualByComparingTo("0.00");
++  }
++
++  @Test
++  @DisplayName(
++      "partial returns give the fee back only when the cumulative reversal covers the sale")
++  void partialReturnsReverseFeeOnlyWhenCumulativeCoversShipment() {
++    UUID s = seller("10");
++    UUID order = UUID.randomUUID();
++    UUID shipment = UUID.randomUUID();
++    deliver(order, shipment, s, "100.00", "INR");
++
++    ledger.reverseReturn(order, shipment, UUID.randomUUID(), new BigDecimal("30.00"), "INR");
++    assertThat(count(shipment, "FEE_REVERSAL")).isZero();
++    assertThat(sum(shipment, "COMMISSION_REVERSAL")).isEqualByComparingTo("3.00");
++
++    ledger.reverseReturn(order, shipment, UUID.randomUUID(), new BigDecimal("70.00"), "INR");
++    assertThat(count(shipment, "FEE_REVERSAL")).isEqualTo(1);
++    assertThat(sum(shipment, "COMMISSION_REVERSAL")).isEqualByComparingTo("10.00");
++    assertThat(sum(shipment, "REFUND_REVERSAL")).isEqualByComparingTo("-100.00");
++    assertThat(net(shipment)).isEqualByComparingTo("0.00");
++  }
++
++  @Test
++  @DisplayName("the reversal is the items value at the booked commission ratio")
++  void reversalUsesItemsValueNotRefund() {
++    UUID s = seller("10");
++    UUID order = UUID.randomUUID();
++    UUID shipment = UUID.randomUUID();
++    deliver(order, shipment, s, "200.00", "INR");
++    // the customer was refunded 95 for items worth 100; only the items value is the seller's
++    jdbc.sql("UPDATE sellers SET commission_percent = 20 WHERE id = :s").param("s", s).update();
++
++    ledger.reverseReturn(order, shipment, UUID.randomUUID(), new BigDecimal("100.00"), "INR");
++
++    assertThat(sum(shipment, "REFUND_REVERSAL")).isEqualByComparingTo("-100.00");
++    assertThat(sum(shipment, "COMMISSION_REVERSAL")).isEqualByComparingTo("10.00"); // booked 10%
++  }
++
++  @Test
++  @DisplayName("a reversal above what is left is capped and warned about")
++  void reversalCappedAtRemainderAndWarns(CapturedOutput output) {
++    UUID s = seller("10");
++    UUID order = UUID.randomUUID();
++    UUID shipment = UUID.randomUUID();
++    deliver(order, shipment, s, "100.00", "INR");
++
++    ledger.reverseReturn(order, shipment, UUID.randomUUID(), new BigDecimal("70.00"), "INR");
++    ledger.reverseReturn(order, shipment, UUID.randomUUID(), new BigDecimal("60.00"), "INR");
++    ledger.reverseReturn(order, shipment, UUID.randomUUID(), new BigDecimal("5.00"), "INR");
++
++    assertThat(sum(shipment, "REFUND_REVERSAL")).isEqualByComparingTo("-100.00");
++    assertThat(count(shipment, "REFUND_REVERSAL")).isEqualTo(2); // the third posts nothing
++    assertThat(sum(shipment, "COMMISSION_REVERSAL")).isEqualByComparingTo("10.00");
++    assertThat(output.getOut()).contains("capped to the remaining 30.00");
++  }
++
++  @Test
++  @DisplayName("two concurrent returns share one cap")
++  void concurrentReturnsShareCap() throws Exception {
++    UUID s = seller("10");
++    UUID order = UUID.randomUUID();
++    UUID shipment = UUID.randomUUID();
++    deliver(order, shipment, s, "100.00", "INR");
++    CountDownLatch go = new CountDownLatch(1);
++    ExecutorService pool = Executors.newFixedThreadPool(2);
++    try {
++      List<Future<?>> fs =
++          List.of(
++              pool.submit(() -> concurrentReturn(go, order, shipment)),
++              pool.submit(() -> concurrentReturn(go, order, shipment)));
++      go.countDown();
++      for (Future<?> f : fs) {
++        f.get();
++      }
++    } finally {
++      pool.shutdownNow();
++    }
++
++    assertThat(sum(shipment, "REFUND_REVERSAL")).isEqualByComparingTo("-100.00");
++    assertThat(sum(shipment, "COMMISSION_REVERSAL")).isEqualByComparingTo("10.00");
++    assertThat(count(shipment, "FEE_REVERSAL")).isEqualTo(1);
++  }
++
++  private void concurrentReturn(CountDownLatch go, UUID order, UUID shipment) {
++    try {
++      go.await();
++    } catch (InterruptedException e) {
++      throw new IllegalStateException(e);
++    }
++    ledger.reverseReturn(order, shipment, UUID.randomUUID(), new BigDecimal("60.00"), "INR");
++  }
++
++  @Test
++  @DisplayName("a whole-shipment reversal after a per-return one posts only the remainder")
++  void wholeShipmentAfterPerReturnPostsRemainderOnly() {
++    UUID s = seller("10");
++    UUID order = UUID.randomUUID();
++    UUID shipment = UUID.randomUUID();
++    deliver(order, shipment, s, "100.00", "INR");
++    ledger.reverseReturn(order, shipment, UUID.randomUUID(), new BigDecimal("30.00"), "INR");
++
++    ledger.reverseRefund(order, null);
++    ledger.reverseRefund(order, List.of(shipment)); // replay
++
++    assertThat(sum(shipment, "REFUND_REVERSAL")).isEqualByComparingTo("-100.00");
++    assertThat(sum(shipment, "COMMISSION_REVERSAL")).isEqualByComparingTo("10.00");
++    assertThat(count(shipment, "FEE_REVERSAL")).isEqualTo(1);
++    assertThat(net(shipment)).isEqualByComparingTo("0.00");
++  }
++
++  @Test
++  @DisplayName("a per-return reversal after a whole-shipment one posts nothing")
++  void perReturnAfterLegacyReversalPostsNothing() {
++    UUID s = seller("10");
++    UUID order = UUID.randomUUID();
++    UUID shipment = UUID.randomUUID();
++    deliver(order, shipment, s, "100.00", "INR");
++    ledger.reverseRefund(order, null);
++    long before = count(shipment, "REFUND_REVERSAL");
++
++    ledger.reverseReturn(order, shipment, UUID.randomUUID(), new BigDecimal("40.00"), "INR");
++
++    assertThat(before).isEqualTo(1);
++    assertThat(count(shipment, "REFUND_REVERSAL")).isEqualTo(1);
++    assertThat(sum(shipment, "REFUND_REVERSAL")).isEqualByComparingTo("-100.00");
++    assertThat(count(shipment, "COMMISSION_REVERSAL")).isEqualTo(1);
++    assertThat(count(shipment, "FEE_REVERSAL")).isEqualTo(1);
++  }
++
++  @Test
++  @DisplayName("a reversal with no SALE posts nothing and is reported once")
++  void reversalWithoutSaleWritesUnmatchedRow() {
++    UUID order = UUID.randomUUID();
++    UUID shipment = UUID.randomUUID();
++    UUID returnId = UUID.randomUUID();
++
++    ledger.reverseReturn(order, shipment, returnId, new BigDecimal("42.00"), "INR");
++    ledger.reverseReturn(order, shipment, returnId, new BigDecimal("42.00"), "INR");
++
++    assertThat(
++            jdbc.sql("SELECT count(*) FROM ledger_entries WHERE shipment_id = :s")
++                .param("s", shipment)
++                .query(Long.class)
++                .single())
++        .isZero();
++    var rows =
++        jdbc.sql(
++                "SELECT ref, expected FROM ledger_discrepancies WHERE shipment_id = :s AND kind = 'UNMATCHED_REVERSAL'")
++            .param("s", shipment)
++            .query((rs, n) -> new Object[] {rs.getObject(1, UUID.class), rs.getBigDecimal(2)})
++            .list();
++    assertThat(rows).hasSize(1);
++    assertThat(rows.get(0)[0]).isEqualTo(returnId);
++    assertThat((BigDecimal) rows.get(0)[1]).isEqualByComparingTo("42.00");
++  }
++
++  @Autowired private javax.sql.DataSource dataSource;
++
++  @Test
++  @DisplayName("a reversal waits on a held SALE row lock, then reads the committed state and caps")
++  void reversalWaitsOnHeldSaleLockThenCompletes() throws Exception {
++    UUID s = seller("10");
++    UUID order = UUID.randomUUID();
++    UUID shipment = UUID.randomUUID();
++    deliver(order, shipment, s, "100.00", "INR");
++    ExecutorService pool = Executors.newSingleThreadExecutor();
++    try (java.sql.Connection holder = dataSource.getConnection()) {
++      holder.setAutoCommit(false);
++      try (var st = holder.createStatement()) {
++        st.execute(
++            "SELECT 1 FROM ledger_entries WHERE shipment_id = '"
++                + shipment
++                + "' AND type = 'SALE' AND return_id IS NULL FOR UPDATE");
++        // while holding the lock, a competing reversal of 70 is booked but not yet committed
++        st.execute(
++            "INSERT INTO ledger_entries (seller_id, type, amount, currency, order_id, shipment_id, return_id)"
++                + " VALUES ('"
++                + s
++                + "', 'REFUND_REVERSAL', -70.00, 'INR', '"
++                + order
++                + "', '"
++                + shipment
++                + "', '"
++                + UUID.randomUUID()
++                + "')");
++      }
++      Future<?> waiting =
++          pool.submit(
++              () ->
++                  ledger.reverseReturn(
++                      order, shipment, UUID.randomUUID(), new BigDecimal("60.00"), "INR"));
++
++      assertThatThrownBy(() -> waiting.get(1500, java.util.concurrent.TimeUnit.MILLISECONDS))
++          .isInstanceOf(java.util.concurrent.TimeoutException.class);
++      assertThat(waiting.isDone()).isFalse();
++
++      holder.commit();
++      waiting.get(10, java.util.concurrent.TimeUnit.SECONDS);
++    } finally {
++      pool.shutdownNow();
++    }
++
++    // 70 + capped 30, not 70 + 60
++    assertThat(sum(shipment, "REFUND_REVERSAL")).isEqualByComparingTo("-100.00");
++    assertThat(sum(shipment, "COMMISSION_REVERSAL"))
++        .isEqualByComparingTo("10.00"); // completing: the rest of the booked commission
++    assertThat(count(shipment, "FEE_REVERSAL")).isEqualTo(1);
++  }
++
++  @Autowired private org.springframework.transaction.PlatformTransactionManager txManager;
++
++  private List<Object[]> register(UUID shipment) {
++    return jdbc.sql("SELECT status, amount FROM ledger_shipments WHERE shipment_id = :s")
++        .param("s", shipment)
++        .query((rs, n) -> new Object[] {rs.getString(1), rs.getBigDecimal(2)})
++        .list();
++  }
++
++  private LedgerService.Part registerPart(
++      UUID shipment, UUID seller, String status, String amount) {
++    return new LedgerService.Part(
++        shipment.toString(), seller.toString(), status, new BigDecimal(amount), List.of());
++  }
++
++  @Test
++  @DisplayName("the register row survives a DELIVERED whose posting fails and rolls back")
++  void registerSurvivesFailedPosting() {
++    UUID s = seller("10");
++    UUID order = UUID.randomUUID();
++    UUID shipment = UUID.randomUUID();
++    // a bad product id makes recordDelivered throw after it already posted the SALE
++    LedgerService.Part bad =
++        new LedgerService.Part(
++            shipment.toString(),
++            s.toString(),
++            "DELIVERED",
++            new BigDecimal("100.00"),
++            List.of(new LedgerService.Item("not-a-uuid", "x", 1, new BigDecimal("100.00"))));
++
++    // even inside one outer transaction that rolls back, the register has already committed
++    assertThatThrownBy(
++            () ->
++                new org.springframework.transaction.support.TransactionTemplate(txManager)
++                    .executeWithoutResult(
++                        st -> {
++                          ledger.track(order, List.of(bad), "INR");
++                          ledger.recordDelivered(order, bad, "INR");
++                        }))
++        .isInstanceOf(IllegalArgumentException.class);
++
++    assertThat(count(shipment, "SALE")).isZero();
++    assertThat(register(shipment)).hasSize(1);
++    assertThat(register(shipment).get(0)[0]).isEqualTo("DELIVERED");
++    assertThat((BigDecimal) register(shipment).get(0)[1]).isEqualByComparingTo("100.00");
++  }
++
++  @Test
++  @DisplayName("an older event never moves the register status or amount backwards")
++  void registerNeverMovesBackwards() {
++    UUID s = seller("10");
++    UUID order = UUID.randomUUID();
++    UUID shipment = UUID.randomUUID();
++
++    ledger.track(order, List.of(registerPart(shipment, s, "PLACED", "90.00")), "INR");
++    ledger.track(order, List.of(registerPart(shipment, s, "DELIVERED", "100.00")), "INR");
++    ledger.track(order, List.of(registerPart(shipment, s, "SHIPPED", "90.00")), "INR");
++
++    assertThat(register(shipment)).hasSize(1);
++    assertThat(register(shipment).get(0)[0]).isEqualTo("DELIVERED");
++    assertThat((BigDecimal) register(shipment).get(0)[1]).isEqualByComparingTo("100.00");
++  }
++}
+diff --git a/services/seller-service/seller-service-app/src/test/java/com/acme/ecommerce/seller/ledger/OrderEventConsumerTest.java b/services/seller-service/seller-service-app/src/test/java/com/acme/ecommerce/seller/ledger/OrderEventConsumerTest.java
+new file mode 100644
+index 0000000..c3e63bf
+--- /dev/null
++++ b/services/seller-service/seller-service-app/src/test/java/com/acme/ecommerce/seller/ledger/OrderEventConsumerTest.java
+@@ -0,0 +1,136 @@
++package com.acme.ecommerce.seller.ledger;
++
++import static org.assertj.core.api.Assertions.assertThat;
++import static org.assertj.core.api.Assertions.assertThatThrownBy;
++import static org.mockito.ArgumentMatchers.any;
++import static org.mockito.ArgumentMatchers.anyString;
++import static org.mockito.Mockito.inOrder;
++import static org.mockito.Mockito.mock;
++import static org.mockito.Mockito.verify;
++import static org.mockito.Mockito.verifyNoInteractions;
++
++import com.acme.ecommerce.seller.ledger.LedgerService.Part;
++import com.acme.ecommerce.seller.ledger.OrderEventConsumer.OrderEvt;
++import java.math.BigDecimal;
++import java.util.List;
++import java.util.UUID;
++import org.junit.jupiter.api.DisplayName;
++import org.junit.jupiter.api.Test;
++import org.junit.jupiter.api.extension.ExtendWith;
++import org.mockito.InOrder;
++import org.springframework.boot.test.system.CapturedOutput;
++import org.springframework.boot.test.system.OutputCaptureExtension;
++
++/** order.events consumer: strict RETURN_REFUNDED, no refundAmount fallback, shipments tracked. */
++@ExtendWith(OutputCaptureExtension.class)
++class OrderEventConsumerTest {
++
++  private static final String PLATFORM = "00000000-0000-0000-0000-00000000a11e";
++
++  private final LedgerService ledger = mock(LedgerService.class);
++  private final OrderEventConsumer.Listener listener =
++      new OrderEventConsumer.Listener(ledger, PLATFORM);
++
++  private final String order = UUID.randomUUID().toString();
++  private final String shipment = UUID.randomUUID().toString();
++  private final String returnId = UUID.randomUUID().toString();
++
++  private OrderEvt returnRefunded(String rid, String rship, BigDecimal items) {
++    return new OrderEvt(
++        "RETURN_REFUNDED",
++        order,
++        "DELIVERED",
++        "REFUNDED",
++        new BigDecimal("100.00"),
++        "INR",
++        List.of(),
++        null,
++        rid,
++        rship,
++        new BigDecimal("95.00"),
++        items);
++  }
++
++  @Test
++  @DisplayName(
++      "a RETURN_REFUNDED missing returnId, returnShipmentId or returnItemsValue is alerted, rejected and posts nothing")
++  void malformedReturnRefundedThrowsNonRetryableAndPostsNothing(CapturedOutput output) {
++    List<OrderEvt> bad =
++        List.of(
++            returnRefunded(null, shipment, new BigDecimal("100.00")),
++            returnRefunded(returnId, null, new BigDecimal("100.00")),
++            returnRefunded(returnId, shipment, null));
++
++    for (OrderEvt e : bad) {
++      for (int replay = 0; replay < 2; replay++) {
++        assertThatThrownBy(() -> listener.onEvent(e)).isInstanceOf(IllegalArgumentException.class);
++      }
++    }
++
++    assertThat(output.getAll()).contains("LEDGER ALERT malformed RETURN_REFUNDED order=" + order);
++    verify(ledger, org.mockito.Mockito.never())
++        .reverseReturn(any(), any(), any(), any(), anyString());
++    verify(ledger, org.mockito.Mockito.never()).reverseRefund(any(), any());
++  }
++
++  @Test
++  @DisplayName("a well-formed RETURN_REFUNDED reverses the items value, not the refund amount")
++  void wellFormedReturnRefundedCallsReverseReturnWithItemsValue() {
++    listener.onEvent(returnRefunded(returnId, shipment, new BigDecimal("100.00")));
++
++    verify(ledger)
++        .reverseReturn(
++            UUID.fromString(order),
++            UUID.fromString(shipment),
++            UUID.fromString(returnId),
++            new BigDecimal("100.00"),
++            "INR");
++    verify(ledger, org.mockito.Mockito.never()).reverseRefund(any(), any());
++  }
++
++  @Test
++  @DisplayName("an event with shipments is tracked before its postings")
++  void eventsWithShipmentsAreTracked() {
++    List<Part> parts =
++        List.of(new Part(shipment, PLATFORM, "DELIVERED", new BigDecimal("100.00"), List.of()));
++    listener.onEvent(
++        new OrderEvt(
++            "SHIPMENT_STATUS_CHANGED",
++            order,
++            "DELIVERED",
++            "PAID",
++            new BigDecimal("100.00"),
++            "INR",
++            parts,
++            shipment,
++            null,
++            null,
++            null,
++            null));
++
++    InOrder o = inOrder(ledger);
++    o.verify(ledger).track(UUID.fromString(order), parts, "INR");
++    o.verify(ledger).recordDelivered(UUID.fromString(order), parts.get(0), "INR");
++  }
++
++  @Test
++  @DisplayName("an event without shipments is not tracked")
++  void eventsWithoutShipmentsAreNotTracked() {
++    listener.onEvent(
++        new OrderEvt(
++            "ORDER_STATUS_CHANGED",
++            order,
++            "PLACED",
++            null,
++            null,
++            "INR",
++            null,
++            null,
++            null,
++            null,
++            null,
++            null));
++
++    verifyNoInteractions(ledger);
++  }
++}

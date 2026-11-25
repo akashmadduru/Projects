@@ -1,6 +1,7 @@
 package com.acme.ecommerce.gateway.security;
 
 import com.acme.ecommerce.common.security.AudienceValidator;
+import com.acme.ecommerce.common.security.UuidSubjectValidator;
 import com.acme.ecommerce.gateway.config.GatewayProperties;
 import com.nimbusds.jose.jwk.JWK;
 import com.nimbusds.jose.jwk.JWKMatcher;
@@ -122,6 +123,7 @@ public final class JwksReactiveJwtDecoderFactory {
     validators.add(new JwtTimestampValidator(GatewayProperties.Jwt.CLOCK_SKEW));
     validators.add(new JwtIssuerValidator(jwt.getIssuer()));
     validators.add(new AudienceValidator(jwt.getAudience()));
+    validators.add(new UuidSubjectValidator());
     return new DelegatingOAuth2TokenValidator<>(validators);
   }
 }

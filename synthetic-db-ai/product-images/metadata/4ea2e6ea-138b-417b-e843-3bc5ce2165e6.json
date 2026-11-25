@@ -1,0 +1,13 @@
+{
+ "product_id": "4ea2e6ea-138b-417b-e843-3bc5ce2165e6",
+ "name": "Suno Badminton Racket Max",
+ "prompt": "studio packshot photo of a Olive Suno Badminton Racket Max, made of polyester, team sports, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2748884847,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:24:04",
+ "file_path": "product-images/images/4ea2e6ea-138b-417b-e843-3bc5ce2165e6.jpg",
+ "file_size": 57684
+}

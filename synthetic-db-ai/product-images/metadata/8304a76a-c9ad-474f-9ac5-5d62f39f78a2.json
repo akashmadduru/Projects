@@ -1,0 +1,13 @@
+{
+ "product_id": "8304a76a-c9ad-474f-9ac5-5d62f39f78a2",
+ "name": "Taartra Robot Vacuum Max",
+ "prompt": "studio packshot photo of a Space Grey Taartra Robot Vacuum Max, made of bamboo, cleaning, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 527477266,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:52:28",
+ "file_path": "product-images/images/8304a76a-c9ad-474f-9ac5-5d62f39f78a2.jpg",
+ "file_size": 45244
+}

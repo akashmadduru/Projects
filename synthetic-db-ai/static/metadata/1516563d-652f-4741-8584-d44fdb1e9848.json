@@ -1,0 +1,15 @@
+{
+ "product_id": "1516563d-652f-4741-8584-d44fdb1e9848",
+ "name": "Ricoqua Bookshelf Prime",
+ "prompt": "studio packshot photo of a Olive Ricoqua Bookshelf Prime, made of leather, furniture, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1124892764,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 768,
+ "created_at": "2026-11-15T23:05:01",
+ "file_path": "static/images/1516563d-652f-4741-8584-d44fdb1e9848.jpg",
+ "file_size": 51202,
+ "uploaded": false,
+ "s3_url": null
+}

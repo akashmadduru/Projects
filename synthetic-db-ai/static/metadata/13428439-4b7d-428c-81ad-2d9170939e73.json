@@ -1,0 +1,15 @@
+{
+ "product_id": "13428439-4b7d-428c-81ad-2d9170939e73",
+ "name": "Quadexlo Speaker Lite",
+ "prompt": "studio packshot photo of a Red Quadexlo Speaker Lite, made of silicone, speakers, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2198852479,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 768,
+ "created_at": "2026-11-15T23:02:03",
+ "file_path": "static/images/13428439-4b7d-428c-81ad-2d9170939e73.jpg",
+ "file_size": 116081,
+ "uploaded": false,
+ "s3_url": null
+}

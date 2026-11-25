@@ -1,0 +1,15 @@
+{
+ "product_id": "1c546c1d-d32b-4576-901f-2f07e4899e02",
+ "name": "Expipi Razor Lite",
+ "prompt": "studio packshot photo of a White Expipi Razor Lite, made of aluminium, grooming, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2923219722,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 768,
+ "created_at": "2026-11-15T23:14:25",
+ "file_path": "static/images/1c546c1d-d32b-4576-901f-2f07e4899e02.jpg",
+ "file_size": 56348,
+ "uploaded": false,
+ "s3_url": null
+}

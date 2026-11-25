@@ -1,0 +1,15 @@
+{
+ "product_id": "3bcd164b-b0fe-490c-c31d-8bf3bb848c5d",
+ "name": "Pitaka Moisturiser Essential",
+ "prompt": "studio packshot photo of a Red Pitaka Moisturiser Essential, made of glass, skin care, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 32717181,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:34:20",
+ "file_path": "static/images/3bcd164b-b0fe-490c-c31d-8bf3bb848c5d.jpg",
+ "file_size": 31057,
+ "uploaded": false,
+ "s3_url": null
+}

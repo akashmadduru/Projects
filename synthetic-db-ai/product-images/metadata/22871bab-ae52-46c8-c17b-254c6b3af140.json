@@ -1,0 +1,13 @@
+{
+ "product_id": "22871bab-ae52-46c8-c17b-254c6b3af140",
+ "name": "Kalo Hair Oil Pro",
+ "prompt": "studio packshot photo of a Navy Blue Kalo Hair Oil Pro, made of abs plastic, hair care, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1054718933,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 768,
+ "created_at": "2026-11-15T23:20:42",
+ "file_path": "product-images/images/22871bab-ae52-46c8-c17b-254c6b3af140.jpg",
+ "file_size": 71394
+}

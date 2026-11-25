@@ -1,0 +1,15 @@
+{
+ "product_id": "51bbc17f-0caf-4290-d831-28e17c7efdc2",
+ "name": "Kaqua Spice Box Gen 3",
+ "prompt": "studio packshot photo of a Silver Kaqua Spice Box Gen 3, made of glass, pantry, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 163590307,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:18:44",
+ "file_path": "static/images/51bbc17f-0caf-4290-d831-28e17c7efdc2.jpg",
+ "file_size": 62522,
+ "uploaded": false,
+ "s3_url": null
+}

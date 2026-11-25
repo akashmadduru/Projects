@@ -104,7 +104,9 @@ public class Rating {
   @Column(name = "flagged", nullable = false)
   private boolean flagged = false;
 
-  /** Comma-separated reason codes (NEW_ACCOUNT, DUPLICATE_TEXT, REVIEW_VELOCITY, FIVE_STAR_BURST). */
+  /**
+   * Comma-separated reason codes (NEW_ACCOUNT, DUPLICATE_TEXT, REVIEW_VELOCITY, FIVE_STAR_BURST).
+   */
   @Column(name = "flag_reasons", columnDefinition = "text")
   private String flagReasons;
 

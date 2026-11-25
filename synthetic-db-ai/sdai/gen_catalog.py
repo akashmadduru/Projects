@@ -64,6 +64,10 @@ def catalog_chunk(ctx, lo, hi, emit):
     if llm is not None:
         desc = np.where(rng.random(n) < 0.7, cat(pick(llm, p, "p.dl", w.seed), b" ", ds[0]), desc)
     name = pr["name"]
+    # fill the template placeholders ({b} {n} = "Brand Noun", {m} material, {c} colour) so no raw braces reach the catalog
+    desc = np.char.replace(desc, b"{b} {n}", name)
+    for tok, key in ((b"{b}", "brand"), (b"{n}", "noun"), (b"{m}", "material"), (b"{c}", "color")):
+        desc = np.array([d.replace(tok, v) if tok in d else d for d, v in zip(desc.tolist(), pr[key].tolist())], dtype=object).astype("S")
     specs = cat(b'{"weight_g": ', e_int(pr["weight"]), b', "material": "', pr["material"], b'", "warranty_months": ', e_int(rint(p, "p.war", 6, 37, w.seed)), b"}")
     emit("product_db", "products", dict(
         id=W.uid_s(w, "product", p), sku=pr["sku"], name=name, price_amount=m2(cents), price_currency=np.full(n, b"USD"), active=e_bool(uni(p, "p.act", w.seed) < 0.95),

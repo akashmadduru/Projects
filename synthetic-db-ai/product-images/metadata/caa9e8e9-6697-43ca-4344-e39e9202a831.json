@@ -1,0 +1,13 @@
+{
+ "product_id": "caa9e8e9-6697-43ca-4344-e39e9202a831",
+ "name": "Exnuion Trekking Backpack Prime",
+ "prompt": "studio packshot photo of a Black Exnuion Trekking Backpack Prime, made of abs plastic, camping, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2996931391,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:39:22",
+ "file_path": "product-images/images/caa9e8e9-6697-43ca-4344-e39e9202a831.jpg",
+ "file_size": 53101
+}

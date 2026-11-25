@@ -1,23 +1,25 @@
 package com.acme.ecommerce.product.imagestore;
 
-import java.net.URI;
-import java.util.Optional;
+import java.net.http.HttpClient;
+import java.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 
 /**
- * Talks to the static image server (nginx WebDAV, see {@code deploy/local/image-server}).
+ * Writes files on static-image-server (nginx WebDAV, see {@code deploy/local/static-image-server}):
+ * {@code PUT}/{@code DELETE} on {@code {image-store.url}/{key}} with the shared {@code
+ * X-Image-Token}. Browsers read the same file at {@code parentUrl/{key}} (see {@link
+ * ImageUrlResolver}).
  *
- * <p>Writes are {@code PUT}/{@code DELETE} on {@code {baseUrl}/images/{key}} with the shared {@code
- * X-Image-Token}; browsers read the same file at {@code {publicUrl}/{key}}. Disabled (every call
- * throws {@link IllegalStateException}, {@link #isEnabled()} is false) when {@code
- * image-store.url} is blank, so environments without an image server keep working with plain
- * external image URLs.
+ * <p>Both calls are idempotent, so a connection failure is retried once. Disabled ({@link
+ * #isEnabled()} false, writes throw) when {@code image-store.url} is blank.
  */
 @Component
 public class ImageStoreClient {
@@ -25,63 +27,51 @@ public class ImageStoreClient {
   private static final Logger LOG = LoggerFactory.getLogger(ImageStoreClient.class);
 
   private final RestClient http;
-  private final String publicUrl;
 
   public ImageStoreClient(
-      @Value("${image-store.url:}") String baseUrl,
-      @Value("${image-store.public-url:}") String publicUrl,
-      @Value("${image-store.token:}") String token) {
-    this.publicUrl = stripTrailingSlash(publicUrl);
-    String base = stripTrailingSlash(baseUrl);
+      @Value("${image-store.url:}") String baseUrl, @Value("${image-store.token:}") String token) {
+    String base = baseUrl == null ? "" : baseUrl.trim().replaceAll("/+$", "");
+    JdkClientHttpRequestFactory requests =
+        new JdkClientHttpRequestFactory(
+            HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3)).build());
+    requests.setReadTimeout(Duration.ofSeconds(20));
     this.http =
         base.isEmpty()
             ? null
             : RestClient.builder()
-                .baseUrl(base + "/images")
+                .baseUrl(base)
+                .requestFactory(requests)
                 .defaultHeader("X-Image-Token", token)
                 .build();
   }
 
   public boolean isEnabled() {
-    return http != null && !publicUrl.isEmpty();
-  }
-
-  /** Browser-facing URL for a stored key. */
-  public String publicUrlFor(String key) {
-    return publicUrl + "/" + key;
-  }
-
-  /** The key behind a public URL of ours, or empty for an external URL. */
-  public Optional<String> keyFor(String url) {
-    if (!isEnabled() || url == null || !url.startsWith(publicUrl + "/")) {
-      return Optional.empty();
-    }
-    String key = URI.create(url).getPath();
-    String prefix = URI.create(publicUrl).getPath() + "/";
-    return key.startsWith(prefix) && key.length() > prefix.length()
-        ? Optional.of(key.substring(prefix.length()))
-        : Optional.empty();
+    return http != null;
   }
 
   /** Create or overwrite {@code key}. */
   public void put(String key, byte[] bytes, String contentType) {
     requireEnabled();
-    http.put()
-        .uri("/{key}", key)
-        .header(HttpHeaders.CONTENT_TYPE, MediaType.parseMediaType(contentType).toString())
-        .body(bytes)
-        .retrieve()
-        .toBodilessEntity();
+    withRetry(
+        () ->
+            http.put()
+                .uri(uri -> uri.pathSegment(key.split("/")).build())
+                .header(HttpHeaders.CONTENT_TYPE, MediaType.parseMediaType(contentType).toString())
+                .body(bytes)
+                .retrieve()
+                .toBodilessEntity());
   }
 
   /** Delete {@code key}; a missing file is not an error. */
   public void delete(String key) {
     requireEnabled();
-    http.delete()
-        .uri("/{key}", key)
-        .retrieve()
-        .onStatus(status -> status.value() == 404, (req, res) -> {})
-        .toBodilessEntity();
+    withRetry(
+        () ->
+            http.delete()
+                .uri(uri -> uri.pathSegment(key.split("/")).build())
+                .retrieve()
+                .onStatus(status -> status.value() == 404, (req, res) -> {})
+                .toBodilessEntity());
   }
 
   /** Best-effort delete for cleanup paths where the database change must not fail on the file. */
@@ -89,18 +79,21 @@ public class ImageStoreClient {
     try {
       delete(key);
     } catch (RuntimeException e) {
-      LOG.warn("Could not delete image {} from the image server: {}", key, e.getMessage());
+      LOG.warn("Could not delete image {} from static-image-server: {}", key, e.getMessage());
+    }
+  }
+
+  private static void withRetry(Runnable call) {
+    try {
+      call.run();
+    } catch (ResourceAccessException e) {
+      call.run();
     }
   }
 
   private void requireEnabled() {
     if (!isEnabled()) {
-      throw new IllegalStateException("Image server is not configured (image-store.url)");
+      throw new IllegalStateException("static-image-server is not configured (image-store.url)");
     }
-  }
-
-  private static String stripTrailingSlash(String value) {
-    String v = value == null ? "" : value.trim();
-    return v.endsWith("/") ? v.substring(0, v.length() - 1) : v;
   }
 }

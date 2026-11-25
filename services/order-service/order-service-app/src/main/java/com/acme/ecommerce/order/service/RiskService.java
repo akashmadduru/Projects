@@ -87,7 +87,8 @@ public class RiskService {
 
     Instant first = orders.firstOrderAt(userId);
     boolean newAccount = first == null || first.isAfter(now.minus(Duration.ofHours(24)));
-    BigDecimal large = "INR".equalsIgnoreCase(currency) ? BigDecimal.valueOf(5000) : BigDecimal.valueOf(100);
+    BigDecimal large =
+        "INR".equalsIgnoreCase(currency) ? BigDecimal.valueOf(5000) : BigDecimal.valueOf(100);
     if (newAccount && total.compareTo(large) > 0) {
       score += W_NEW_ACCOUNT;
       reasons.add("New account with a large order");

@@ -4,6 +4,7 @@ import com.acme.ecommerce.cart.error.ProblemResponseWriter;
 import com.acme.ecommerce.common.core.error.ErrorCode;
 import com.acme.ecommerce.common.security.AudienceValidator;
 import com.acme.ecommerce.common.security.PlatformJwtAuthenticationConverter;
+import com.acme.ecommerce.common.security.UuidSubjectValidator;
 import java.util.ArrayList;
 import java.util.List;
 import org.springframework.cloud.client.loadbalancer.LoadBalanced;
@@ -208,6 +209,7 @@ public class SecurityConfig {
     validators.add(new JwtTimestampValidator(CartProperties.Jwt.CLOCK_SKEW));
     validators.add(new JwtIssuerValidator(jwt.getIssuer()));
     validators.add(new AudienceValidator(jwt.getAudience()));
+    validators.add(new UuidSubjectValidator());
     return new DelegatingOAuth2TokenValidator<>(validators);
   }
 

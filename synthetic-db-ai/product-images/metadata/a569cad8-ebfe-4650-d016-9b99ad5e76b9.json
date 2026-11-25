@@ -1,0 +1,13 @@
+{
+ "product_id": "a569cad8-ebfe-4650-d016-9b99ad5e76b9",
+ "name": "Vovo Kurta Essential",
+ "prompt": "studio packshot photo of a Space Grey Vovo Kurta Essential, made of aluminium, women's clothing, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 490619963,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T00:31:30",
+ "file_path": "product-images/images/a569cad8-ebfe-4650-d016-9b99ad5e76b9.jpg",
+ "file_size": 39002
+}

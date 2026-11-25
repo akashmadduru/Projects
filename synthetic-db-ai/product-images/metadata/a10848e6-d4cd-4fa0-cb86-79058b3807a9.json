@@ -1,0 +1,13 @@
+{
+ "product_id": "a10848e6-d4cd-4fa0-cb86-79058b3807a9",
+ "name": "Arta Vacuum Cleaner Plus",
+ "prompt": "studio packshot photo of a Rose Gold Arta Vacuum Cleaner Plus, made of bamboo, cleaning, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 839357337,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:12:54",
+ "file_path": "product-images/images/a10848e6-d4cd-4fa0-cb86-79058b3807a9.jpg",
+ "file_size": 31484
+}

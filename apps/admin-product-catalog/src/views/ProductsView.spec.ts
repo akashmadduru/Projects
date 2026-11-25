@@ -301,6 +301,47 @@ describe('ProductsView', () => {
       expect(wrapper.find('[data-test="product-form-reload"]').exists()).toBe(true);
     });
 
+    it('sends the list price only when edited, and a blanked brand as "" so it clears (TD-P7-05)', async () => {
+      const recorder = installFetch(async (request) => {
+        if (request.method === 'PUT') {
+          return jsonResponse(200, { ...PRODUCTS[0], version: 1, listPrice: 25 });
+        }
+        if (request.url.includes('/api/products/1111')) {
+          return jsonResponse(200, { ...PRODUCTS[0], brand: 'Acme', attributes: {}, variants: [] });
+        }
+        return jsonResponse(
+          200,
+          pagedModel(PRODUCTS, { size: 20, number: 0, totalElements: 2, totalPages: 1 }),
+        );
+      });
+
+      const wrapper = await mountProducts(['CATALOG_MANAGER']);
+      await flushPromises();
+      await wrapper.get('[data-test="edit-product"]').trigger('click');
+      await flushPromises();
+      await wrapper.get('[data-test="product-list-price"]').setValue('25');
+      await wrapper.get('[data-test="product-brand"]').setValue('');
+      await wrapper.get('[data-test="product-form-modal"] form').trigger('submit');
+      await flushPromises();
+
+      const put = recorder.calls.find((r) => r.method === 'PUT');
+      expect(put?.body).toMatchObject({ listPrice: 25 });
+      expect(put?.body).toMatchObject({ brand: '' });
+      // Variants ride in the same request (one transaction), never a second PUT (TD-P7-19).
+      expect(put?.body).toMatchObject({ variants: [] });
+      expect(recorder.calls.filter((r) => r.method === 'PUT')).toHaveLength(1);
+    });
+
+    it('rejects a list price below the price', async () => {
+      arrangeCatalog();
+      const wrapper = await mountProducts(['CATALOG_MANAGER']);
+      await flushPromises();
+      await wrapper.get('[data-test="edit-product"]').trigger('click');
+      await wrapper.get('[data-test="product-list-price"]').setValue('5');
+
+      expect(wrapper.get('[data-test="product-list-price-error"]').text()).toContain('must not be below');
+    });
+
     it('deletes a product after confirmation and reloads the list', async () => {
       let listCalls = 0;
       const recorder = installFetch(async (request) => {

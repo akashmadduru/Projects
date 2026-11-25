@@ -1,0 +1,15 @@
+{
+ "product_id": "5076f0fd-e073-4552-442b-bcfc8330833a",
+ "name": "Miex Hardcover Max",
+ "prompt": "studio packshot photo of a Red Miex Hardcover Max, made of silicone, books, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 612879795,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:17:02",
+ "file_path": "static/images/5076f0fd-e073-4552-442b-bcfc8330833a.jpg",
+ "file_size": 58018,
+ "uploaded": false,
+ "s3_url": null
+}

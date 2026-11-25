@@ -1,0 +1,15 @@
+{
+ "product_id": "615e3b28-6bbe-465f-ea60-9029f9294f72",
+ "name": "Ventaze Eau de Toilette Prime",
+ "prompt": "studio packshot photo of a Blue Ventaze Eau de Toilette Prime, made of leather, fragrances, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 462456385,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:23:33",
+ "file_path": "static/images/615e3b28-6bbe-465f-ea60-9029f9294f72.jpg",
+ "file_size": 59424,
+ "uploaded": false,
+ "s3_url": null
+}

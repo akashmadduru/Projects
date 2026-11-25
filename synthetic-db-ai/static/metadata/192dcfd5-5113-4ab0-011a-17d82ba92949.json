@@ -1,0 +1,15 @@
+{
+ "product_id": "192dcfd5-5113-4ab0-011a-17d82ba92949",
+ "name": "Venlum Colour Pencil Set Series 2",
+ "prompt": "studio packshot photo of a Olive Venlum Colour Pencil Set Series 2, made of glass, art supplies, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3824248708,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:34:31",
+ "file_path": "static/images/192dcfd5-5113-4ab0-011a-17d82ba92949.jpg",
+ "file_size": 65330,
+ "uploaded": false,
+ "s3_url": null
+}

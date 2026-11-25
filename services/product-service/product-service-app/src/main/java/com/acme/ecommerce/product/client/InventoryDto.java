@@ -55,4 +55,11 @@ public class InventoryDto {
     private String warehouseCode;
     private int quantity;
   }
+
+  /** One product (variantId null) or variant that must have a stock row. */
+  public record EnsureItem(UUID productId, UUID variantId) {}
+
+  public record EnsureRequest(java.util.List<EnsureItem> items) {}
+
+  public record EnsureResult(int created) {}
 }

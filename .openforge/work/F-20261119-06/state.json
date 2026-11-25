@@ -1,0 +1,12 @@
+{
+ "id": "F-20261119-06",
+ "slug": "auth-hardening",
+ "step": "pr-ready-owner-push",
+ "branch": "forge/F-20261119-06-auth-hardening",
+ "worktree": ".openforge/worktrees/F-20261119-06",
+ "base_sha": "a04ad61022c80d18ad22866d6609eb72adde5bbb",
+ "implementer": "forge-backend-engineer",
+ "head_sha": "fca9bc19c7d9f98c80412616415077f6e87668bb",
+ "portfolio": "O-01",
+ "owner_push_approved": "2026-11-20 (AskUserQuestion)"
+}

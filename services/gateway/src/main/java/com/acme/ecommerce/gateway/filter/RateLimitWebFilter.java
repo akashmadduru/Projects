@@ -93,7 +93,9 @@ public class RateLimitWebFilter implements WebFilter, Ordered {
                   .increment(key)
                   .flatMap(
                       count ->
-                          (count == 1L ? redis.expire(key, WINDOW.plusSeconds(30)) : Mono.just(true))
+                          (count == 1L
+                                  ? redis.expire(key, WINDOW.plusSeconds(30))
+                                  : Mono.just(true))
                               .thenReturn(count))
                   .map(count -> count <= limit)
                   .onErrorResume(
@@ -130,10 +132,10 @@ public class RateLimitWebFilter implements WebFilter, Ordered {
    *
    * <p>Behind CloudFront and an ALB the socket peer is the load balancer, not the caller, so every
    * anonymous user would share one bucket. When {@code gateway.rate-limit.trusted-proxy-hops} is N
-   * (> 0) the client is the N-th entry from the RIGHT of {@code X-Forwarded-For}: each trusted proxy
-   * appends the address it received the request from, so only the entries on the left can be forged
-   * by the caller and the entry N from the right cannot. Fewer than N entries, or anything that is
-   * not an IP literal, falls back to the socket peer.
+   * (> 0) the client is the N-th entry from the RIGHT of {@code X-Forwarded-For}: each trusted
+   * proxy appends the address it received the request from, so only the entries on the left can be
+   * forged by the caller and the entry N from the right cannot. Fewer than N entries, or anything
+   * that is not an IP literal, falls back to the socket peer.
    */
   private String remoteIp(ServerWebExchange exchange) {
     if (trustedProxyHops > 0) {
@@ -149,6 +151,8 @@ public class RateLimitWebFilter implements WebFilter, Ordered {
       }
     }
     InetSocketAddress addr = exchange.getRequest().getRemoteAddress();
-    return addr == null || addr.getAddress() == null ? "unknown" : addr.getAddress().getHostAddress();
+    return addr == null || addr.getAddress() == null
+        ? "unknown"
+        : addr.getAddress().getHostAddress();
   }
 }

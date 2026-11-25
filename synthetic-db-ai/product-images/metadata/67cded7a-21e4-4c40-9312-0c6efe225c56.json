@@ -1,0 +1,13 @@
+{
+ "product_id": "67cded7a-21e4-4c40-9312-0c6efe225c56",
+ "name": "Nunoli Handbag Series 2",
+ "prompt": "studio packshot photo of a Silver Nunoli Handbag Series 2, made of abs plastic, bags & luggage, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 555551891,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:33:05",
+ "file_path": "product-images/images/67cded7a-21e4-4c40-9312-0c6efe225c56.jpg",
+ "file_size": 48519
+}

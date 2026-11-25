@@ -1,0 +1,13 @@
+{
+ "product_id": "34101374-89fd-4624-efe7-c4646a93ad0d",
+ "name": "Quaex Acrylic Paint Kit Classic",
+ "prompt": "studio packshot photo of a Grey Quaex Acrylic Paint Kit Classic, made of polyester, art supplies, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1423338673,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-15T23:57:23",
+ "file_path": "product-images/images/34101374-89fd-4624-efe7-c4646a93ad0d.jpg",
+ "file_size": 44879
+}

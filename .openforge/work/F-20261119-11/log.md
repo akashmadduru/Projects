@@ -1,0 +1,24 @@
+- 2026-11-21 CEO: discover; worktree forge/F-20261119-11-checkout-integrity at F-10 head 820e5a8 (stacked: order/payment/promotion chain unmerged)
+- 2026-11-21 CEO: objective.md written; CPO requirements launched
+- 2026-11-21 CEO: requirements.md accepted; CTO complexity launched
+- 2026-11-21 CEO: complexity L (6) transcribed, standing Owner approval, 3 stacked parts; architect launched
+- 2026-11-21 Architect: design.md + ADR 0010 (Proposed); PR-A ~20, PR-B ~100, PR-C ~230 prod lines; CTO acceptance launched
+- 2026-11-21 CTO: design accepted, 7 conditions, 3 stacked PRs (A ~30, B ~100, C ~230); ADR 0010 Accepted with CTO edits; EM launched
+- 2026-11-21 EM: tasks.md 19 tasks (A1-A6, B1-B5, C1-C8), all ACs and conditions covered; engineer launched on PR-A
+- 2026-11-21 Engineer: PR-A head 43d90cd (A1-A6), 32 prod lines (CEO recount), engineer verify PASS at 42007cf; CEO verify + PR-A reviews launched
+- 2026-11-21 Review PR-A @43d90cd: reviewer request_changes (2 major: relay batch starvation, AC-9b wallet untested), security approve (3 minor); fix-round engineer launched
+- 2026-11-21 CEO verify of 43d90cd INVALID: it ran while the fix-round engineer was editing the same worktree, and picked up new uncommitted AC-8 tests (5 of 128 failed). Discarded; verify again at the post-fix head.
+- 2026-11-21 CEO: prior fix-round engineer stopped at turn limit, then session ended; WIP (5 files) saved to scratchpad F11-fixround-wip.patch, ~85 files of EOL-only noise; fresh engineer launched
+- 2026-11-21 Engineer: PR-A fix round head a926500 (5 commits), engineer verify PASS at a926500; AC-8 failures were a test bug (no encoder in realClient). CEO verify + delta reviews launched; part B waits.
+- 2026-11-21 Delta review PR-A @a926500: reviewer approve (1 minor: record verify; 1 nit), security approve (0). PR-A approved. Part B starts after CEO verify finishes.
+- 2026-11-21 CEO verify PASS at a926500 (recorded in verify-A.md). PR-A complete; part B engineer launched.
+- 2026-11-21 Engineer: PR-B head c3d8e3b483c2cf605196176a9d1d20086e228d36 (B1-B5), 104 prod lines; engineer verify PASS (verify-B.md). CEO verify + PR-B reviews launched.
+- 2026-11-21 PR-B @c3d8e3b: reviewer approve (3 minor, 1 nit), security approve (2 minor, backlog TD-BE-17/18). B minors (javadoc false 'no inventory call', parity with variant stock, AC-10 verifyNoMoreInteractions) go into part C's range. Waiting on CEO verify, then the part C engineer.
+- 2026-11-21 CEO verify at c3d8e3b recorded in verify-B.md
+- 2026-11-21 Engineer: PR-C head 71bba97921e633ae82fa84c98745bd5b396b11a9 (C0-C8), engineer verify PASS (verify-C.md). CEO verify + PR-C reviews launched.
+- 2026-11-21 PR-C @71bba97: reviewer approve (3 minor, 4 nit), security approve (3 minor). CEO: one small fix round (the COD ORDER_PLACED can be skipped by an enqueue error; bearer stripping; lock-if-exists cart; order-side AC-18 test; 4xx DEAD), after the CEO verify finishes.
+- 2026-11-23 Session restart: the C-fix engineer was interrupted at b6ffd2f with WIP across 11 files (backed up to scratchpad F11-Cfix-wip.patch); resumed.
+- 2026-11-23 Engineer: PR-C fix round head b7f5b97462288d77ce44ea7384dc301b1d227ef9 (5 commits), engineer verify PASS; guard failures quoted. CEO verify + delta reviews launched.
+- 2026-11-23 Security delta @b7f5b97: APPROVE (1 minor: 401/403 go DEAD at once; runbook note). Waiting on the code reviewer and the CEO verify.
+- 2026-11-23 Reviewer delta @b7f5b97: APPROVE (1 minor 401/403 DEAD, 2 nits). Both approve. CEO: ship (F-15 is already based on b7f5b97); minors go in pr.md follow-ups. Next: CEO verify, QA, gate, pr.md.
+- 2026-11-23 QA PASS (AC-1..20, 9b) at b7f5b97; forge-gate PASS (3 parts 67/104/316, L); pr.md written. Awaiting Owner push approval.

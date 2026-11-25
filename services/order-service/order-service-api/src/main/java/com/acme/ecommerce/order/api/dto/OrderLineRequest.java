@@ -6,4 +6,5 @@ import jakarta.validation.constraints.NotNull;
 import java.util.UUID;
 
 /** A Buy Now line. */
-public record OrderLineRequest(@NotNull UUID productId, @Min(1) @Max(99) int quantity, UUID variantId, UUID offerId) {}
+public record OrderLineRequest(
+    @NotNull UUID productId, @Min(1) @Max(99) int quantity, UUID variantId, UUID offerId) {}

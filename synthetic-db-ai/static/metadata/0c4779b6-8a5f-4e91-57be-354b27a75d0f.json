@@ -1,0 +1,15 @@
+{
+ "product_id": "0c4779b6-8a5f-4e91-57be-354b27a75d0f",
+ "name": "Ionlo Trimmer Prime",
+ "prompt": "studio packshot photo of a Rose Gold Ionlo Trimmer Prime, made of polyester, grooming, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1341601180,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:10:24",
+ "file_path": "static/images/0c4779b6-8a5f-4e91-57be-354b27a75d0f.jpg",
+ "file_size": 57871,
+ "uploaded": false,
+ "s3_url": null
+}

@@ -1,0 +1,13 @@
+{
+ "product_id": "043d4487-bb07-4bc5-9af4-d7550a41e555",
+ "name": "Suvolo 4K TV Classic",
+ "prompt": "studio packshot photo of a Olive Suvolo 4K TV Classic, made of leather, televisions, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2277819149,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:31:07",
+ "file_path": "product-images/images/043d4487-bb07-4bc5-9af4-d7550a41e555.jpg",
+ "file_size": 34077
+}

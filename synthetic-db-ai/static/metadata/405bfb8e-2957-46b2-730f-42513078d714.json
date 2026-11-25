@@ -1,0 +1,15 @@
+{
+ "product_id": "405bfb8e-2957-46b2-730f-42513078d714",
+ "name": "Suliven Robot Vacuum Edition",
+ "prompt": "studio packshot photo of a Space Grey Suliven Robot Vacuum Edition, made of leather, cleaning, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2382947843,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:08:30",
+ "file_path": "static/images/405bfb8e-2957-46b2-730f-42513078d714.jpg",
+ "file_size": 52628,
+ "uploaded": false,
+ "s3_url": null
+}

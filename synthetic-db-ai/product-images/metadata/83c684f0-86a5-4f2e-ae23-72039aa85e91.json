@@ -1,0 +1,13 @@
+{
+ "product_id": "83c684f0-86a5-4f2e-ae23-72039aa85e91",
+ "name": "Rili SSD Gen 3",
+ "prompt": "studio packshot photo of a Olive Rili SSD Gen 3, made of glass, storage, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3353746277,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:52:58",
+ "file_path": "product-images/images/83c684f0-86a5-4f2e-ae23-72039aa85e91.jpg",
+ "file_size": 29645
+}

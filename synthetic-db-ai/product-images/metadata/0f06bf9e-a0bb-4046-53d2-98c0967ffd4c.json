@@ -1,0 +1,13 @@
+{
+ "product_id": "0f06bf9e-a0bb-4046-53d2-98c0967ffd4c",
+ "name": "Quamino 4K TV Plus",
+ "prompt": "studio packshot photo of a Olive Quamino 4K TV Plus, made of wood, televisions, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3011094683,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 768,
+ "created_at": "2026-11-15T22:56:23",
+ "file_path": "product-images/images/0f06bf9e-a0bb-4046-53d2-98c0967ffd4c.jpg",
+ "file_size": 87290
+}

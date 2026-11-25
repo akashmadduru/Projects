@@ -1,0 +1,13 @@
+{
+ "product_id": "e3397e5f-2969-4a51-51d1-fb87f7b2ab1a",
+ "name": "Nori Protein Powder Edition",
+ "prompt": "studio packshot photo of a Olive Nori Protein Powder Edition, made of glass, supplements, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2230014254,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T01:51:15",
+ "file_path": "product-images/images/e3397e5f-2969-4a51-51d1-fb87f7b2ab1a.jpg",
+ "file_size": 47680
+}

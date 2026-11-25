@@ -118,6 +118,8 @@ export_terraform_vars() {
   export TF_VAR_razorpay_key_id="${RAZORPAY_KEY_ID:-}"
   export TF_VAR_razorpay_key_secret="${RAZORPAY_KEY_SECRET:-}"
   export TF_VAR_razorpay_webhook_secret="${RAZORPAY_WEBHOOK_SECRET:-}"
+  export TF_VAR_vapid_public_key="${VAPID_PUBLIC_KEY:-}"
+  export TF_VAR_vapid_private_key="${VAPID_PRIVATE_KEY:-}"
   # comma list -> JSON list
   # shellcheck disable=SC2089,SC2090  # a JSON list literal is exactly what Terraform expects
   TF_VAR_api_access_cidrs="[\"${KUBERNETES_API_ALLOWED_CIDRS//,/\",\"}\"]"

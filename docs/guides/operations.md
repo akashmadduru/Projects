@@ -125,8 +125,9 @@ curl http://localhost:8082/actuator/health/readiness
 curl -H 'Accept: application/json' http://localhost:8761/eureka/apps/PRODUCT-SERVICE
 ```
 
-A restarted service takes about 30–40 seconds to become routable through the gateway (Eureka
-registration plus the gateway's registry refresh); until then the gateway answers 503 (TD-BE-08).
+A restarted service takes up to about 10 seconds to become routable through the gateway (Eureka
+registration, the gateway's 5 s registry fetch and its 5 s load-balancer cache); until then the
+gateway answers 503.
 The timing settings are explained in [eureka-server](../services/eureka-server.md).
 
 ## Monitoring & Metrics
@@ -329,9 +330,9 @@ curl -X POST http://localhost:8083/api/inventory \
 **Causes, in the order to check:**
 1. The ratings were inserted by a seed migration, which publishes no `rating.events`. Run
    `deploy/local/scripts/backfill-product-ratings.sh` ([TD-RT-01](../techdebt/ratings.md#td-rt-01)).
-2. product-service could not reach rating-service when the event arrived. `RatingEventListener`
-   logs the error and drops the event ([TD-BE-17](../techdebt/backend.md#td-be-17)); the next rating
-   change for that product repairs it, or run the backfill script.
+2. product-service could not reach rating-service when the event arrived. The event is retried 3 times
+   and then moved to `rating.events.DLT`; check that topic. The next rating change for that product
+   repairs it, or run the backfill script.
 3. The consumer group is lagging:
    `kafka-consumer-groups.sh --bootstrap-server localhost:9092 --describe --group product-service-rating-listener`
    inside `ecommerce-kafka`.

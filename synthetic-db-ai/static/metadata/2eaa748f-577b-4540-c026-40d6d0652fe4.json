@@ -1,0 +1,15 @@
+{
+ "product_id": "2eaa748f-577b-4540-c026-40d6d0652fe4",
+ "name": "Bari Badminton Racket Prime",
+ "prompt": "studio packshot photo of a Silver Bari Badminton Racket Prime, made of aluminium, team sports, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3606278055,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-15T23:49:42",
+ "file_path": "static/images/2eaa748f-577b-4540-c026-40d6d0652fe4.jpg",
+ "file_size": 64433,
+ "uploaded": false,
+ "s3_url": null
+}

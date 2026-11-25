@@ -1,0 +1,13 @@
+{
+ "product_id": "d58c04f3-acb2-4b20-2972-45f32bff83dd",
+ "name": "Suven Office Chair Max",
+ "prompt": "studio packshot photo of a Midnight Suven Office Chair Max, made of abs plastic, furniture, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2021511079,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:47:36",
+ "file_path": "product-images/images/d58c04f3-acb2-4b20-2972-45f32bff83dd.jpg",
+ "file_size": 55879
+}

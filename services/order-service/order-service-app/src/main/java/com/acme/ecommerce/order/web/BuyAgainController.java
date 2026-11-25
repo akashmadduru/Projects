@@ -15,7 +15,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 public class BuyAgainController {
 
-  public record BuyAgainItem(UUID productId, UUID variantId, Instant lastOrderedAt, long timesOrdered) {}
+  public record BuyAgainItem(
+      UUID productId, UUID variantId, Instant lastOrderedAt, long timesOrdered) {}
 
   private final OrderRepository orders;
 

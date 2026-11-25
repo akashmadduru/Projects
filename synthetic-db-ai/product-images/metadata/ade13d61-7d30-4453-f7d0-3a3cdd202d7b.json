@@ -1,0 +1,13 @@
+{
+ "product_id": "ade13d61-7d30-4453-f7d0-3a3cdd202d7b",
+ "name": "Dexvoven Air Purifier Gen 3",
+ "prompt": "studio packshot photo of a Olive Dexvoven Air Purifier Gen 3, made of leather, personal wellness, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 436755629,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T01:18:17",
+ "file_path": "product-images/images/ade13d61-7d30-4453-f7d0-3a3cdd202d7b.jpg",
+ "file_size": 43739
+}

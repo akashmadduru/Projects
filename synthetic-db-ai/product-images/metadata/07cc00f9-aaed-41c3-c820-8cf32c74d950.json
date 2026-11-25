@@ -1,0 +1,13 @@
+{
+ "product_id": "07cc00f9-aaed-41c3-c820-8cf32c74d950",
+ "name": "Litami Hardcover Gen 3",
+ "prompt": "studio packshot photo of a Green Litami Hardcover Gen 3, made of wood, books, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 487954472,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:28:55",
+ "file_path": "product-images/images/07cc00f9-aaed-41c3-c820-8cf32c74d950.jpg",
+ "file_size": 58820
+}

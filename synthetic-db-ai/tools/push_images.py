@@ -1,10 +1,11 @@
-"""Bulk-push output/images/*.jpg to the image server and rewrite the DB URLs.
+"""Point products at their generated images (product-images/images/<product_id>.jpg).
 
-  set IMAGE_SERVER_TOKEN=<token from deploy/local/.env>   (and SDAI_PG_* if not the scratch DB)
-  .venv-images\Scripts\python.exe tools\push_images.py [--dir output/images] [--limit N]
-Idempotent: a product already pointing at the image server is overwritten in place.
+  .venv-images\Scripts\python.exe tools\push_images.py [--dir product-images/images] [--limit N] [--upload]
+--upload also PUTs each file to static-image-server (needs IMAGE_SERVER_TOKEN); without it the server's
+own startup copy of the folder is relied on. DB: SDAI_PG_* (default: the scratch DB). Idempotent.
 """
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -12,11 +13,11 @@ import psycopg
 
 sys.path.insert(0, str(Path(__file__).parent))
 import image_store
-import os
+
 DB_CONFIG = {
     "host": os.environ.get("SDAI_PG_HOST", "127.0.0.1"),
     "port": int(os.environ.get("SDAI_PG_PORT", "55432")),
-    "dbname": "product_db",
+    "dbname": os.environ.get("SDAI_PG_DB", "product_db"),
     "user": os.environ.get("SDAI_PG_USER", "postgres"),
     "password": os.environ.get("SDAI_PG_PASSWORD", "sdai_scratch"),
 }
@@ -24,27 +25,30 @@ DB_CONFIG = {
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--dir", default="output/images")
+    ap.add_argument("--dir", default="product-images/images")
     ap.add_argument("--limit", type=int, default=0)
+    ap.add_argument("--upload", action="store_true")
     a = ap.parse_args()
-    if not image_store.TOKEN:
-        sys.exit("IMAGE_SERVER_TOKEN is not set")
-    files = sorted(Path(a.dir).glob("*.jpg"))
-    if a.limit:
-        files = files[: a.limit]
-    ok = bad = 0
+    if a.upload and not image_store.TOKEN:
+        sys.exit("--upload needs IMAGE_SERVER_TOKEN")
+    files = sorted(Path(a.dir).glob("*.jpg"))[: a.limit or None]
+    ok = skipped = bad = 0
     with psycopg.connect(**DB_CONFIG) as conn:
         for f in files:
             try:
                 with conn.cursor() as cur:
-                    image_store.push(cur, f.stem, f.read_bytes())
+                    cur.execute("SELECT 1 FROM product.products WHERE id=%s", (f.stem,))
+                    if cur.fetchone() is None:
+                        skipped += 1
+                        continue
+                    image_store.link(cur, f.stem, f.read_bytes() if a.upload else None)
                 conn.commit()
                 ok += 1
             except Exception as e:  # keep going; report at the end
                 conn.rollback()
                 bad += 1
                 print(f"FAILED {f.name}: {e}")
-    print(f"pushed {ok}, failed {bad}")
+    print(f"linked {ok}, no such product {skipped}, failed {bad}")
 
 
 if __name__ == "__main__":

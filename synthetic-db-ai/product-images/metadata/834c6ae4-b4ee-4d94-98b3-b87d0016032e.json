@@ -1,0 +1,13 @@
+{
+ "product_id": "834c6ae4-b4ee-4d94-98b3-b87d0016032e",
+ "name": "Tavo Construction Set Series 2",
+ "prompt": "studio packshot photo of a Rose Gold Tavo Construction Set Series 2, made of stainless steel, building toys, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 365735225,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T01:26:04",
+ "file_path": "product-images/images/834c6ae4-b4ee-4d94-98b3-b87d0016032e.jpg",
+ "file_size": 36392
+}

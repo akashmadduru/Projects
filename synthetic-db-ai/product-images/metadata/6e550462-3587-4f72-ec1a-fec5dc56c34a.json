@@ -1,0 +1,13 @@
+{
+ "product_id": "6e550462-3587-4f72-ec1a-fec5dc56c34a",
+ "name": "Fyvo Thermometer Pro",
+ "prompt": "studio packshot photo of a Red Fyvo Thermometer Pro, made of polyester, medical devices, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1563713970,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:37:43",
+ "file_path": "product-images/images/6e550462-3587-4f72-ec1a-fec5dc56c34a.jpg",
+ "file_size": 67944
+}

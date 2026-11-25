@@ -1,0 +1,13 @@
+{
+ "product_id": "e5dbce40-97d0-4bc9-3e49-be98c0c076c5",
+ "name": "Arlolum Fitness Band Prime",
+ "prompt": "studio packshot photo of a Olive Arlolum Fitness Band Prime, made of nylon, smart watches, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1506848268,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:34:23",
+ "file_path": "product-images/images/e5dbce40-97d0-4bc9-3e49-be98c0c076c5.jpg",
+ "file_size": 27794
+}

@@ -1,0 +1,13 @@
+{
+ "product_id": "98d83090-5ff8-430e-dc6e-bbe7242f3720",
+ "name": "Rilo Handbag Essential",
+ "prompt": "studio packshot photo of a Rose Gold Rilo Handbag Essential, made of aluminium, bags & luggage, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2524687492,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:04:29",
+ "file_path": "product-images/images/98d83090-5ff8-430e-dc6e-bbe7242f3720.jpg",
+ "file_size": 46270
+}

@@ -1,0 +1,13 @@
+{
+ "product_id": "50ba8238-64a9-4c11-dde2-0035659e4511",
+ "name": "Pifyze 4K TV Edition",
+ "prompt": "studio packshot photo of a Black Pifyze 4K TV Edition, made of ceramic, televisions, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 267523707,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:17:34",
+ "file_path": "product-images/images/50ba8238-64a9-4c11-dde2-0035659e4511.jpg",
+ "file_size": 19745
+}

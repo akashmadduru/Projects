@@ -1,0 +1,13 @@
+{
+ "product_id": "aeeb0261-149f-4d7b-9189-b871f8ff896a",
+ "name": "Cobatra Study Table Essential",
+ "prompt": "studio packshot photo of a Black Cobatra Study Table Essential, made of polyester, furniture, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1840557063,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:21:29",
+ "file_path": "product-images/images/aeeb0261-149f-4d7b-9189-b871f8ff896a.jpg",
+ "file_size": 27059
+}

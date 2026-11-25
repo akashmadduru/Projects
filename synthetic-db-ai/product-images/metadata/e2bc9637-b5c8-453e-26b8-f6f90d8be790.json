@@ -1,0 +1,13 @@
+{
+ "product_id": "e2bc9637-b5c8-453e-26b8-f6f90d8be790",
+ "name": "Coba 5G Phone Essential",
+ "prompt": "studio packshot photo of a Black Coba 5G Phone Essential, made of bamboo, mobiles & smartphones, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 4122422504,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T03:29:00",
+ "file_path": "product-images/images/e2bc9637-b5c8-453e-26b8-f6f90d8be790.jpg",
+ "file_size": 66553
+}

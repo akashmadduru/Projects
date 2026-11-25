@@ -453,7 +453,8 @@ describe('ProductGrid', () => {
       render(<ProductGrid products={productsForGrid} />)
 
       productsForGrid.forEach((product) => {
-        expect(screen.getByText(product.name)).toBeInTheDocument()
+        // The name also appears in a screen-reader-only label, so look for the product link itself.
+        expect(screen.getByRole('link', { name: product.name })).toBeInTheDocument()
       })
     })
 

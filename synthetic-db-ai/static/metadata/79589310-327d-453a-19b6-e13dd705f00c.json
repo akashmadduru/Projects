@@ -1,0 +1,15 @@
+{
+ "product_id": "79589310-327d-453a-19b6-e13dd705f00c",
+ "name": "Dexka Razor Prime",
+ "prompt": "studio packshot photo of a Rose Gold Dexka Razor Prime, made of polyester, grooming, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1899268060,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:45:47",
+ "file_path": "static/images/79589310-327d-453a-19b6-e13dd705f00c.jpg",
+ "file_size": 24863,
+ "uploaded": false,
+ "s3_url": null
+}

@@ -1,0 +1,13 @@
+{
+ "product_id": "542b4a1d-55e7-48c9-e4f8-080fcf7ff3bf",
+ "name": "Quatraka Mop Lite",
+ "prompt": "studio packshot photo of a Navy Blue Quatraka Mop Lite, made of bamboo, cleaning, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1246263970,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:06:09",
+ "file_path": "product-images/images/542b4a1d-55e7-48c9-e4f8-080fcf7ff3bf.jpg",
+ "file_size": 39764
+}

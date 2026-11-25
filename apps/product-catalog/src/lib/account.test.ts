@@ -79,6 +79,8 @@ describe('orderStats', () => {
     totalAmount: total,
     placedAt: '2026-01-01T00:00:00Z',
     itemCount: 1,
+    paymentMethod: 'CARD',
+    paymentStatus: 'PAID',
   })
 
   it('totals spend per currency and ignores cancelled orders', () => {

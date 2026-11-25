@@ -1,0 +1,13 @@
+{
+ "product_id": "af0a7f92-0527-43a2-e4ca-c4e990e619e1",
+ "name": "Riloor SSD Prime",
+ "prompt": "studio packshot photo of a Red Riloor SSD Prime, made of nylon, storage, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1735758342,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T01:14:16",
+ "file_path": "product-images/images/af0a7f92-0527-43a2-e4ca-c4e990e619e1.jpg",
+ "file_size": 23012
+}

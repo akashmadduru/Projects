@@ -1,0 +1,13 @@
+{
+ "product_id": "789eca36-8afb-4d6e-2713-1f24ffe97c7e",
+ "name": "Orvolum Office Chair Essential",
+ "prompt": "studio packshot photo of a Space Grey Orvolum Office Chair Essential, made of polyester, furniture, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3131131808,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:45:02",
+ "file_path": "product-images/images/789eca36-8afb-4d6e-2713-1f24ffe97c7e.jpg",
+ "file_size": 53784
+}

@@ -1,0 +1,13 @@
+{
+ "product_id": "906ea4ee-6cc7-4e0c-676d-e5ffdaa8beba",
+ "name": "Pibali Fountain Pen Elite",
+ "prompt": "studio packshot photo of a Grey Pibali Fountain Pen Elite, made of ceramic, stationery, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2760079987,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:00:56",
+ "file_path": "product-images/images/906ea4ee-6cc7-4e0c-676d-e5ffdaa8beba.jpg",
+ "file_size": 41354
+}

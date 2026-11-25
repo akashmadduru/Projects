@@ -42,7 +42,7 @@ export const discoveryApi = {
     // Facets must describe the same candidates the list shows, so a smart search uses its own facets.
     if (usesSmartSearch(query)) {
       try {
-        const params: Record<string, string | number> = toSearchParams(0, 1, { ...query, sort: undefined })
+        const params = toSearchParams(0, 1, { ...query, sort: undefined })
         delete params['page']
         delete params['size']
         return await apiFetch<FacetsResponse>('/api/products/search/facets', { params })

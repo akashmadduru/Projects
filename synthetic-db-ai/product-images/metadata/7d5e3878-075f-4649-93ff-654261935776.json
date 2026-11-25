@@ -1,0 +1,13 @@
+{
+ "product_id": "7d5e3878-075f-4649-93ff-654261935776",
+ "name": "Quamino Office Chair Lite",
+ "prompt": "studio packshot photo of a Black Quamino Office Chair Lite, made of nylon, furniture, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1336114955,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T04:18:52",
+ "file_path": "product-images/images/7d5e3878-075f-4649-93ff-654261935776.jpg",
+ "file_size": 52833
+}

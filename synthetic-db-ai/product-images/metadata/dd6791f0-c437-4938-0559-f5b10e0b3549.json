@@ -1,0 +1,13 @@
+{
+ "product_id": "dd6791f0-c437-4938-0559-f5b10e0b3549",
+ "name": "Dexnoze Running Shoes Gen 3",
+ "prompt": "studio packshot photo of a Space Grey Dexnoze Running Shoes Gen 3, made of abs plastic, footwear, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3097001591,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T01:52:58",
+ "file_path": "product-images/images/dd6791f0-c437-4938-0559-f5b10e0b3549.jpg",
+ "file_size": 44118
+}

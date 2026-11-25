@@ -1,0 +1,13 @@
+{
+ "product_id": "9281cfe9-ac2c-44ee-e8ea-931557715559",
+ "name": "Ionmi Necklace Lite",
+ "prompt": "studio packshot photo of a Black Ionmi Necklace Lite, made of stainless steel, watches & jewellery, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2069695692,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:02:33",
+ "file_path": "product-images/images/9281cfe9-ac2c-44ee-e8ea-931557715559.jpg",
+ "file_size": 35162
+}

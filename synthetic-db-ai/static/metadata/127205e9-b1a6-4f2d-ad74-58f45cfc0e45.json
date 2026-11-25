@@ -1,0 +1,15 @@
+{
+ "product_id": "127205e9-b1a6-4f2d-ad74-58f45cfc0e45",
+ "name": "Talumnu RC Helicopter Pro",
+ "prompt": "studio packshot photo of a Red Talumnu RC Helicopter Pro, made of bamboo, remote control, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 592537053,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 768,
+ "created_at": "2026-11-15T23:00:47",
+ "file_path": "static/images/127205e9-b1a6-4f2d-ad74-58f45cfc0e45.jpg",
+ "file_size": 85386,
+ "uploaded": false,
+ "s3_url": null
+}

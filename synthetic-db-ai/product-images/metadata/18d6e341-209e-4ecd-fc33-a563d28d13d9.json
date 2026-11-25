@@ -1,0 +1,13 @@
+{
+ "product_id": "18d6e341-209e-4ecd-fc33-a563d28d13d9",
+ "name": "Dextafy Badminton Racket Edition",
+ "prompt": "studio packshot photo of a Olive Dextafy Badminton Racket Edition, made of ceramic, team sports, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3346399806,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 768,
+ "created_at": "2026-11-15T23:07:56",
+ "file_path": "product-images/images/18d6e341-209e-4ecd-fc33-a563d28d13d9.jpg",
+ "file_size": 58537
+}

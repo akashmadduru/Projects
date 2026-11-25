@@ -1,0 +1,13 @@
+{
+ "product_id": "50867872-1643-4711-f174-e962fc5a7d61",
+ "name": "Trata Mechanical Keyboard Pro",
+ "prompt": "studio packshot photo of a Midnight Trata Mechanical Keyboard Pro, made of nylon, keyboards & mice, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1833390038,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T20:17:18",
+ "file_path": "product-images/images/50867872-1643-4711-f174-e962fc5a7d61.jpg",
+ "file_size": 76547
+}

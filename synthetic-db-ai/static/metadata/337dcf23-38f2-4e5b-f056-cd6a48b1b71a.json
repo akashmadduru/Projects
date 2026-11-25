@@ -1,0 +1,15 @@
+{
+ "product_id": "337dcf23-38f2-4e5b-f056-cd6a48b1b71a",
+ "name": "Venor Thermometer Lite",
+ "prompt": "studio packshot photo of a Red Venor Thermometer Lite, made of aluminium, medical devices, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3885780135,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-15T23:56:32",
+ "file_path": "static/images/337dcf23-38f2-4e5b-f056-cd6a48b1b71a.jpg",
+ "file_size": 59550,
+ "uploaded": false,
+ "s3_url": null
+}

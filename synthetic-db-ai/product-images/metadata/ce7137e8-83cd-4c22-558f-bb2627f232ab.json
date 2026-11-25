@@ -1,0 +1,13 @@
+{
+ "product_id": "ce7137e8-83cd-4c22-558f-bb2627f232ab",
+ "name": "Loloion Board Game Edition",
+ "prompt": "studio packshot photo of a Midnight Loloion Board Game Edition, made of cotton, board games, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2744941173,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:41:23",
+ "file_path": "product-images/images/ce7137e8-83cd-4c22-558f-bb2627f232ab.jpg",
+ "file_size": 73817
+}

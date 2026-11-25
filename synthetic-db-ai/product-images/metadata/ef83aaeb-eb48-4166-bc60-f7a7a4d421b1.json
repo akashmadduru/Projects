@@ -1,0 +1,13 @@
+{
+ "product_id": "ef83aaeb-eb48-4166-bc60-f7a7a4d421b1",
+ "name": "Voionmi Analog Watch Classic",
+ "prompt": "studio packshot photo of a Grey Voionmi Analog Watch Classic, made of nylon, watches & jewellery, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2586681346,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T22:02:56",
+ "file_path": "product-images/images/ef83aaeb-eb48-4166-bc60-f7a7a4d421b1.jpg",
+ "file_size": 52162
+}

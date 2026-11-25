@@ -1,0 +1,13 @@
+{
+ "product_id": "ddeaa51e-072c-4366-8a2e-db12cce825e1",
+ "name": "Pinori Cookware Set Pro",
+ "prompt": "studio packshot photo of a Black Pinori Cookware Set Pro, made of wood, cookware, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2274285926,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T00:38:54",
+ "file_path": "product-images/images/ddeaa51e-072c-4366-8a2e-db12cce825e1.jpg",
+ "file_size": 65211
+}

@@ -1,0 +1,13 @@
+{
+ "product_id": "a3f104e6-bd9e-4d93-8a9a-683fdba878b7",
+ "name": "Tazelum Ultrabook Plus",
+ "prompt": "studio packshot photo of a Grey Tazelum Ultrabook Plus, made of abs plastic, laptops, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 3852901141,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:58:13",
+ "file_path": "product-images/images/a3f104e6-bd9e-4d93-8a9a-683fdba878b7.jpg",
+ "file_size": 18407
+}

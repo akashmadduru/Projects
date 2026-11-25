@@ -1,0 +1,13 @@
+{
+ "product_id": "98184df0-8267-41ea-095b-7f337ae48146",
+ "name": "Linu Pressure Cooker Edition",
+ "prompt": "studio packshot photo of a Blue Linu Pressure Cooker Edition, made of abs plastic, cookware, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 1532210827,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:07:12",
+ "file_path": "product-images/images/98184df0-8267-41ea-095b-7f337ae48146.jpg",
+ "file_size": 74550
+}

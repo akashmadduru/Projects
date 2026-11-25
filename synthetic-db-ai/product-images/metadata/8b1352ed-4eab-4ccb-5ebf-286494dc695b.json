@@ -1,0 +1,13 @@
+{
+ "product_id": "8b1352ed-4eab-4ccb-5ebf-286494dc695b",
+ "name": "Nuze Face Serum Prime",
+ "prompt": "studio packshot photo of a Space Grey Nuze Face Serum Prime, made of abs plastic, skin care, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2975860463,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:30:19",
+ "file_path": "product-images/images/8b1352ed-4eab-4ccb-5ebf-286494dc695b.jpg",
+ "file_size": 23482
+}

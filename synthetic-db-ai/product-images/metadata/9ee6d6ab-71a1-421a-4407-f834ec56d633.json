@@ -1,0 +1,13 @@
+{
+ "product_id": "9ee6d6ab-71a1-421a-4407-f834ec56d633",
+ "name": "Ionvoar Soundbar Classic",
+ "prompt": "studio packshot photo of a Red Ionvoar Soundbar Classic, made of bamboo, speakers, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 820962489,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-16T21:11:30",
+ "file_path": "product-images/images/9ee6d6ab-71a1-421a-4407-f834ec56d633.jpg",
+ "file_size": 58910
+}

@@ -14,8 +14,8 @@ import org.springframework.stereotype.Repository;
 
 /**
  * Cart persistence on plain SQL: every write is an atomic upsert ({@code INSERT ... ON CONFLICT}),
- * so concurrent requests for the same user and product cannot create duplicates or lose updates.
- * A line is keyed by (product, variant); a null variant is stored as null and compared through the
+ * so concurrent requests for the same user and product cannot create duplicates or lose updates. A
+ * line is keyed by (product, variant); a null variant is stored as null and compared through the
  * generated {@code variant_key} column (nil uuid).
  */
 @Repository
@@ -26,7 +26,8 @@ public class CartRepository {
   private static final UUID NIL = new UUID(0L, 0L);
 
   /** Offer predicate: an omitted offerId matches every offer of the (product, variant) line. */
-  private static final String OFFER_ANY = " AND (CAST(:ok AS uuid) IS NULL OR offer_key = CAST(:ok AS uuid))";
+  private static final String OFFER_ANY =
+      " AND (CAST(:ok AS uuid) IS NULL OR offer_key = CAST(:ok AS uuid))";
 
   private final JdbcClient jdbc;
 
@@ -109,7 +110,8 @@ public class CartRepository {
   public int setQuantity(UUID cartId, UUID productId, UUID variantId, UUID offerId, int quantity) {
     return jdbc.sql(
             "UPDATE cart.cart_items SET quantity = :qty WHERE cart_id = :cartId "
-                + "AND product_id = :productId AND variant_key = :vk" + OFFER_ANY)
+                + "AND product_id = :productId AND variant_key = :vk"
+                + OFFER_ANY)
         .param("ok", offerId)
         .param("qty", quantity)
         .param("cartId", cartId)
@@ -121,7 +123,8 @@ public class CartRepository {
   public void deleteItem(UUID cartId, UUID productId, UUID variantId, UUID offerId) {
     jdbc.sql(
             "DELETE FROM cart.cart_items WHERE cart_id = :cartId AND product_id = :productId "
-                + "AND variant_key = :vk" + OFFER_ANY)
+                + "AND variant_key = :vk"
+                + OFFER_ANY)
         .param("ok", offerId)
         .param("cartId", cartId)
         .param("productId", productId)
@@ -184,7 +187,9 @@ public class CartRepository {
   public boolean hasSaved(UUID userId, UUID productId, UUID variantId, UUID offerId) {
     return jdbc.sql(
             "SELECT EXISTS (SELECT 1 FROM cart.saved_items WHERE user_id = :userId "
-                + "AND product_id = :productId AND variant_key = :vk" + OFFER_ANY + ")")
+                + "AND product_id = :productId AND variant_key = :vk"
+                + OFFER_ANY
+                + ")")
         .param("ok", offerId)
         .param("userId", userId)
         .param("productId", productId)
@@ -201,7 +206,9 @@ public class CartRepository {
                 + "name, unit_price, currency, image_url) SELECT :userId, product_id, variant_id, "
                 + "variant_label, offer_id, seller_id, name, unit_price, currency, image_url "
                 + "FROM cart.cart_items WHERE cart_id = :cartId AND product_id = :productId "
-                + "AND variant_key = :vk" + OFFER_ANY + " "
+                + "AND variant_key = :vk"
+                + OFFER_ANY
+                + " "
                 + "ON CONFLICT (user_id, product_id, variant_key, offer_key) DO UPDATE SET "
                 + "name = EXCLUDED.name, "
                 + "unit_price = EXCLUDED.unit_price, currency = EXCLUDED.currency, "
@@ -220,7 +227,9 @@ public class CartRepository {
     return jdbc.sql(
             "SELECT product_id, variant_id, variant_label, offer_id, seller_id, name, unit_price, currency, image_url "
                 + "FROM cart.saved_items WHERE user_id = :userId AND product_id = :productId "
-                + "AND variant_key = :vk" + OFFER_ANY + " ORDER BY saved_at DESC LIMIT 1")
+                + "AND variant_key = :vk"
+                + OFFER_ANY
+                + " ORDER BY saved_at DESC LIMIT 1")
         .param("ok", offerId)
         .param("userId", userId)
         .param("productId", productId)
@@ -244,7 +253,8 @@ public class CartRepository {
   public void deleteSaved(UUID userId, UUID productId, UUID variantId, UUID offerId) {
     jdbc.sql(
             "DELETE FROM cart.saved_items WHERE user_id = :userId AND product_id = :productId "
-                + "AND variant_key = :vk" + OFFER_ANY)
+                + "AND variant_key = :vk"
+                + OFFER_ANY)
         .param("ok", offerId)
         .param("userId", userId)
         .param("productId", productId)

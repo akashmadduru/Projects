@@ -1,0 +1,15 @@
+{
+ "product_id": "52a3afee-7a53-4f55-1891-47cfd8e303ae",
+ "name": "Pilum Action Camera Series 2",
+ "prompt": "studio packshot photo of a Rose Gold Pilum Action Camera Series 2, made of cotton, cameras, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 2123859035,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 512,
+ "created_at": "2026-11-17T02:42:37",
+ "file_path": "static/images/52a3afee-7a53-4f55-1891-47cfd8e303ae.jpg",
+ "file_size": 56720,
+ "uploaded": false,
+ "s3_url": null
+}

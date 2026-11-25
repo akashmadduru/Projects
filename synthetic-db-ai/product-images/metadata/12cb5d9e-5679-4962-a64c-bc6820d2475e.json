@@ -1,0 +1,13 @@
+{
+ "product_id": "12cb5d9e-5679-4962-a64c-bc6820d2475e",
+ "name": "Exli Sandals Elite",
+ "prompt": "studio packshot photo of a Blue Exli Sandals Elite, made of aluminium, footwear, single product isolated on a plain pure white background, centered, no props, no scenery, soft even studio lighting, sharp focus, high detail, e-commerce catalog image",
+ "negative": "room, interior, furniture, plants, table, shelf, scenery, landscape, people, hands, text, watermark, logo, caption, multiple objects, blurry, low quality, deformed, cropped",
+ "seed": 609500319,
+ "steps": 20,
+ "guidance": 6.5,
+ "size": 768,
+ "created_at": "2026-11-15T23:01:26",
+ "file_path": "product-images/images/12cb5d9e-5679-4962-a64c-bc6820d2475e.jpg",
+ "file_size": 99355
+}
