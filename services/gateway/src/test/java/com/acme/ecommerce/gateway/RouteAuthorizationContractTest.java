@@ -513,4 +513,85 @@ class RouteAuthorizationContractTest {
             "POST /api/categories/contract-probe");
     return tests.stream();
   }
+
+  // ---------------------------------------------------------------------------------------------
+  // AC-8, AC-9: role restriction.
+  // ---------------------------------------------------------------------------------------------
+
+  private static final Map<String, Set<String>> EXPECTED_ROLE_RULES =
+      Map.of(
+          "/api/admin/**",
+          Set.of(
+              Roles.ROLE_ADMIN,
+              Roles.ROLE_SUPPORT,
+              Roles.ROLE_FINANCE,
+              Roles.ROLE_CATALOG_MANAGER));
+
+  @TestFactory
+  @DisplayName("AC-8: every /api/admin/ route path is role-restricted")
+  Stream<DynamicTest> adminPathsAreRoleRestricted() {
+    List<DynamicTest> tests = new ArrayList<>();
+    Set<String> covered = new TreeSet<>();
+    Map<String, String> actors =
+        Map.of(
+            "ADMIN", ADMIN_TOKEN,
+            "SUPPORT", SUPPORT_TOKEN,
+            "FINANCE", FINANCE_TOKEN,
+            "CATALOG_MANAGER", CATALOG_MANAGER_TOKEN);
+    for (var row : RouteTable.load().rows()) {
+      if (!row.getValue().startsWith("/api/admin/")) {
+        continue;
+      }
+      covered.add(row.getKey());
+      String probe = probePath(row.getValue());
+      for (String method : List.of("GET", "POST")) {
+        tests.add(
+            DynamicTest.dynamicTest(
+                row(row.getKey(), row.getValue(), method, "anonymous"),
+                () -> expectProblem(method, probe, null, 401, "UNAUTHENTICATED")));
+        tests.add(
+            DynamicTest.dynamicTest(
+                row(row.getKey(), row.getValue(), method, "CUSTOMER"),
+                () -> expectProblem(method, probe, CUSTOMER_TOKEN, 403, "FORBIDDEN")));
+        new TreeSet<>(actors.keySet())
+            .forEach(
+                actor ->
+                    tests.add(
+                        DynamicTest.dynamicTest(
+                            row(row.getKey(), row.getValue(), method, actor),
+                            () ->
+                                assertThat(status(method, probe, actors.get(actor)))
+                                    .as("%s on %s %s", actor, method, probe)
+                                    .matches(RouteAuthorizationContractTest::passes))));
+      }
+    }
+    assertThat(tests).as("generated tests").isNotEmpty();
+    assertThat(covered)
+        .as("routes that contribute /api/admin/ patterns")
+        .contains(
+            "auth-secured",
+            "product",
+            "inventory",
+            "order",
+            "rating",
+            "payment",
+            "promotion",
+            "notification",
+            "seller",
+            "support");
+    return tests.stream();
+  }
+
+  @Test
+  @DisplayName("AC-9: the role-restricted prefixes are exactly the known ones")
+  void rolePrefixesAreKnown() {
+    Map<String, Set<String>> actual = new java.util.TreeMap<>();
+    rules().roleRules().forEach(e -> actual.put(e.pattern(), e.decision().roles()));
+
+    assertThat(actual)
+        .as(
+            "A role rule was added or changed at the edge. Add a role assertion for it here and"
+                + " update EXPECTED_ROLE_RULES")
+        .isEqualTo(EXPECTED_ROLE_RULES);
+  }
 }
