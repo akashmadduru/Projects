@@ -27,6 +27,9 @@ vi.mock('../../components/PaymentPanel', async () => {
 })
 
 import { api } from './checkoutMocks'
+import { shouldRotateKey } from '../CheckoutPage'
+import { errorMessage } from '../../lib/errors'
+import { ApiErrorImpl } from '../../lib/problem'
 import {
   coins,
   order,
@@ -505,5 +508,182 @@ describe('problems from the order service', () => {
     await user.click(within(alert).getByRole('button'))
 
     expect(screen.queryByText('Something is off')).not.toBeInTheDocument()
+  })
+})
+
+const noCode = (status: number) =>
+  new ApiErrorImpl(status, { type: 'about:blank', title: 'x', status, detail: 'no code here' })
+
+const KEEP_CASES: Array<[string, () => unknown]> = [
+  ['408 (no code)', () => noCode(408)],
+  ['408 with a rotate code', () => problem(408, 'VALIDATION_FAILED')],
+  ['429 RATE_LIMITED', () => problem(429, 'RATE_LIMITED')],
+  ['409 RESOURCE_CONFLICT', () => problem(409, 'RESOURCE_CONFLICT')],
+  ['409 unknown code', () => problem(409, 'SOMETHING_NEW')],
+  ['409 lower-case code', () => problem(409, 'out_of_stock')],
+  ['409 no code', () => noCode(409)],
+  ['500', () => problem(500, 'BOOM')],
+  ['502', () => problem(502, 'BAD_GATEWAY')],
+  ['503 DEPENDENCY_UNAVAILABLE', () => problem(503, 'DEPENDENCY_UNAVAILABLE')],
+  ['503 with a rotate code', () => problem(503, 'OUT_OF_STOCK')],
+  ['network TypeError', () => new TypeError('Failed to fetch')],
+  ['non-error value', () => 'oops'],
+]
+
+const ROTATE_409 = [
+  'OUT_OF_STOCK',
+  'PAYMENT_METHOD_UNAVAILABLE',
+  'INSUFFICIENT_BALANCE',
+  'CART_EMPTY',
+  'PRODUCT_UNAVAILABLE',
+  'CURRENCY_MISMATCH',
+  'COUPON_USAGE_LIMIT',
+]
+const ROTATE_422 = [
+  'IDEMPOTENCY_KEY_REUSED',
+  'PAYMENT_METHOD_UNAVAILABLE',
+  'DOMAIN_RULE_VIOLATION',
+  'COUPON_INVALID',
+  'COUPON_EXPIRED',
+  'COUPON_NOT_APPLICABLE',
+]
+
+const ROTATE_CASES: Array<[string, () => unknown]> = [
+  ['400 VALIDATION_FAILED', () => problem(400, 'VALIDATION_FAILED')],
+  ['401', () => problem(401, 'UNAUTHORIZED')],
+  ['403', () => problem(403, 'FORBIDDEN')],
+  ['404 ADDRESS_NOT_FOUND', () => problem(404, 'ADDRESS_NOT_FOUND')],
+  ['405 other 4xx', () => noCode(405)],
+  ['413 other 4xx', () => problem(413, 'TOO_BIG')],
+  ['409 OUT_OF_STOCK without items', () => problem(409, 'OUT_OF_STOCK')],
+  ...ROTATE_409.map((c): [string, () => unknown] => [`409 ${c}`, () => problem(409, c)]),
+  ...ROTATE_422.map((c): [string, () => unknown] => [`422 ${c}`, () => problem(422, c)]),
+  ['422 unlisted code', () => problem(422, 'SOMETHING_NEW')],
+]
+
+describe('shouldRotateKey', () => {
+  it.each(KEEP_CASES)('keeps the key on %s', (_n, make) => {
+    expect(shouldRotateKey(make())).toBe(false)
+  })
+  it.each(ROTATE_CASES)('rotates the key on %s', (_n, make) => {
+    expect(shouldRotateKey(make())).toBe(true)
+  })
+})
+
+describe('Idempotency-Key retention by failure class', () => {
+  beforeEach(() => {
+    seedCart()
+  })
+
+  /** Place, fail, check message + button, press again unchanged; returns both keys. */
+  async function failThenRetry(make: () => unknown) {
+    const err = make()
+    api.place.mockRejectedValueOnce(err).mockResolvedValueOnce(order())
+    renderCheckout()
+    await ready()
+    fireEvent.click(placeButton())
+    await waitFor(() => expect(screen.getAllByRole('alert')[0]).toHaveTextContent(errorMessage(err)))
+    expect(placeButton()).toBeEnabled()
+    fireEvent.click(placeButton())
+    await landing()
+    expect(api.place).toHaveBeenCalledTimes(2)
+    return [keyOf(0), keyOf(1)]
+  }
+
+  it.each(KEEP_CASES.filter(([n]) => !n.includes('network') && !n.includes('non-error')))(
+    'sends the SAME key after %s',
+    async (_n, make) => {
+      const [first, second] = await failThenRetry(make)
+      expect(second).toBe(first)
+    },
+  )
+
+  it.each(ROTATE_CASES)('sends a NEW key after %s', async (_n, make) => {
+    const [first, second] = await failThenRetry(make)
+    expect(second).not.toBe(first)
+  })
+
+  it('keeps the same key across repeated 429s', async () => {
+    api.place
+      .mockRejectedValueOnce(problem(429, 'RATE_LIMITED'))
+      .mockRejectedValueOnce(problem(429, 'RATE_LIMITED'))
+      .mockResolvedValueOnce(order())
+    renderCheckout()
+    await ready()
+    fireEvent.click(placeButton())
+    await waitFor(() => expect(api.place).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(placeButton()).toBeEnabled())
+    fireEvent.click(placeButton())
+    await waitFor(() => expect(api.place).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(placeButton()).toBeEnabled())
+    fireEvent.click(placeButton())
+    await landing()
+    expect(keyOf(1)).toBe(keyOf(0))
+    expect(keyOf(2)).toBe(keyOf(0))
+  })
+
+  it('uses a NEW key when the payment method changes after a 429', async () => {
+    api.place.mockRejectedValueOnce(problem(429, 'RATE_LIMITED')).mockResolvedValueOnce(order())
+    const user = userEvent.setup()
+    renderCheckout()
+    await ready()
+    fireEvent.click(placeButton())
+    await screen.findByRole('alert')
+    await user.click(radio(/Cash on Delivery/))
+    await user.click(screen.getByRole('button', { name: 'Place order' }))
+    await landing()
+    expect(keyOf(1)).not.toBe(keyOf(0))
+  })
+
+  it('uses a NEW key after a KEEP failure followed by a definitive rejection', async () => {
+    api.place
+      .mockRejectedValueOnce(problem(408, 'TIMEOUT'))
+      .mockRejectedValueOnce(problem(400, 'VALIDATION_FAILED'))
+      .mockResolvedValueOnce(order())
+    renderCheckout()
+    await ready()
+    fireEvent.click(placeButton())
+    await waitFor(() => expect(api.place).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(placeButton()).toBeEnabled())
+    fireEvent.click(placeButton())
+    await waitFor(() => expect(api.place).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(placeButton()).toBeEnabled())
+    fireEvent.click(placeButton())
+    await landing()
+    expect(keyOf(1)).toBe(keyOf(0))
+    expect(keyOf(2)).not.toBe(keyOf(1))
+  })
+
+  it('a successful place clears the key so a later place sends a new key', async () => {
+    api.place.mockRejectedValueOnce(problem(429, 'RATE_LIMITED')).mockResolvedValue(order())
+    const first = renderCheckout()
+    await ready()
+    fireEvent.click(placeButton())
+    await screen.findByRole('alert')
+    fireEvent.click(placeButton())
+    await landing()
+    first.unmount()
+    renderCheckout()
+    await ready()
+    fireEvent.click(placeButton())
+    await waitFor(() => expect(api.place).toHaveBeenCalledTimes(3))
+    expect(keyOf(1)).toBe(keyOf(0))
+    expect(keyOf(2)).not.toBe(keyOf(1))
+  })
+
+  it('RISK still switches to CARD and rotates the key', async () => {
+    api.place
+      .mockRejectedValueOnce(problem(409, 'PAYMENT_METHOD_UNAVAILABLE', { reason: 'RISK' }))
+      .mockResolvedValueOnce(order())
+    const user = userEvent.setup()
+    renderCheckout()
+    await ready()
+    await user.click(radio(/Cash on Delivery/))
+    await user.click(screen.getByRole('button', { name: 'Place order' }))
+    await screen.findByRole('alert')
+    expect(radio(/Pay online/).checked).toBe(true)
+    fireEvent.click(placeButton())
+    await landing()
+    expect(keyOf(1)).not.toBe(keyOf(0))
   })
 })

@@ -69,6 +69,35 @@ function stockShortfalls(error: unknown): StockShortfall[] {
   return Array.isArray(items) ? (items as StockShortfall[]) : []
 }
 
+/** Problem codes that are a definitive rejection: the order was not created, so the next attempt gets a new key. */
+const ROTATE_CODES = new Set([
+  'VALIDATION_FAILED',
+  'ADDRESS_NOT_FOUND',
+  'IDEMPOTENCY_KEY_REUSED',
+  'PAYMENT_METHOD_UNAVAILABLE',
+  'DOMAIN_RULE_VIOLATION',
+  'COUPON_INVALID',
+  'COUPON_EXPIRED',
+  'COUPON_NOT_APPLICABLE',
+  'OUT_OF_STOCK',
+  'PRODUCT_UNAVAILABLE',
+  'CART_EMPTY',
+  'CURRENCY_MISMATCH',
+  'INSUFFICIENT_BALANCE',
+  'COUPON_USAGE_LIMIT',
+])
+
+/** True when a failed place call was definitive, so the Idempotency-Key must not be reused. */
+export function shouldRotateKey(err: unknown): boolean {
+  if (!isApiError(err)) return false // network / unknown: KEEP
+  const s = err.status
+  if (s >= 500 || s === 408 || s === 429) return false // ambiguous by status, any code
+  const code = problemCode(err)
+  if (code && ROTATE_CODES.has(code)) return true
+  if (s === 409) return false // RESOURCE_CONFLICT, unknown or missing code
+  return s >= 400
+}
+
 export function CheckoutPage() {
   const navigate = useNavigate()
   const [params] = useSearchParams()
@@ -356,7 +385,7 @@ export function CheckoutPage() {
       }
       setPlaceError(errorMessage(err))
       // A rejected request may succeed with a new key once the cause is fixed.
-      if (isApiError(err) && err.status < 500) attempt.current = null
+      if (shouldRotateKey(err)) attempt.current = null
       setPlacing(false)
     }
   }
