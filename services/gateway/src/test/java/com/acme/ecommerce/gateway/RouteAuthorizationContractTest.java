@@ -594,4 +594,32 @@ class RouteAuthorizationContractTest {
                 + " update EXPECTED_ROLE_RULES")
         .isEqualTo(EXPECTED_ROLE_RULES);
   }
+
+  // ---------------------------------------------------------------------------------------------
+  // AC-10, AC-11: actuator closed, unmapped paths deny by default.
+  // ---------------------------------------------------------------------------------------------
+
+  @Test
+  @DisplayName("AC-10: /actuator is closed (401 anonymous, 403 ADMIN) except health")
+  void actuatorIsClosed() {
+    for (String path : List.of("/actuator/env", "/actuator/shutdown", "/actuator/anything")) {
+      expectProblem("GET", path, null, 401, "UNAUTHENTICATED");
+      expectProblem("GET", path, ADMIN_TOKEN, 403, "FORBIDDEN");
+    }
+    for (String path : List.of("/actuator/health", "/actuator/health/liveness")) {
+      assertThat(status("GET", path, null))
+          .as("anonymous GET " + path)
+          .matches(RouteAuthorizationContractTest::passes);
+    }
+  }
+
+  @Test
+  @DisplayName("AC-11: a path no route and no rule names is denied by default")
+  void unmappedPathsDenyByDefault() {
+    for (String path : List.of("/api/zz-unmapped/x", "/internal/x")) {
+      expectProblem("GET", path, null, 401, "UNAUTHENTICATED");
+      // With a valid token it passes security and reaches routing, which has no route: 404.
+      assertThat(status("GET", path, CUSTOMER_TOKEN)).as("CUSTOMER GET " + path).isEqualTo(404);
+    }
+  }
 }
