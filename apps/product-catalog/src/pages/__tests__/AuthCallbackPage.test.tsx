@@ -52,7 +52,7 @@ describe('AuthCallbackPage', () => {
     useAuthStore.setState({ status: 'anonymous' })
     renderAt('/auth/callback?error=AUTH_OIDC_EMAIL_UNVERIFIED')
 
-    expect(await screen.findByTestId('where')).toHaveTextContent(
+    expect((await screen.findByTestId('where')).textContent).toBe(
       `/login?error=AUTH_OIDC_EMAIL_UNVERIFIED&next=${encodeURIComponent('/orders?tab=open')}`,
     )
     expect(sessionStorage.getItem(STORED)).toBeNull()
@@ -62,7 +62,7 @@ describe('AuthCallbackPage', () => {
   it('encodes an error value that needs it and falls back to "/" without a stored redirect', async () => {
     renderAt('/auth/callback?error=' + encodeURIComponent('a b&c=d/é'))
 
-    expect(await screen.findByTestId('where')).toHaveTextContent(
+    expect((await screen.findByTestId('where')).textContent).toBe(
       `/login?error=${encodeURIComponent('a b&c=d/é')}&next=%2F`,
     )
     const search = new URLSearchParams(whereText()?.split('?')[1])
@@ -74,16 +74,24 @@ describe('AuthCallbackPage', () => {
     useAuthStore.setState({ status: 'authenticated' })
     renderAt('/auth/callback?error=AUTH_OIDC_LOGIN_FAILED')
 
-    expect(await screen.findByTestId('where')).toHaveTextContent('/login?error=AUTH_OIDC_LOGIN_FAILED&next=%2F')
+    expect((await screen.findByTestId('where')).textContent).toBe('/login?error=AUTH_OIDC_LOGIN_FAILED&next=%2F')
   })
 
-  it.each(['//evil.example/x', 'https://evil.example', '/\evil.example', 'javascript:alert(1)'])(
+  it.each([
+    '//evil.example/x',
+    'https://evil.example',
+    String.raw`/\evil.example`, // a real backslash after the slash
+    '%2F%2Fevil.example',
+    'javascript:alert(1)',
+    '',
+  ])(
     'never builds the next URL from hostile stored value %s',
     async (hostile) => {
       sessionStorage.setItem(STORED, hostile)
       renderAt('/auth/callback?error=AUTH_OIDC_LOGIN_FAILED')
 
-      expect(await screen.findByTestId('where')).toHaveTextContent('/login?error=AUTH_OIDC_LOGIN_FAILED&next=%2F')
+      expect((await screen.findByTestId('where')).textContent).toBe('/login?error=AUTH_OIDC_LOGIN_FAILED&next=%2F')
+      expect(sessionStorage.getItem(STORED)).toBeNull()
     },
   )
 
@@ -91,8 +99,7 @@ describe('AuthCallbackPage', () => {
     useAuthStore.setState({ status: 'authenticated' })
     renderAt('/auth/callback?next=' + encodeURIComponent('//evil.example'))
 
-    expect(await screen.findByTestId('where')).toHaveTextContent('/')
-    expect(whereText()).not.toContain('evil')
+    expect((await screen.findByTestId('where')).textContent).toBe('/')
   })
 
   it('goes to the stored post-login path when authenticated, replacing the callback entry', async () => {
@@ -100,7 +107,7 @@ describe('AuthCallbackPage', () => {
     useAuthStore.setState({ status: 'authenticated' })
     renderAt('/auth/callback')
 
-    expect(await screen.findByTestId('where')).toHaveTextContent('/checkout')
+    expect((await screen.findByTestId('where')).textContent).toBe('/checkout')
     expect(screen.getByTestId('where')).toHaveAttribute('data-nav', 'REPLACE')
     expect(sessionStorage.getItem(STORED)).toBeNull()
   })
@@ -109,7 +116,7 @@ describe('AuthCallbackPage', () => {
     useAuthStore.setState({ status: 'authenticated' })
     renderAt('/auth/callback')
 
-    expect(await screen.findByTestId('where')).toHaveTextContent(/^\/$/)
+    expect((await screen.findByTestId('where')).textContent).toBe('/')
   })
 
   it('sends an mfaToken to the login second-factor step, ahead of authenticated', async () => {
@@ -117,7 +124,7 @@ describe('AuthCallbackPage', () => {
     useAuthStore.setState({ status: 'authenticated', mfaToken: 'mfa-123' })
     renderAt('/auth/callback')
 
-    expect(await screen.findByTestId('where')).toHaveTextContent(
+    expect((await screen.findByTestId('where')).textContent).toBe(
       `/login?next=${encodeURIComponent('/account/profile')}`,
     )
     expect(whereText()).not.toContain('error=')
@@ -129,7 +136,7 @@ describe('AuthCallbackPage', () => {
     useAuthStore.setState({ status: 'anonymous' })
     renderAt('/auth/callback')
 
-    expect(await screen.findByTestId('where')).toHaveTextContent(
+    expect((await screen.findByTestId('where')).textContent).toBe(
       `/login?error=AUTH_OIDC_LOGIN_FAILED&next=${encodeURIComponent('/wishlist')}`,
     )
     expect(sessionStorage.getItem(STORED)).toBeNull()
