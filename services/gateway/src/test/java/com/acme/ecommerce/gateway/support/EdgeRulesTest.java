@@ -90,4 +90,18 @@ class EdgeRulesTest {
     assertThat(rules.classify("GET", "/actuator/env").decision()).isEqualTo(DENY);
     assertThat(rules.classify("GET", "/nothing/here").catchAll()).isTrue();
   }
+
+  @Test
+  void aNonOrMatcherIsOnlyAllowedAtTheLastIndex() {
+    Object stray = new Object();
+
+    // The anyExchange matcher at the last index is fine.
+    assertThatCode(() -> EdgeRules.requireSupportedMatcher(stray, 5, 5)).doesNotThrowAnyException();
+    // The same matcher earlier in the chain is a shape we cannot classify.
+    assertThatThrownBy(() -> EdgeRules.requireSupportedMatcher(stray, 3, 5))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("EdgeRules could not read the chain: unsupported matcher")
+        .hasMessageContaining("java.lang.Object")
+        .hasMessageContaining("at index 3");
+  }
 }

@@ -80,6 +80,17 @@ public final class TestKeys {
         Instant.now().plusSeconds(600));
   }
 
+  /** A valid access token that stays valid for {@code lifetime}, for long-running suites. */
+  public String accessTokenValidFor(
+      String subject,
+      String email,
+      String authMethod,
+      List<String> roles,
+      java.time.Duration lifetime) {
+    Instant now = Instant.now();
+    return token(subject, email, authMethod, roles, ISSUER, AUDIENCE, now, now.plus(lifetime));
+  }
+
   /** A valid access token with an explicit {@code iat}, for deny-list cutoff tests. */
   public String accessTokenIssuedAt(String subject, Instant issuedAt) {
     return token(

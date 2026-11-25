@@ -1,5 +1,6 @@
 package com.acme.ecommerce.gateway.support;
 
+import com.acme.ecommerce.common.security.Roles;
 import com.acme.ecommerce.gateway.config.SecurityConfig;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
@@ -86,12 +87,12 @@ public final class EdgeRules {
   /** Authorities probed to discover which roles a rule admits (CUSTOMER is probed separately). */
   private static final List<String> PRIVILEGED =
       List.of(
-          "ROLE_ADMIN",
-          "ROLE_SUPPORT",
-          "ROLE_FINANCE",
-          "ROLE_CATALOG_MANAGER",
-          "ROLE_SELLER",
-          "ROLE_VIEWER");
+          Roles.ROLE_ADMIN,
+          Roles.ROLE_SUPPORT,
+          Roles.ROLE_FINANCE,
+          Roles.ROLE_CATALOG_MANAGER,
+          Roles.ROLE_SELLER,
+          Roles.ROLE_VIEWER);
 
   private final List<Entry> entries;
 
@@ -213,11 +214,13 @@ public final class EdgeRules {
     }
     List<?> mappings = (List<?>) field(manager, "mappings");
     List<Entry> out = new ArrayList<>();
-    for (Object mapping : mappings) {
+    for (int index = 0; index < mappings.size(); index++) {
+      Object mapping = mappings.get(index);
       Object matcher = field(mapping, "matcher");
       ReactiveAuthorizationManager<AuthorizationContext> rule =
           (ReactiveAuthorizationManager<AuthorizationContext>) field(mapping, "entry");
       Decision decision = decide(rule);
+      requireSupportedMatcher(matcher, index, mappings.size() - 1);
       if (matcher instanceof OrServerWebExchangeMatcher or) {
         for (Object single : (List<?>) field(or, "matchers")) {
           PathPattern pattern = (PathPattern) field(single, "pattern");
@@ -234,6 +237,21 @@ public final class EdgeRules {
       }
     }
     return out;
+  }
+
+  /**
+   * Only {@code OrServerWebExchangeMatcher} (pathMatchers) entries are understood, plus the {@code
+   * anyExchange} matcher, which must be last. Anything else is a rule shape this contract cannot
+   * classify, so it fails loudly instead of being read as a catch-all.
+   */
+  static void requireSupportedMatcher(Object matcher, int index, int lastIndex) {
+    if (!(matcher instanceof OrServerWebExchangeMatcher) && index != lastIndex) {
+      throw new IllegalStateException(
+          "EdgeRules could not read the chain: unsupported matcher "
+              + (matcher == null ? "null" : matcher.getClass().getName())
+              + " at index "
+              + index);
+    }
   }
 
   private static Decision decide(ReactiveAuthorizationManager<AuthorizationContext> rule) {

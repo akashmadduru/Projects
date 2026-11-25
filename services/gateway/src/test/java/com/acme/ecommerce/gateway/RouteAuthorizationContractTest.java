@@ -152,11 +152,12 @@ class RouteAuthorizationContractTest {
   private static final String SELLER_TOKEN = token(Roles.SELLER);
 
   private static String token(String role) {
-    return KEYS.accessToken(
+    return KEYS.accessTokenValidFor(
         "3f5c1c6a-8f1e-4f0a-9d3a-7d6a2f1b2c3d",
         role.toLowerCase() + "@example.com",
         "password",
-        List.of(role));
+        List.of(role),
+        java.time.Duration.ofHours(6));
   }
 
   /** Not rejected by the edge's rules: anything but 401/403 (downstream is unreachable here). */
@@ -217,11 +218,20 @@ class RouteAuthorizationContractTest {
           permit("ANY", "/api/auth/register", "no token before registration"),
           permit("ANY", "/api/auth/refresh", "refresh cookie, not a bearer token"),
           permit("ANY", "/api/auth/logout", "refresh cookie, not a bearer token"),
-          permit("ANY", "/api/auth/password/forgot", "pre-authentication"),
+          permit(
+              "ANY",
+              "/api/auth/password/forgot",
+              "pre-authentication; /api/auth/ is exempt from the gateway rate limiter, abuse control: see backlog"),
           permit("ANY", "/api/auth/password/reset", "pre-authentication, reset token"),
           permit("ANY", "/api/auth/email/verify", "pre-authentication, emailed token"),
-          permit("ANY", "/api/auth/otp/request", "OTP login is pre-authentication"),
-          permit("ANY", "/api/auth/otp/verify", "OTP login is pre-authentication"),
+          permit(
+              "ANY",
+              "/api/auth/otp/request",
+              "OTP login is pre-authentication; /api/auth/ is exempt from the gateway rate limiter, abuse control: see backlog"),
+          permit(
+              "ANY",
+              "/api/auth/otp/verify",
+              "OTP login is pre-authentication; /api/auth/ is exempt from the gateway rate limiter, abuse control: see backlog"),
           permit("ANY", "/api/auth/2fa/verify", "second factor, authenticated by the mfaToken"),
           permit("ANY", "/.well-known/jwks.json", "public keys; circular to protect"),
           permit("ANY", "/oauth2/**", "Google leg; state and PKCE are the controls"),
@@ -230,7 +240,10 @@ class RouteAuthorizationContractTest {
           permit("GET", "/api/products/**", "public catalog read"),
           permit("GET", "/api/categories", "public catalog read"),
           permit("GET", "/api/categories/**", "public catalog read"),
-          permit("POST", "/api/products/*/views", "anonymous view tracking"),
+          permit(
+              "POST",
+              "/api/products/*/views",
+              "anonymous view tracking; rate-limited per client IP by RateLimitWebFilter (write limit)"),
           permit("GET", "/sitemap.xml", "SEO sitemap"),
           permit("GET", "/api/ratings/products/*", "public review list"),
           permit("GET", "/api/ratings/products/*/summary", "public rating summary"),
@@ -251,12 +264,21 @@ class RouteAuthorizationContractTest {
               "POST", "/api/payments/webhook/razorpay", "X-Razorpay-Signature verified downstream"),
           permit("GET", "/api/sellers/*", "public seller profile"),
           permit("GET", "/api/sellers/*/feedback", "public seller feedback"),
-          permit("POST", "/api/ads/*/click", "ad click beacon, no JWT"),
-          permit("POST", "/api/ads/impressions", "ad impression beacon, no JWT"),
+          permit(
+              "POST",
+              "/api/ads/*/click",
+              "ad click beacon, no JWT; rate-limited per client IP by RateLimitWebFilter (write limit)"),
+          permit(
+              "POST",
+              "/api/ads/impressions",
+              "ad impression beacon, no JWT; rate-limited per client IP by RateLimitWebFilter (write limit)"),
           permit("GET", "/api/support/articles", "help-centre read"),
           permit("GET", "/api/support/articles/*", "help-centre read"),
           permit("POST", "/api/support/articles/*/feedback", "article feedback"),
-          permit("POST", "/api/support/chat", "chatbot reads the JWT itself when present"));
+          permit(
+              "POST",
+              "/api/support/chat",
+              "chatbot reads the JWT itself when present; rate-limited per IP (or per user) by RateLimitWebFilter (write limit)"));
 
   // ---------------------------------------------------------------------------------------------
   // AC-2 and AC-12: classification table and the reviewed permit list.
@@ -594,6 +616,23 @@ class RouteAuthorizationContractTest {
             "A role rule was added or changed at the edge. Add a role assertion for it here and"
                 + " update EXPECTED_ROLE_RULES")
         .isEqualTo(EXPECTED_ROLE_RULES);
+
+    // Pin EVERY rule that is neither a PERMIT nor plain AUTHENTICATED (the only two the
+    // behavioural probes understand): a new denyAll or a rule for an unknown role must fail here.
+    Map<String, String> restricted = new java.util.TreeMap<>();
+    rules().entries().stream()
+        .filter(e -> e.decision().kind() == Kind.DENY || e.decision().kind() == Kind.ROLE)
+        .forEach(e -> restricted.put(e.method() + " " + e.pattern(), e.decision().toString()));
+    assertThat(restricted)
+        .as(
+            "A DENY or role rule was added or changed at the edge. Add an assertion for it and"
+                + " update this pinned map")
+        .isEqualTo(
+            Map.of(
+                "ANY /actuator/**",
+                "DENY",
+                "ANY /api/admin/**",
+                "ROLE" + new TreeSet<>(EXPECTED_ROLE_RULES.get("/api/admin/**"))));
   }
 
   // ---------------------------------------------------------------------------------------------
@@ -743,5 +782,72 @@ class RouteAuthorizationContractTest {
                 assertThat(status("GET", probe, t))
                     .as("%s on GET %s", actor, probe)
                     .matches(RouteAuthorizationContractTest::passes)));
+  }
+
+  // ---------------------------------------------------------------------------------------------
+  // Round 2: traversal from a permit prefix, method override, HEAD.
+  // ---------------------------------------------------------------------------------------------
+
+  /** Raw request line: the URI is sent as written so the client does not normalise it. */
+  private int rawStatus(String method, String rawPath, java.util.function.Consumer<HttpHeaders> h) {
+    int status =
+        client
+            .method(HttpMethod.valueOf(method))
+            .uri(URI.create("http://localhost:" + port + rawPath))
+            .headers(h)
+            .exchange()
+            .expectBody()
+            .returnResult()
+            .getStatus()
+            .value();
+    System.out.println("PROBE " + method + " " + rawPath + " -> " + status);
+    return status;
+  }
+
+  @TestFactory
+  @DisplayName("traversal probes that start from a permit prefix are rejected with 400")
+  Stream<DynamicTest> traversalFromAPermitPrefixIsRejected() {
+    List<String[]> probes =
+        List.of(
+            new String[] {"GET", "/api/products/%2e%2e/admin/theme"},
+            new String[] {"GET", "/api/products/..;/seller/offers"},
+            new String[] {"GET", "/api/products/%2E%2E/%2E%2E/api/orders/1"},
+            new String[] {"GET", "/api/sellers/..;/admin/payouts"},
+            new String[] {"GET", "/api/sellers/me%2f"},
+            new String[] {"POST", "/api/auth/login/..;/me"},
+            new String[] {"GET", "/api/products/1%2f..%2f..%2fadmin/theme"},
+            new String[] {"GET", "/api/categories//..//admin/theme"});
+    return probes.stream()
+        .map(
+            p ->
+                DynamicTest.dynamicTest(
+                    p[0] + " " + p[1],
+                    () ->
+                        assertThat(rawStatus(p[0], p[1], h -> {}))
+                            .as("anonymous %s %s must be rejected, not passed through", p[0], p[1])
+                            .isEqualTo(400)));
+  }
+
+  @TestFactory
+  @DisplayName("trailing slash and path parameters on the authenticated seller record never pass")
+  Stream<DynamicTest> sellerMeVariantsNeverPassThrough() {
+    return Stream.of("/api/sellers/me/", "/api/sellers/me;x=1")
+        .map(
+            path ->
+                DynamicTest.dynamicTest(
+                    "GET " + path,
+                    () ->
+                        assertThat(rawStatus("GET", path, h -> {}))
+                            .as("anonymous GET %s", path)
+                            .isIn(400, 401)));
+  }
+
+  @Test
+  @DisplayName("method-override parameters and headers do not turn a protected write into a read")
+  void methodOverrideDoesNotBypass() {
+    assertThat(rawStatus("POST", "/api/products/1?_method=DELETE", h -> {})).isEqualTo(401);
+    assertThat(rawStatus("POST", "/api/products/1", h -> h.set("X-HTTP-Method-Override", "GET")))
+        .isEqualTo(401);
+    assertThat(rawStatus("HEAD", "/api/sellers/me", h -> {})).isEqualTo(401);
   }
 }
