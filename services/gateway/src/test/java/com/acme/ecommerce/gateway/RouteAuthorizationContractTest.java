@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
+import com.acme.ecommerce.gateway.support.EdgeRules;
+import com.acme.ecommerce.gateway.support.EdgeRules.Kind;
 import com.acme.ecommerce.gateway.support.RouteTable;
 import com.acme.ecommerce.gateway.support.StubHttpServer;
 import com.acme.ecommerce.gateway.support.TestKeys;
@@ -20,6 +22,7 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.cloud.gateway.config.GatewayProperties;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.data.redis.core.ReactiveValueOperations;
+import org.springframework.security.web.server.SecurityWebFilterChain;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -47,6 +50,8 @@ class RouteAuthorizationContractTest {
   @MockitoBean private ReactiveStringRedisTemplate redis;
 
   @Autowired private GatewayProperties liveRoutes;
+
+  @Autowired private SecurityWebFilterChain securityChain;
 
   private WebTestClient client;
 
@@ -93,5 +98,26 @@ class RouteAuthorizationContractTest {
     assertThat(table.routeIds())
         .contains("auth-public", "auth-secured", "user", "cart", "order", "seller", "support");
     assertThat(client).isNotNull();
+  }
+
+  @Test
+  @DisplayName("AC-2: EdgeRules reads the real chain and classifies by first match")
+  void edgeRulesReadTheRealChain() {
+    EdgeRules rules = EdgeRules.read(securityChain);
+
+    assertThat(rules.entries()).as("chain entries").isNotEmpty();
+    // First-match overlaps, decided by the real rules (not by a copy of them).
+    assertThat(rules.classify("GET", "/api/sellers/me").decision().kind())
+        .isEqualTo(Kind.AUTHENTICATED);
+    assertThat(rules.classify("GET", "/api/sellers/1").decision().kind()).isEqualTo(Kind.PERMIT);
+    assertThat(rules.classify("POST", "/api/sellers/1").decision().kind())
+        .isEqualTo(Kind.AUTHENTICATED);
+    assertThat(rules.classify("GET", "/api/orders/delivery-estimate").decision().kind())
+        .isEqualTo(Kind.PERMIT);
+    assertThat(rules.classify("GET", "/api/orders/1").decision().kind())
+        .isEqualTo(Kind.AUTHENTICATED);
+    assertThat(rules.classify("GET", "/api/admin/orders/1").decision().kind()).isEqualTo(Kind.ROLE);
+    assertThat(rules.classify("GET", "/actuator/env").decision().kind()).isEqualTo(Kind.DENY);
+    assertThat(rules.classify("GET", "/actuator/health").decision().kind()).isEqualTo(Kind.PERMIT);
   }
 }
