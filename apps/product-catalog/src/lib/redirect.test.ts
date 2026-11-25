@@ -31,6 +31,12 @@ describe('safeNext', () => {
     ['absolute https URL', 'https://x'],
     ['javascript URL', 'javascript:x'],
     ['encoded protocol-relative (not a path start)', '%2F%2Fevil.example'],
+    // the URL parser strips TAB/CR/LF, so these become //evil.example
+    ['slash TAB slash', '/\t/evil.example'],
+    ['slash LF slash', '/\n/evil.example'],
+    ['slash CR slash', '/\r/evil.example'],
+    ['NUL control character', '/\u0000x'],
+    ['DEL control character', '/a\u007Fb'],
   ])('rejects %s and returns the fallback', (_name, input) => {
     expect(safeNext(input)).toBe('/')
     expect(safeNext(input, '/home')).toBe('/home')

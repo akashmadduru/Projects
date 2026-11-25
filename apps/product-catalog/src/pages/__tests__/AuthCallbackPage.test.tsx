@@ -82,6 +82,7 @@ describe('AuthCallbackPage', () => {
     'https://evil.example',
     String.raw`/\evil.example`, // a real backslash after the slash
     '%2F%2Fevil.example',
+    '/\t/evil.example', // the URL parser strips the TAB: //evil.example
     'javascript:alert(1)',
     '',
   ])(
