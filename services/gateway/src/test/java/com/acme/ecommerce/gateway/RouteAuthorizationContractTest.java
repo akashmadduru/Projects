@@ -4,13 +4,18 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
+import com.acme.ecommerce.common.security.Roles;
 import com.acme.ecommerce.gateway.support.EdgeRules;
 import com.acme.ecommerce.gateway.support.EdgeRules.Kind;
 import com.acme.ecommerce.gateway.support.RouteTable;
 import com.acme.ecommerce.gateway.support.StubHttpServer;
 import com.acme.ecommerce.gateway.support.TestKeys;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -119,5 +124,171 @@ class RouteAuthorizationContractTest {
     assertThat(rules.classify("GET", "/api/admin/orders/1").decision().kind()).isEqualTo(Kind.ROLE);
     assertThat(rules.classify("GET", "/actuator/env").decision().kind()).isEqualTo(Kind.DENY);
     assertThat(rules.classify("GET", "/actuator/health").decision().kind()).isEqualTo(Kind.PERMIT);
+  }
+
+  // ---------------------------------------------------------------------------------------------
+  // Fixtures.
+  // ---------------------------------------------------------------------------------------------
+
+  private static final List<String> METHODS = List.of("GET", "POST", "PUT", "PATCH", "DELETE");
+
+  private static final String CUSTOMER = "CUSTOMER";
+
+  private static final String CUSTOMER_TOKEN = token(CUSTOMER);
+  private static final String ADMIN_TOKEN = token(Roles.ADMIN);
+  private static final String SUPPORT_TOKEN = token(Roles.SUPPORT);
+  private static final String FINANCE_TOKEN = token(Roles.FINANCE);
+  private static final String CATALOG_MANAGER_TOKEN = token(Roles.CATALOG_MANAGER);
+  private static final String SELLER_TOKEN = token(Roles.SELLER);
+
+  private static String token(String role) {
+    return KEYS.accessToken(
+        "3f5c1c6a-8f1e-4f0a-9d3a-7d6a2f1b2c3d",
+        role.toLowerCase() + "@example.com",
+        "password",
+        List.of(role));
+  }
+
+  /** Not rejected by the edge's rules: anything but 401/403 (downstream is unreachable here). */
+  static boolean passes(int status) {
+    return status != 401 && status != 403;
+  }
+
+  /**
+   * A concrete request path for a pattern: {@code **} to a segment, {@code *} and {@code {x}} to 1.
+   */
+  static String probePath(String pattern) {
+    return pattern.replace("**", "contract-probe").replaceAll("\\{[^/]+}", "1").replace("*", "1");
+  }
+
+  private EdgeRules rules() {
+    return EdgeRules.read(securityChain);
+  }
+
+  /** The five documented classes of AC-2. */
+  static String classOf(EdgeRules.Entry entry) {
+    return switch (entry.decision().kind()) {
+      case PERMIT ->
+          EdgeRules.ANY.equals(entry.method()) ? "public-any-method" : "public-method-specific";
+      case AUTHENTICATED -> "authenticated";
+      case ROLE -> "role-restricted";
+      case DENY -> "denied";
+    };
+  }
+
+  private static final Set<String> CLASSES =
+      Set.of(
+          "public-any-method",
+          "public-method-specific",
+          "authenticated",
+          "role-restricted",
+          "denied");
+
+  /** A reviewed permit: method (or ANY), pattern, and why it is allowed without a token. */
+  record Permit(String method, String pattern, String reason) {
+    String key() {
+      return method + " " + pattern;
+    }
+  }
+
+  private static Permit permit(String method, String pattern, String reason) {
+    return new Permit(method, pattern, reason);
+  }
+
+  /**
+   * Every permit the edge may have, each with a written reason. A new {@code permitAll} fails
+   * {@link #permitsAreReviewed} until it is added here (AC-12); a removed one leaves a stale entry.
+   */
+  static final List<Permit> REVIEWED_PERMITS =
+      List.of(
+          permit("ANY", "/actuator/health", "liveness/readiness probe"),
+          permit("ANY", "/actuator/health/**", "liveness/readiness probe groups"),
+          permit("ANY", "/api/auth/login", "no token before login"),
+          permit("ANY", "/api/auth/register", "no token before registration"),
+          permit("ANY", "/api/auth/refresh", "refresh cookie, not a bearer token"),
+          permit("ANY", "/api/auth/logout", "refresh cookie, not a bearer token"),
+          permit("ANY", "/api/auth/password/forgot", "pre-authentication"),
+          permit("ANY", "/api/auth/password/reset", "pre-authentication, reset token"),
+          permit("ANY", "/api/auth/email/verify", "pre-authentication, emailed token"),
+          permit("ANY", "/api/auth/otp/request", "OTP login is pre-authentication"),
+          permit("ANY", "/api/auth/otp/verify", "OTP login is pre-authentication"),
+          permit("ANY", "/api/auth/2fa/verify", "second factor, authenticated by the mfaToken"),
+          permit("ANY", "/.well-known/jwks.json", "public keys; circular to protect"),
+          permit("ANY", "/oauth2/**", "Google leg; state and PKCE are the controls"),
+          permit("ANY", "/login/oauth2/**", "Google leg; state and PKCE are the controls"),
+          permit("GET", "/api/products", "public catalog read"),
+          permit("GET", "/api/products/**", "public catalog read"),
+          permit("GET", "/api/categories", "public catalog read"),
+          permit("GET", "/api/categories/**", "public catalog read"),
+          permit("POST", "/api/products/*/views", "anonymous view tracking"),
+          permit("GET", "/sitemap.xml", "SEO sitemap"),
+          permit("GET", "/api/ratings/products/*", "public review list"),
+          permit("GET", "/api/ratings/products/*/summary", "public rating summary"),
+          permit("GET", "/api/ratings/products/*/questions", "public Q&A"),
+          permit("GET", "/api/ratings/questions/*/answers", "public Q&A"),
+          permit("GET", "/api/ratings/media/*", "public review media"),
+          permit("GET", "/api/promotions/offers", "public offers"),
+          permit("GET", "/api/promotions/deals/active", "public deals"),
+          permit("GET", "/api/promotions/exchange/programs", "public exchange programs"),
+          permit(
+              "GET", "/api/recommendations/products/*/bought-together", "public recommendations"),
+          permit("GET", "/api/orders/delivery-estimate", "pincode delivery estimate"),
+          permit("GET", "/api/push/vapid-public-key", "VAPID public key is public"),
+          permit("GET", "/api/lists/shared/*", "shared-list public view"),
+          permit("GET", "/api/payments/config", "publishable provider config"),
+          permit("POST", "/api/payments/webhook", "Stripe-Signature verified downstream"),
+          permit(
+              "POST", "/api/payments/webhook/razorpay", "X-Razorpay-Signature verified downstream"),
+          permit("GET", "/api/sellers/*", "public seller profile"),
+          permit("GET", "/api/sellers/*/feedback", "public seller feedback"),
+          permit("POST", "/api/ads/*/click", "ad click beacon, no JWT"),
+          permit("POST", "/api/ads/impressions", "ad impression beacon, no JWT"),
+          permit("GET", "/api/support/articles", "help-centre read"),
+          permit("GET", "/api/support/articles/*", "help-centre read"),
+          permit("POST", "/api/support/articles/*/feedback", "article feedback"),
+          permit("POST", "/api/support/chat", "chatbot reads the JWT itself when present"));
+
+  // ---------------------------------------------------------------------------------------------
+  // AC-2 and AC-12: classification table and the reviewed permit list.
+  // ---------------------------------------------------------------------------------------------
+
+  @Test
+  @DisplayName("AC-2: every route pattern x method gets one of the five documented classes")
+  void classificationTable() {
+    EdgeRules rules = rules();
+    List<String> table = new ArrayList<>();
+    for (var row : RouteTable.load().rows()) {
+      String probe = probePath(row.getValue());
+      for (String method : METHODS) {
+        EdgeRules.Entry entry = rules.classify(method, probe);
+        String cls = classOf(entry);
+        assertThat(cls).as("%s %s %s", row.getKey(), method, probe).isIn(CLASSES);
+        table.add(
+            String.format(
+                "%-14s %-6s %-48s %-22s via %s", row.getKey(), method, probe, cls, entry));
+      }
+    }
+    assertThat(table).as("classification rows").isNotEmpty();
+    System.out.println("ROUTE AUTHORIZATION CLASSIFICATION TABLE\n" + String.join("\n", table));
+  }
+
+  @Test
+  @DisplayName("AC-12: the permits in the chain equal the reviewed permit list")
+  void permitsAreReviewed() {
+    Set<String> chain = new LinkedHashSet<>();
+    rules().permits().forEach(e -> chain.add(e.method() + " " + e.pattern()));
+    Set<String> reviewed = new LinkedHashSet<>();
+    REVIEWED_PERMITS.forEach(p -> reviewed.add(p.key()));
+
+    assertThat(chain).as("permits in the chain").isNotEmpty();
+    Set<String> unreviewed = new TreeSet<>(chain);
+    unreviewed.removeAll(reviewed);
+    Set<String> stale = new TreeSet<>(reviewed);
+    stale.removeAll(chain);
+    assertThat(unreviewed)
+        .as("unreviewed permit (add to REVIEWED_PERMITS with a reason, or remove the permitAll)")
+        .isEmpty();
+    assertThat(stale).as("stale reviewed permit (no longer in the chain)").isEmpty();
+    assertThat(REVIEWED_PERMITS).allSatisfy(p -> assertThat(p.reason()).isNotBlank());
   }
 }
