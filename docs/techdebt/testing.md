@@ -16,13 +16,6 @@ Index: [README](README.md)
 - **Risk:** Progress 2026-11-17: `stores/authStore.test.ts` (login, second factor, profile failure drops the token, a failing cart sync does not block sign-in, logout when the server call fails, session restore with a pending Google 2FA challenge) and `stores/cartStore.test.ts` (99 cap, quantity 0 removes, sign-in merge then adopt, failed merge keeps the anonymous cart, a signed-in cart never persisted locally, optimistic add with rollback). Still untested: the checkout page flow, the Google callback fallback paths and the wishlist store.
 - **Fix:** Component tests for checkout and the callback page; one Playwright e2e covering register, add to cart, checkout.
 
-<a id="td-test-04"></a>
-## TD-TEST-04 Gateway route/authorization contract untested
-- **Severity / Effort:** Med / M
-- **Where:** `services/gateway/src/main/java/.../config/SecurityConfig.java` (javadoc names `RouteAuthorizationContractTest`, which does not exist); `services/gateway/src/test`.
-- **Risk:** The javadoc says route table and security rules must be asserted against each other. New routes `/api/users`, `/api/cart`, `/api/wishlist`, `/api/orders` rely on deny-by-default with no test.
-- **Fix:** Add the test it describes, parsing `application.yml` routes and asserting each requires authentication.
-
 <a id="td-test-06"></a>
 ## TD-TEST-06 Seed data cannot exercise the sale-price rule
 - **Severity / Effort:** Low / S

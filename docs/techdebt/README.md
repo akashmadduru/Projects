@@ -28,7 +28,6 @@ Shortcuts taken while building customer accounts (login, Google SSO, user/cart/o
 | TD-P6-14 | Return refunds skip shipping; COD refunds only marked | phase6 | Med | M | [phase6.md](phase6.md#td-p6-14) |
 | TD-P6-15 | Invoice PDF is a minimal hand-written PDF (no rupee glyph) | phase6 | Med | S | [phase6.md](phase6.md#td-p6-15) |
 | TD-P6-17 | Shipping/tax/COD rules hard-wired; client-side estimates | phase6 | Med | M | [phase6.md](phase6.md#td-p6-17) |
-| TD-TEST-04 | Gateway route/authorization contract untested | testing | Med | M | [testing.md](testing.md#td-test-04) |
 | TD-BE-03 | Cart clear after order is best-effort (stale cart only; re-order refused since TD-BE-15) | backend | Low | M | [backend.md](backend.md#td-be-03) |
 | TD-BE-06 | Sequential product lookups in checkout | backend | Med | M | [backend.md](backend.md#td-be-06) |
 | TD-BE-07 | No Feign circuit breakers in order-service | backend | Med | S | [backend.md](backend.md#td-be-07) |
@@ -189,7 +188,7 @@ These were found during Phase 9 integration and fixed. Residuals are tracked in 
 - TD-BE-13 "No cap on distinct cart lines / wishlist size": resolved in review fixes (cart max 50 lines, wishlist max 500, 409 `CART_LIMIT` / `WISHLIST_LIMIT`).
 - TD-FE-04 data loss: resolved (quantities clamped to 99, merge chunked, local items kept when merge fails). Remaining: no retry until next sign-in.
 - TD-SEC-07 "rating-service not runnable in compose/gateway": resolved by the ratings feature (rating_db, Dockerfile, compose on 8084, gateway route, `roles`-based admin check). Related product-service listener bug (rating events failed to deserialize; denormalization stub) also fixed.
-- "RouteAuthorizationContractTest not updated": that test does not exist in `services/gateway/src/test`; it is only referenced in a `SecurityConfig` javadoc. Reframed as TD-TEST-04.
+- "RouteAuthorizationContractTest not updated": that test does not exist in `services/gateway/src/test`; it is only referenced in a `SecurityConfig` javadoc. Reframed as TD-TEST-04; fixed by `RouteAuthorizationContractTest` (F-20261119-17).
 - "Update platform error catalogue": done in [API reference](../reference/api.md).
 - Phase 7: the first-build notes for variant stock via JWT forwarding, non-variant returns, non-variant wishlist, alert payload, and "Deals RBAC unverified" were superseded by the integration fixes above and not filed as items. Gateway body-size and Maven Central notes were merged into TD-P7-14 and TD-P6-06. Test-data notes from the commerce and integration agents were merged into TD-P7-20. Roadmap item 5 (PDP pincode check) was already built in Phase 6 and has no Phase 7 debt.
 - Phase 8: first-build notes superseded by integration fixes (coins currency, wallet/gift-card inbox entries, invoice lines, admin SENDING status) are listed under "Resolved by Phase 8" and not filed as items. The frontend agent's `[p8-fe]` bullets in [frontend.md](frontend.md) were moved into [TD-P8-18](phase8.md#td-p8-18). Duplicates merged: campaign audience (engage + integration) into TD-P8-02, campaign send (engage + admin) into TD-P8-03, no-tests notes into TD-P8-01. The "wallet single currency / coins deviation" notes are kept as separate items (TD-P8-07, TD-P8-09). The `GET /internal/orders/last-order-dates` shape note was folded into TD-P8-02.
